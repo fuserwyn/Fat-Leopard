@@ -1487,7 +1487,13 @@ func (b *Bot) cancelTimer(userID int64) {
 }
 
 func (b *Bot) sendWarning(userID, chatID int64, username string) {
-	message := fmt.Sprintf("⚠️ Предупреждение!\n\n%s, ты не отправляешь отчет о тренировке уже 6 дней!\n\n🦁 Я питаюсь ленивыми леопардами и становлюсь жирнее!\n\n💪 Ты ведь не хочешь стать как я?\n\n⏰ У тебя остался 1 день до удаления из чата!\n\n🎯 Отправь #training_done прямо сейчас!", username)
+	// Добавляем @ если его нет
+	displayUsername := username
+	if !strings.HasPrefix(username, "@") {
+		displayUsername = "@" + username
+	}
+
+	message := fmt.Sprintf("⚠️ Предупреждение!\n\n%s, ты не отправляешь отчет о тренировке уже 6 дней!\n\n🦁 Я питаюсь ленивыми леопардами и становлюсь жирнее!\n\n💪 Ты ведь не хочешь стать как я?\n\n⏰ У тебя остался 1 день до удаления из чата!\n\n🎯 Отправь #training_done прямо сейчас!", displayUsername)
 
 	msg := tgbotapi.NewMessage(chatID, message)
 	b.logger.Infof("Sending warning to user %d (%s)", userID, username)
