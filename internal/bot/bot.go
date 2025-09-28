@@ -537,7 +537,7 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 	}
 
 	// Запускаем новый таймер
-	b.startTimer(msg.From.ID, msg.Chat.ID, msg.From.UserName)
+	b.startTimer(msg.From.ID, msg.Chat.ID, username)
 }
 
 func (b *Bot) handleSickLeave(msg *tgbotapi.Message) {
@@ -730,7 +730,7 @@ func (b *Bot) handleHealthy(msg *tgbotapi.Message) {
 	}
 
 	// Запускаем таймер с оставшимся временем
-	b.startTimerWithDuration(msg.From.ID, msg.Chat.ID, msg.From.UserName, remainingTime)
+	b.startTimerWithDuration(msg.From.ID, msg.Chat.ID, messageLog.Username, remainingTime)
 
 	// Форматируем оставшееся время
 	remainingTimeFormatted := b.formatDurationToDays(remainingTime)
@@ -1487,13 +1487,7 @@ func (b *Bot) cancelTimer(userID int64) {
 }
 
 func (b *Bot) sendWarning(userID, chatID int64, username string) {
-	// Добавляем @ если его нет
-	displayUsername := username
-	if !strings.HasPrefix(username, "@") {
-		displayUsername = "@" + username
-	}
-
-	message := fmt.Sprintf("⚠️ Предупреждение!\n\n%s, ты не отправляешь отчет о тренировке уже 6 дней!\n\n🦁 Я питаюсь ленивыми леопардами и становлюсь жирнее!\n\n💪 Ты ведь не хочешь стать как я?\n\n⏰ У тебя остался 1 день до удаления из чата!\n\n🎯 Отправь #training_done прямо сейчас!", displayUsername)
+	message := fmt.Sprintf("⚠️ Предупреждение!\n\n%s, ты не отправляешь отчет о тренировке уже 6 дней!\n\n🦁 Я питаюсь ленивыми леопардами и становлюсь жирнее!\n\n💪 Ты ведь не хочешь стать как я?\n\n⏰ У тебя остался 1 день до удаления из чата!\n\n🎯 Отправь #training_done прямо сейчас!", username)
 
 	msg := tgbotapi.NewMessage(chatID, message)
 	b.logger.Infof("Sending warning to user %d (%s)", userID, username)
