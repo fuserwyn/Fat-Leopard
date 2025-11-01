@@ -65,6 +65,9 @@ func (b *Bot) Start(ctx context.Context) error {
 		// Не останавливаем бота, просто логируем ошибку
 	}
 
+	// Сканируем историю сообщений при первом запуске (в фоне, не блокируем старт)
+	go b.scanChatHistory(ctx, 60) // Сканируем за последние 60 дней
+
 	// Запускаем ежедневную сводку в 16-20
 	go b.startDailySummaryScheduler(ctx)
 
@@ -155,6 +158,8 @@ func (b *Bot) handleCommand(msg *tgbotapi.Message) {
 		b.handleTop(msg)
 	case "points":
 		b.handlePoints(msg)
+	case "scan_history":
+		b.handleScanHistory(msg)
 	case "cups":
 		b.handleCups(msg)
 	case "set_exempt":
@@ -2849,4 +2854,176 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 	if err != nil {
 		b.logger.Errorf("Failed to send AI answer: %v", err)
 	}
+}
+
+// scanChatHistory сканирует историю сообщений за указанный период и сохраняет в БД
+func (b *Bot) scanChatHistory(ctx context.Context, daysBack int) {
+	b.logger.Infof("Starting chat history scan for last %d days", daysBack)
+
+	// Вычисляем время, с которого начинать сканирование
+	cutoffTime := time.Now().AddDate(0, 0, -daysBack)
+
+	// Получаем все чаты из БД
+	chatIDs, err := b.db.GetAllChatIDs()
+	if err != nil {
+		b.logger.Errorf("Failed to get chat IDs for history scan: %v", err)
+		return
+	}
+
+	if len(chatIDs) == 0 {
+		b.logger.Info("No chats found to scan")
+		return
+	}
+
+	b.logger.Infof("Found %d chats to scan", len(chatIDs))
+
+	// Получаем доступные обновления через getUpdates
+	// Примечание: Telegram Bot API ограничен - можно получить максимум последние 100 обновлений
+	// Для полной истории нужно использовать другие методы или экспорт данных
+	u := tgbotapi.NewUpdate(0)
+	u.Timeout = 60
+	u.Limit = 100 // Максимум доступных обновлений
+
+	updates, err := b.api.GetUpdates(u)
+	if err != nil {
+		b.logger.Errorf("Failed to get updates for history scan: %v", err)
+		return
+	}
+
+	processedCount := 0
+	savedCount := 0
+
+	for _, update := range updates {
+		select {
+		case <-ctx.Done():
+			b.logger.Info("History scan cancelled")
+			return
+		default:
+		}
+
+		if update.Message == nil {
+			continue
+		}
+
+		msg := update.Message
+
+		// Проверяем, что сообщение в нужном периоде
+		msgTime := time.Unix(int64(msg.Date), 0)
+		if msgTime.Before(cutoffTime) {
+			continue // Слишком старое сообщение
+		}
+
+		// Проверяем, что это наш чат
+		isTargetChat := false
+		for _, chatID := range chatIDs {
+			if msg.Chat.ID == chatID {
+				isTargetChat = true
+				break
+			}
+		}
+
+		if !isTargetChat {
+			continue // Не наш чат
+		}
+
+		// Проверяем, не сохранено ли уже это сообщение
+		existingMessages, err := b.db.GetUserMessages(msg.From.ID, msg.Chat.ID, msgTime.Add(-1*time.Hour), msgTime.Add(time.Hour))
+		if err == nil {
+			alreadyExists := false
+			for _, existing := range existingMessages {
+				if existing.MessageText == msg.Text && existing.CreatedAt.Unix() == int64(msg.Date) {
+					alreadyExists = true
+					break
+				}
+			}
+			if alreadyExists {
+				continue // Уже сохранено
+			}
+		}
+
+		// Определяем тип сообщения
+		text := msg.Text
+		if text == "" && msg.Caption != "" {
+			text = msg.Caption
+		}
+
+		messageType := "general"
+		textLower := strings.ToLower(text)
+		if strings.Contains(textLower, "#training_done") {
+			messageType = "training_done"
+		} else if strings.Contains(textLower, "#sick_leave") {
+			messageType = "sick_leave"
+		} else if strings.Contains(textLower, "#healthy") {
+			messageType = "healthy"
+		} else if msg.IsCommand() {
+			messageType = "command"
+		}
+
+		// Получаем username
+		username := ""
+		if msg.From.UserName != "" {
+			username = "@" + msg.From.UserName
+		} else if msg.From.FirstName != "" {
+			username = msg.From.FirstName
+			if msg.From.LastName != "" {
+				username += " " + msg.From.LastName
+			}
+		} else {
+			username = fmt.Sprintf("User%d", msg.From.ID)
+		}
+
+		// Сохраняем сообщение
+		userMsg := &models.UserMessage{
+			UserID:      msg.From.ID,
+			ChatID:      msg.Chat.ID,
+			Username:    username,
+			MessageText: text,
+			MessageType: messageType,
+			CreatedAt:   msgTime,
+		}
+
+		if err := b.db.SaveUserMessage(userMsg); err != nil {
+			b.logger.Errorf("Failed to save scanned message: %v", err)
+		} else {
+			savedCount++
+		}
+
+		processedCount++
+	}
+
+	b.logger.Infof("History scan completed: processed %d messages, saved %d new messages", processedCount, savedCount)
+}
+
+// handleScanHistory обрабатывает команду /scan_history для ручного запуска сканирования
+func (b *Bot) handleScanHistory(msg *tgbotapi.Message) {
+	// Проверяем, что команда от владельца
+	if msg.From.ID != b.config.OwnerID {
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Эта команда доступна только владельцу бота")
+		b.api.Send(reply)
+		return
+	}
+
+	// Парсим количество дней (по умолчанию 60)
+	args := msg.CommandArguments()
+	daysBack := 60
+	if args != "" {
+		if parsedDays, err := strconv.Atoi(strings.TrimSpace(args)); err == nil && parsedDays > 0 {
+			daysBack = parsedDays
+		}
+	}
+
+	reply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("🔄 Начинаю сканирование истории за последние %d дней...\n\n⚠️ Примечание: Telegram Bot API ограничен - можно получить только последние доступные обновления (около 100). Для полной истории нужно использовать экспорт данных чата.", daysBack))
+	b.api.Send(reply)
+
+	// Запускаем сканирование в отдельной горутине
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		defer cancel()
+
+		b.scanChatHistory(ctx, daysBack)
+
+		// Отправляем отчет
+		finalReply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("✅ Сканирование истории завершено (последние %d дней)", daysBack))
+		b.api.Send(finalReply)
+	}()
 }
