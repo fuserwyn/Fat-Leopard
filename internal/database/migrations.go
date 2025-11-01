@@ -100,6 +100,33 @@ var Migrations = []Migration{
 			DROP COLUMN is_exempt_from_deletion;
 		`,
 	},
+	{
+		Version:     5,
+		Description: "Create user_messages table for RAG context storage",
+		UpSQL: `
+			-- Создаем таблицу для хранения сообщений пользователей (RAG контекст)
+			CREATE TABLE IF NOT EXISTS user_messages (
+				id BIGSERIAL PRIMARY KEY,
+				user_id BIGINT NOT NULL,
+				chat_id BIGINT NOT NULL,
+				username TEXT DEFAULT '',
+				message_text TEXT NOT NULL,
+				message_type TEXT DEFAULT 'general',
+				created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'Europe/Moscow')
+			);
+			
+			-- Создаем индексы для быстрого поиска
+			CREATE INDEX IF NOT EXISTS idx_user_messages_user_chat ON user_messages (user_id, chat_id);
+			CREATE INDEX IF NOT EXISTS idx_user_messages_created_at ON user_messages (created_at);
+		`,
+		DownSQL: `
+			-- Удаляем индексы
+			DROP INDEX IF EXISTS idx_user_messages_created_at;
+			DROP INDEX IF EXISTS idx_user_messages_user_chat;
+			-- Удаляем таблицу user_messages
+			DROP TABLE IF EXISTS user_messages;
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции

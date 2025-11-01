@@ -54,3 +54,14 @@ type TimerInfo struct {
 	RemovalTask    chan bool
 	TimerStartTime string
 }
+
+// UserMessage представляет сообщение пользователя для RAG контекста
+type UserMessage struct {
+	ID          int64     `json:"id" db:"id"`
+	UserID      int64     `json:"user_id" db:"user_id"`
+	ChatID      int64     `json:"chat_id" db:"chat_id"`
+	Username    string    `json:"username" db:"username"`
+	MessageText string    `json:"message_text" db:"message_text"`
+	MessageType string    `json:"message_type" db:"message_type"` // general, training_done, sick_leave, healthy
+	CreatedAt   time.Time `json:"created_at" db:"created_at"`
+}

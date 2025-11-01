@@ -14,9 +14,14 @@ DATABASE_URL=postgresql+asyncpg://username:password@localhost:5432/leo_bot_db
 # Пример для Railway:
 # DATABASE_URL=postgresql+asyncpg://postgres:password@containers-us-west-1.railway.app:5432/railway
 
+# OpenRouter API Key (для ИИ функций)
+# Получите ключ на https://openrouter.ai
+OPENROUTER_API_KEY=your_openrouter_api_key_here
+
 # Инструкция:
 # 1. Скопируйте этот файл и переименуйте в .env
 # 2. Замените your_bot_token_here на ваш реальный токен бота
 # 3. Замените your_telegram_id_here на ваш Telegram ID
 # 4. Настройте DATABASE_URL для вашей PostgreSQL базы данных
-# 5. Файл .env будет автоматически игнорироваться git'ом 
+# 5. Замените your_openrouter_api_key_here на ваш OpenRouter API ключ (для ИИ функций)
+# 6. Файл .env будет автоматически игнорироваться git'ом 

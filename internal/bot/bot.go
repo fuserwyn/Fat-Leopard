@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"leo-bot/internal/ai"
 	"leo-bot/internal/config"
 	"leo-bot/internal/database"
 	"leo-bot/internal/logger"
@@ -17,11 +18,12 @@ import (
 )
 
 type Bot struct {
-	api    *tgbotapi.BotAPI
-	db     *database.Database
-	logger logger.Logger
-	config *config.Config
-	timers map[int64]*models.TimerInfo
+	api      *tgbotapi.BotAPI
+	db       *database.Database
+	logger   logger.Logger
+	config   *config.Config
+	timers   map[int64]*models.TimerInfo
+	aiClient *ai.OpenRouterClient
 }
 
 func New(cfg *config.Config, db *database.Database, log logger.Logger) (*Bot, error) {
@@ -35,12 +37,22 @@ func New(cfg *config.Config, db *database.Database, log logger.Logger) (*Bot, er
 		return nil, fmt.Errorf("failed to create tables: %w", err)
 	}
 
+	// Создаем клиент OpenRouter для ИИ
+	var aiClient *ai.OpenRouterClient
+	if cfg.OpenRouterAPIKey != "" {
+		aiClient = ai.NewOpenRouterClient(cfg.OpenRouterAPIKey, log)
+		log.Info("OpenRouter AI client initialized")
+	} else {
+		log.Warn("OpenRouter API key not provided, AI features will be disabled")
+	}
+
 	return &Bot{
-		api:    api,
-		db:     db,
-		logger: log,
-		config: cfg,
-		timers: make(map[int64]*models.TimerInfo),
+		api:      api,
+		db:       db,
+		logger:   log,
+		config:   cfg,
+		timers:   make(map[int64]*models.TimerInfo),
+		aiClient: aiClient,
 	}, nil
 }
 
@@ -52,6 +64,9 @@ func (b *Bot) Start(ctx context.Context) error {
 		b.logger.Errorf("Failed to recover timers from database: %v", err)
 		// Не останавливаем бота, просто логируем ошибку
 	}
+
+	// Запускаем ежедневную сводку в 16-20
+	go b.startDailySummaryScheduler(ctx)
 
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
@@ -239,6 +254,17 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) {
 		text = msg.Caption
 	}
 
+	// Проверяем, упоминается ли бот в сообщении (для вопросов к ИИ)
+	if msg.Entities != nil {
+		for _, entity := range msg.Entities {
+			if entity.Type == "mention" && strings.Contains(text, "@"+b.api.Self.UserName) {
+				// Обрабатываем вопрос к ИИ
+				b.handleAIQuestion(msg, text)
+				return
+			}
+		}
+	}
+
 	hasTrainingDone := strings.Contains(strings.ToLower(text), "#training_done")
 	hasSickLeave := strings.Contains(strings.ToLower(text), "#sick_leave")
 	hasHealthy := strings.Contains(strings.ToLower(text), "#healthy")
@@ -255,6 +281,29 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) {
 		}
 	} else {
 		username = fmt.Sprintf("User%d", msg.From.ID)
+	}
+
+	// Сохраняем сообщение в БД для RAG контекста
+	if text != "" {
+		messageType := "general"
+		if hasTrainingDone {
+			messageType = "training_done"
+		} else if hasSickLeave {
+			messageType = "sick_leave"
+		} else if hasHealthy {
+			messageType = "healthy"
+		}
+
+		userMsg := &models.UserMessage{
+			UserID:      msg.From.ID,
+			ChatID:      msg.Chat.ID,
+			Username:    username,
+			MessageText: text,
+			MessageType: messageType,
+		}
+		if err := b.db.SaveUserMessage(userMsg); err != nil {
+			b.logger.Errorf("Failed to save user message: %v", err)
+		}
 	}
 
 	// Получаем существующие данные пользователя
@@ -2438,5 +2487,197 @@ func (b *Bot) sendSuperLevelMessage(msg *tgbotapi.Message, username string, tota
 		b.logger.Errorf("Failed to send super level message: %v", err)
 	} else {
 		b.logger.Infof("Successfully sent super level message to chat %d for user %s", msg.Chat.ID, username)
+	}
+}
+
+// startDailySummaryScheduler запускает планировщик ежедневных сводок в 16-20
+func (b *Bot) startDailySummaryScheduler(ctx context.Context) {
+	if b.aiClient == nil {
+		b.logger.Warn("AI client not available, daily summary scheduler disabled")
+		return
+	}
+
+	// Используем московское время
+	loc, _ := time.LoadLocation("Europe/Moscow")
+	lastSentDate := ""
+	ticker := time.NewTicker(5 * time.Minute) // Проверяем каждые 5 минут
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			now := time.Now().In(loc)
+			hour := now.Hour()
+
+			// Проверяем, наступило ли время 16:00-20:00
+			if hour >= 16 && hour < 20 {
+				today := now.Format("2006-01-02")
+				// Отправляем сводку только один раз в день
+				if lastSentDate != today {
+					// Генерируем сводку за вчерашний день
+					yesterday := now.AddDate(0, 0, -1)
+					b.generateAndSendDailySummary(yesterday)
+					lastSentDate = today
+				}
+			}
+		}
+	}
+}
+
+// generateAndSendDailySummary генерирует и отправляет ежедневную сводку
+func (b *Bot) generateAndSendDailySummary(date time.Time) {
+	if b.aiClient == nil {
+		return
+	}
+
+	// Получаем все чаты из базы данных
+	chatIDs, err := b.db.GetAllChatIDs()
+	if err != nil {
+		b.logger.Errorf("Failed to get chat IDs: %v", err)
+		return
+	}
+
+	// Для каждого чата генерируем сводку
+	for _, chatID := range chatIDs {
+		b.generateSummaryForChat(chatID, date)
+	}
+}
+
+// generateSummaryForChat генерирует сводку для конкретного чата
+func (b *Bot) generateSummaryForChat(chatID int64, date time.Time) {
+	// Получаем сообщения за день
+	messages, err := b.db.GetDailyMessages(chatID, date)
+	if err != nil {
+		b.logger.Errorf("Failed to get daily messages for chat %d: %v", chatID, err)
+		return
+	}
+
+	if len(messages) == 0 {
+		return // Нет сообщений за день
+	}
+
+	// Группируем сообщения по пользователям
+	userMap := make(map[int64]*ai.UserTrainingData)
+	for _, msg := range messages {
+		if userMap[msg.UserID] == nil {
+			// Получаем данные пользователя
+			userLog, err := b.db.GetMessageLog(msg.UserID, msg.ChatID)
+			if err != nil {
+				continue
+			}
+
+			cups, _ := b.db.GetUserCups(msg.UserID, msg.ChatID)
+			userMap[msg.UserID] = &ai.UserTrainingData{
+				UserID:       msg.UserID,
+				Username:     msg.Username,
+				HasTraining:  false,
+				HasSickLeave: false,
+				HasHealthy:   false,
+				StreakDays:   userLog.StreakDays,
+				Calories:     userLog.Calories,
+				Cups:         cups,
+			}
+		}
+
+		user := userMap[msg.UserID]
+		if msg.MessageType == "training_done" {
+			user.HasTraining = true
+			if user.TrainingMessage == "" {
+				user.TrainingMessage = msg.MessageText
+			}
+		} else if msg.MessageType == "sick_leave" {
+			user.HasSickLeave = true
+		} else if msg.MessageType == "healthy" {
+			user.HasHealthy = true
+		}
+	}
+
+	// Преобразуем map в slice
+	var usersData []ai.UserTrainingData
+	for _, user := range userMap {
+		usersData = append(usersData, *user)
+	}
+
+	if len(usersData) == 0 {
+		return
+	}
+
+	// Генерируем сводку с помощью ИИ
+	summary, err := b.aiClient.GenerateDailySummary(usersData)
+	if err != nil {
+		b.logger.Errorf("Failed to generate daily summary: %v", err)
+		return
+	}
+
+	// Отправляем сводку в чат
+	reply := tgbotapi.NewMessage(chatID, summary)
+	b.logger.Infof("Sending daily summary to chat %d", chatID)
+	_, err = b.api.Send(reply)
+	if err != nil {
+		b.logger.Errorf("Failed to send daily summary: %v", err)
+	} else {
+		b.logger.Infof("Successfully sent daily summary to chat %d", chatID)
+	}
+}
+
+// handleAIQuestion обрабатывает вопрос пользователя к ИИ
+func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
+	if b.aiClient == nil {
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ ИИ функции недоступны. Проверьте настройки OpenRouter API.")
+		b.api.Send(reply)
+		return
+	}
+
+	// Удаляем упоминание бота из вопроса
+	questionText = strings.ReplaceAll(questionText, "@"+b.api.Self.UserName, "")
+	questionText = strings.TrimSpace(questionText)
+
+	if questionText == "" {
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "💬 Задайте вопрос, отметив бота тегом!\n\nНапример:\n• Что я делал вчера?\n• Как мой прогресс?\n• Что улучшить в тренировках?")
+		b.api.Send(reply)
+		return
+	}
+
+	// Получаем историю тренировок пользователя
+	history, err := b.db.GetUserTrainingHistory(msg.From.ID, msg.Chat.ID, 50)
+	if err != nil {
+		b.logger.Errorf("Failed to get user training history: %v", err)
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Ошибка при получении истории тренировок")
+		b.api.Send(reply)
+		return
+	}
+
+	// Формируем контекст истории
+	var historyText strings.Builder
+	for _, msg := range history {
+		historyText.WriteString(fmt.Sprintf("[%s] %s: %s\n",
+			msg.CreatedAt.Format("2006-01-02 15:04"), msg.Username, msg.MessageText))
+	}
+
+	// Получаем текущие данные пользователя
+	userLog, err := b.db.GetMessageLog(msg.From.ID, msg.Chat.ID)
+	if err == nil {
+		cups, _ := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
+		historyText.WriteString(fmt.Sprintf("\nТекущие данные:\n- Серия тренировок: %d дней\n- Всего калорий: %d\n- Всего кубков: %d",
+			userLog.StreakDays, userLog.Calories, cups))
+	}
+
+	// Генерируем ответ с помощью ИИ
+	answer, err := b.aiClient.AnswerUserQuestion(questionText, historyText.String())
+	if err != nil {
+		b.logger.Errorf("Failed to generate AI answer: %v", err)
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Ошибка при генерации ответа ИИ")
+		b.api.Send(reply)
+		return
+	}
+
+	// Отправляем ответ
+	reply := tgbotapi.NewMessage(msg.Chat.ID, answer)
+	b.logger.Infof("Sending AI answer to user %d in chat %d", msg.From.ID, msg.Chat.ID)
+	_, err = b.api.Send(reply)
+	if err != nil {
+		b.logger.Errorf("Failed to send AI answer: %v", err)
 	}
 }
