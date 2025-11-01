@@ -196,6 +196,8 @@ func (b *Bot) handleCommand(msg *tgbotapi.Message) {
 		b.handleListUsers(msg)
 	case "send_to_chat":
 		b.handleSendToChat(msg)
+	case "announce_ai":
+		b.handleAnnounceAI(msg)
 	default:
 		b.logger.Warnf("Unknown command: %s", command)
 	}
@@ -1123,6 +1125,11 @@ func (b *Bot) handleHelp(msg *tgbotapi.Message) {
 • /db — Показать статистику БД
 • /help — Показать это сообщение
 
+🤖 ИИ-помощник:
+• Отметьте меня @LeoPoacherBot в сообщении для общения
+• Или ответьте (reply) на любое мое сообщение
+• Я могу давать советы, показывать статистику и мотивировать!
+
 🏆 Команды пользователей:
 • /top — Показать топ пользователей по калориям
 • /points — Показать ваши калории
@@ -1587,6 +1594,71 @@ func (b *Bot) handleSendToChat(msg *tgbotapi.Message) {
 		b.api.Send(reply)
 		b.logger.Infof("Successfully sent message to chat %d", chatID)
 	}
+}
+
+func (b *Bot) handleAnnounceAI(msg *tgbotapi.Message) {
+	// Проверяем права доступа - только владелец бота может отправлять объявления
+	if msg.From.ID != b.config.OwnerID {
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ У вас нет прав для использования этой команды")
+		b.api.Send(reply)
+		return
+	}
+
+	// Получаем все чаты из БД
+	chatIDs, err := b.db.GetAllChatIDs()
+	if err != nil {
+		b.logger.Errorf("Failed to get chat IDs: %v", err)
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Ошибка при получении списка чатов")
+		b.api.Send(reply)
+		return
+	}
+
+	if len(chatIDs) == 0 {
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Чаты не найдены")
+		b.api.Send(reply)
+		return
+	}
+
+	// Формируем объявление о ИИ
+	announcement := `🦁 Леопард ожил! 🎉
+
+Теперь со мной можно общаться! Я стал умнее благодаря ИИ:
+
+💬 Что я умею:
+• Давать советы по тренировкам
+• Рассказывать твою статистику
+• Анализировать твой прогресс
+• Мотивировать и поддерживать
+
+🤖 Как со мной общаться:
+• Отметь меня @LeoPoacherBot в сообщении
+• Или ответь на любое мое сообщение (reply)
+
+Спрашивай меня о чем угодно: тренировки, статистика, мотивация!
+
+💪 Давай вместе становиться лучше!`
+
+	// Отправляем объявление во все чаты
+	successCount := 0
+	errorCount := 0
+
+	for _, chatID := range chatIDs {
+		chatMessage := tgbotapi.NewMessage(chatID, announcement)
+		b.logger.Infof("Sending AI announcement to chat %d", chatID)
+		_, err := b.api.Send(chatMessage)
+		if err != nil {
+			b.logger.Errorf("Failed to send announcement to chat %d: %v", chatID, err)
+			errorCount++
+		} else {
+			b.logger.Infof("Successfully sent announcement to chat %d", chatID)
+			successCount++
+		}
+	}
+
+	// Отправляем отчет владельцу
+	resultMsg := fmt.Sprintf("✅ Объявление отправлено!\n\nУспешно: %d чатов\nОшибок: %d чатов", successCount, errorCount)
+	reply := tgbotapi.NewMessage(msg.Chat.ID, resultMsg)
+	b.api.Send(reply)
 }
 
 func (b *Bot) startTimer(userID, chatID int64, username string) {
