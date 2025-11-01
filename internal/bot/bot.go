@@ -2863,9 +2863,10 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 	// Удаляем markdown форматирование (**) перед отправкой
 	answer = strings.ReplaceAll(answer, "**", "")
 
-	// Отправляем ответ
+	// Отправляем ответ с реплаем на исходное сообщение
 	reply := tgbotapi.NewMessage(msg.Chat.ID, answer)
-	b.logger.Infof("Sending AI answer to user %d in chat %d", msg.From.ID, msg.Chat.ID)
+	reply.ReplyToMessageID = msg.MessageID // Отвечаем на сообщение пользователя
+	b.logger.Infof("Sending AI answer to user %d in chat %d (replying to message %d)", msg.From.ID, msg.Chat.ID, msg.MessageID)
 	_, err = b.api.Send(reply)
 	if err != nil {
 		b.logger.Errorf("Failed to send AI answer: %v", err)
