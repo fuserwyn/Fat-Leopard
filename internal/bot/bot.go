@@ -98,6 +98,12 @@ func (b *Bot) Start(ctx context.Context) error {
 }
 
 func (b *Bot) handleUpdate(update tgbotapi.Update) {
+	// Обрабатываем callback queries (нажатия на inline кнопки)
+	if update.CallbackQuery != nil {
+		b.handleCallbackQuery(update.CallbackQuery)
+		return
+	}
+
 	// Обрабатываем добавление новых участников
 	if update.Message != nil && len(update.Message.NewChatMembers) > 0 {
 		b.handleNewChatMembers(update.Message)
@@ -170,6 +176,8 @@ func (b *Bot) handleCommand(msg *tgbotapi.Message) {
 		b.handlePoints(msg)
 	case "scan_history":
 		b.handleScanHistory(msg)
+	case "ai_memory", "memory":
+		b.handleAIMemory(msg)
 	case "cups":
 		b.handleCups(msg)
 	case "set_exempt":
@@ -2895,11 +2903,14 @@ func (b *Bot) scanChatHistory(ctx context.Context, daysBack int) {
 	b.logger.Infof("Found %d chats to scan", len(chatIDs))
 
 	// Получаем доступные обновления через getUpdates
-	// Примечание: Telegram Bot API ограничен - можно получить максимум последние 100 обновлений
-	// Для полной истории нужно использовать другие методы или экспорт данных
+	// ВАЖНО: Telegram Bot API ограничен - можно получить максимум последние 100 обновлений
+	// Это НЕ покроет всю историю за 2 месяца, только последние доступные обновления
+	// Для полной истории нужно использовать экспорт данных или Telegram Client API (MTProto)
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 	u.Limit = 100 // Максимум доступных обновлений
+
+	b.logger.Warnf("Telegram Bot API limitation: can only get last ~100 updates, not full history. This won't cover 2 months of messages.")
 
 	updates, err := b.api.GetUpdates(u)
 	if err != nil {
@@ -2907,8 +2918,13 @@ func (b *Bot) scanChatHistory(ctx context.Context, daysBack int) {
 		return
 	}
 
+	b.logger.Infof("Got %d updates from Telegram API (limited by Bot API)", len(updates))
+
 	processedCount := 0
 	savedCount := 0
+	skippedTooOld := 0
+	skippedNotTargetChat := 0
+	skippedAlreadyExists := 0
 
 	for _, update := range updates {
 		select {
@@ -2927,6 +2943,7 @@ func (b *Bot) scanChatHistory(ctx context.Context, daysBack int) {
 		// Проверяем, что сообщение в нужном периоде
 		msgTime := time.Unix(int64(msg.Date), 0)
 		if msgTime.Before(cutoffTime) {
+			skippedTooOld++
 			continue // Слишком старое сообщение
 		}
 
@@ -2940,6 +2957,7 @@ func (b *Bot) scanChatHistory(ctx context.Context, daysBack int) {
 		}
 
 		if !isTargetChat {
+			skippedNotTargetChat++
 			continue // Не наш чат
 		}
 
@@ -2954,6 +2972,7 @@ func (b *Bot) scanChatHistory(ctx context.Context, daysBack int) {
 				}
 			}
 			if alreadyExists {
+				skippedAlreadyExists++
 				continue // Уже сохранено
 			}
 		}
@@ -3008,7 +3027,13 @@ func (b *Bot) scanChatHistory(ctx context.Context, daysBack int) {
 		processedCount++
 	}
 
-	b.logger.Infof("History scan completed: processed %d messages, saved %d new messages", processedCount, savedCount)
+	b.logger.Infof("History scan completed:")
+	b.logger.Infof("  - Processed: %d messages", processedCount)
+	b.logger.Infof("  - Saved: %d new messages", savedCount)
+	b.logger.Infof("  - Skipped (too old): %d", skippedTooOld)
+	b.logger.Infof("  - Skipped (not target chat): %d", skippedNotTargetChat)
+	b.logger.Infof("  - Skipped (already exists): %d", skippedAlreadyExists)
+	b.logger.Warnf("NOTE: Telegram Bot API only provides last ~100 updates. Full history requires data export or MTProto client.")
 }
 
 // handleScanHistory обрабатывает команду /scan_history для ручного запуска сканирования
@@ -3029,7 +3054,7 @@ func (b *Bot) handleScanHistory(msg *tgbotapi.Message) {
 		}
 	}
 
-	reply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("🔄 Начинаю сканирование истории за последние %d дней...\n\n⚠️ Примечание: Telegram Bot API ограничен - можно получить только последние доступные обновления (около 100). Для полной истории нужно использовать экспорт данных чата.", daysBack))
+	reply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("🔄 Начинаю сканирование истории за последние %d дней...\n\n⚠️ ВАЖНО: Telegram Bot API имеет ограничение - можно получить только последние ~100 доступных обновлений, а не всю историю.\n\nДля полной истории за 2 месяца нужно:\n1. Экспортировать данные из Telegram (Settings → Privacy → Export Telegram data)\n2. Или использовать Telegram Client API (MTProto) - более сложная интеграция\n\nБот будет пытаться получить доступные обновления, но это не покроет всю историю.", daysBack))
 	b.api.Send(reply)
 
 	// Запускаем сканирование в отдельной горутине
@@ -3043,4 +3068,72 @@ func (b *Bot) handleScanHistory(msg *tgbotapi.Message) {
 		finalReply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("✅ Сканирование истории завершено (последние %d дней)", daysBack))
 		b.api.Send(finalReply)
 	}()
+}
+
+// handleAIMemory обрабатывает команду /ai_memory или /memory для показа информации о долгосрочной памяти AI
+func (b *Bot) handleAIMemory(msg *tgbotapi.Message) {
+	text := `🧠 Долгосрочная память AI
+
+❌ AI пока ничего не знает о вас.
+
+💡 Как это работает:
+1️⃣ Откройте диалог с AI: 🤖 Нейросети → 🧠 Текстовые LLM
+2️⃣ Расскажите о себе в диалоге с любой моделью
+3️⃣ AI автоматически запоминает важные факты
+4️⃣ Память используется во всех будущих диалогах
+
+📝 Пример диалога с AI:
+"Привет! Меня зовут Иван, я Python разработчик. Работаю над проектом интернет-магазина на FastAPI."
+
+✅ AI запомнит: имя, профессию, проект, технологии
+
+⚠️ Важно: Факты запоминаются только во время диалога с AI, а не в этом разделе`
+
+	// Создаем inline клавиатуру с кнопкой "Назад"
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("⬅️ Назад", "back_to_menu"),
+		),
+	)
+
+	reply := tgbotapi.NewMessage(msg.Chat.ID, text)
+	reply.ReplyMarkup = keyboard
+	b.api.Send(reply)
+}
+
+// handleCallbackQuery обрабатывает нажатия на inline кнопки
+func (b *Bot) handleCallbackQuery(callback *tgbotapi.CallbackQuery) {
+	data := callback.Data
+	msg := callback.Message
+
+	switch data {
+	case "back_to_menu":
+		// Удаляем сообщение и возвращаемся в меню
+		deleteMsg := tgbotapi.NewDeleteMessage(msg.Chat.ID, msg.MessageID)
+		b.api.Send(deleteMsg)
+
+		// Отправляем главное меню (можно настроить по своему усмотрению)
+		menuText := `🦁 Главное меню
+
+Доступные команды:
+/help - Помощь
+/top - Топ пользователей
+/points - Статистика по калориям
+/cups - Статистика по кубкам
+
+💪 Для тренировки используйте:
+#training_done - Отчет о тренировке`
+
+		reply := tgbotapi.NewMessage(msg.Chat.ID, menuText)
+		b.api.Send(reply)
+
+		// Отвечаем на callback, чтобы убрать загрузку на кнопке
+		callbackConfig := tgbotapi.NewCallback(callback.ID, "")
+		b.api.Request(callbackConfig)
+	default:
+		// Неизвестный callback
+		b.logger.Warnf("Unknown callback data: %s", data)
+		callbackConfig := tgbotapi.NewCallback(callback.ID, "")
+		b.api.Request(callbackConfig)
+	}
 }
