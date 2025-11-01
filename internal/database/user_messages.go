@@ -143,3 +143,14 @@ func (d *Database) GetAllChatIDs() ([]int64, error) {
 
 	return chatIDs, nil
 }
+
+// HasAnyMessages проверяет, есть ли хотя бы одно сообщение в таблице user_messages
+func (d *Database) HasAnyMessages() (bool, error) {
+	query := `SELECT COUNT(*) FROM user_messages LIMIT 1`
+	var count int
+	err := d.db.QueryRow(query).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}

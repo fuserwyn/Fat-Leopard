@@ -65,8 +65,14 @@ func (b *Bot) Start(ctx context.Context) error {
 		// Не останавливаем бота, просто логируем ошибку
 	}
 
-	// Сканируем историю сообщений при первом запуске (в фоне, не блокируем старт)
-	go b.scanChatHistory(ctx, 60) // Сканируем за последние 60 дней
+	// Сканируем историю сообщений только один раз при первом запуске (если БД пустая)
+	hasMessages, err := b.db.HasAnyMessages()
+	if err == nil && !hasMessages {
+		b.logger.Info("Database is empty, starting initial history scan...")
+		go b.scanChatHistory(ctx, 60) // Сканируем за последние 60 дней только один раз
+	} else if hasMessages {
+		b.logger.Info("Messages already exist in database, skipping history scan. New messages will be saved automatically.")
+	}
 
 	// Запускаем ежедневную сводку в 16-20
 	go b.startDailySummaryScheduler(ctx)
