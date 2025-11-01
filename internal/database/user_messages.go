@@ -85,6 +85,38 @@ func (d *Database) GetDailyMessages(chatID int64, date time.Time) ([]*models.Use
 	return messages, nil
 }
 
+// GetMonthlyMessages получает все сообщения за указанный месяц для всех пользователей в чате
+func (d *Database) GetMonthlyMessages(chatID int64, month time.Time) ([]*models.UserMessage, error) {
+	startTime := time.Date(month.Year(), month.Month(), 1, 0, 0, 0, 0, month.Location())
+	endTime := startTime.AddDate(0, 1, 0) // Первый день следующего месяца
+
+	query := `
+		SELECT id, user_id, chat_id, username, message_text, message_type, created_at
+		FROM user_messages
+		WHERE chat_id = $1 
+		AND created_at >= $2 AND created_at < $3
+		ORDER BY created_at ASC
+	`
+
+	rows, err := d.db.Query(query, chatID, startTime, endTime)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var messages []*models.UserMessage
+	for rows.Next() {
+		var msg models.UserMessage
+		err := rows.Scan(&msg.ID, &msg.UserID, &msg.ChatID, &msg.Username, &msg.MessageText, &msg.MessageType, &msg.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		messages = append(messages, &msg)
+	}
+
+	return messages, nil
+}
+
 // GetUserTrainingHistory получает историю тренировок пользователя для RAG контекста
 func (d *Database) GetUserTrainingHistory(userID, chatID int64, limit int) ([]*models.UserMessage, error) {
 	if limit <= 0 {

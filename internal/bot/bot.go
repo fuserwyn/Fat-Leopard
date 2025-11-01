@@ -2692,16 +2692,16 @@ func (b *Bot) sendSuperLevelMessage(msg *tgbotapi.Message, username string, tota
 	}
 }
 
-// startDailySummaryScheduler запускает планировщик ежедневных сводок в 16:20
+// startDailySummaryScheduler запускает планировщик ежемесячных сводок 1-го числа в 16:20
 func (b *Bot) startDailySummaryScheduler(ctx context.Context) {
 	if b.aiClient == nil {
-		b.logger.Warn("AI client not available, daily summary scheduler disabled")
+		b.logger.Warn("AI client not available, monthly summary scheduler disabled")
 		return
 	}
 
 	// Используем московское время
 	loc, _ := time.LoadLocation("Europe/Moscow")
-	lastSentDate := ""
+	lastSentMonth := ""
 	ticker := time.NewTicker(1 * time.Minute) // Проверяем каждую минуту
 	defer ticker.Stop()
 
@@ -2711,27 +2711,28 @@ func (b *Bot) startDailySummaryScheduler(ctx context.Context) {
 			return
 		case <-ticker.C:
 			now := time.Now().In(loc)
+			day := now.Day()
 			hour := now.Hour()
 			minute := now.Minute()
 
-			// Проверяем, наступило ли время 16:20
-			if hour == 16 && minute == 20 {
-				today := now.Format("2006-01-02")
-				// Отправляем сводку только один раз в день
-				if lastSentDate != today {
-					// Генерируем сводку за вчерашний день
-					yesterday := now.AddDate(0, 0, -1)
-					b.logger.Infof("Generating daily summary at 16:20 for date: %s", yesterday.Format("2006-01-02"))
-					b.generateAndSendDailySummary(yesterday)
-					lastSentDate = today
+			// Проверяем, наступило ли время 16:20 1-го числа месяца
+			if day == 1 && hour == 16 && minute == 20 {
+				month := now.Format("2006-01")
+				// Отправляем сводку только один раз в месяц
+				if lastSentMonth != month {
+					// Генерируем сводку за прошлый месяц
+					lastMonth := now.AddDate(0, -1, 0)
+					b.logger.Infof("Generating monthly summary at 16:20 on 1st for month: %s", lastMonth.Format("2006-01"))
+					b.generateAndSendMonthlySummary(lastMonth)
+					lastSentMonth = month
 				}
 			}
 		}
 	}
 }
 
-// generateAndSendDailySummary генерирует и отправляет ежедневную сводку
-func (b *Bot) generateAndSendDailySummary(date time.Time) {
+// generateAndSendMonthlySummary генерирует и отправляет ежемесячную сводку
+func (b *Bot) generateAndSendMonthlySummary(month time.Time) {
 	if b.aiClient == nil {
 		return
 	}
@@ -2745,21 +2746,21 @@ func (b *Bot) generateAndSendDailySummary(date time.Time) {
 
 	// Для каждого чата генерируем сводку
 	for _, chatID := range chatIDs {
-		b.generateSummaryForChat(chatID, date)
+		b.generateMonthlySummaryForChat(chatID, month)
 	}
 }
 
-// generateSummaryForChat генерирует сводку для конкретного чата
-func (b *Bot) generateSummaryForChat(chatID int64, date time.Time) {
-	// Получаем сообщения за день
-	messages, err := b.db.GetDailyMessages(chatID, date)
+// generateMonthlySummaryForChat генерирует месячную сводку для конкретного чата
+func (b *Bot) generateMonthlySummaryForChat(chatID int64, month time.Time) {
+	// Получаем сообщения за месяц
+	messages, err := b.db.GetMonthlyMessages(chatID, month)
 	if err != nil {
-		b.logger.Errorf("Failed to get daily messages for chat %d: %v", chatID, err)
+		b.logger.Errorf("Failed to get monthly messages for chat %d: %v", chatID, err)
 		return
 	}
 
 	if len(messages) == 0 {
-		return // Нет сообщений за день
+		return // Нет сообщений за месяц
 	}
 
 	// Группируем сообщения по пользователям
@@ -2809,14 +2810,14 @@ func (b *Bot) generateSummaryForChat(chatID int64, date time.Time) {
 	}
 
 	// Генерируем сводку с помощью ИИ
-	summary, err := b.aiClient.GenerateDailySummary(usersData)
+	summary, err := b.aiClient.GenerateMonthlySummary(usersData)
 	if err != nil {
-		b.logger.Errorf("Failed to generate daily summary: %v", err)
+		b.logger.Errorf("Failed to generate monthly summary: %v", err)
 
 		// Если ошибка связана с настройкой политики данных, пропускаем сводку
 		errorMsg := err.Error()
 		if strings.Contains(errorMsg, "data policy") || strings.Contains(errorMsg, "Model Training") {
-			b.logger.Warnf("Skipping daily summary due to OpenRouter data policy configuration. User needs to enable 'Model Training' at https://openrouter.ai/settings/privacy")
+			b.logger.Warnf("Skipping monthly summary due to OpenRouter data policy configuration. User needs to enable 'Model Training' at https://openrouter.ai/settings/privacy")
 		}
 		return
 	}
@@ -2826,12 +2827,12 @@ func (b *Bot) generateSummaryForChat(chatID int64, date time.Time) {
 
 	// Отправляем сводку в чат
 	reply := tgbotapi.NewMessage(chatID, summary)
-	b.logger.Infof("Sending daily summary to chat %d", chatID)
+	b.logger.Infof("Sending monthly summary to chat %d", chatID)
 	_, err = b.api.Send(reply)
 	if err != nil {
-		b.logger.Errorf("Failed to send daily summary: %v", err)
+		b.logger.Errorf("Failed to send monthly summary: %v", err)
 	} else {
-		b.logger.Infof("Successfully sent daily summary to chat %d", chatID)
+		b.logger.Infof("Successfully sent monthly summary to chat %d", chatID)
 	}
 }
 
