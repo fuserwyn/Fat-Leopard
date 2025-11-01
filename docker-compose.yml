@@ -6,7 +6,8 @@ services:
     environment:
       - API_TOKEN=${API_TOKEN}
       - OWNER_ID=${OWNER_ID}
-      - DATABASE_URL=postgresql://postgres:password@postgres:5432/leo_bot_db?sslmode=disable
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:password@postgres:5432/leo_bot_db?sslmode=disable}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - LOG_LEVEL=info
     depends_on:
       postgres:

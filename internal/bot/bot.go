@@ -290,14 +290,29 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) {
 	// 3. Выбор бота из списка участников (bot_command или просто упоминание)
 	shouldHandleAI := false
 
-	// Проверяем упоминание через @
-	if msg.Entities != nil {
+	// Проверяем упоминание через @ в тексте
+	if msg.Entities != nil && text != "" {
 		for _, entity := range msg.Entities {
 			if entity.Type == "mention" {
-				mentionText := text[entity.Offset : entity.Offset+entity.Length]
-				if strings.Contains(mentionText, "@"+b.api.Self.UserName) ||
-					strings.Contains(mentionText, b.api.Self.UserName) {
+				mentionText := ""
+				if entity.Offset+entity.Length <= len(text) {
+					mentionText = text[entity.Offset : entity.Offset+entity.Length]
+				}
+
+				// Проверяем несколько вариантов имени бота
+				botUsername := b.api.Self.UserName
+				if botUsername == "" {
+					// Если UserName пустой, получаем из текста упоминания
+					botUsername = strings.TrimPrefix(mentionText, "@")
+				}
+
+				// Проверяем различные форматы упоминания
+				if strings.EqualFold(mentionText, "@"+botUsername) ||
+					strings.EqualFold(mentionText, botUsername) ||
+					strings.Contains(strings.ToLower(text), "@"+strings.ToLower(botUsername)) ||
+					strings.Contains(strings.ToLower(text), strings.ToLower(botUsername)+" ") {
 					shouldHandleAI = true
+					b.logger.Infof("Bot mention detected: %s in message: %s", mentionText, text)
 					break
 				}
 			}
@@ -309,6 +324,7 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) {
 		if msg.ReplyToMessage.From != nil && msg.ReplyToMessage.From.IsBot &&
 			msg.ReplyToMessage.From.ID == b.api.Self.ID {
 			shouldHandleAI = true
+			b.logger.Infof("Reply to bot message detected")
 		}
 	}
 
@@ -2704,21 +2720,33 @@ func (b *Bot) generateSummaryForChat(chatID int64, date time.Time) {
 
 // handleAIQuestion обрабатывает вопрос пользователя к ИИ
 func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
+	b.logger.Infof("handleAIQuestion called for user %d with text: %s", msg.From.ID, questionText)
+
 	if b.aiClient == nil {
+		b.logger.Warn("AI client is nil, cannot process question")
 		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ ИИ функции недоступны. Проверьте настройки OpenRouter API.")
 		b.api.Send(reply)
 		return
 	}
 
 	// Удаляем упоминание бота из вопроса
-	questionText = strings.ReplaceAll(questionText, "@"+b.api.Self.UserName, "")
+	botUsername := b.api.Self.UserName
+	if botUsername != "" {
+		questionText = strings.ReplaceAll(questionText, "@"+botUsername, "")
+		questionText = strings.ReplaceAll(questionText, botUsername, "")
+	}
+	// Удаляем все упоминания в формате @username
+	questionText = strings.ReplaceAll(questionText, "@", "")
 	questionText = strings.TrimSpace(questionText)
 
 	if questionText == "" {
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "💬 Задайте вопрос, отметив бота тегом!\n\nНапример:\n• Что я делал вчера?\n• Как мой прогресс?\n• Что улучшить в тренировках?")
+		b.logger.Infof("Question text is empty after cleaning")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "💬 Привет! 👋 Задай мне вопрос!\n\nНапример:\n• Что я делал вчера?\n• Как мой прогресс?\n• Что улучшить в тренировках?\n• Как лечиться?")
 		b.api.Send(reply)
 		return
 	}
+
+	b.logger.Infof("Processing AI question: %s", questionText)
 
 	// Получаем историю тренировок пользователя
 	history, err := b.db.GetUserTrainingHistory(msg.From.ID, msg.Chat.ID, 50)

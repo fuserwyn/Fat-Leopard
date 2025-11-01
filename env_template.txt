@@ -6,13 +6,19 @@ API_TOKEN=your_bot_token_here
 OWNER_ID=your_telegram_id_here
 
 # PostgreSQL Database Configuration
-DATABASE_URL=postgresql+asyncpg://username:password@localhost:5432/leo_bot_db
+# ВАЖНО: Используйте формат postgresql:// (не postgresql+asyncpg://)
+# Этот бот использует драйвер lib/pq, который требует формат postgresql://
+
+DATABASE_URL=postgresql://username:password@localhost:5432/leo_bot_db?sslmode=disable
 
 # Пример для локальной разработки:
-# DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/leo_bot_db
+# DATABASE_URL=postgresql://postgres:password@localhost:5432/leo_bot_db?sslmode=disable
+
+# Пример для Docker (postgres - имя сервиса в docker-compose):
+# DATABASE_URL=postgresql://postgres:password@postgres:5432/leo_bot_db?sslmode=disable
 
 # Пример для Railway:
-# DATABASE_URL=postgresql+asyncpg://postgres:password@containers-us-west-1.railway.app:5432/railway
+# DATABASE_URL=postgresql://postgres:password@containers-us-west-1.railway.app:5432/railway?sslmode=disable
 
 # OpenRouter API Key (для ИИ функций)
 # Получите ключ на https://openrouter.ai
