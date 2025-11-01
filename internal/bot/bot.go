@@ -104,6 +104,14 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 		return
 	}
 
+	// Обрабатываем реакции на сообщения (смайлики)
+	// Примечание: telegram-bot-api v5.5.1 пока не поддерживает MessageReaction в Update
+	// Если библиотека обновится с поддержкой реакций, можно будет обработать здесь
+	// if update.MessageReaction != nil {
+	// 	b.handleMessageReaction(update.MessageReaction)
+	// 	return
+	// }
+
 	// Обрабатываем добавление новых участников
 	if update.Message != nil && len(update.Message.NewChatMembers) > 0 {
 		b.handleNewChatMembers(update.Message)
@@ -748,6 +756,11 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 
 	// Если пользователь был на больничном, сбрасываем флаги больничного и помечаем как здорового
 	if wasOnSickLeave {
+		// Отправляем предупреждение о забытом #healthy
+		warningMessage := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("⚠️ Внимание, %s!\n\nТы забыл отправить #healthy перед тренировкой!\n\n✅ Я автоматически засчитал выздоровление, но в следующий раз не забывай отправлять #healthy перед #training_done", username))
+		b.logger.Infof("Sending forgotten #healthy warning to user %d (%s)", msg.From.ID, username)
+		b.api.Send(warningMessage)
+
 		messageLog.HasSickLeave = false
 		messageLog.HasHealthy = true
 		messageLog.SickLeaveStartTime = nil
@@ -1747,7 +1760,7 @@ func (b *Bot) removeUser(userID, chatID int64, username string) {
 		b.api.Send(errorMsg)
 	} else {
 		// Отправляем сообщение об удалении
-		message := fmt.Sprintf("🚫 Пользователь удален!\n\n@%s был удален из чата за неактивность.\n\n🦁 Я питаюсь ленивыми леопардами и становлюсь жирнее!\n\n💪 Ты ведь не хочешь стать как я?\n\nТогда тренируйтесь и отправляйте отчеты!", username)
+		message := fmt.Sprintf("🚫 Пользователь удален!\n\n@%s был удален из чата за неактивность.\n\n🦁 Ням-ням!\n\n💪 Ты ведь не хочешь стать как я?\n\nТогда тренируйтесь и отправляйте отчеты!", username)
 		msg := tgbotapi.NewMessage(chatID, message)
 		b.logger.Infof("Sending removal message for user %d (%s)", userID, username)
 		_, sendErr := b.api.Send(msg)
@@ -2845,11 +2858,20 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 			contextText.WriteString(fmt.Sprintf("⏰ Таймер запущен: %s\n", *userLog.TimerStartTime))
 		}
 
-		// Добавляем информацию о текущем остатке времени таймера
-		if userLog.HasSickLeave && userLog.RestTimeTillDel != nil {
-			contextText.WriteString(fmt.Sprintf("⏳ После выздоровления останется: %s до удаления\n", *userLog.RestTimeTillDel))
-		} else if !userLog.HasSickLeave && userLog.RestTimeTillDel != nil {
-			contextText.WriteString(fmt.Sprintf("⏳ До удаления осталось: %s\n", *userLog.RestTimeTillDel))
+		// Добавляем информацию о текущем остатке времени таймера (ВАЖНО: это точное время из БД)
+		// Вычисляем реальное время до удаления прямо сейчас
+		if userLog.TimerStartTime != nil {
+			remainingTime := b.calculateRemainingTime(userLog)
+			if remainingTime > 0 {
+				remainingTimeFormatted := b.formatDurationToDays(remainingTime)
+				if userLog.HasSickLeave {
+					contextText.WriteString(fmt.Sprintf("⏳ После выздоровления останется: %s до удаления\n", remainingTimeFormatted))
+				} else {
+					contextText.WriteString(fmt.Sprintf("⏳ До удаления осталось: %s\n", remainingTimeFormatted))
+				}
+			} else {
+				contextText.WriteString("⏳ Время таймера истекло\n")
+			}
 		}
 
 		contextText.WriteString(fmt.Sprintf("💬 Последнее сообщение: %s\n", userLog.LastMessage))
