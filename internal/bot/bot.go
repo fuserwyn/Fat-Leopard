@@ -100,6 +100,36 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 
 	// Обрабатываем команды
 	if msg.IsCommand() {
+		// Сохраняем команду в БД для контекста
+		text := msg.Text
+		if text == "" && msg.Caption != "" {
+			text = msg.Caption
+		}
+		if text != "" {
+			username := ""
+			if msg.From.UserName != "" {
+				username = "@" + msg.From.UserName
+			} else if msg.From.FirstName != "" {
+				username = msg.From.FirstName
+				if msg.From.LastName != "" {
+					username += " " + msg.From.LastName
+				}
+			} else {
+				username = fmt.Sprintf("User%d", msg.From.ID)
+			}
+
+			userMsg := &models.UserMessage{
+				UserID:      msg.From.ID,
+				ChatID:      msg.Chat.ID,
+				Username:    username,
+				MessageText: text,
+				MessageType: "command",
+			}
+			if err := b.db.SaveUserMessage(userMsg); err != nil {
+				b.logger.Errorf("Failed to save user command: %v", err)
+			}
+		}
+
 		b.handleCommand(msg)
 		return
 	}
@@ -254,15 +284,63 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) {
 		text = msg.Caption
 	}
 
-	// Проверяем, упоминается ли бот в сообщении (для вопросов к ИИ)
+	// Проверяем, обращается ли пользователь к боту (для вопросов к ИИ)
+	// 1. Упоминание через @ в тексте
+	// 2. Ответ на сообщение бота (reply)
+	// 3. Выбор бота из списка участников (bot_command или просто упоминание)
+	shouldHandleAI := false
+
+	// Проверяем упоминание через @
 	if msg.Entities != nil {
 		for _, entity := range msg.Entities {
-			if entity.Type == "mention" && strings.Contains(text, "@"+b.api.Self.UserName) {
-				// Обрабатываем вопрос к ИИ
-				b.handleAIQuestion(msg, text)
-				return
+			if entity.Type == "mention" {
+				mentionText := text[entity.Offset : entity.Offset+entity.Length]
+				if strings.Contains(mentionText, "@"+b.api.Self.UserName) ||
+					strings.Contains(mentionText, b.api.Self.UserName) {
+					shouldHandleAI = true
+					break
+				}
 			}
 		}
+	}
+
+	// Проверяем ответ на сообщение бота
+	if !shouldHandleAI && msg.ReplyToMessage != nil {
+		if msg.ReplyToMessage.From != nil && msg.ReplyToMessage.From.IsBot &&
+			msg.ReplyToMessage.From.ID == b.api.Self.ID {
+			shouldHandleAI = true
+		}
+	}
+
+	// Если обращение к боту обнаружено и есть текст вопроса
+	// НО сначала сохраняем сообщение в БД для контекста
+	if shouldHandleAI && text != "" {
+		// Сохраняем вопрос в БД перед обработкой
+		username := ""
+		if msg.From.UserName != "" {
+			username = "@" + msg.From.UserName
+		} else if msg.From.FirstName != "" {
+			username = msg.From.FirstName
+			if msg.From.LastName != "" {
+				username += " " + msg.From.LastName
+			}
+		} else {
+			username = fmt.Sprintf("User%d", msg.From.ID)
+		}
+
+		userMsg := &models.UserMessage{
+			UserID:      msg.From.ID,
+			ChatID:      msg.Chat.ID,
+			Username:    username,
+			MessageText: text,
+			MessageType: "question", // Отмечаем как вопрос к ИИ
+		}
+		if err := b.db.SaveUserMessage(userMsg); err != nil {
+			b.logger.Errorf("Failed to save user question: %v", err)
+		}
+
+		b.handleAIQuestion(msg, text)
+		return
 	}
 
 	hasTrainingDone := strings.Contains(strings.ToLower(text), "#training_done")
@@ -2490,7 +2568,7 @@ func (b *Bot) sendSuperLevelMessage(msg *tgbotapi.Message, username string, tota
 	}
 }
 
-// startDailySummaryScheduler запускает планировщик ежедневных сводок в 16-20
+// startDailySummaryScheduler запускает планировщик ежедневных сводок в 16:20
 func (b *Bot) startDailySummaryScheduler(ctx context.Context) {
 	if b.aiClient == nil {
 		b.logger.Warn("AI client not available, daily summary scheduler disabled")
@@ -2500,7 +2578,7 @@ func (b *Bot) startDailySummaryScheduler(ctx context.Context) {
 	// Используем московское время
 	loc, _ := time.LoadLocation("Europe/Moscow")
 	lastSentDate := ""
-	ticker := time.NewTicker(5 * time.Minute) // Проверяем каждые 5 минут
+	ticker := time.NewTicker(1 * time.Minute) // Проверяем каждую минуту
 	defer ticker.Stop()
 
 	for {
@@ -2510,14 +2588,16 @@ func (b *Bot) startDailySummaryScheduler(ctx context.Context) {
 		case <-ticker.C:
 			now := time.Now().In(loc)
 			hour := now.Hour()
+			minute := now.Minute()
 
-			// Проверяем, наступило ли время 16:00-20:00
-			if hour >= 16 && hour < 20 {
+			// Проверяем, наступило ли время 16:20
+			if hour == 16 && minute == 20 {
 				today := now.Format("2006-01-02")
 				// Отправляем сводку только один раз в день
 				if lastSentDate != today {
 					// Генерируем сводку за вчерашний день
 					yesterday := now.AddDate(0, 0, -1)
+					b.logger.Infof("Generating daily summary at 16:20 for date: %s", yesterday.Format("2006-01-02"))
 					b.generateAndSendDailySummary(yesterday)
 					lastSentDate = today
 				}
@@ -2649,23 +2729,69 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 		return
 	}
 
-	// Формируем контекст истории
-	var historyText strings.Builder
-	for _, msg := range history {
-		historyText.WriteString(fmt.Sprintf("[%s] %s: %s\n",
-			msg.CreatedAt.Format("2006-01-02 15:04"), msg.Username, msg.MessageText))
+	// Формируем полный контекст о пользователе
+	var contextText strings.Builder
+	contextText.WriteString("=== ИСТОРИЯ ТРЕНИРОВОК ПОЛЬЗОВАТЕЛЯ ===\n\n")
+
+	// Добавляем историю сообщений
+	if len(history) > 0 {
+		for _, msg := range history {
+			messageType := ""
+			if msg.MessageType == "training_done" {
+				messageType = " [ТРЕНИРОВКА]"
+			} else if msg.MessageType == "sick_leave" {
+				messageType = " [БОЛЬНИЧНЫЙ]"
+			} else if msg.MessageType == "healthy" {
+				messageType = " [ВЫЗДОРОВЛЕНИЕ]"
+			}
+			contextText.WriteString(fmt.Sprintf("[%s]%s %s: %s\n",
+				msg.CreatedAt.Format("2006-01-02 15:04"), messageType, msg.Username, msg.MessageText))
+		}
+	} else {
+		contextText.WriteString("История пуста\n")
 	}
 
-	// Получаем текущие данные пользователя
+	// Получаем полные данные пользователя
 	userLog, err := b.db.GetMessageLog(msg.From.ID, msg.Chat.ID)
 	if err == nil {
 		cups, _ := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
-		historyText.WriteString(fmt.Sprintf("\nТекущие данные:\n- Серия тренировок: %d дней\n- Всего калорий: %d\n- Всего кубков: %d",
-			userLog.StreakDays, userLog.Calories, cups))
+
+		contextText.WriteString("\n=== ТЕКУЩАЯ СТАТИСТИКА ===\n")
+		contextText.WriteString(fmt.Sprintf("👤 Пользователь: %s\n", userLog.Username))
+		contextText.WriteString(fmt.Sprintf("🔥 Всего калорий: %d\n", userLog.Calories))
+		contextText.WriteString(fmt.Sprintf("🏆 Всего кубков: %d\n", cups))
+		contextText.WriteString(fmt.Sprintf("💪 Серия тренировок: %d дней подряд\n", userLog.StreakDays))
+		contextText.WriteString(fmt.Sprintf("📈 Серия калорий: %d дней подряд\n", userLog.CalorieStreakDays))
+
+		if userLog.LastTrainingDate != nil {
+			contextText.WriteString(fmt.Sprintf("📅 Последняя тренировка: %s\n", *userLog.LastTrainingDate))
+		}
+
+		if userLog.HasSickLeave {
+			contextText.WriteString("🏥 Статус: На больничном\n")
+			if userLog.SickLeaveStartTime != nil {
+				contextText.WriteString(fmt.Sprintf("   Начало больничного: %s\n", *userLog.SickLeaveStartTime))
+			}
+		} else if userLog.HasHealthy {
+			contextText.WriteString("✅ Статус: Здоров\n")
+			if userLog.SickLeaveEndTime != nil {
+				contextText.WriteString(fmt.Sprintf("   Выздоровление: %s\n", *userLog.SickLeaveEndTime))
+			}
+		} else {
+			contextText.WriteString("✅ Статус: Активен\n")
+		}
+
+		if userLog.TimerStartTime != nil {
+			contextText.WriteString(fmt.Sprintf("⏰ Таймер запущен: %s\n", *userLog.TimerStartTime))
+		}
+
+		contextText.WriteString(fmt.Sprintf("💬 Последнее сообщение: %s\n", userLog.LastMessage))
+	} else {
+		contextText.WriteString("\n⚠️ Данные пользователя не найдены\n")
 	}
 
 	// Генерируем ответ с помощью ИИ
-	answer, err := b.aiClient.AnswerUserQuestion(questionText, historyText.String())
+	answer, err := b.aiClient.AnswerUserQuestion(questionText, contextText.String())
 	if err != nil {
 		b.logger.Errorf("Failed to generate AI answer: %v", err)
 		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Ошибка при генерации ответа ИИ")
