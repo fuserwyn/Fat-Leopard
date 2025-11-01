@@ -2845,6 +2845,13 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 			contextText.WriteString(fmt.Sprintf("⏰ Таймер запущен: %s\n", *userLog.TimerStartTime))
 		}
 
+		// Добавляем информацию о текущем остатке времени таймера
+		if userLog.HasSickLeave && userLog.RestTimeTillDel != nil {
+			contextText.WriteString(fmt.Sprintf("⏳ После выздоровления останется: %s до удаления\n", *userLog.RestTimeTillDel))
+		} else if !userLog.HasSickLeave && userLog.RestTimeTillDel != nil {
+			contextText.WriteString(fmt.Sprintf("⏳ До удаления осталось: %s\n", *userLog.RestTimeTillDel))
+		}
+
 		contextText.WriteString(fmt.Sprintf("💬 Последнее сообщение: %s\n", userLog.LastMessage))
 	} else {
 		contextText.WriteString("\n⚠️ Данные пользователя не найдены\n")
