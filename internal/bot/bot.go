@@ -970,7 +970,7 @@ func (b *Bot) handleHealthy(msg *tgbotapi.Message) {
 	remainingTimeFormatted := b.formatDurationToDays(remainingTime)
 
 	// Отправляем подтверждение с информацией о времени до удаления
-	reply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("💪 Выздоровление принято! 🎉\n\n⏰ Таймер возобновлён с места остановки!\n\n⏳ До удаления осталось: %s\n\n🦁 Не дай мне стать жирным леопардом!", remainingTimeFormatted))
+	reply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("💪 Выздоровление принято! 🎉\n\n⏰ Таймер возобновлён с места остановки!\n\n⏳ До удаления осталось: %s\n\n🦁 Пора сжечь жир, накопленный за время отсутствия!", remainingTimeFormatted))
 
 	b.logger.Infof("Sending healthy message to chat %d", msg.Chat.ID)
 	_, err = b.api.Send(reply)
