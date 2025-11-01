@@ -2728,6 +2728,9 @@ func (b *Bot) generateSummaryForChat(chatID int64, date time.Time) {
 		return
 	}
 
+	// Удаляем markdown форматирование (**) перед отправкой
+	summary = strings.ReplaceAll(summary, "**", "")
+
 	// Отправляем сводку в чат
 	reply := tgbotapi.NewMessage(chatID, summary)
 	b.logger.Infof("Sending daily summary to chat %d", chatID)
@@ -2856,6 +2859,9 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 		b.api.Send(reply)
 		return
 	}
+
+	// Удаляем markdown форматирование (**) перед отправкой
+	answer = strings.ReplaceAll(answer, "**", "")
 
 	// Отправляем ответ
 	reply := tgbotapi.NewMessage(msg.Chat.ID, answer)
