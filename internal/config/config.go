@@ -13,6 +13,7 @@ type Config struct {
 	DatabaseURL      string
 	LogLevel         string
 	OpenRouterAPIKey string
+	OpenRouterModel  string // Модель OpenRouter (по умолчанию deepseek/deepseek-chat-v3.1:free)
 }
 
 func Load() (*Config, error) {
@@ -27,6 +28,7 @@ func Load() (*Config, error) {
 		DatabaseURL:      getEnv("DATABASE_URL", "postgresql://postgres:password@localhost:5432/leo_bot_db?sslmode=disable"),
 		LogLevel:         getEnv("LOG_LEVEL", "info"),
 		OpenRouterAPIKey: getEnv("OPENROUTER_API_KEY", ""),
+		OpenRouterModel:  getEnv("OPENROUTER_MODEL", "deepseek/deepseek-r1-0528"),
 	}, nil
 }
 

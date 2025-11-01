@@ -40,8 +40,8 @@ func New(cfg *config.Config, db *database.Database, log logger.Logger) (*Bot, er
 	// Создаем клиент OpenRouter для ИИ
 	var aiClient *ai.OpenRouterClient
 	if cfg.OpenRouterAPIKey != "" {
-		aiClient = ai.NewOpenRouterClient(cfg.OpenRouterAPIKey, log)
-		log.Info("OpenRouter AI client initialized")
+		aiClient = ai.NewOpenRouterClient(cfg.OpenRouterAPIKey, cfg.OpenRouterModel, log)
+		log.Infof("OpenRouter AI client initialized with model: %s", cfg.OpenRouterModel)
 	} else {
 		log.Warn("OpenRouter API key not provided, AI features will be disabled")
 	}
@@ -2704,6 +2704,12 @@ func (b *Bot) generateSummaryForChat(chatID int64, date time.Time) {
 	summary, err := b.aiClient.GenerateDailySummary(usersData)
 	if err != nil {
 		b.logger.Errorf("Failed to generate daily summary: %v", err)
+
+		// Если ошибка связана с настройкой политики данных, пропускаем сводку
+		errorMsg := err.Error()
+		if strings.Contains(errorMsg, "data policy") || strings.Contains(errorMsg, "Model Training") {
+			b.logger.Warnf("Skipping daily summary due to OpenRouter data policy configuration. User needs to enable 'Model Training' at https://openrouter.ai/settings/privacy")
+		}
 		return
 	}
 
@@ -2822,7 +2828,16 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 	answer, err := b.aiClient.AnswerUserQuestion(questionText, contextText.String())
 	if err != nil {
 		b.logger.Errorf("Failed to generate AI answer: %v", err)
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Ошибка при генерации ответа ИИ")
+
+		// Проверяем, является ли это ошибкой настройки политики данных
+		errorMsg := err.Error()
+		if strings.Contains(errorMsg, "data policy") || strings.Contains(errorMsg, "Model Training") {
+			reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ ИИ функции требуют настройки OpenRouter API.\n\nДля бесплатных моделей нужно:\n1. Перейди на https://openrouter.ai/settings/privacy\n2. Включи опцию 'Model Training'\n\nПосле этого ИИ заработает!")
+			b.api.Send(reply)
+			return
+		}
+
+		reply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("❌ Ошибка при генерации ответа ИИ: %v", err))
 		b.api.Send(reply)
 		return
 	}

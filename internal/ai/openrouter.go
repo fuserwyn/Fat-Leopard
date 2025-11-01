@@ -15,6 +15,7 @@ import (
 type OpenRouterClient struct {
 	apiKey     string
 	baseURL    string
+	model      string // Модель по умолчанию
 	logger     logger.Logger
 	httpClient *http.Client
 }
@@ -56,10 +57,14 @@ type UserTrainingData struct {
 	TrainingMessage string
 }
 
-func NewOpenRouterClient(apiKey string, log logger.Logger) *OpenRouterClient {
+func NewOpenRouterClient(apiKey string, defaultModel string, log logger.Logger) *OpenRouterClient {
+	if defaultModel == "" {
+		defaultModel = "deepseek/deepseek-r1-0528" // Fallback
+	}
 	return &OpenRouterClient{
 		apiKey:  apiKey,
 		baseURL: "https://openrouter.ai/api/v1/chat/completions",
+		model:   defaultModel,
 		logger:  log,
 		httpClient: &http.Client{
 			Timeout: 60 * time.Second,
@@ -70,7 +75,7 @@ func NewOpenRouterClient(apiKey string, log logger.Logger) *OpenRouterClient {
 // Chat отправляет запрос к OpenRouter API и возвращает ответ
 func (c *OpenRouterClient) Chat(messages []ChatMessage, model string) (string, error) {
 	if model == "" {
-		model = "deepseek/deepseek-chat-v3.1:free" // Бесплатная модель DeepSeek по умолчанию
+		model = c.model // Используем модель из конфига
 	}
 
 	request := ChatRequest{
@@ -102,7 +107,14 @@ func (c *OpenRouterClient) Chat(messages []ChatMessage, model string) (string, e
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(bodyBytes))
+		errorMsg := string(bodyBytes)
+
+		// Специальная обработка ошибки политики данных для бесплатных моделей
+		if resp.StatusCode == 404 && strings.Contains(errorMsg, "data policy") {
+			return "", fmt.Errorf("OpenRouter API требует настройки политики данных. Перейди на https://openrouter.ai/settings/privacy и включи 'Model Training' для бесплатных моделей. Ошибка: %s", errorMsg)
+		}
+
+		return "", fmt.Errorf("API error (status %d): %s", resp.StatusCode, errorMsg)
 	}
 
 	var response ChatResponse

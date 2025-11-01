@@ -24,6 +24,16 @@ DATABASE_URL=postgresql://username:password@localhost:5432/leo_bot_db?sslmode=di
 # Получите ключ на https://openrouter.ai
 OPENROUTER_API_KEY=your_openrouter_api_key_here
 
+# OpenRouter Model (опционально, по умолчанию deepseek/deepseek-r1-0528)
+# Примеры моделей:
+# - deepseek/deepseek-r1-0528 (рекомендуется)
+# - deepseek/deepseek-chat-v3.1:free (бесплатная, требует включения "Enable free endpoints that may train on inputs")
+# - deepseek/deepseek-chat (платная, не требует настройки)
+# - meta-llama/llama-3.1-8b-instruct:free (бесплатная)
+# - google/gemini-flash-1.5-8b:free (бесплатная)
+# Список моделей: https://openrouter.ai/models
+OPENROUTER_MODEL=deepseek/deepseek-r1-0528
+
 # Инструкция:
 # 1. Скопируйте этот файл и переименуйте в .env
 # 2. Замените your_bot_token_here на ваш реальный токен бота
