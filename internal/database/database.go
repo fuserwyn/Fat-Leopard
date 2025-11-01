@@ -1,6 +1,7 @@
 package database
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"strings"
@@ -19,20 +20,28 @@ type Database struct {
 }
 
 func New(databaseURL string) (*Database, error) {
+	// Если databaseURL пустой, используем дефолтное значение
+	if databaseURL == "" {
+		databaseURL = "postgresql://postgres:password@localhost:5432/leo_bot_db?sslmode=disable"
+	}
+
 	db, err := sql.Open("postgres", databaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
-	// Проверяем соединение
-	if err := db.Ping(); err != nil {
-		return nil, fmt.Errorf("failed to ping database: %w", err)
-	}
-
-	// Настраиваем пул соединений
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(25)
+	// Устанавливаем таймауты для подключения
 	db.SetConnMaxLifetime(5 * time.Minute)
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(5)
+
+	// Проверяем соединение с таймаутом
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := db.PingContext(ctx); err != nil {
+		return nil, fmt.Errorf("failed to ping database (check DATABASE_URL and network connectivity): %w", err)
+	}
 
 	return &Database{
 		db: db,
