@@ -13,7 +13,7 @@ type Config struct {
 	DatabaseURL        string
 	LogLevel           string
 	OpenRouterAPIKey   string
-	OpenRouterModel    string // Модель OpenRouter (по умолчанию deepseek/deepseek-r1-0528)
+	OpenRouterModel    string // Модель OpenRouter (по умолчанию deepseek/deepseek-chat)
 	ScanHistoryOnStart bool   // Сканировать историю при старте (по умолчанию false)
 }
 
@@ -35,7 +35,7 @@ func Load() (*Config, error) {
 		DatabaseURL:        getEnv("DATABASE_URL", "postgresql://postgres:password@localhost:5432/leo_bot_db?sslmode=disable"),
 		LogLevel:           getEnv("LOG_LEVEL", "info"),
 		OpenRouterAPIKey:   getEnv("OPENROUTER_API_KEY", ""),
-		OpenRouterModel:    getEnv("OPENROUTER_MODEL", "deepseek/deepseek-r1-0528"),
+		OpenRouterModel:    getEnv("OPENROUTER_MODEL", "deepseek/deepseek-chat"),
 		ScanHistoryOnStart: scanHistoryOnStart,
 	}, nil
 }
