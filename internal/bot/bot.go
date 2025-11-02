@@ -2952,6 +2952,10 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 		contextText.WriteString("\n⚠️ Данные пользователя не найдены\n")
 	}
 
+	// Отправляем индикатор набора текста
+	action := tgbotapi.NewChatAction(msg.Chat.ID, tgbotapi.ChatTyping)
+	b.api.Send(action)
+
 	// Генерируем ответ с помощью ИИ
 	answer, err := b.aiClient.AnswerUserQuestion(questionText, contextText.String())
 	if err != nil {
