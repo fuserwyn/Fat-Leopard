@@ -82,9 +82,6 @@ func (b *Bot) Start(ctx context.Context) error {
 	go b.startDailySummaryScheduler(ctx)
 	go b.startDailyWisdomScheduler(ctx)
 
-	// Бэкаудит ответов за последние 24 часа после рестарта
-	go b.auditLast24h()
-
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 
