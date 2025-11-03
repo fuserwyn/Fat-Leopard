@@ -1770,7 +1770,24 @@ func (b *Bot) handleSendToChat(msg *tgbotapi.Message) {
 	}
 
 	// Парсим chat_id
-	chatID, err := strconv.ParseInt(parts[0], 10, 64)
+	idRaw := strings.TrimSpace(parts[0])
+	// Нормализация: длинное тире → дефис, убрать неразрывные пробелы
+	idRaw = strings.ReplaceAll(idRaw, "–", "-")
+	idRaw = strings.ReplaceAll(idRaw, "—", "-")
+	idRaw = strings.ReplaceAll(idRaw, "\u00A0", " ")
+	// Фильтрация: оставить ведущий '-' и цифры
+	var filtered strings.Builder
+	for i, r := range idRaw {
+		if i == 0 && r == '-' {
+			filtered.WriteRune(r)
+			continue
+		}
+		if r >= '0' && r <= '9' {
+			filtered.WriteRune(r)
+		}
+	}
+	idClean := filtered.String()
+	chatID, err := strconv.ParseInt(idClean, 10, 64)
 	if err != nil {
 		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Неверный формат chat_id")
 		b.api.Send(reply)
@@ -3374,11 +3391,8 @@ func (b *Bot) auditProcessTrainingDone(um *models.UserMessage) {
 
 	already := messageLog.LastTrainingDate != nil && *messageLog.LastTrainingDate == dateStr
 	if already {
-		if err := b.db.AddCups(um.UserID, um.ChatID, 1); err != nil {
-			b.logger.Errorf("audit: failed to add cup for double training: %v", err)
-		}
-		currentCups, _ := b.db.GetUserCups(um.UserID, um.ChatID)
-		text := fmt.Sprintf("🦁 Какой мотивированный леопард! Еще одна тренировка сегодня! 💪\n\n🏆 +1 кубок за дополнительную тренировку!\n🏆 Всего кубков: %d", currentCups)
+		// ДЕНЬ УЖЕ УЧТЕН: не начисляем ничего, отправляем только подтверждение, если его могло не быть
+		text := fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Я вижу твою тренировку за %s.\n\n⏰ Бот был перезапущен — отправляю подтверждение сейчас.", um.CreatedAt.In(loc).Format("02.01 15:04"))
 		b.api.Send(tgbotapi.NewMessage(um.ChatID, text))
 		return
 	}
