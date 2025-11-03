@@ -484,3 +484,19 @@ func (c *OpenRouterClient) AnswerUserQuestion(question string, userContext strin
 
 	return c.Chat(messages, "")
 }
+
+// GenerateDailyWisdom генерирует короткую «мудрость дня» о силе духа и спорте
+func (c *OpenRouterClient) GenerateDailyWisdom() (string, error) {
+	systemPrompt := `Ты — строгий, но дружелюбный тренер-леопард.
+
+Твоя манера: веди себя как мудрый наставник — спокойный, терпеливый, осознанный; НИКОГДА не говори, что ты мудрый или как «монах». Показывай это тоном: кратко, ясно, уважительно.
+
+Задача: Сформулируй «мудрость дня» — 3–5 коротких предложений на русском о силе духа, дисциплине и спорте. Без обращений к конкретным людям, без перечислений, без хэштегов и эмодзи, без Markdown. Не упоминай, что ты леопард или «монах».`
+
+	messages := []ChatMessage{
+		{Role: "system", Content: systemPrompt},
+		{Role: "user", Content: "Сгенерируй мудрость дня."},
+	}
+
+	return c.Chat(messages, "")
+}

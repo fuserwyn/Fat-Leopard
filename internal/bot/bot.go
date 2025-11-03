@@ -78,8 +78,9 @@ func (b *Bot) Start(ctx context.Context) error {
 		b.logger.Info("SCAN_HISTORY_ON_START=false, skipping history scan. New messages will be saved automatically.")
 	}
 
-	// Запускаем ежедневную сводку в 16-20
+	// Запускаем ежемесячную сводку (1-го числа 16:20) и «мудрость дня» (ежедневно 04:20)
 	go b.startDailySummaryScheduler(ctx)
+	go b.startDailyWisdomScheduler(ctx)
 
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
@@ -3225,6 +3226,66 @@ func (b *Bot) startDailySummaryScheduler(ctx context.Context) {
 					lastSentMonth = month
 				}
 			}
+		}
+	}
+}
+
+// startDailyWisdomScheduler отправляет «мудрость дня» ежедневно в 04:20 (МСК)
+func (b *Bot) startDailyWisdomScheduler(ctx context.Context) {
+	if b.aiClient == nil {
+		b.logger.Warn("AI client not available, daily wisdom scheduler disabled")
+		return
+	}
+
+	loc, _ := time.LoadLocation("Europe/Moscow")
+	lastSentDate := ""
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			now := time.Now().In(loc)
+			hour := now.Hour()
+			minute := now.Minute()
+			if hour == 4 && minute == 20 {
+				today := now.Format("2006-01-02")
+				if lastSentDate != today {
+					b.logger.Infof("Generating daily wisdom for %s 04:20 MSK", today)
+					b.generateAndSendDailyWisdom()
+					lastSentDate = today
+				}
+			}
+		}
+	}
+}
+
+func (b *Bot) generateAndSendDailyWisdom() {
+	// Получаем все чаты
+	chatIDs, err := b.db.GetAllChatIDs()
+	if err != nil {
+		b.logger.Errorf("Failed to get chat IDs for daily wisdom: %v", err)
+		return
+	}
+	if len(chatIDs) == 0 {
+		return
+	}
+
+	// Генерируем мудрость
+	wisdom, err := b.aiClient.GenerateDailyWisdom()
+	if err != nil {
+		b.logger.Errorf("Failed to generate daily wisdom: %v", err)
+		return
+	}
+	wisdom = strings.ReplaceAll(wisdom, "**", "")
+
+	for _, chatID := range chatIDs {
+		msg := tgbotapi.NewMessage(chatID, wisdom)
+		b.logger.Infof("Sending daily wisdom to chat %d", chatID)
+		if _, err := b.api.Send(msg); err != nil {
+			b.logger.Errorf("Failed to send daily wisdom to chat %d: %v", chatID, err)
 		}
 	}
 }
