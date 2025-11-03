@@ -676,8 +676,52 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 				totalCalories = 0
 			}
 
-			// Новая тренировка БЕЗ achievement - отправляем обычное подтверждение
-			reply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Ты тренируешься дней подряд: %d\n🔥 +%d калорий\n🔥 Всего калорий: %d\n🏆 +1 кубок за тренировку!\n🏆 Всего кубков: %d\n\n⏰ Таймер перезапускается на 7 дней\n\n🎯 Продолжай тренироваться и не забывай отправлять #training_done!", newStreakDays, caloriesToAdd, totalCalories, currentCups))
+			// Новая тренировка БЕЗ achievement - готовим базовый текст
+			messageText := fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Ты тренируешься дней подряд: %d\n🔥 +%d калорий\n🔥 Всего калорий: %d\n🏆 +1 кубок за тренировку!\n🏆 Всего кубков: %d\n\n⏰ Таймер перезапускается на 7 дней\n\n🎯 Продолжай тренироваться и не забывай отправлять #training_done!", newStreakDays, caloriesToAdd, totalCalories, currentCups)
+
+			// Дополняем короткой ИИ-припиской по текущему контексту
+			if b.aiClient != nil {
+				// Индикатор набора, чтобы показать «typing...» пока генерируется ответ
+				action := tgbotapi.NewChatAction(msg.Chat.ID, tgbotapi.ChatTyping)
+				b.api.Send(action)
+				stopTyping := make(chan struct{})
+				defer close(stopTyping)
+				go func() {
+					ticker := time.NewTicker(4 * time.Second)
+					defer ticker.Stop()
+					for {
+						select {
+						case <-ticker.C:
+							b.api.Send(action)
+						case <-stopTyping:
+							return
+						}
+					}
+				}()
+
+				// Формируем вопрос и контекст для краткой приписки
+				question := "Сделай очень короткую (1–2 предложения) дружелюбную, но строгую приписку после отчёта #training_done. Не повторяй цифры из сообщения, не перечисляй правила. Без Markdown."
+				var ctxBuilder strings.Builder
+				ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
+				ctxBuilder.WriteString(fmt.Sprintf("Серия: %d дней\n", newStreakDays))
+				ctxBuilder.WriteString(fmt.Sprintf("Добавлено калорий: %d\n", caloriesToAdd))
+				ctxBuilder.WriteString(fmt.Sprintf("Текущие калории: %d\n", totalCalories))
+				ctxBuilder.WriteString(fmt.Sprintf("Кубков всего: %d\n", currentCups))
+				if wasOnSickLeave {
+					ctxBuilder.WriteString("Недавно был больничный, теперь снова в строю.\n")
+				}
+
+				if addendum, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
+					addendum = strings.TrimSpace(strings.ReplaceAll(addendum, "**", ""))
+					if addendum != "" {
+						messageText = messageText + "\n\n" + addendum
+					}
+				} else {
+					b.logger.Warnf("AI addendum generation failed: %v", err)
+				}
+			}
+
+			reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
 
 			b.logger.Infof("Sending training done message to chat %d", msg.Chat.ID)
 			_, err = b.api.Send(reply)
@@ -702,7 +746,47 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 				currentCups = 0
 			}
 
-			reply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("🦁 Какой мотивированный леопард! Еще одна тренировка сегодня! 💪\n\n🔥 Твоя мотивация впечатляет\n🏆 +1 кубок за дополнительную тренировку!\n🏆 Всего кубков: %d\n\n⏰ Таймер уже перезапущен на 7 дней\n\n🎯 Завтра снова отправляй #training_done для продолжения серии!", currentCups))
+			messageText := fmt.Sprintf("🦁 Какой мотивированный леопард! Еще одна тренировка сегодня! 💪\n\n🔥 Твоя мотивация впечатляет\n🏆 +1 кубок за дополнительную тренировку!\n🏆 Всего кубков: %d\n\n⏰ Таймер уже перезапущен на 7 дней\n\n🎯 Завтра снова отправляй #training_done для продолжения серии!", currentCups)
+
+			// Короткая ИИ-приписка и здесь
+			if b.aiClient != nil {
+				action := tgbotapi.NewChatAction(msg.Chat.ID, tgbotapi.ChatTyping)
+				b.api.Send(action)
+				stopTyping := make(chan struct{})
+				defer close(stopTyping)
+				go func() {
+					ticker := time.NewTicker(4 * time.Second)
+					defer ticker.Stop()
+					for {
+						select {
+						case <-ticker.C:
+							b.api.Send(action)
+						case <-stopTyping:
+							return
+						}
+					}
+				}()
+
+				question := "Сделай очень короткую (1–2 предложения) дружелюбную, но строгую приписку после дополнительной тренировки в тот же день. Не повторяй цифры из сообщения. Без Markdown."
+				var ctxBuilder strings.Builder
+				ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
+				ctxBuilder.WriteString("Уже была тренировка сегодня, это повторная.\n")
+				ctxBuilder.WriteString(fmt.Sprintf("Кубков всего: %d\n", currentCups))
+				if wasOnSickLeave {
+					ctxBuilder.WriteString("Недавно был больничный, теперь снова в строю.\n")
+				}
+
+				if addendum, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
+					addendum = strings.TrimSpace(strings.ReplaceAll(addendum, "**", ""))
+					if addendum != "" {
+						messageText = messageText + "\n\n" + addendum
+					}
+				} else {
+					b.logger.Warnf("AI addendum generation (double) failed: %v", err)
+				}
+			}
+
+			reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
 
 			b.logger.Infof("Sending already trained today message to chat %d", msg.Chat.ID)
 			_, err = b.api.Send(reply)
