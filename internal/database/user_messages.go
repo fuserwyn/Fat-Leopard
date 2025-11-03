@@ -85,6 +85,34 @@ func (d *Database) GetDailyMessages(chatID int64, date time.Time) ([]*models.Use
 	return messages, nil
 }
 
+// GetMessagesInRange получает все сообщения для чата за произвольный интервал
+func (d *Database) GetMessagesInRange(chatID int64, startTime, endTime time.Time) ([]*models.UserMessage, error) {
+	query := `
+        SELECT id, user_id, chat_id, username, message_text, message_type, created_at
+        FROM user_messages
+        WHERE chat_id = $1
+        AND created_at >= $2 AND created_at < $3
+        ORDER BY created_at ASC
+    `
+
+	rows, err := d.db.Query(query, chatID, startTime, endTime)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var messages []*models.UserMessage
+	for rows.Next() {
+		var msg models.UserMessage
+		if err := rows.Scan(&msg.ID, &msg.UserID, &msg.ChatID, &msg.Username, &msg.MessageText, &msg.MessageType, &msg.CreatedAt); err != nil {
+			return nil, err
+		}
+		messages = append(messages, &msg)
+	}
+
+	return messages, nil
+}
+
 // GetMonthlyMessages получает все сообщения за указанный месяц для всех пользователей в чате
 func (d *Database) GetMonthlyMessages(chatID int64, month time.Time) ([]*models.UserMessage, error) {
 	startTime := time.Date(month.Year(), month.Month(), 1, 0, 0, 0, 0, month.Location())

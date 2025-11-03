@@ -82,6 +82,9 @@ func (b *Bot) Start(ctx context.Context) error {
 	go b.startDailySummaryScheduler(ctx)
 	go b.startDailyWisdomScheduler(ctx)
 
+	// Бэкаудит ответов за последние 24 часа после рестарта
+	go b.auditLast24h()
+
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 
@@ -202,6 +205,8 @@ func (b *Bot) handleCommand(msg *tgbotapi.Message) {
 	case "send_wisdom":
 		// Ручной запуск рассылки мудрости дня
 		b.generateAndSendDailyWisdom()
+	case "audit_last24":
+		b.auditLast24h()
 	default:
 		b.logger.Warnf("Unknown command: %s", command)
 	}
@@ -3298,6 +3303,102 @@ func (b *Bot) generateAndSendDailyWisdom() {
 		b.logger.Infof("Sending daily wisdom to chat %d", chatID)
 		if _, err := b.api.Send(msg); err != nil {
 			b.logger.Errorf("Failed to send daily wisdom to chat %d: %v", chatID, err)
+		}
+	}
+}
+
+// auditLast24h проверяет сообщения за последние 24 часа и отправляет пропущенные подтверждения (без повторных начислений)
+func (b *Bot) auditLast24h() {
+	loc, _ := time.LoadLocation("Europe/Moscow")
+	end := time.Now().In(loc)
+	start := end.Add(-24 * time.Hour)
+
+	chatIDs, err := b.db.GetAllChatIDs()
+	if err != nil {
+		b.logger.Errorf("auditLast24h: failed to get chat IDs: %v", err)
+		return
+	}
+
+	for _, chatID := range chatIDs {
+		msgs, err := b.db.GetMessagesInRange(chatID, start, end)
+		if err != nil {
+			b.logger.Errorf("auditLast24h: failed to get messages for chat %d: %v", chatID, err)
+			continue
+		}
+		for _, um := range msgs {
+			switch um.MessageType {
+			case "training_done":
+				// Проверим, зачислялся ли день в логе
+				ml, err := b.db.GetMessageLog(um.UserID, um.ChatID)
+				if err != nil {
+					continue
+				}
+				// Дата сообщения в МСК
+				dateStr := um.CreatedAt.In(loc).Format("2006-01-02")
+				if ml.LastTrainingDate != nil && *ml.LastTrainingDate == dateStr {
+					// Уже подтверждено в БД — пропускаем
+					continue
+				}
+				// Отправляем мягкое подтверждение без начислений
+				text := fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Я вижу твою тренировку за %s.\n\n⏰ Бот был перезапущен — отправляю подтверждение сейчас.", um.CreatedAt.In(loc).Format("02.01 15:04"))
+				if b.aiClient != nil {
+					action := tgbotapi.NewChatAction(um.ChatID, tgbotapi.ChatTyping)
+					b.api.Send(action)
+					stop := make(chan struct{})
+					go func() {
+						ticker := time.NewTicker(4 * time.Second)
+						defer ticker.Stop()
+						for {
+							select {
+							case <-ticker.C:
+								b.api.Send(action)
+							case <-stop:
+								return
+							}
+						}
+					}()
+					// короткая приписка + мудрость
+					q := "Сделай короткую (1–2 предложения) приписку к подтверждению пропущенного ответа: спокойно, дружелюбно, без цифр и Markdown."
+					ctx := fmt.Sprintf("Пользователь: %s\nДата тренировки: %s\n", um.Username, um.CreatedAt.In(loc).Format("2006-01-02 15:04"))
+					if add, err := b.aiClient.AnswerUserQuestion(q, ctx); err == nil {
+						add = strings.TrimSpace(strings.ReplaceAll(add, "**", ""))
+						if add != "" {
+							text += "\n\n" + add
+						}
+					}
+					wq := "Дай одну очень короткую мудрую мысль (1 предложение) после подтверждения пропущенного ответа: спокойно, уважительно; без повторения чисел и без Markdown."
+					if w, err := b.aiClient.AnswerUserQuestion(wq, ctx); err == nil {
+						w = strings.TrimSpace(strings.ReplaceAll(w, "**", ""))
+						if w != "" {
+							text += "\n" + w
+						}
+					}
+					close(stop)
+				}
+				b.api.Send(tgbotapi.NewMessage(um.ChatID, text))
+
+			case "sick_leave":
+				ml, err := b.db.GetMessageLog(um.UserID, um.ChatID)
+				if err != nil {
+					continue
+				}
+				if ml.SickLeaveStartTime != nil {
+					continue
+				}
+				// Отправляем мягкое подтверждение больничного
+				text := "🏥 Больничный принят! 🤒\n\n⏸️ Таймер приостановлен на время болезни.\n\n💬 Подтверждение отправлено после перезапуска. Выздоравливай!"
+				b.api.Send(tgbotapi.NewMessage(um.ChatID, text))
+
+			case "healthy":
+				ml, err := b.db.GetMessageLog(um.UserID, um.ChatID)
+				if err != nil {
+					continue
+				}
+				if !ml.HasHealthy {
+					text := "💪 Выздоровление принято! 🎉\n\n⏰ Таймер возобновлён.\n\n💬 Подтверждение отправлено после перезапуска."
+					b.api.Send(tgbotapi.NewMessage(um.ChatID, text))
+				}
+			}
 		}
 	}
 }
