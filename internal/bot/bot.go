@@ -2952,9 +2952,22 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 		contextText.WriteString("\n⚠️ Данные пользователя не найдены\n")
 	}
 
-	// Отправляем индикатор набора текста
-	action := tgbotapi.NewChatAction(msg.Chat.ID, tgbotapi.ChatTyping)
-	b.api.Send(action)
+	// Показываем индикатор набора текста до отправки ответа
+	// Отправляем сразу и поддерживаем индикатор каждые ~4 секунды, пока формируется ответ
+	b.api.Send(tgbotapi.NewChatAction(msg.Chat.ID, tgbotapi.ChatTyping))
+	typingDone := make(chan struct{})
+	go func(chatID int64, done <-chan struct{}) {
+		ticker := time.NewTicker(4 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				b.api.Send(tgbotapi.NewChatAction(chatID, tgbotapi.ChatTyping))
+			}
+		}
+	}(msg.Chat.ID, typingDone)
 
 	// Генерируем ответ с помощью ИИ
 	answer, err := b.aiClient.AnswerUserQuestion(questionText, contextText.String())
@@ -2966,11 +2979,13 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 		if strings.Contains(errorMsg, "data policy") || strings.Contains(errorMsg, "Model Training") {
 			reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ ИИ функции требуют настройки OpenRouter API.\n\nДля бесплатных моделей нужно:\n1. Перейди на https://openrouter.ai/settings/privacy\n2. Включи опцию 'Model Training'\n\nПосле этого ИИ заработает!")
 			b.api.Send(reply)
+			close(typingDone)
 			return
 		}
 
 		reply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("❌ Ошибка при генерации ответа ИИ: %v", err))
 		b.api.Send(reply)
+		close(typingDone)
 		return
 	}
 
@@ -2982,6 +2997,7 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 	reply.ReplyToMessageID = msg.MessageID // Отвечаем на сообщение пользователя
 	b.logger.Infof("Sending AI answer to user %d in chat %d (replying to message %d)", msg.From.ID, msg.Chat.ID, msg.MessageID)
 	_, err = b.api.Send(reply)
+	close(typingDone)
 	if err != nil {
 		b.logger.Errorf("Failed to send AI answer: %v", err)
 	}
