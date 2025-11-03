@@ -942,7 +942,46 @@ func (b *Bot) handleSickLeave(msg *tgbotapi.Message) {
 	remainingTimeFormatted := b.formatDurationToDays(remainingTime)
 
 	// Отправляем подтверждение с информацией о времени после разморозки
-	reply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("🏥 Больничный принят! 🤒\n\n⏸️ Таймер приостановлен на время болезни\n\n❄️ После выздоровления останется: %s до удаления\n\n💪 Выздоравливай и возвращайся к тренировкам!\n\n📝 Когда поправишься, отправь #healthy для возобновления таймера", remainingTimeFormatted))
+	messageText := fmt.Sprintf("🏥 Больничный принят! 🤒\n\n⏸️ Таймер приостановлен на время болезни\n\n❄️ После выздоровления останется: %s до удаления\n\n💪 Выздоравливай и возвращайся к тренировкам!\n\n📝 Когда поправишься, отправь #healthy для возобновления таймера", remainingTimeFormatted)
+
+	// ИИ‑приписка: пожелание выздоровления (5 предложений)
+	if b.aiClient != nil {
+		action := tgbotapi.NewChatAction(msg.Chat.ID, tgbotapi.ChatTyping)
+		b.api.Send(action)
+		stopTyping := make(chan struct{})
+		defer close(stopTyping)
+		go func() {
+			ticker := time.NewTicker(4 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					b.api.Send(action)
+				case <-stopTyping:
+					return
+				}
+			}
+		}()
+
+		totalCups, _ := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
+		question := "Сделай ровно 5 предложений‑приписку после сообщения о взятии больничного: строго, дружелюбно, пожелай скорейшего восстановления и мягко мотивируй вернуться к режиму. Учитывай текущие калории и кубки, упомяни, что я 'ем' только ленивых (без угроз активным). Не повторяй цифры из основного текста. Без Markdown."
+		var ctxBuilder strings.Builder
+		ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", messageLog.Username))
+		ctxBuilder.WriteString("Событие: взят больничный (таймер приостановлен).\n")
+		ctxBuilder.WriteString(fmt.Sprintf("После выздоровления останется: %s\n", remainingTimeFormatted))
+		ctxBuilder.WriteString(fmt.Sprintf("Всего калорий: %d\n", messageLog.Calories))
+		ctxBuilder.WriteString(fmt.Sprintf("Всего кубков: %d\n", totalCups))
+		if addendum, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
+			addendum = strings.TrimSpace(strings.ReplaceAll(addendum, "**", ""))
+			if addendum != "" {
+				messageText = messageText + "\n\n" + addendum
+			}
+		} else {
+			b.logger.Warnf("AI addendum generation (sick_leave) failed: %v", err)
+		}
+	}
+
+	reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
 
 	b.logger.Infof("Sending sick leave message to chat %d", msg.Chat.ID)
 	_, err = b.api.Send(reply)
@@ -1056,7 +1095,47 @@ func (b *Bot) handleHealthy(msg *tgbotapi.Message) {
 	remainingTimeFormatted := b.formatDurationToDays(remainingTime)
 
 	// Отправляем подтверждение с информацией о времени до удаления
-	reply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("💪 Выздоровление принято! 🎉\n\n⏰ Таймер возобновлён с места остановки!\n\n⏳ До удаления осталось: %s\n\n🦁 Пора сжечь жир, накопленный за время отсутствия!", remainingTimeFormatted))
+	messageText := fmt.Sprintf("💪 Выздоровление принято! 🎉\n\n⏰ Таймер возобновлён с места остановки!\n\n⏳ До удаления осталось: %s\n\n🦁 Пора сжечь жир, накопленный за время отсутствия!", remainingTimeFormatted)
+
+	// ИИ‑приписка: поздравление с выздоровлением (5 предложений)
+	if b.aiClient != nil {
+		action := tgbotapi.NewChatAction(msg.Chat.ID, tgbotapi.ChatTyping)
+		b.api.Send(action)
+		stopTyping := make(chan struct{})
+		defer close(stopTyping)
+		go func() {
+			ticker := time.NewTicker(4 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					b.api.Send(action)
+				case <-stopTyping:
+					return
+				}
+			}
+		}()
+
+		totalCups, _ := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
+		username := messageLog.Username
+		question := "Сделай ровно 5 предложений‑приписку после сообщения о выздоровлении: строго, дружелюбно, поздравь с возвращением и мотивируй аккуратно войти в режим. Учитывай текущие калории и кубки, и остаток таймера. Не повторяй цифры из основного текста. Без Markdown."
+		var ctxBuilder strings.Builder
+		ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
+		ctxBuilder.WriteString("Событие: выздоровление (таймер возобновлён).\n")
+		ctxBuilder.WriteString(fmt.Sprintf("До удаления осталось: %s\n", remainingTimeFormatted))
+		ctxBuilder.WriteString(fmt.Sprintf("Всего калорий: %d\n", messageLog.Calories))
+		ctxBuilder.WriteString(fmt.Sprintf("Всего кубков: %d\n", totalCups))
+		if addendum, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
+			addendum = strings.TrimSpace(strings.ReplaceAll(addendum, "**", ""))
+			if addendum != "" {
+				messageText = messageText + "\n\n" + addendum
+			}
+		} else {
+			b.logger.Warnf("AI addendum generation (healthy) failed: %v", err)
+		}
+	}
+
+	reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
 
 	b.logger.Infof("Sending healthy message to chat %d", msg.Chat.ID)
 	_, err = b.api.Send(reply)
