@@ -2306,7 +2306,7 @@ func (b *Bot) sendWeeklyCupsReward(msg *tgbotapi.Message, username string, strea
 	}
 
 	// Создаем сообщение с 42 кубками
-	cupsMessage := fmt.Sprintf(`🏆 НЕВЕРОЯТНО! 🏆
+	messageText := fmt.Sprintf(`🏆 НЕВЕРОЯТНО! 🏆
 
 %s, ты тренируешься уже %d дней подряд! 
 
@@ -2328,8 +2328,45 @@ func (b *Bot) sendWeeklyCupsReward(msg *tgbotapi.Message, username string, strea
 
 #weekly_champion #42_cups #training_streak`, username, streakDays, caloriesAdded, totalCalories, totalCups)
 
+	// Короткая ИИ‑приписка (7 дней)
+	if b.aiClient != nil {
+		action := tgbotapi.NewChatAction(msg.Chat.ID, tgbotapi.ChatTyping)
+		b.api.Send(action)
+		stopTyping := make(chan struct{})
+		defer close(stopTyping)
+		go func() {
+			ticker := time.NewTicker(4 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					b.api.Send(action)
+				case <-stopTyping:
+					return
+				}
+			}
+		}()
+
+		question := "Сделай ровно 5 предложений-приписку к поздравлению за серию 7 дней: строго, дружелюбно, мотивируй продолжать. Учитывай текущие калории и кубки. Не повторяй цифры из основного текста. Без Markdown."
+		var ctxBuilder strings.Builder
+		ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
+		ctxBuilder.WriteString("Достигнута серия: 7 дней.\n")
+		ctxBuilder.WriteString(fmt.Sprintf("Калорий добавлено: %d\n", caloriesAdded))
+		ctxBuilder.WriteString(fmt.Sprintf("Всего калорий: %d\n", totalCalories))
+		ctxBuilder.WriteString(fmt.Sprintf("Всего кубков: %d\n", totalCups))
+		ctxBuilder.WriteString(fmt.Sprintf("StreakDays: %d\n", streakDays))
+		if addendum, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
+			addendum = strings.TrimSpace(strings.ReplaceAll(addendum, "**", ""))
+			if addendum != "" {
+				messageText = messageText + "\n\n" + addendum
+			}
+		} else {
+			b.logger.Warnf("AI addendum generation (7) failed: %v", err)
+		}
+	}
+
 	// Отправляем сообщение с кубками
-	reply := tgbotapi.NewMessage(msg.Chat.ID, cupsMessage)
+	reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
 
 	b.logger.Infof("Sending weekly cups reward to chat %d for user %s (streak: %d days)", msg.Chat.ID, username, streakDays)
 	_, err = b.api.Send(reply)
@@ -2356,7 +2393,7 @@ func (b *Bot) sendMonthlyCupsReward(msg *tgbotapi.Message, username string, stre
 	}
 
 	// Создаем сообщение с 420 кубками
-	cupsMessage := fmt.Sprintf(`🏆🏆🏆 ЛЕГЕНДА! 🏆🏆🏆
+	messageText := fmt.Sprintf(`🏆🏆🏆 ЛЕГЕНДА! 🏆🏆🏆
 
 %s, ты тренируешься уже %d дней подряд! 
 
@@ -2386,8 +2423,45 @@ func (b *Bot) sendMonthlyCupsReward(msg *tgbotapi.Message, username string, stre
 
 #monthly_legend #420_cups #training_legend`, username, streakDays, caloriesAdded, totalCalories, totalCups)
 
+	// Короткая ИИ‑приписка (30 дней)
+	if b.aiClient != nil {
+		action := tgbotapi.NewChatAction(msg.Chat.ID, tgbotapi.ChatTyping)
+		b.api.Send(action)
+		stopTyping := make(chan struct{})
+		defer close(stopTyping)
+		go func() {
+			ticker := time.NewTicker(4 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					b.api.Send(action)
+				case <-stopTyping:
+					return
+				}
+			}
+		}()
+
+		question := "Сделай ровно 5 предложений-приписку к поздравлению за серию 30 дней: строго, дружелюбно, мотивируй держать планку. Учитывай текущие калории и кубки. Не повторяй цифры из основного текста. Без Markdown."
+		var ctxBuilder strings.Builder
+		ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
+		ctxBuilder.WriteString("Достигнута серия: 30 дней.\n")
+		ctxBuilder.WriteString(fmt.Sprintf("Калорий добавлено: %d\n", caloriesAdded))
+		ctxBuilder.WriteString(fmt.Sprintf("Всего калорий: %d\n", totalCalories))
+		ctxBuilder.WriteString(fmt.Sprintf("Всего кубков: %d\n", totalCups))
+		ctxBuilder.WriteString(fmt.Sprintf("StreakDays: %d\n", streakDays))
+		if addendum, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
+			addendum = strings.TrimSpace(strings.ReplaceAll(addendum, "**", ""))
+			if addendum != "" {
+				messageText = messageText + "\n\n" + addendum
+			}
+		} else {
+			b.logger.Warnf("AI addendum generation (30) failed: %v", err)
+		}
+	}
+
 	// Отправляем сообщение с кубками
-	reply := tgbotapi.NewMessage(msg.Chat.ID, cupsMessage)
+	reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
 
 	b.logger.Infof("Sending monthly cups reward to chat %d for user %s (streak: %d days)", msg.Chat.ID, username, streakDays)
 	_, err = b.api.Send(reply)
@@ -2466,7 +2540,7 @@ func (b *Bot) sendTwoWeekCupsReward(msg *tgbotapi.Message, username string, stre
 	}
 
 	// Создаем сообщение с 42 кубками
-	cupsMessage := fmt.Sprintf(`🏆🏆 НЕВЕРОЯТНО! 🏆🏆
+	messageText := fmt.Sprintf(`🏆🏆 НЕВЕРОЯТНО! 🏆🏆
 
 %s, ты тренируешься уже %d дней подряд! 
 
@@ -2489,8 +2563,45 @@ func (b *Bot) sendTwoWeekCupsReward(msg *tgbotapi.Message, username string, stre
 
 #two_week_champion #42_cups #training_warrior`, username, streakDays, caloriesAdded, totalCalories, totalCups)
 
+	// Короткая ИИ‑приписка (14 дней)
+	if b.aiClient != nil {
+		action := tgbotapi.NewChatAction(msg.Chat.ID, tgbotapi.ChatTyping)
+		b.api.Send(action)
+		stopTyping := make(chan struct{})
+		defer close(stopTyping)
+		go func() {
+			ticker := time.NewTicker(4 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					b.api.Send(action)
+				case <-stopTyping:
+					return
+				}
+			}
+		}()
+
+		question := "Сделай ровно 5 предложений-приписку к поздравлению за серию 14 дней: строго, дружелюбно, подчёркивай стабильность. Учитывай текущие калории и кубки. Не повторяй цифры из основного текста. Без Markdown."
+		var ctxBuilder strings.Builder
+		ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
+		ctxBuilder.WriteString("Достигнута серия: 14 дней.\n")
+		ctxBuilder.WriteString(fmt.Sprintf("Калорий добавлено: %d\n", caloriesAdded))
+		ctxBuilder.WriteString(fmt.Sprintf("Всего калорий: %d\n", totalCalories))
+		ctxBuilder.WriteString(fmt.Sprintf("Всего кубков: %d\n", totalCups))
+		ctxBuilder.WriteString(fmt.Sprintf("StreakDays: %d\n", streakDays))
+		if addendum, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
+			addendum = strings.TrimSpace(strings.ReplaceAll(addendum, "**", ""))
+			if addendum != "" {
+				messageText = messageText + "\n\n" + addendum
+			}
+		} else {
+			b.logger.Warnf("AI addendum generation (14) failed: %v", err)
+		}
+	}
+
 	// Отправляем сообщение с кубками
-	reply := tgbotapi.NewMessage(msg.Chat.ID, cupsMessage)
+	reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
 
 	b.logger.Infof("Sending two-week cups reward to chat %d for user %s (streak: %d days)", msg.Chat.ID, username, streakDays)
 	_, err = b.api.Send(reply)
@@ -2517,7 +2628,7 @@ func (b *Bot) sendThreeWeekCupsReward(msg *tgbotapi.Message, username string, st
 	}
 
 	// Создаем сообщение с 42 кубками
-	cupsMessage := fmt.Sprintf(`🏆🏆🏆 ФЕНОМЕНАЛЬНО! 🏆🏆🏆
+	messageText := fmt.Sprintf(`🏆🏆🏆 ФЕНОМЕНАЛЬНО! 🏆🏆🏆
 
 %s, ты тренируешься уже %d дней подряд! 
 
@@ -2545,8 +2656,45 @@ func (b *Bot) sendThreeWeekCupsReward(msg *tgbotapi.Message, username string, st
 
 #three_week_legend #42_cups #training_king`, username, streakDays, caloriesAdded, totalCalories, totalCups)
 
+	// Короткая ИИ‑приписка (21 день)
+	if b.aiClient != nil {
+		action := tgbotapi.NewChatAction(msg.Chat.ID, tgbotapi.ChatTyping)
+		b.api.Send(action)
+		stopTyping := make(chan struct{})
+		defer close(stopTyping)
+		go func() {
+			ticker := time.NewTicker(4 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					b.api.Send(action)
+				case <-stopTyping:
+					return
+				}
+			}
+		}()
+
+		question := "Сделай ровно 5 предложений-приписку к поздравлению за серию 21 день: строго, дружелюбно, мотивируй не сбавлять обороты. Учитывай текущие калории и кубки. Не повторяй цифры из основного текста. Без Markdown."
+		var ctxBuilder strings.Builder
+		ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
+		ctxBuilder.WriteString("Достигнута серия: 21 день.\n")
+		ctxBuilder.WriteString(fmt.Sprintf("Калорий добавлено: %d\n", caloriesAdded))
+		ctxBuilder.WriteString(fmt.Sprintf("Всего калорий: %d\n", totalCalories))
+		ctxBuilder.WriteString(fmt.Sprintf("Всего кубков: %d\n", totalCups))
+		ctxBuilder.WriteString(fmt.Sprintf("StreakDays: %d\n", streakDays))
+		if addendum, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
+			addendum = strings.TrimSpace(strings.ReplaceAll(addendum, "**", ""))
+			if addendum != "" {
+				messageText = messageText + "\n\n" + addendum
+			}
+		} else {
+			b.logger.Warnf("AI addendum generation (21) failed: %v", err)
+		}
+	}
+
 	// Отправляем сообщение с кубками
-	reply := tgbotapi.NewMessage(msg.Chat.ID, cupsMessage)
+	reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
 
 	b.logger.Infof("Sending three-week cups reward to chat %d for user %s (streak: %d days)", msg.Chat.ID, username, streakDays)
 	_, err = b.api.Send(reply)
@@ -2573,7 +2721,7 @@ func (b *Bot) sendFortyTwoDayCupsReward(msg *tgbotapi.Message, username string, 
 	}
 
 	// Создаем сообщение с 42 кубками
-	cupsMessage := fmt.Sprintf(`🏆🏆🏆🏆 ПОТРЯСАЮЩЕ! 🏆🏆🏆🏆
+	messageText := fmt.Sprintf(`🏆🏆🏆🏆 ПОТРЯСАЮЩЕ! 🏆🏆🏆🏆
 
 %s, ты тренируешься уже %d дней подряд! 
 
@@ -2599,8 +2747,45 @@ func (b *Bot) sendFortyTwoDayCupsReward(msg *tgbotapi.Message, username string, 
 
 #fortytwo_days_hero #42_cups #training_master`, username, streakDays, caloriesAdded, totalCalories, totalCups)
 
+	// Короткая ИИ‑приписка (42 дня)
+	if b.aiClient != nil {
+		action := tgbotapi.NewChatAction(msg.Chat.ID, tgbotapi.ChatTyping)
+		b.api.Send(action)
+		stopTyping := make(chan struct{})
+		defer close(stopTyping)
+		go func() {
+			ticker := time.NewTicker(4 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					b.api.Send(action)
+				case <-stopTyping:
+					return
+				}
+			}
+		}()
+
+		question := "Сделай ровно 5 предложений-приписку к поздравлению за серию 42 дня: строго, дружелюбно, удерживай фокус. Учитывай текущие калории и кубки. Не повторяй цифры из основного текста. Без Markdown."
+		var ctxBuilder strings.Builder
+		ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
+		ctxBuilder.WriteString("Достигнута серия: 42 дня.\n")
+		ctxBuilder.WriteString(fmt.Sprintf("Калорий добавлено: %d\n", caloriesAdded))
+		ctxBuilder.WriteString(fmt.Sprintf("Всего калорий: %d\n", totalCalories))
+		ctxBuilder.WriteString(fmt.Sprintf("Всего кубков: %d\n", totalCups))
+		ctxBuilder.WriteString(fmt.Sprintf("StreakDays: %d\n", streakDays))
+		if addendum, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
+			addendum = strings.TrimSpace(strings.ReplaceAll(addendum, "**", ""))
+			if addendum != "" {
+				messageText = messageText + "\n\n" + addendum
+			}
+		} else {
+			b.logger.Warnf("AI addendum generation (42) failed: %v", err)
+		}
+	}
+
 	// Отправляем сообщение с кубками
-	reply := tgbotapi.NewMessage(msg.Chat.ID, cupsMessage)
+	reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
 
 	b.logger.Infof("Sending 42-day cups reward to chat %d for user %s (streak: %d days)", msg.Chat.ID, username, streakDays)
 	_, err = b.api.Send(reply)
@@ -2627,7 +2812,7 @@ func (b *Bot) sendFiftyDayCupsReward(msg *tgbotapi.Message, username string, str
 	}
 
 	// Создаем сообщение с 42 кубками
-	cupsMessage := fmt.Sprintf(`🏆🏆🏆🏆🏆 ВЕЛИКОЛЕПНО! 🏆🏆🏆🏆🏆
+	messageText := fmt.Sprintf(`🏆🏆🏆🏆🏆 ВЕЛИКОЛЕПНО! 🏆🏆🏆🏆🏆
 
 %s, ты тренируешься уже %d дней подряд! 
 
@@ -2655,8 +2840,45 @@ func (b *Bot) sendFiftyDayCupsReward(msg *tgbotapi.Message, username string, str
 
 #fifty_days_legend #42_cups #training_excellence`, username, streakDays, caloriesAdded, totalCalories, totalCups)
 
+	// Короткая ИИ‑приписка (50 дней)
+	if b.aiClient != nil {
+		action := tgbotapi.NewChatAction(msg.Chat.ID, tgbotapi.ChatTyping)
+		b.api.Send(action)
+		stopTyping := make(chan struct{})
+		defer close(stopTyping)
+		go func() {
+			ticker := time.NewTicker(4 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					b.api.Send(action)
+				case <-stopTyping:
+					return
+				}
+			}
+		}()
+
+		question := "Сделай ровно 5 предложений-приписку к поздравлению за серию 50 дней: строго, дружелюбно, удерживай дисциплину. Учитывай текущие калории и кубки. Не повторяй цифры из основного текста. Без Markdown."
+		var ctxBuilder strings.Builder
+		ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
+		ctxBuilder.WriteString("Достигнута серия: 50 дней.\n")
+		ctxBuilder.WriteString(fmt.Sprintf("Калорий добавлено: %d\n", caloriesAdded))
+		ctxBuilder.WriteString(fmt.Sprintf("Всего калорий: %d\n", totalCalories))
+		ctxBuilder.WriteString(fmt.Sprintf("Всего кубков: %d\n", totalCups))
+		ctxBuilder.WriteString(fmt.Sprintf("StreakDays: %d\n", streakDays))
+		if addendum, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
+			addendum = strings.TrimSpace(strings.ReplaceAll(addendum, "**", ""))
+			if addendum != "" {
+				messageText = messageText + "\n\n" + addendum
+			}
+		} else {
+			b.logger.Warnf("AI addendum generation (50) failed: %v", err)
+		}
+	}
+
 	// Отправляем сообщение с кубками
-	reply := tgbotapi.NewMessage(msg.Chat.ID, cupsMessage)
+	reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
 
 	b.logger.Infof("Sending 50-day cups reward to chat %d for user %s (streak: %d days)", msg.Chat.ID, username, streakDays)
 	_, err = b.api.Send(reply)
@@ -2736,7 +2958,7 @@ func (b *Bot) sendHundredDayCupsReward(msg *tgbotapi.Message, username string, s
 	}
 
 	// Создаем невероятное поздравление с 4200 кубками
-	cupsMessage := fmt.Sprintf(`🌟⚡🎇🎆🎊 НЕВЕРОЯТНОЕ ДОСТИЖЕНИЕ! 🎊🎆🎇⚡🌟
+	messageText := fmt.Sprintf(`🌟⚡🎇🎆🎊 НЕВЕРОЯТНОЕ ДОСТИЖЕНИЕ! 🎊🎆🎇⚡🌟
 
 %s, ты тренируешься уже %d дней подряд! 
 
@@ -2772,8 +2994,45 @@ func (b *Bot) sendHundredDayCupsReward(msg *tgbotapi.Message, username string, s
 
 #hundred_days_god #4200_cups #training_divinity #ultimate_achievement`, username, streakDays, caloriesAdded, totalCalories, totalCups)
 
+	// Короткая ИИ‑приписка (100 дней)
+	if b.aiClient != nil {
+		action := tgbotapi.NewChatAction(msg.Chat.ID, tgbotapi.ChatTyping)
+		b.api.Send(action)
+		stopTyping := make(chan struct{})
+		defer close(stopTyping)
+		go func() {
+			ticker := time.NewTicker(4 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					b.api.Send(action)
+				case <-stopTyping:
+					return
+				}
+			}
+		}()
+
+		question := "Сделай ровно 5 предложений-приписку к поздравлению за серию 100 дней: строго, дружелюбно, уважительно; мотивируй беречь режим. Учитывай текущие калории и кубки. Не повторяй цифры из основного текста. Без Markdown."
+		var ctxBuilder strings.Builder
+		ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
+		ctxBuilder.WriteString("Достигнута серия: 100 дней.\n")
+		ctxBuilder.WriteString(fmt.Sprintf("Калорий добавлено: %d\n", caloriesAdded))
+		ctxBuilder.WriteString(fmt.Sprintf("Всего калорий: %d\n", totalCalories))
+		ctxBuilder.WriteString(fmt.Sprintf("Всего кубков: %d\n", totalCups))
+		ctxBuilder.WriteString(fmt.Sprintf("StreakDays: %d\n", streakDays))
+		if addendum, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
+			addendum = strings.TrimSpace(strings.ReplaceAll(addendum, "**", ""))
+			if addendum != "" {
+				messageText = messageText + "\n\n" + addendum
+			}
+		} else {
+			b.logger.Warnf("AI addendum generation (100) failed: %v", err)
+		}
+	}
+
 	// Отправляем невероятное поздравление
-	reply := tgbotapi.NewMessage(msg.Chat.ID, cupsMessage)
+	reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
 
 	b.logger.Infof("Sending 100-day cups reward to chat %d for user %s (streak: %d days)", msg.Chat.ID, username, streakDays)
 	_, err = b.api.Send(reply)
