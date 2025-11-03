@@ -199,6 +199,9 @@ func (b *Bot) handleCommand(msg *tgbotapi.Message) {
 		b.handleSendToChat(msg)
 	case "announce_ai":
 		b.handleAnnounceAI(msg)
+	case "send_wisdom":
+		// Ручной запуск рассылки мудрости дня
+		b.generateAndSendDailyWisdom()
 	default:
 		b.logger.Warnf("Unknown command: %s", command)
 	}
@@ -3277,9 +3280,18 @@ func (b *Bot) generateAndSendDailyWisdom() {
 	wisdom, err := b.aiClient.GenerateDailyWisdom()
 	if err != nil {
 		b.logger.Errorf("Failed to generate daily wisdom: %v", err)
-		return
+		// Фолбэк на статическую мудрость
+		candidates := []string{
+			"Тишина внутри сильнее шума вокруг. Дисциплина — это форма заботы о себе. Начни с малого и будь верен пути.",
+			"Сила духа рождается в простых шагах. Выбери одно действие сегодня — и сделай его спокойно.",
+			"Тело слушает разум. Разум слушает дыхание. Ровное дыхание — ровный прогресс.",
+			"Пусть тренировка будет краткой, но честной. Постоянство сильнее порывов.",
+			"Не ищи идеального момента. Сделай его. Терпение и движение — союзники."}
+		idx := int(time.Now().Unix() % int64(len(candidates)))
+		wisdom = candidates[idx]
+	} else {
+		wisdom = strings.ReplaceAll(wisdom, "**", "")
 	}
-	wisdom = strings.ReplaceAll(wisdom, "**", "")
 
 	for _, chatID := range chatIDs {
 		msg := tgbotapi.NewMessage(chatID, wisdom)
