@@ -3328,54 +3328,7 @@ func (b *Bot) auditLast24h() {
 		for _, um := range msgs {
 			switch um.MessageType {
 			case "training_done":
-				// Проверим, зачислялся ли день в логе
-				ml, err := b.db.GetMessageLog(um.UserID, um.ChatID)
-				if err != nil {
-					continue
-				}
-				// Дата сообщения в МСК
-				dateStr := um.CreatedAt.In(loc).Format("2006-01-02")
-				if ml.LastTrainingDate != nil && *ml.LastTrainingDate == dateStr {
-					// Уже подтверждено в БД — пропускаем
-					continue
-				}
-				// Отправляем мягкое подтверждение без начислений
-				text := fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Я вижу твою тренировку за %s.\n\n⏰ Бот был перезапущен — отправляю подтверждение сейчас.", um.CreatedAt.In(loc).Format("02.01 15:04"))
-				if b.aiClient != nil {
-					action := tgbotapi.NewChatAction(um.ChatID, tgbotapi.ChatTyping)
-					b.api.Send(action)
-					stop := make(chan struct{})
-					go func() {
-						ticker := time.NewTicker(4 * time.Second)
-						defer ticker.Stop()
-						for {
-							select {
-							case <-ticker.C:
-								b.api.Send(action)
-							case <-stop:
-								return
-							}
-						}
-					}()
-					// короткая приписка + мудрость
-					q := "Сделай короткую (1–2 предложения) приписку к подтверждению пропущенного ответа: спокойно, дружелюбно, без цифр и Markdown."
-					ctx := fmt.Sprintf("Пользователь: %s\nДата тренировки: %s\n", um.Username, um.CreatedAt.In(loc).Format("2006-01-02 15:04"))
-					if add, err := b.aiClient.AnswerUserQuestion(q, ctx); err == nil {
-						add = strings.TrimSpace(strings.ReplaceAll(add, "**", ""))
-						if add != "" {
-							text += "\n\n" + add
-						}
-					}
-					wq := "Дай одну очень короткую мудрую мысль (1 предложение) после подтверждения пропущенного ответа: спокойно, уважительно; без повторения чисел и без Markdown."
-					if w, err := b.aiClient.AnswerUserQuestion(wq, ctx); err == nil {
-						w = strings.TrimSpace(strings.ReplaceAll(w, "**", ""))
-						if w != "" {
-							text += "\n" + w
-						}
-					}
-					close(stop)
-				}
-				b.api.Send(tgbotapi.NewMessage(um.ChatID, text))
+				b.auditProcessTrainingDone(um)
 
 			case "sick_leave":
 				ml, err := b.db.GetMessageLog(um.UserID, um.ChatID)
@@ -3401,6 +3354,82 @@ func (b *Bot) auditLast24h() {
 			}
 		}
 	}
+}
+
+// auditProcessTrainingDone выполняет учет и отправку подтверждения по записи user_messages (после рестарта)
+func (b *Bot) auditProcessTrainingDone(um *models.UserMessage) {
+	loc, _ := time.LoadLocation("Europe/Moscow")
+	dateStr := um.CreatedAt.In(loc).Format("2006-01-02")
+
+	messageLog, err := b.db.GetMessageLog(um.UserID, um.ChatID)
+	if err != nil {
+		b.logger.Errorf("auditProcessTrainingDone: failed to get message log: %v", err)
+		return
+	}
+
+	username := um.Username
+	if username == "" {
+		username = fmt.Sprintf("User%d", um.UserID)
+	}
+
+	already := messageLog.LastTrainingDate != nil && *messageLog.LastTrainingDate == dateStr
+	if already {
+		if err := b.db.AddCups(um.UserID, um.ChatID, 1); err != nil {
+			b.logger.Errorf("audit: failed to add cup for double training: %v", err)
+		}
+		currentCups, _ := b.db.GetUserCups(um.UserID, um.ChatID)
+		text := fmt.Sprintf("🦁 Какой мотивированный леопард! Еще одна тренировка сегодня! 💪\n\n🏆 +1 кубок за дополнительную тренировку!\n🏆 Всего кубков: %d", currentCups)
+		b.api.Send(tgbotapi.NewMessage(um.ChatID, text))
+		return
+	}
+
+	caloriesToAdd, newStreakDays, newCalorieStreakDays, weeklyAchievement, twoWeekAchievement, threeWeekAchievement, monthlyAchievement, fortyTwoDayAchievement, fiftyDayAchievement, sixtyDayAchievement, quarterlyAchievement, hundredDayAchievement := b.calculateCalories(messageLog)
+
+	if caloriesToAdd > 0 {
+		_ = b.db.AddCalories(um.UserID, um.ChatID, caloriesToAdd)
+		_ = b.db.UpdateStreak(um.UserID, um.ChatID, newStreakDays, dateStr)
+		_ = b.db.UpdateCalorieStreakWithDate(um.UserID, um.ChatID, newCalorieStreakDays, dateStr)
+		_ = b.db.AddCups(um.UserID, um.ChatID, 1)
+		if weeklyAchievement {
+			_ = b.db.AddCups(um.UserID, um.ChatID, 42)
+		}
+		if twoWeekAchievement {
+			_ = b.db.AddCups(um.UserID, um.ChatID, 42)
+		}
+		if threeWeekAchievement {
+			_ = b.db.AddCups(um.UserID, um.ChatID, 42)
+		}
+		if monthlyAchievement {
+			_ = b.db.AddCups(um.UserID, um.ChatID, 420)
+		}
+		if fortyTwoDayAchievement {
+			_ = b.db.AddCups(um.UserID, um.ChatID, 42)
+		}
+		if fiftyDayAchievement {
+			_ = b.db.AddCups(um.UserID, um.ChatID, 42)
+		}
+		if sixtyDayAchievement {
+			_ = b.db.AddCups(um.UserID, um.ChatID, 420)
+		}
+		if quarterlyAchievement {
+			_ = b.db.AddCups(um.UserID, um.ChatID, 420)
+		}
+		if hundredDayAchievement {
+			_ = b.db.AddCups(um.UserID, um.ChatID, 4200)
+		}
+
+		totalCalories, _ := b.db.GetUserCalories(um.UserID, um.ChatID)
+		currentCups, _ := b.db.GetUserCups(um.UserID, um.ChatID)
+		text := fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Ты тренируешься дней подряд: %d\n🔥 +%d калорий\n🔥 Всего калорий: %d\n🏆 +1 кубок за тренировку!\n🏆 Всего кубков: %d\n\n⏰ Таймер перезапускается на 7 дней", newStreakDays, caloriesToAdd, totalCalories, currentCups)
+		b.api.Send(tgbotapi.NewMessage(um.ChatID, text))
+	} else {
+		_ = b.db.AddCups(um.UserID, um.ChatID, 1)
+		currentCups, _ := b.db.GetUserCups(um.UserID, um.ChatID)
+		text := fmt.Sprintf("🦁 Какой мотивированный леопард! Еще одна тренировка сегодня! 💪\n\n🏆 +1 кубок за дополнительную тренировку!\n🏆 Всего кубков: %d", currentCups)
+		b.api.Send(tgbotapi.NewMessage(um.ChatID, text))
+	}
+
+	b.startTimer(um.UserID, um.ChatID, username)
 }
 
 // generateAndSendMonthlySummary генерирует и отправляет ежемесячную сводку
