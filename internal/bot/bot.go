@@ -1126,7 +1126,7 @@ func (b *Bot) handleHealthy(msg *tgbotapi.Message) {
 	remainingTimeFormatted := b.formatDurationToDays(remainingTime)
 
 	// Отправляем подтверждение с информацией о времени до удаления
-	messageText := fmt.Sprintf("💪 Выздоровление принято! 🎉\n\n⏰ Таймер возобновлён с места остановки!\n\n⏳ До удаления осталось: %s\n\n🦁 Пора сжечь жир, накопленный за время отсутствия!", remainingTimeFormatted)
+	messageText := fmt.Sprintf("💪 Выздоровление принято! 🎉\n\n⏰ Таймер возобновлён с места остановки!\n\n⏳ До удаления осталось: %s", remainingTimeFormatted)
 
 	// ИИ‑приписка: поздравление с выздоровлением (5 предложений)
 	if b.aiClient != nil {
