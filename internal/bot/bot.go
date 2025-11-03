@@ -1885,9 +1885,54 @@ func (b *Bot) cancelTimer(userID int64) {
 }
 
 func (b *Bot) sendWarning(userID, chatID int64, username string) {
-	message := fmt.Sprintf("⚠️ Предупреждение!\n\n%s, ты не отправляешь отчет о тренировке уже 6 дней!\n\n🦁 Ням-ням, вкусненько! Я питаюсь ленивыми леопардами и становлюсь жирнее!\n\n💪 Ты ведь не хочешь стать как я?\n\n⏰ У тебя остался 1 день до удаления из чата!\n\n🎯 Отправь #training_done прямо сейчас!", username)
+	// Базовый текст предупреждения
+	messageText := fmt.Sprintf("⚠️ Предупреждение!\n\n%s, ты не отправляешь отчет о тренировке уже 6 дней!\n\n🦁 Ням-ням, вкусненько! Я питаюсь ленивыми леопардами и становлюсь жирнее!\n\n💪 Ты ведь не хочешь стать как я?\n\n⏰ У тебя остался 1 день до удаления из чата!\n\n🎯 Отправь #training_done прямо сейчас!", username)
 
-	msg := tgbotapi.NewMessage(chatID, message)
+	// Добавляем короткую ИИ‑приписку к предупреждению
+	if b.aiClient != nil {
+		action := tgbotapi.NewChatAction(chatID, tgbotapi.ChatTyping)
+		b.api.Send(action)
+		stopTyping := make(chan struct{})
+		defer close(stopTyping)
+		go func() {
+			ticker := time.NewTicker(4 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					b.api.Send(action)
+				case <-stopTyping:
+					return
+				}
+			}
+		}()
+
+		// Стараемся собрать немного контекста
+		var ctxBuilder strings.Builder
+		ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
+		if log, err := b.db.GetMessageLog(userID, chatID); err == nil {
+			ctxBuilder.WriteString(fmt.Sprintf("Серия: %d дней\n", log.StreakDays))
+			ctxBuilder.WriteString("Нет отчёта 6 дней, остался 1 день.\n")
+			if log.HasSickLeave && !log.HasHealthy {
+				ctxBuilder.WriteString("На больничном сейчас.\n")
+			}
+		}
+		if cups, err := b.db.GetUserCups(userID, chatID); err == nil {
+			ctxBuilder.WriteString(fmt.Sprintf("Кубков всего: %d\n", cups))
+		}
+
+		question := "Сделай очень короткую (1–2 предложения) приписку к предупреждению: строго, но дружелюбно, мотивируй не лениться и напомни, что я 'ем' только ленивых. Не повторяй цифры и факты из текста. Без Markdown."
+		if addendum, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
+			addendum = strings.TrimSpace(strings.ReplaceAll(addendum, "**", ""))
+			if addendum != "" {
+				messageText = messageText + "\n\n" + addendum
+			}
+		} else {
+			b.logger.Warnf("AI addendum generation (warning) failed: %v", err)
+		}
+	}
+
+	msg := tgbotapi.NewMessage(chatID, messageText)
 	b.logger.Infof("Sending warning to user %d (%s)", userID, username)
 	_, err := b.api.Send(msg)
 	if err != nil {
