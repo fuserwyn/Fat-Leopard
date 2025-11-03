@@ -719,6 +719,22 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 				} else {
 					b.logger.Warnf("AI addendum generation failed: %v", err)
 				}
+
+				// Дополнительно: короткая мудрость для участника (1 предложение)
+				wisdomQuestion := "Дай одну очень короткую мудрую мысль (1 предложение) для участника после успешной тренировки: спокойно, уважительно, как наставник; без пафоса и без повторения чисел из сообщения. Без Markdown."
+				var wisdomCtx strings.Builder
+				wisdomCtx.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
+				wisdomCtx.WriteString(fmt.Sprintf("Серия: %d дней\n", newStreakDays))
+				wisdomCtx.WriteString(fmt.Sprintf("Всего калорий: %d\n", totalCalories))
+				wisdomCtx.WriteString(fmt.Sprintf("Всего кубков: %d\n", currentCups))
+				if w, err := b.aiClient.AnswerUserQuestion(wisdomQuestion, wisdomCtx.String()); err == nil {
+					w = strings.TrimSpace(strings.ReplaceAll(w, "**", ""))
+					if w != "" {
+						messageText = messageText + "\n" + w
+					}
+				} else {
+					b.logger.Warnf("AI wisdom generation failed: %v", err)
+				}
 			}
 
 			reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
@@ -783,6 +799,21 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 					}
 				} else {
 					b.logger.Warnf("AI addendum generation (double) failed: %v", err)
+				}
+
+				// Дополнительно: короткая мудрость (1 предложение) для повторной тренировки
+				wisdomQuestion := "Дай одну очень короткую мудрую мысль (1 предложение) после второй тренировки за день: спокойно, уважительно; без пафоса и без повторения чисел. Без Markdown."
+				var wisdomCtx strings.Builder
+				wisdomCtx.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
+				wisdomCtx.WriteString("Повторная тренировка сегодня.\n")
+				wisdomCtx.WriteString(fmt.Sprintf("Всего кубков: %d\n", currentCups))
+				if w, err := b.aiClient.AnswerUserQuestion(wisdomQuestion, wisdomCtx.String()); err == nil {
+					w = strings.TrimSpace(strings.ReplaceAll(w, "**", ""))
+					if w != "" {
+						messageText = messageText + "\n" + w
+					}
+				} else {
+					b.logger.Warnf("AI wisdom generation (double) failed: %v", err)
 				}
 			}
 
