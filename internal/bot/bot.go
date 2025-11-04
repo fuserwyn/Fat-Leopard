@@ -3701,6 +3701,58 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 		contextText.WriteString("\n⚠️ Данные пользователя не найдены\n")
 	}
 
+	// Добавляем анти‑повторы: последние ответы ИИ для этого пользователя
+	{
+		// Берем последние 30 дней и собираем до 5 последних ai_reply
+		end := time.Now()
+		start := end.AddDate(0, 0, -30)
+		recent, err := b.db.GetUserMessages(msg.From.ID, msg.Chat.ID, start, end)
+		if err == nil {
+			var lastReplies []string
+			for i := len(recent) - 1; i >= 0 && len(lastReplies) < 5; i-- {
+				if strings.ToLower(recent[i].MessageType) == "ai_reply" {
+					lastReplies = append(lastReplies, recent[i].MessageText)
+				}
+			}
+			if len(lastReplies) > 0 {
+				contextText.WriteString("\n=== МОИ ПОСЛЕДНИЕ ОТВЕТЫ (ИЗБЕГАЙ ПОВТОРОВ ТЕМ) ===\n")
+				for _, r := range lastReplies {
+					// укоротим строку
+					txt := r
+					if len(txt) > 400 {
+						txt = txt[:400] + "…"
+					}
+					contextText.WriteString("• " + txt + "\n")
+				}
+			}
+		}
+	}
+
+	// Легкий RAG по чату: несколько анонимных примеров удачных тренировок
+	{
+		end := time.Now()
+		start := end.AddDate(0, 0, -14)
+		examples, err := b.db.GetMessagesInRange(msg.Chat.ID, start, end)
+		if err == nil {
+			var picked []string
+			for i := len(examples) - 1; i >= 0 && len(picked) < 3; i-- {
+				if examples[i].MessageType == "training_done" {
+					text := examples[i].MessageText
+					if len(text) > 200 {
+						text = text[:200] + "…"
+					}
+					picked = append(picked, text)
+				}
+			}
+			if len(picked) > 0 {
+				contextText.WriteString("\n=== ПРИМЕРЫ ИЗ ЭТОГО ЧАТА (АНОНИМНО, ДЛЯ ВАРИАЦИИ СОВЕТОВ) ===\n")
+				for _, p := range picked {
+					contextText.WriteString("• " + p + "\n")
+				}
+			}
+		}
+	}
+
 	// Показываем индикатор набора текста до отправки ответа
 	// Отправляем сразу и поддерживаем индикатор каждые ~4 секунды, пока формируется ответ
 	b.api.Send(tgbotapi.NewChatAction(msg.Chat.ID, tgbotapi.ChatTyping))
@@ -3750,6 +3802,16 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 	if err != nil {
 		b.logger.Errorf("Failed to send AI answer: %v", err)
 	}
+
+	// Сохраняем ответ ИИ для анти‑повторов (тип ai_reply)
+	_ = b.db.SaveUserMessage(&models.UserMessage{
+		UserID:      msg.From.ID,
+		ChatID:      msg.Chat.ID,
+		Username:    b.api.Self.UserName,
+		MessageText: answer,
+		MessageType: "ai_reply",
+		CreatedAt:   time.Now(),
+	})
 }
 
 // scanChatHistory сканирует историю сообщений за указанный период и сохраняет в БД
