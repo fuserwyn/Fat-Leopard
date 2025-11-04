@@ -3701,6 +3701,29 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 		contextText.WriteString("\n⚠️ Данные пользователя не найдены\n")
 	}
 
+	// Недавний контекст беседы (последние 2 часа, до 10 сообщений)
+	{
+		end := time.Now()
+		start := end.Add(-2 * time.Hour)
+		recentChat, err := b.db.GetMessagesInRange(msg.Chat.ID, start, end)
+		if err == nil && len(recentChat) > 0 {
+			contextText.WriteString("\n=== НЕДАВНИЙ КОНТЕКСТ БЕСЕДЫ (2 часа) ===\n")
+			count := 0
+			for i := len(recentChat) - 1; i >= 0 && count < 10; i-- {
+				text := strings.TrimSpace(recentChat[i].MessageText)
+				if text == "" {
+					continue
+				}
+				if len(text) > 300 {
+					text = text[:300] + "…"
+				}
+				ts := recentChat[i].CreatedAt.In(time.FixedZone("MSK", 3*3600)).Format("15:04")
+				contextText.WriteString("• [" + ts + "] " + text + "\n")
+				count++
+			}
+		}
+	}
+
 	// Добавляем анти‑повторы: последние ответы ИИ для этого пользователя
 	{
 		// Берем последние 30 дней и собираем до 5 последних ai_reply
