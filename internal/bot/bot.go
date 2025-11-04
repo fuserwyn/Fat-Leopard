@@ -539,7 +539,44 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 			b.logger.Errorf("Failed to get updated calories: %v", err)
 		} else if updatedCalories >= 100 && updatedCalories-caloriesToAdd < 100 {
 			// Пользователь только что достиг 100 калорий
-			exchangeMessage := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("🎉 Поздравляю! 🎉\n\n%s, достигнуто %d калорий!\n\n🔄 Теперь можешь совершить обмен!\n💡 Напиши #change для обмена 100 калорий на 42 кубка!", username, updatedCalories))
+			messageText := fmt.Sprintf("🎉 Поздравляю! 🎉\n\n%s, достигнуто %d калорий!\n\n🔄 Теперь можешь совершить обмен!\n💡 Напиши #change для обмена 100 калорий на 42 кубка!", username, updatedCalories)
+
+			// Короткая ИИ‑приписка про обмен
+			if b.aiClient != nil {
+				action := tgbotapi.NewChatAction(msg.Chat.ID, tgbotapi.ChatTyping)
+				b.api.Send(action)
+				stopTyping := make(chan struct{})
+				defer close(stopTyping)
+				go func() {
+					ticker := time.NewTicker(4 * time.Second)
+					defer ticker.Stop()
+					for {
+						select {
+						case <-ticker.C:
+							b.api.Send(action)
+						case <-stopTyping:
+							return
+						}
+					}
+				}()
+
+				totalCups, _ := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
+				q := "Сделай короткую приписку (1–2 предложения): дружелюбно и по делу предложи обмен через #change. Обязательно поясни, что после обмена калории обнулятся и начнут накапливаться заново; обмен имеет смысл, если ожидается перерыв в тренировках. Укажи, что серия и кубки продолжаются как обычно. Не повторяй цифры из текста, без Markdown."
+				var ctxBuilder strings.Builder
+				ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
+				ctxBuilder.WriteString(fmt.Sprintf("Текущие калории: %d\n", updatedCalories))
+				ctxBuilder.WriteString(fmt.Sprintf("Текущие кубки: %d\n", totalCups))
+				if add, err := b.aiClient.AnswerUserQuestion(q, ctxBuilder.String()); err == nil {
+					add = strings.TrimSpace(strings.ReplaceAll(add, "**", ""))
+					if add != "" {
+						messageText = messageText + "\n\n" + add
+					}
+				} else {
+					b.logger.Warnf("AI addendum generation (exchange) failed: %v", err)
+				}
+			}
+
+			exchangeMessage := tgbotapi.NewMessage(msg.Chat.ID, messageText)
 
 			b.logger.Infof("Sending 100 calories achievement message to chat %d", msg.Chat.ID)
 			_, err = b.api.Send(exchangeMessage)
