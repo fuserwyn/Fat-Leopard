@@ -3829,17 +3829,17 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 		}
 	}
 
-	// Если упоминаний нет, ищем по словам после ключевых фраз (например, "какого пола Tester")
+	// Если упоминаний нет, ищем по словам после ключевых фраз (например, "какого пола Tester" или "про Tester")
 	questionLower := strings.ToLower(questionText)
-	if len(mentionedUsernames) == 0 && (strings.Contains(questionLower, "пол") || strings.Contains(questionLower, "статистик") || strings.Contains(questionLower, "сколько") || strings.Contains(questionLower, "калори") || strings.Contains(questionLower, "кубк")) {
+	if len(mentionedUsernames) == 0 && (strings.Contains(questionLower, "пол") || strings.Contains(questionLower, "статистик") || strings.Contains(questionLower, "сколько") || strings.Contains(questionLower, "калори") || strings.Contains(questionLower, "кубк") || strings.Contains(questionLower, "про ") || strings.Contains(questionLower, "расскажи")) {
 		// Ищем потенциальные имена пользователей (слова с заглавной буквы или после ключевых фраз)
 		for _, word := range words {
 			word = strings.Trim(word, ".,!?;:")
 			// Пропускаем слишком короткие слова и служебные
-			if len(word) < 2 || word == "какого" || word == "пола" || word == "какой" || word == "про" || word == "о" {
+			if len(word) < 2 || word == "какого" || word == "пола" || word == "какой" || word == "про" || word == "о" || word == "расскажи" || word == "про" {
 				continue
 			}
-			// Если слово начинается с заглавной буквы и не является началом предложения, возможно это имя
+			// Если слово начинается с заглавной буквы, возможно это имя
 			if len(word) > 0 && word[0] >= 'A' && word[0] <= 'Z' {
 				mentionedUsernames = append(mentionedUsernames, word)
 			}
@@ -3902,6 +3902,28 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 				contextText.WriteString(fmt.Sprintf("💬 Последнее сообщение: %s\n", otherUserLog.LastMessage))
 			}
 			break // Нашли одного пользователя, достаточно
+		}
+	}
+
+	// Если спрашивают про список участников ("какие участники", "кто есть", "список участников")
+	questionLower = strings.ToLower(questionText)
+	if strings.Contains(questionLower, "участник") || strings.Contains(questionLower, "кто есть") || strings.Contains(questionLower, "список") {
+		users, err := b.db.GetUsersByChatID(msg.Chat.ID)
+		if err == nil && len(users) > 0 {
+			contextText.WriteString("\n=== СПИСОК УЧАСТНИКОВ ЧАТА ===\n")
+			for i, user := range users {
+				if i >= 10 { // Ограничиваем до 10 участников для краткости
+					contextText.WriteString(fmt.Sprintf("... и еще %d участников\n", len(users)-10))
+					break
+				}
+				genderText := ""
+				if user.Gender == "f" {
+					genderText = " (ж)"
+				} else if user.Gender == "m" {
+					genderText = " (м)"
+				}
+				contextText.WriteString(fmt.Sprintf("%d. %s%s - %d калорий, %d дней серии\n", i+1, user.Username, genderText, user.Calories, user.StreakDays))
+			}
 		}
 	}
 
