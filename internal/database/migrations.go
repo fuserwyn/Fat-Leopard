@@ -127,6 +127,20 @@ var Migrations = []Migration{
 			DROP TABLE IF EXISTS user_messages;
 		`,
 	},
+	{
+		Version:     6,
+		Description: "Add gender field to message_log table",
+		UpSQL: `
+			-- Добавляем поле gender в таблицу message_log
+			ALTER TABLE message_log 
+			ADD COLUMN gender TEXT DEFAULT '';
+		`,
+		DownSQL: `
+			-- Удаляем поле gender из таблицы message_log
+			ALTER TABLE message_log 
+			DROP COLUMN gender;
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции

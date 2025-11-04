@@ -3697,6 +3697,9 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 		}
 
 		contextText.WriteString(fmt.Sprintf("💬 Последнее сообщение: %s\n", userLog.LastMessage))
+		if userLog.Gender != "" {
+			contextText.WriteString(fmt.Sprintf("👤 Пол: %s\n", userLog.Gender))
+		}
 	} else {
 		contextText.WriteString("\n⚠️ Данные пользователя не найдены\n")
 	}
@@ -3792,6 +3795,19 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 			}
 		}
 	}(msg.Chat.ID, typingDone)
+
+	// Пытаемся определить пол из сообщения или имени
+	detectedGender := b.detectGenderFromMessage(questionText)
+	if detectedGender == "" && msg.From.FirstName != "" {
+		detectedGender = b.detectGenderFromName(msg.From.FirstName)
+	}
+
+	// Обновляем пол в базе данных, если он определен
+	if detectedGender != "" {
+		if err := b.updateUserGender(msg.From.ID, msg.Chat.ID, detectedGender); err != nil {
+			b.logger.Warnf("Failed to update user gender: %v", err)
+		}
+	}
 
 	// Генерируем ответ с помощью ИИ
 	answer, err := b.aiClient.AnswerUserQuestion(questionText, contextText.String())
@@ -4092,4 +4108,85 @@ func (b *Bot) handleCallbackQuery(callback *tgbotapi.CallbackQuery) {
 		callbackConfig := tgbotapi.NewCallback(callback.ID, "")
 		b.api.Request(callbackConfig)
 	}
+}
+
+// detectGenderFromName пытается определить пол по русскому имени
+func (b *Bot) detectGenderFromName(firstName string) string {
+	if firstName == "" {
+		return ""
+	}
+	firstName = strings.ToLower(strings.TrimSpace(firstName))
+
+	// Женские окончания русских имен
+	femaleEndings := []string{"а", "я", "ь", "ия", "ина", "ая"}
+	for _, ending := range femaleEndings {
+		if strings.HasSuffix(firstName, ending) {
+			return "female"
+		}
+	}
+
+	// Мужские имена без окончаний (обычно оканчиваются на согласную, кроме ь)
+	// Также имена с окончаниями: ов, ев, ин, ой, ий
+	maleEndings := []string{"ов", "ев", "ин", "ой", "ий"}
+	for _, ending := range maleEndings {
+		if strings.HasSuffix(firstName, ending) {
+			return "male"
+		}
+	}
+
+	// Если имя не оканчивается на характерные окончания, возвращаем пустую строку
+	return ""
+}
+
+// detectGenderFromMessage пытается определить пол из сообщения пользователя
+func (b *Bot) detectGenderFromMessage(text string) string {
+	text = strings.ToLower(text)
+
+	// Паттерны, указывающие на женский пол
+	femalePatterns := []string{"я девочка", "я девушка", "я женщина", "я девочка", "полина", "ирина", "анна", "мария", "елена", "ольга", "татьяна", "наталья", "светлана"}
+	for _, pattern := range femalePatterns {
+		if strings.Contains(text, pattern) {
+			return "female"
+		}
+	}
+
+	// Паттерны, указывающие на мужской пол
+	malePatterns := []string{"я мальчик", "я парень", "я мужчина", "я парень", "александр", "дмитрий", "иван", "михаил", "сергей", "алексей", "андрей", "максим"}
+	for _, pattern := range malePatterns {
+		if strings.Contains(text, pattern) {
+			return "male"
+		}
+	}
+
+	// Проверка упоминания рода в обратной связи
+	if strings.Contains(text, "род") || strings.Contains(text, "пол") {
+		if strings.Contains(text, "женск") || strings.Contains(text, "девочк") || strings.Contains(text, "девушк") {
+			return "female"
+		}
+		if strings.Contains(text, "мужск") || strings.Contains(text, "мальчик") || strings.Contains(text, "парень") {
+			return "male"
+		}
+	}
+
+	return ""
+}
+
+// updateUserGender обновляет пол пользователя в базе данных
+func (b *Bot) updateUserGender(userID, chatID int64, gender string) error {
+	if gender == "" {
+		return nil
+	}
+
+	userLog, err := b.db.GetMessageLog(userID, chatID)
+	if err != nil {
+		return err
+	}
+
+	// Обновляем только если пол еще не установлен или если новый пол определен точно
+	if userLog.Gender == "" || (gender != "unknown" && userLog.Gender == "unknown") {
+		userLog.Gender = gender
+		return b.db.SaveMessageLog(userLog)
+	}
+
+	return nil
 }
