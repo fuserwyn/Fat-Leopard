@@ -3813,6 +3813,98 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 		}
 	}
 
+	// Проверяем, есть ли в вопросе упоминание другого пользователя
+	// Извлекаем упоминания (@username) и ищем информацию о них в БД
+	words := strings.Fields(questionText)
+	var mentionedUsernames []string
+
+	for _, word := range words {
+		word = strings.Trim(word, ".,!?;:")
+		// Ищем упоминания (@username)
+		if strings.HasPrefix(word, "@") {
+			searchUsername := strings.TrimPrefix(word, "@")
+			if len(searchUsername) >= 2 {
+				mentionedUsernames = append(mentionedUsernames, searchUsername)
+			}
+		}
+	}
+
+	// Если упоминаний нет, ищем по словам после ключевых фраз (например, "какого пола Tester")
+	questionLower := strings.ToLower(questionText)
+	if len(mentionedUsernames) == 0 && (strings.Contains(questionLower, "пол") || strings.Contains(questionLower, "статистик") || strings.Contains(questionLower, "сколько") || strings.Contains(questionLower, "калори") || strings.Contains(questionLower, "кубк")) {
+		// Ищем потенциальные имена пользователей (слова с заглавной буквы или после ключевых фраз)
+		for _, word := range words {
+			word = strings.Trim(word, ".,!?;:")
+			// Пропускаем слишком короткие слова и служебные
+			if len(word) < 2 || word == "какого" || word == "пола" || word == "какой" || word == "про" || word == "о" {
+				continue
+			}
+			// Если слово начинается с заглавной буквы и не является началом предложения, возможно это имя
+			if len(word) > 0 && word[0] >= 'A' && word[0] <= 'Z' {
+				mentionedUsernames = append(mentionedUsernames, word)
+			}
+		}
+	}
+
+	// Ищем информацию о найденных пользователях в БД
+	for _, searchUsername := range mentionedUsernames {
+		userID, err := b.db.GetUserIDByUsername(searchUsername, msg.Chat.ID)
+		if err == nil && userID != msg.From.ID {
+			// Нашли другого пользователя, получаем всю информацию о нём
+			otherUserLog, err := b.db.GetMessageLog(userID, msg.Chat.ID)
+			if err == nil {
+				contextText.WriteString("\n=== ИНФОРМАЦИЯ О ЗАПРОШЕННОМ ПОЛЬЗОВАТЕЛЕ ===\n")
+				contextText.WriteString(fmt.Sprintf("Пользователь: %s (ID: %d)\n", otherUserLog.Username, otherUserLog.UserID))
+
+				// Пол
+				var genderInfo string
+				if otherUserLog.Gender == "f" {
+					genderInfo = "женский"
+				} else if otherUserLog.Gender == "m" {
+					genderInfo = "мужской"
+				} else {
+					genderInfo = "не указан"
+				}
+				contextText.WriteString(fmt.Sprintf("Пол: %s\n", genderInfo))
+
+				// Статистика
+				cups, _ := b.db.GetUserCups(userID, msg.Chat.ID)
+				contextText.WriteString(fmt.Sprintf("🔥 Всего калорий: %d\n", otherUserLog.Calories))
+				contextText.WriteString(fmt.Sprintf("🏆 Всего кубков: %d\n", cups))
+				contextText.WriteString(fmt.Sprintf("💪 Серия тренировок: %d дней подряд\n", otherUserLog.StreakDays))
+				contextText.WriteString(fmt.Sprintf("📈 Серия калорий: %d дней подряд\n", otherUserLog.CalorieStreakDays))
+
+				if otherUserLog.LastTrainingDate != nil {
+					contextText.WriteString(fmt.Sprintf("📅 Последняя тренировка: %s\n", *otherUserLog.LastTrainingDate))
+				}
+
+				// Статус
+				if otherUserLog.HasSickLeave {
+					contextText.WriteString("🏥 Статус: На больничном\n")
+					if otherUserLog.SickLeaveStartTime != nil {
+						contextText.WriteString(fmt.Sprintf("   Начало больничного: %s\n", *otherUserLog.SickLeaveStartTime))
+					}
+				} else if otherUserLog.HasHealthy {
+					contextText.WriteString("✅ Статус: Здоров\n")
+				} else {
+					contextText.WriteString("✅ Статус: Активен\n")
+				}
+
+				// Таймер
+				if otherUserLog.TimerStartTime != nil {
+					remainingTime := b.calculateRemainingTime(otherUserLog)
+					if remainingTime > 0 {
+						remainingTimeFormatted := b.formatDurationToDays(remainingTime)
+						contextText.WriteString(fmt.Sprintf("⏳ До удаления осталось: %s\n", remainingTimeFormatted))
+					}
+				}
+
+				contextText.WriteString(fmt.Sprintf("💬 Последнее сообщение: %s\n", otherUserLog.LastMessage))
+			}
+			break // Нашли одного пользователя, достаточно
+		}
+	}
+
 	// Генерируем ответ с помощью ИИ
 	answer, err := b.aiClient.AnswerUserQuestion(questionText, contextText.String())
 	if err != nil {
