@@ -3831,17 +3831,60 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 
 	// Если упоминаний нет, ищем по словам после ключевых фраз (например, "какого пола Tester" или "про Tester")
 	questionLower := strings.ToLower(questionText)
-	if len(mentionedUsernames) == 0 && (strings.Contains(questionLower, "пол") || strings.Contains(questionLower, "статистик") || strings.Contains(questionLower, "сколько") || strings.Contains(questionLower, "калори") || strings.Contains(questionLower, "кубк") || strings.Contains(questionLower, "про ") || strings.Contains(questionLower, "расскажи")) {
+	if len(mentionedUsernames) == 0 && (strings.Contains(questionLower, "пол") || strings.Contains(questionLower, "статистик") || strings.Contains(questionLower, "сколько") || strings.Contains(questionLower, "калори") || strings.Contains(questionLower, "кубк") || strings.Contains(questionLower, "про ") || strings.Contains(questionLower, "расскажи") || strings.Contains(questionLower, "достижен") || strings.Contains(questionLower, "у него") || strings.Contains(questionLower, "у неё") || strings.Contains(questionLower, "его") || strings.Contains(questionLower, "её")) {
 		// Ищем потенциальные имена пользователей (слова с заглавной буквы или после ключевых фраз)
 		for _, word := range words {
 			word = strings.Trim(word, ".,!?;:")
 			// Пропускаем слишком короткие слова и служебные
-			if len(word) < 2 || word == "какого" || word == "пола" || word == "какой" || word == "про" || word == "о" || word == "расскажи" || word == "про" {
+			if len(word) < 2 || word == "какого" || word == "пола" || word == "какой" || word == "про" || word == "о" || word == "расскажи" || word == "у" || word == "него" || word == "неё" || word == "его" || word == "её" || word == "какие" {
 				continue
 			}
 			// Если слово начинается с заглавной буквы, возможно это имя
 			if len(word) > 0 && word[0] >= 'A' && word[0] <= 'Z' {
 				mentionedUsernames = append(mentionedUsernames, word)
+			}
+		}
+	}
+
+	// Если упоминаний всё ещё нет, но есть местоимения "он", "его", "у него" - ищем в недавнем контексте
+	if len(mentionedUsernames) == 0 && (strings.Contains(questionLower, "у него") || strings.Contains(questionLower, "у неё") || strings.Contains(questionLower, "его") || strings.Contains(questionLower, "её")) {
+		// Ищем в недавнем контексте беседы (последние 2 часа) упоминания пользователей
+		end := time.Now()
+		start := end.Add(-2 * time.Hour)
+		recentChat, err := b.db.GetMessagesInRange(msg.Chat.ID, start, end)
+		if err == nil {
+			// Ищем в последних сообщениях упоминания пользователей или имена с заглавной буквы
+			for i := len(recentChat) - 1; i >= 0 && i >= len(recentChat)-5; i-- {
+				text := recentChat[i].MessageText
+				// Ищем @username
+				if strings.Contains(text, "@") {
+					parts := strings.Fields(text)
+					for _, part := range parts {
+						if strings.HasPrefix(part, "@") {
+							username := strings.TrimPrefix(part, "@")
+							username = strings.Trim(username, ".,!?;:")
+							if len(username) >= 2 {
+								mentionedUsernames = append(mentionedUsernames, username)
+								break
+							}
+						}
+					}
+				}
+				// Ищем слова с заглавной буквы (имена)
+				if len(mentionedUsernames) == 0 {
+					nameParts := strings.Fields(text)
+					for _, namePart := range nameParts {
+						namePart = strings.Trim(namePart, ".,!?;:")
+						if len(namePart) >= 2 && namePart[0] >= 'A' && namePart[0] <= 'Z' {
+							// Проверяем, не является ли это именем пользователя в БД
+							mentionedUsernames = append(mentionedUsernames, namePart)
+							break
+						}
+					}
+				}
+				if len(mentionedUsernames) > 0 {
+					break
+				}
 			}
 		}
 	}
