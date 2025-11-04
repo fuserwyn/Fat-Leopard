@@ -3899,16 +3899,18 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 				contextText.WriteString("\n=== ИНФОРМАЦИЯ О ЗАПРОШЕННОМ ПОЛЬЗОВАТЕЛЕ ===\n")
 				contextText.WriteString(fmt.Sprintf("Пользователь: %s (ID: %d)\n", otherUserLog.Username, otherUserLog.UserID))
 
-				// Пол
-				var genderInfo string
-				if otherUserLog.Gender == "f" {
-					genderInfo = "женский"
-				} else if otherUserLog.Gender == "m" {
-					genderInfo = "мужской"
-				} else {
-					genderInfo = "не указан"
+				// Пол (только если указан)
+				if otherUserLog.Gender != "" {
+					var genderInfo string
+					if otherUserLog.Gender == "f" {
+						genderInfo = "женский"
+					} else if otherUserLog.Gender == "m" {
+						genderInfo = "мужской"
+					}
+					if genderInfo != "" {
+						contextText.WriteString(fmt.Sprintf("Пол: %s\n", genderInfo))
+					}
 				}
-				contextText.WriteString(fmt.Sprintf("Пол: %s\n", genderInfo))
 
 				// Статистика
 				cups, _ := b.db.GetUserCups(userID, msg.Chat.ID)
@@ -3963,16 +3965,18 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 				// Полная информация о каждом участнике
 				contextText.WriteString(fmt.Sprintf("\n--- УЧАСТНИК %d: %s (ID: %d) ---\n", i+1, user.Username, user.UserID))
 
-				// Пол
-				var genderText string
-				if user.Gender == "f" {
-					genderText = "женский"
-				} else if user.Gender == "m" {
-					genderText = "мужской"
-				} else {
-					genderText = "не указан"
+				// Пол (только если указан)
+				if user.Gender != "" {
+					var genderText string
+					if user.Gender == "f" {
+						genderText = "женский"
+					} else if user.Gender == "m" {
+						genderText = "мужской"
+					}
+					if genderText != "" {
+						contextText.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
+					}
 				}
-				contextText.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
 
 				// Статистика
 				cups, _ := b.db.GetUserCups(user.UserID, msg.Chat.ID)
