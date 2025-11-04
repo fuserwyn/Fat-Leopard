@@ -3948,24 +3948,65 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 		}
 	}
 
-	// Если спрашивают про список участников ("какие участники", "кто есть", "список участников")
+	// Если спрашивают про список участников ("какие участники", "кто есть", "список участников", "какого пола участники")
 	questionLower = strings.ToLower(questionText)
 	if strings.Contains(questionLower, "участник") || strings.Contains(questionLower, "кто есть") || strings.Contains(questionLower, "список") {
 		users, err := b.db.GetUsersByChatID(msg.Chat.ID)
 		if err == nil && len(users) > 0 {
-			contextText.WriteString("\n=== СПИСОК УЧАСТНИКОВ ЧАТА ===\n")
+			contextText.WriteString("\n=== ПОЛНАЯ ИНФОРМАЦИЯ О ВСЕХ УЧАСТНИКАХ ЧАТА ===\n")
 			for i, user := range users {
-				if i >= 10 { // Ограничиваем до 10 участников для краткости
-					contextText.WriteString(fmt.Sprintf("... и еще %d участников\n", len(users)-10))
+				if i >= 15 { // Ограничиваем до 15 участников для краткости
+					contextText.WriteString(fmt.Sprintf("\n... и еще %d участников\n", len(users)-15))
 					break
 				}
-				genderText := ""
+
+				// Полная информация о каждом участнике
+				contextText.WriteString(fmt.Sprintf("\n--- УЧАСТНИК %d: %s (ID: %d) ---\n", i+1, user.Username, user.UserID))
+
+				// Пол
+				var genderText string
 				if user.Gender == "f" {
-					genderText = " (ж)"
+					genderText = "женский"
 				} else if user.Gender == "m" {
-					genderText = " (м)"
+					genderText = "мужской"
+				} else {
+					genderText = "не указан"
 				}
-				contextText.WriteString(fmt.Sprintf("%d. %s%s - %d калорий, %d дней серии\n", i+1, user.Username, genderText, user.Calories, user.StreakDays))
+				contextText.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
+
+				// Статистика
+				cups, _ := b.db.GetUserCups(user.UserID, msg.Chat.ID)
+				contextText.WriteString(fmt.Sprintf("🔥 Всего калорий: %d\n", user.Calories))
+				contextText.WriteString(fmt.Sprintf("🏆 Всего кубков: %d\n", cups))
+				contextText.WriteString(fmt.Sprintf("💪 Серия тренировок: %d дней подряд\n", user.StreakDays))
+				contextText.WriteString(fmt.Sprintf("📈 Серия калорий: %d дней подряд\n", user.CalorieStreakDays))
+
+				if user.LastTrainingDate != nil {
+					contextText.WriteString(fmt.Sprintf("📅 Последняя тренировка: %s\n", *user.LastTrainingDate))
+				}
+
+				// Статус
+				if user.HasSickLeave {
+					contextText.WriteString("🏥 Статус: На больничном\n")
+					if user.SickLeaveStartTime != nil {
+						contextText.WriteString(fmt.Sprintf("   Начало больничного: %s\n", *user.SickLeaveStartTime))
+					}
+				} else if user.HasHealthy {
+					contextText.WriteString("✅ Статус: Здоров\n")
+				} else {
+					contextText.WriteString("✅ Статус: Активен\n")
+				}
+
+				// Таймер
+				if user.TimerStartTime != nil {
+					remainingTime := b.calculateRemainingTime(user)
+					if remainingTime > 0 {
+						remainingTimeFormatted := b.formatDurationToDays(remainingTime)
+						contextText.WriteString(fmt.Sprintf("⏳ До удаления осталось: %s\n", remainingTimeFormatted))
+					}
+				}
+
+				contextText.WriteString(fmt.Sprintf("💬 Последнее сообщение: %s\n", user.LastMessage))
 			}
 		}
 	}
