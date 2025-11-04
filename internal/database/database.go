@@ -157,7 +157,9 @@ func (d *Database) GetMessageLog(userID, chatID int64) (*models.MessageLog, erro
 		SELECT user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion,
 		       timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, gender, created_at, updated_at
 		FROM message_log 
-		WHERE user_id = $1 AND chat_id = $2
+		WHERE user_id = $1 AND chat_id = $2 AND is_deleted = FALSE
+		ORDER BY updated_at DESC
+		LIMIT 1
 	`
 
 	var msg models.MessageLog
@@ -170,8 +172,8 @@ func (d *Database) GetMessageLog(userID, chatID int64) (*models.MessageLog, erro
 	}
 
 	// Временное логирование для отладки
-	fmt.Printf("DEBUG: Retrieved from DB - UserID: %d, HasSickLeave: %t, TimerStartTime: %v, SickLeaveStartTime: %v, RestTimeTillDel: %v\n",
-		msg.UserID, msg.HasSickLeave, msg.TimerStartTime, msg.SickLeaveStartTime, msg.RestTimeTillDel)
+	fmt.Printf("DEBUG: Retrieved from DB - UserID: %d, Username: %s, Gender: '%s', HasSickLeave: %t, TimerStartTime: %v, SickLeaveStartTime: %v, RestTimeTillDel: %v\n",
+		msg.UserID, msg.Username, msg.Gender, msg.HasSickLeave, msg.TimerStartTime, msg.SickLeaveStartTime, msg.RestTimeTillDel)
 
 	return &msg, nil
 }

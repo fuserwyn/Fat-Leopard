@@ -3900,12 +3900,18 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 				contextText.WriteString(fmt.Sprintf("Пользователь: %s (ID: %d)\n", otherUserLog.Username, otherUserLog.UserID))
 
 				// Пол (только если указан)
-				if otherUserLog.Gender != "" {
+				genderNormalized := strings.TrimSpace(strings.ToLower(otherUserLog.Gender))
+				if genderNormalized != "" {
 					var genderInfo string
-					if otherUserLog.Gender == "f" {
+					// Логируем для отладки
+					b.logger.Infof("DEBUG: User %s (%d) gender from DB (raw): '%s', normalized: '%s'", otherUserLog.Username, otherUserLog.UserID, otherUserLog.Gender, genderNormalized)
+					if genderNormalized == "f" {
 						genderInfo = "женский"
-					} else if otherUserLog.Gender == "m" {
+					} else if genderNormalized == "m" {
 						genderInfo = "мужской"
+					} else {
+						// Если не f и не m, логируем ошибку
+						b.logger.Warnf("DEBUG: Unknown gender value '%s' (normalized: '%s') for user %s (%d)", otherUserLog.Gender, genderNormalized, otherUserLog.Username, otherUserLog.UserID)
 					}
 					if genderInfo != "" {
 						contextText.WriteString(fmt.Sprintf("Пол: %s\n", genderInfo))
@@ -3966,12 +3972,18 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 				contextText.WriteString(fmt.Sprintf("\n--- УЧАСТНИК %d: %s (ID: %d) ---\n", i+1, user.Username, user.UserID))
 
 				// Пол (только если указан)
-				if user.Gender != "" {
+				genderNormalized := strings.TrimSpace(strings.ToLower(user.Gender))
+				if genderNormalized != "" {
 					var genderText string
-					if user.Gender == "f" {
+					// Логируем для отладки
+					b.logger.Infof("DEBUG: User %s (%d) gender from DB (raw): '%s', normalized: '%s'", user.Username, user.UserID, user.Gender, genderNormalized)
+					if genderNormalized == "f" {
 						genderText = "женский"
-					} else if user.Gender == "m" {
+					} else if genderNormalized == "m" {
 						genderText = "мужской"
+					} else {
+						// Если не f и не m, логируем ошибку
+						b.logger.Warnf("DEBUG: Unknown gender value '%s' (normalized: '%s') for user %s (%d)", user.Gender, genderNormalized, user.Username, user.UserID)
 					}
 					if genderText != "" {
 						contextText.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
