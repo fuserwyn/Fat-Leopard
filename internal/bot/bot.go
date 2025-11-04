@@ -3697,12 +3697,17 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 		}
 
 		contextText.WriteString(fmt.Sprintf("💬 Последнее сообщение: %s\n", userLog.LastMessage))
-		if userLog.Gender != "" {
-			genderText := "male"
-			if userLog.Gender == "f" {
-				genderText = "female"
+		genderNormalized := strings.TrimSpace(strings.ToLower(userLog.Gender))
+		if genderNormalized != "" {
+			var genderText string
+			if genderNormalized == "f" {
+				genderText = "женский"
+			} else if genderNormalized == "m" {
+				genderText = "мужской"
 			}
-			contextText.WriteString(fmt.Sprintf("👤 Пол: %s\n", genderText))
+			if genderText != "" {
+				contextText.WriteString(fmt.Sprintf("👤 Пол: %s\n", genderText))
+			}
 		}
 	} else {
 		contextText.WriteString("\n⚠️ Данные пользователя не найдены\n")
