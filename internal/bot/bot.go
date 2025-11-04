@@ -3698,7 +3698,11 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 
 		contextText.WriteString(fmt.Sprintf("💬 Последнее сообщение: %s\n", userLog.LastMessage))
 		if userLog.Gender != "" {
-			contextText.WriteString(fmt.Sprintf("👤 Пол: %s\n", userLog.Gender))
+			genderText := "male"
+			if userLog.Gender == "f" {
+				genderText = "female"
+			}
+			contextText.WriteString(fmt.Sprintf("👤 Пол: %s\n", genderText))
 		}
 	} else {
 		contextText.WriteString("\n⚠️ Данные пользователя не найдены\n")
@@ -4121,7 +4125,7 @@ func (b *Bot) detectGenderFromName(firstName string) string {
 	femaleEndings := []string{"а", "я", "ь", "ия", "ина", "ая"}
 	for _, ending := range femaleEndings {
 		if strings.HasSuffix(firstName, ending) {
-			return "female"
+			return "f"
 		}
 	}
 
@@ -4130,7 +4134,7 @@ func (b *Bot) detectGenderFromName(firstName string) string {
 	maleEndings := []string{"ов", "ев", "ин", "ой", "ий"}
 	for _, ending := range maleEndings {
 		if strings.HasSuffix(firstName, ending) {
-			return "male"
+			return "m"
 		}
 	}
 
@@ -4146,7 +4150,7 @@ func (b *Bot) detectGenderFromMessage(text string) string {
 	femalePatterns := []string{"я девочка", "я девушка", "я женщина", "я девочка", "полина", "ирина", "анна", "мария", "елена", "ольга", "татьяна", "наталья", "светлана"}
 	for _, pattern := range femalePatterns {
 		if strings.Contains(text, pattern) {
-			return "female"
+			return "f"
 		}
 	}
 
@@ -4154,17 +4158,17 @@ func (b *Bot) detectGenderFromMessage(text string) string {
 	malePatterns := []string{"я мальчик", "я парень", "я мужчина", "я парень", "александр", "дмитрий", "иван", "михаил", "сергей", "алексей", "андрей", "максим"}
 	for _, pattern := range malePatterns {
 		if strings.Contains(text, pattern) {
-			return "male"
+			return "m"
 		}
 	}
 
 	// Проверка упоминания рода в обратной связи
 	if strings.Contains(text, "род") || strings.Contains(text, "пол") {
 		if strings.Contains(text, "женск") || strings.Contains(text, "девочк") || strings.Contains(text, "девушк") {
-			return "female"
+			return "f"
 		}
 		if strings.Contains(text, "мужск") || strings.Contains(text, "мальчик") || strings.Contains(text, "парень") {
-			return "male"
+			return "m"
 		}
 	}
 
@@ -4182,8 +4186,8 @@ func (b *Bot) updateUserGender(userID, chatID int64, gender string) error {
 		return err
 	}
 
-	// Обновляем только если пол еще не установлен или если новый пол определен точно
-	if userLog.Gender == "" || (gender != "unknown" && userLog.Gender == "unknown") {
+	// Обновляем только если пол еще не установлен
+	if userLog.Gender == "" {
 		userLog.Gender = gender
 		return b.db.SaveMessageLog(userLog)
 	}

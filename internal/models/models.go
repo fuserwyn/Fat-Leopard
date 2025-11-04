@@ -25,7 +25,7 @@ type MessageLog struct {
 	SickLeaveEndTime     *string   `json:"sick_leave_end_time" db:"sick_leave_end_time"`
 	SickTime             *string   `json:"sick_time" db:"sick_time"`
 	RestTimeTillDel      *string   `json:"rest_time_till_del" db:"rest_time_till_del"`
-	Gender               string    `json:"gender" db:"gender"` // "male", "female", "unknown", or empty
+	Gender               string    `json:"gender" db:"gender"` // "m" (male), "f" (female), or empty
 	CreatedAt            time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt            time.Time `json:"updated_at" db:"updated_at"`
 }
