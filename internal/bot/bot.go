@@ -517,6 +517,19 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 		return
 	}
 
+	// Определяем пол пользователя из БД или по имени
+	userGender := strings.TrimSpace(strings.ToLower(messageLog.Gender))
+	if userGender == "" {
+		// Если пол не указан в БД, пытаемся определить по имени
+		userGender = b.detectGenderFromName(msg.From.FirstName)
+		if userGender != "" {
+			// Сохраняем определенный пол в БД
+			if err := b.updateUserGender(msg.From.ID, msg.Chat.ID, userGender); err != nil {
+				b.logger.Warnf("Failed to update user gender: %v", err)
+			}
+		}
+	}
+
 	// Рассчитываем калории и серию
 	caloriesToAdd, newStreakDays, newCalorieStreakDays, weeklyAchievement, twoWeekAchievement, threeWeekAchievement, monthlyAchievement, fortyTwoDayAchievement, fiftyDayAchievement, sixtyDayAchievement, quarterlyAchievement, hundredDayAchievement := b.calculateCalories(messageLog)
 
@@ -564,6 +577,19 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 				q := "Сделай короткую приписку (1–2 предложения): дружелюбно и по делу предложи обмен через #change. Обязательно поясни, что после обмена калории обнулятся и начнут накапливаться заново; обмен имеет смысл, если ожидается перерыв в тренировках. Укажи, что серия и кубки продолжаются как обычно. Не повторяй цифры из текста, без Markdown."
 				var ctxBuilder strings.Builder
 				ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
+				// Добавляем пол пользователя в контекст
+				genderNormalized := strings.TrimSpace(strings.ToLower(userGender))
+				if genderNormalized != "" {
+					var genderText string
+					if genderNormalized == "f" {
+						genderText = "женский"
+					} else if genderNormalized == "m" {
+						genderText = "мужской"
+					}
+					if genderText != "" {
+						ctxBuilder.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
+					}
+				}
 				ctxBuilder.WriteString(fmt.Sprintf("Текущие калории: %d\n", updatedCalories))
 				ctxBuilder.WriteString(fmt.Sprintf("Текущие кубки: %d\n", totalCups))
 				if add, err := b.aiClient.AnswerUserQuestion(q, ctxBuilder.String()); err == nil {
@@ -746,6 +772,19 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 				question := "Сделай очень короткую (1–2 предложения) дружелюбную, но строгую приписку после отчёта #training_done. Не повторяй цифры из сообщения, не перечисляй правила. Без Markdown."
 				var ctxBuilder strings.Builder
 				ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
+				// Добавляем пол пользователя в контекст
+				genderNormalized := strings.TrimSpace(strings.ToLower(userGender))
+				if genderNormalized != "" {
+					var genderText string
+					if genderNormalized == "f" {
+						genderText = "женский"
+					} else if genderNormalized == "m" {
+						genderText = "мужской"
+					}
+					if genderText != "" {
+						ctxBuilder.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
+					}
+				}
 				ctxBuilder.WriteString(fmt.Sprintf("Серия: %d дней\n", newStreakDays))
 				ctxBuilder.WriteString(fmt.Sprintf("Добавлено калорий: %d\n", caloriesToAdd))
 				ctxBuilder.WriteString(fmt.Sprintf("Текущие калории: %d\n", totalCalories))
@@ -767,6 +806,19 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 				wisdomQuestion := "Дай одну очень короткую мудрую мысль (1 предложение) для участника после успешной тренировки: спокойно, уважительно, как наставник; без пафоса и без повторения чисел из сообщения. Без Markdown."
 				var wisdomCtx strings.Builder
 				wisdomCtx.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
+				// Добавляем пол пользователя в контекст
+				genderNormalized := strings.TrimSpace(strings.ToLower(userGender))
+				if genderNormalized != "" {
+					var genderText string
+					if genderNormalized == "f" {
+						genderText = "женский"
+					} else if genderNormalized == "m" {
+						genderText = "мужской"
+					}
+					if genderText != "" {
+						wisdomCtx.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
+					}
+				}
 				wisdomCtx.WriteString(fmt.Sprintf("Серия: %d дней\n", newStreakDays))
 				wisdomCtx.WriteString(fmt.Sprintf("Всего калорий: %d\n", totalCalories))
 				wisdomCtx.WriteString(fmt.Sprintf("Всего кубков: %d\n", currentCups))
@@ -829,6 +881,19 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 				question := "Сделай очень короткую (1–2 предложения) дружелюбную, но строгую приписку после дополнительной тренировки в тот же день. Не повторяй цифры из сообщения. Без Markdown."
 				var ctxBuilder strings.Builder
 				ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
+				// Добавляем пол пользователя в контекст
+				genderNormalized := strings.TrimSpace(strings.ToLower(userGender))
+				if genderNormalized != "" {
+					var genderText string
+					if genderNormalized == "f" {
+						genderText = "женский"
+					} else if genderNormalized == "m" {
+						genderText = "мужской"
+					}
+					if genderText != "" {
+						ctxBuilder.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
+					}
+				}
 				ctxBuilder.WriteString("Уже была тренировка сегодня, это повторная.\n")
 				ctxBuilder.WriteString(fmt.Sprintf("Кубков всего: %d\n", currentCups))
 				if wasOnSickLeave {
@@ -848,6 +913,19 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 				wisdomQuestion := "Дай одну очень короткую мудрую мысль (1 предложение) после второй тренировки за день: спокойно, уважительно; без пафоса и без повторения чисел. Без Markdown."
 				var wisdomCtx strings.Builder
 				wisdomCtx.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
+				// Добавляем пол пользователя в контекст
+				genderNormalized := strings.TrimSpace(strings.ToLower(userGender))
+				if genderNormalized != "" {
+					var genderText string
+					if genderNormalized == "f" {
+						genderText = "женский"
+					} else if genderNormalized == "m" {
+						genderText = "мужской"
+					}
+					if genderText != "" {
+						wisdomCtx.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
+					}
+				}
 				wisdomCtx.WriteString("Повторная тренировка сегодня.\n")
 				wisdomCtx.WriteString(fmt.Sprintf("Всего кубков: %d\n", currentCups))
 				if w, err := b.aiClient.AnswerUserQuestion(wisdomQuestion, wisdomCtx.String()); err == nil {
@@ -1041,6 +1119,19 @@ func (b *Bot) handleSickLeave(msg *tgbotapi.Message) {
 		question := "Сделай ровно 5 предложений‑приписку после сообщения о взятии больничного: строго, дружелюбно, пожелай скорейшего восстановления и мягко мотивируй вернуться к режиму. Учитывай текущие калории и кубки, упомяни, что я 'ем' только ленивых (без угроз активным). Не повторяй цифры из основного текста. Без Markdown."
 		var ctxBuilder strings.Builder
 		ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", messageLog.Username))
+		// Добавляем пол пользователя в контекст
+		userGender := strings.TrimSpace(strings.ToLower(messageLog.Gender))
+		if userGender != "" {
+			var genderText string
+			if userGender == "f" {
+				genderText = "женский"
+			} else if userGender == "m" {
+				genderText = "мужской"
+			}
+			if genderText != "" {
+				ctxBuilder.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
+			}
+		}
 		ctxBuilder.WriteString("Событие: взят больничный (таймер приостановлен).\n")
 		ctxBuilder.WriteString(fmt.Sprintf("После выздоровления останется: %s\n", remainingTimeFormatted))
 		ctxBuilder.WriteString(fmt.Sprintf("Всего калорий: %d\n", messageLog.Calories))
@@ -1195,6 +1286,19 @@ func (b *Bot) handleHealthy(msg *tgbotapi.Message) {
 		question := "Сделай ровно 5 предложений‑приписку после сообщения о выздоровлении: строго, дружелюбно, поздравь с возвращением и мотивируй аккуратно войти в режим. Учитывай текущие калории и кубки, и остаток таймера. Не повторяй цифры из основного текста. Без Markdown."
 		var ctxBuilder strings.Builder
 		ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
+		// Добавляем пол пользователя в контекст
+		userGender := strings.TrimSpace(strings.ToLower(messageLog.Gender))
+		if userGender != "" {
+			var genderText string
+			if userGender == "f" {
+				genderText = "женский"
+			} else if userGender == "m" {
+				genderText = "мужской"
+			}
+			if genderText != "" {
+				ctxBuilder.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
+			}
+		}
 		ctxBuilder.WriteString("Событие: выздоровление (таймер возобновлён).\n")
 		ctxBuilder.WriteString(fmt.Sprintf("До удаления осталось: %s\n", remainingTimeFormatted))
 		ctxBuilder.WriteString(fmt.Sprintf("Всего калорий: %d\n", messageLog.Calories))
@@ -2081,6 +2185,19 @@ func (b *Bot) sendWarning(userID, chatID int64, username string) {
 		var ctxBuilder strings.Builder
 		ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
 		if log, err := b.db.GetMessageLog(userID, chatID); err == nil {
+			// Добавляем пол пользователя в контекст
+			userGender := strings.TrimSpace(strings.ToLower(log.Gender))
+			if userGender != "" {
+				var genderText string
+				if userGender == "f" {
+					genderText = "женский"
+				} else if userGender == "m" {
+					genderText = "мужской"
+				}
+				if genderText != "" {
+					ctxBuilder.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
+				}
+			}
 			ctxBuilder.WriteString(fmt.Sprintf("Серия: %d дней\n", log.StreakDays))
 			ctxBuilder.WriteString("Нет отчёта 6 дней, остался 1 день.\n")
 			if log.HasSickLeave && !log.HasHealthy {
@@ -2520,6 +2637,22 @@ func (b *Bot) sendWeeklyCupsReward(msg *tgbotapi.Message, username string, strea
 		question := "Сделай ровно 5 предложений-приписку к поздравлению за серию 7 дней: строго, дружелюбно, мотивируй продолжать. Учитывай текущие калории и кубки. Не повторяй цифры из основного текста. Без Markdown."
 		var ctxBuilder strings.Builder
 		ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
+		// Добавляем пол пользователя в контекст
+		messageLog, err := b.db.GetMessageLog(msg.From.ID, msg.Chat.ID)
+		if err == nil {
+			userGender := strings.TrimSpace(strings.ToLower(messageLog.Gender))
+			if userGender != "" {
+				var genderText string
+				if userGender == "f" {
+					genderText = "женский"
+				} else if userGender == "m" {
+					genderText = "мужской"
+				}
+				if genderText != "" {
+					ctxBuilder.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
+				}
+			}
+		}
 		ctxBuilder.WriteString("Достигнута серия: 7 дней.\n")
 		ctxBuilder.WriteString(fmt.Sprintf("Калорий добавлено: %d\n", caloriesAdded))
 		ctxBuilder.WriteString(fmt.Sprintf("Всего калорий: %d\n", totalCalories))
@@ -2615,6 +2748,22 @@ func (b *Bot) sendMonthlyCupsReward(msg *tgbotapi.Message, username string, stre
 		question := "Сделай ровно 5 предложений-приписку к поздравлению за серию 30 дней: строго, дружелюбно, мотивируй держать планку. Учитывай текущие калории и кубки. Не повторяй цифры из основного текста. Без Markdown."
 		var ctxBuilder strings.Builder
 		ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
+		// Добавляем пол пользователя в контекст
+		messageLog, err := b.db.GetMessageLog(msg.From.ID, msg.Chat.ID)
+		if err == nil {
+			userGender := strings.TrimSpace(strings.ToLower(messageLog.Gender))
+			if userGender != "" {
+				var genderText string
+				if userGender == "f" {
+					genderText = "женский"
+				} else if userGender == "m" {
+					genderText = "мужской"
+				}
+				if genderText != "" {
+					ctxBuilder.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
+				}
+			}
+		}
 		ctxBuilder.WriteString("Достигнута серия: 30 дней.\n")
 		ctxBuilder.WriteString(fmt.Sprintf("Калорий добавлено: %d\n", caloriesAdded))
 		ctxBuilder.WriteString(fmt.Sprintf("Всего калорий: %d\n", totalCalories))
@@ -2755,6 +2904,22 @@ func (b *Bot) sendTwoWeekCupsReward(msg *tgbotapi.Message, username string, stre
 		question := "Сделай ровно 5 предложений-приписку к поздравлению за серию 14 дней: строго, дружелюбно, подчёркивай стабильность. Учитывай текущие калории и кубки. Не повторяй цифры из основного текста. Без Markdown."
 		var ctxBuilder strings.Builder
 		ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
+		// Добавляем пол пользователя в контекст
+		messageLog, err := b.db.GetMessageLog(msg.From.ID, msg.Chat.ID)
+		if err == nil {
+			userGender := strings.TrimSpace(strings.ToLower(messageLog.Gender))
+			if userGender != "" {
+				var genderText string
+				if userGender == "f" {
+					genderText = "женский"
+				} else if userGender == "m" {
+					genderText = "мужской"
+				}
+				if genderText != "" {
+					ctxBuilder.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
+				}
+			}
+		}
 		ctxBuilder.WriteString("Достигнута серия: 14 дней.\n")
 		ctxBuilder.WriteString(fmt.Sprintf("Калорий добавлено: %d\n", caloriesAdded))
 		ctxBuilder.WriteString(fmt.Sprintf("Всего калорий: %d\n", totalCalories))
@@ -2848,6 +3013,22 @@ func (b *Bot) sendThreeWeekCupsReward(msg *tgbotapi.Message, username string, st
 		question := "Сделай ровно 5 предложений-приписку к поздравлению за серию 21 день: строго, дружелюбно, мотивируй не сбавлять обороты. Учитывай текущие калории и кубки. Не повторяй цифры из основного текста. Без Markdown."
 		var ctxBuilder strings.Builder
 		ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
+		// Добавляем пол пользователя в контекст
+		messageLog, err := b.db.GetMessageLog(msg.From.ID, msg.Chat.ID)
+		if err == nil {
+			userGender := strings.TrimSpace(strings.ToLower(messageLog.Gender))
+			if userGender != "" {
+				var genderText string
+				if userGender == "f" {
+					genderText = "женский"
+				} else if userGender == "m" {
+					genderText = "мужской"
+				}
+				if genderText != "" {
+					ctxBuilder.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
+				}
+			}
+		}
 		ctxBuilder.WriteString("Достигнута серия: 21 день.\n")
 		ctxBuilder.WriteString(fmt.Sprintf("Калорий добавлено: %d\n", caloriesAdded))
 		ctxBuilder.WriteString(fmt.Sprintf("Всего калорий: %d\n", totalCalories))
@@ -2939,6 +3120,22 @@ func (b *Bot) sendFortyTwoDayCupsReward(msg *tgbotapi.Message, username string, 
 		question := "Сделай ровно 5 предложений-приписку к поздравлению за серию 42 дня: строго, дружелюбно, удерживай фокус. Учитывай текущие калории и кубки. Не повторяй цифры из основного текста. Без Markdown."
 		var ctxBuilder strings.Builder
 		ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
+		// Добавляем пол пользователя в контекст
+		messageLog, err := b.db.GetMessageLog(msg.From.ID, msg.Chat.ID)
+		if err == nil {
+			userGender := strings.TrimSpace(strings.ToLower(messageLog.Gender))
+			if userGender != "" {
+				var genderText string
+				if userGender == "f" {
+					genderText = "женский"
+				} else if userGender == "m" {
+					genderText = "мужской"
+				}
+				if genderText != "" {
+					ctxBuilder.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
+				}
+			}
+		}
 		ctxBuilder.WriteString("Достигнута серия: 42 дня.\n")
 		ctxBuilder.WriteString(fmt.Sprintf("Калорий добавлено: %d\n", caloriesAdded))
 		ctxBuilder.WriteString(fmt.Sprintf("Всего калорий: %d\n", totalCalories))
@@ -3032,6 +3229,22 @@ func (b *Bot) sendFiftyDayCupsReward(msg *tgbotapi.Message, username string, str
 		question := "Сделай ровно 5 предложений-приписку к поздравлению за серию 50 дней: строго, дружелюбно, удерживай дисциплину. Учитывай текущие калории и кубки. Не повторяй цифры из основного текста. Без Markdown."
 		var ctxBuilder strings.Builder
 		ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
+		// Добавляем пол пользователя в контекст
+		messageLog, err := b.db.GetMessageLog(msg.From.ID, msg.Chat.ID)
+		if err == nil {
+			userGender := strings.TrimSpace(strings.ToLower(messageLog.Gender))
+			if userGender != "" {
+				var genderText string
+				if userGender == "f" {
+					genderText = "женский"
+				} else if userGender == "m" {
+					genderText = "мужской"
+				}
+				if genderText != "" {
+					ctxBuilder.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
+				}
+			}
+		}
 		ctxBuilder.WriteString("Достигнута серия: 50 дней.\n")
 		ctxBuilder.WriteString(fmt.Sprintf("Калорий добавлено: %d\n", caloriesAdded))
 		ctxBuilder.WriteString(fmt.Sprintf("Всего калорий: %d\n", totalCalories))
@@ -3186,6 +3399,22 @@ func (b *Bot) sendHundredDayCupsReward(msg *tgbotapi.Message, username string, s
 		question := "Сделай ровно 5 предложений-приписку к поздравлению за серию 100 дней: строго, дружелюбно, уважительно; мотивируй беречь режим. Учитывай текущие калории и кубки. Не повторяй цифры из основного текста. Без Markdown."
 		var ctxBuilder strings.Builder
 		ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
+		// Добавляем пол пользователя в контекст
+		messageLog, err := b.db.GetMessageLog(msg.From.ID, msg.Chat.ID)
+		if err == nil {
+			userGender := strings.TrimSpace(strings.ToLower(messageLog.Gender))
+			if userGender != "" {
+				var genderText string
+				if userGender == "f" {
+					genderText = "женский"
+				} else if userGender == "m" {
+					genderText = "мужской"
+				}
+				if genderText != "" {
+					ctxBuilder.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
+				}
+			}
+		}
 		ctxBuilder.WriteString("Достигнута серия: 100 дней.\n")
 		ctxBuilder.WriteString(fmt.Sprintf("Калорий добавлено: %d\n", caloriesAdded))
 		ctxBuilder.WriteString(fmt.Sprintf("Всего калорий: %d\n", totalCalories))
