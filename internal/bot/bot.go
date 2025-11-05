@@ -746,7 +746,7 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 			}
 
 			// Новая тренировка БЕЗ achievement - готовим базовый текст
-			messageText := fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Ты тренируешься дней подряд: %d\n🔥 +%d калорий\n🔥 Всего калорий: %d\n🏆 +1 кубок за тренировку!\n🏆 Всего кубков: %d\n\n⏰ Таймер перезапускается на 7 дней\n\n🎯 Продолжай тренироваться и не забывай отправлять #training_done!", newStreakDays, caloriesToAdd, totalCalories, currentCups)
+			messageText := fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Ты тренируешься дней подряд: %d\n🔥 +%d калорий\n🔥 Всего калорий: %d\n🏆 +1 кубок за тренировку!\n🏆 Всего кубков: %d\n\n⏰ Таймер перезапускается на 7 дней", newStreakDays, caloriesToAdd, totalCalories, currentCups)
 
 			// Дополняем короткой ИИ-припиской по текущему контексту
 			if b.aiClient != nil {
@@ -851,6 +851,9 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 					b.logger.Warnf("AI wisdom generation failed: %v", err)
 				}
 			}
+
+			// Добавляем фразу о продолжении тренировок в самом конце
+			messageText = messageText + "\n\n🎯 Продолжай тренироваться и не забывай отправлять #training_done!"
 
 			reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
 
