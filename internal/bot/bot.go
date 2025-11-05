@@ -769,7 +769,7 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 				}()
 
 				// Формируем вопрос и контекст для краткой приписки
-				question := "Сделай очень короткую (1–2 предложения) дружелюбную, но строгую приписку после отчёта #training_done. Не повторяй цифры из сообщения, не перечисляй правила. Без Markdown."
+				question := "Сделай очень короткую (1–2 предложения) дружелюбную, но строгую приписку после отчёта #training_done. Не повторяй цифры из сообщения, не перечисляй правила. КРИТИЧЕСКИ ВАЖНО: используй ТОЛЬКО те упражнения и детали, которые указаны в сообщении пользователя. НЕ выдумывай детали, которых нет (например, если не написано про зал — не упоминай зал, если не написано про бег — не упоминай бег). Без Markdown."
 				var ctxBuilder strings.Builder
 				ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
 				// Добавляем пол пользователя в контекст
@@ -783,6 +783,19 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 					}
 					if genderText != "" {
 						ctxBuilder.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
+					}
+				}
+				// Добавляем текст сообщения пользователя, чтобы AI видел, какие упражнения были указаны
+				trainingText := msg.Text
+				if trainingText == "" && msg.Caption != "" {
+					trainingText = msg.Caption
+				}
+				if trainingText != "" {
+					// Убираем хэштег #training_done из текста для контекста
+					trainingTextClean := strings.ReplaceAll(trainingText, "#training_done", "")
+					trainingTextClean = strings.TrimSpace(trainingTextClean)
+					if trainingTextClean != "" {
+						ctxBuilder.WriteString(fmt.Sprintf("Сообщение о тренировке: %s\n", trainingTextClean))
 					}
 				}
 				ctxBuilder.WriteString(fmt.Sprintf("Серия: %d дней\n", newStreakDays))
@@ -803,11 +816,10 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 				}
 
 				// Дополнительно: короткая мудрость для участника (1 предложение)
-				wisdomQuestion := "Дай одну очень короткую мудрую мысль (1 предложение) для участника после успешной тренировки: спокойно, уважительно, как наставник; без пафоса и без повторения чисел из сообщения. Без Markdown."
+				wisdomQuestion := "Дай одну очень короткую мудрую мысль (1 предложение) для участника после успешной тренировки: спокойно, уважительно, как наставник; без пафоса и без повторения чисел из сообщения. КРИТИЧЕСКИ ВАЖНО: используй ТОЛЬКО те упражнения и детали, которые указаны в сообщении пользователя. НЕ выдумывай детали, которых нет. Без Markdown."
 				var wisdomCtx strings.Builder
 				wisdomCtx.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
 				// Добавляем пол пользователя в контекст
-				genderNormalized := strings.TrimSpace(strings.ToLower(userGender))
 				if genderNormalized != "" {
 					var genderText string
 					if genderNormalized == "f" {
@@ -817,6 +829,14 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 					}
 					if genderText != "" {
 						wisdomCtx.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
+					}
+				}
+				// Добавляем текст сообщения пользователя
+				if trainingText != "" {
+					trainingTextClean := strings.ReplaceAll(trainingText, "#training_done", "")
+					trainingTextClean = strings.TrimSpace(trainingTextClean)
+					if trainingTextClean != "" {
+						wisdomCtx.WriteString(fmt.Sprintf("Сообщение о тренировке: %s\n", trainingTextClean))
 					}
 				}
 				wisdomCtx.WriteString(fmt.Sprintf("Серия: %d дней\n", newStreakDays))
@@ -878,7 +898,7 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 					}
 				}()
 
-				question := "Сделай очень короткую (1–2 предложения) дружелюбную, но строгую приписку после дополнительной тренировки в тот же день. Не повторяй цифры из сообщения. Без Markdown."
+				question := "Сделай очень короткую (1–2 предложения) дружелюбную, но строгую приписку после дополнительной тренировки в тот же день. Не повторяй цифры из сообщения. КРИТИЧЕСКИ ВАЖНО: используй ТОЛЬКО те упражнения и детали, которые указаны в сообщении пользователя. НЕ выдумывай детали, которых нет. Без Markdown."
 				var ctxBuilder strings.Builder
 				ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
 				// Добавляем пол пользователя в контекст
@@ -892,6 +912,18 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 					}
 					if genderText != "" {
 						ctxBuilder.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
+					}
+				}
+				// Добавляем текст сообщения пользователя
+				trainingTextDouble := msg.Text
+				if trainingTextDouble == "" && msg.Caption != "" {
+					trainingTextDouble = msg.Caption
+				}
+				if trainingTextDouble != "" {
+					trainingTextClean := strings.ReplaceAll(trainingTextDouble, "#training_done", "")
+					trainingTextClean = strings.TrimSpace(trainingTextClean)
+					if trainingTextClean != "" {
+						ctxBuilder.WriteString(fmt.Sprintf("Сообщение о тренировке: %s\n", trainingTextClean))
 					}
 				}
 				ctxBuilder.WriteString("Уже была тренировка сегодня, это повторная.\n")
@@ -910,11 +942,10 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 				}
 
 				// Дополнительно: короткая мудрость (1 предложение) для повторной тренировки
-				wisdomQuestion := "Дай одну очень короткую мудрую мысль (1 предложение) после второй тренировки за день: спокойно, уважительно; без пафоса и без повторения чисел. Без Markdown."
+				wisdomQuestion := "Дай одну очень короткую мудрую мысль (1 предложение) после второй тренировки за день: спокойно, уважительно; без пафоса и без повторения чисел. КРИТИЧЕСКИ ВАЖНО: используй ТОЛЬКО те упражнения и детали, которые указаны в сообщении пользователя. НЕ выдумывай детали, которых нет. Без Markdown."
 				var wisdomCtx strings.Builder
 				wisdomCtx.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
-				// Добавляем пол пользователя в контекст
-				genderNormalized := strings.TrimSpace(strings.ToLower(userGender))
+				// Добавляем пол пользователя в контекст (используем уже объявленную переменную genderNormalized)
 				if genderNormalized != "" {
 					var genderText string
 					if genderNormalized == "f" {
@@ -924,6 +955,18 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 					}
 					if genderText != "" {
 						wisdomCtx.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
+					}
+				}
+				// Добавляем текст сообщения пользователя
+				trainingTextRepeat := msg.Text
+				if trainingTextRepeat == "" && msg.Caption != "" {
+					trainingTextRepeat = msg.Caption
+				}
+				if trainingTextRepeat != "" {
+					trainingTextClean := strings.ReplaceAll(trainingTextRepeat, "#training_done", "")
+					trainingTextClean = strings.TrimSpace(trainingTextClean)
+					if trainingTextClean != "" {
+						wisdomCtx.WriteString(fmt.Sprintf("Сообщение о тренировке: %s\n", trainingTextClean))
 					}
 				}
 				wisdomCtx.WriteString("Повторная тренировка сегодня.\n")
