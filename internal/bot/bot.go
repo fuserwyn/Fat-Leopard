@@ -805,6 +805,20 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 				if wasOnSickLeave {
 					ctxBuilder.WriteString("Недавно был больничный, теперь снова в строю.\n")
 				}
+				// Вычисляем, сколько дней прошло с последней тренировки
+				if messageLog.LastTrainingDate != nil {
+					lastTrainingDate, err := time.Parse("2006-01-02", *messageLog.LastTrainingDate)
+					if err == nil {
+						today := utils.GetMoscowTime()
+						todayDate := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, today.Location())
+						lastTrainingDateOnly := time.Date(lastTrainingDate.Year(), lastTrainingDate.Month(), lastTrainingDate.Day(), 0, 0, 0, 0, lastTrainingDate.Location())
+						daysSinceLastTraining := int(todayDate.Sub(lastTrainingDateOnly).Hours() / 24)
+						// Если прошло больше 5 дней с последней тренировки, добавляем шутку про обед
+						if daysSinceLastTraining > 5 {
+							ctxBuilder.WriteString(fmt.Sprintf("ВАЖНО: С последней тренировки прошло %d дней — это очень редко! Если будешь продолжать так редко заниматься, станешь обедом. Добавь легкий юмор про это в приписку.\n", daysSinceLastTraining))
+						}
+					}
+				}
 
 				if addendum, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
 					addendum = strings.TrimSpace(strings.ReplaceAll(addendum, "**", ""))
@@ -2254,7 +2268,7 @@ func (b *Bot) sendWarning(userID, chatID int64, username string) {
 			ctxBuilder.WriteString(fmt.Sprintf("Кубков всего: %d\n", cups))
 		}
 
-		question := "Сделай очень короткую (1–2 предложения) приписку к предупреждению: строго, но дружелюбно, мотивируй не лениться и напомни, что я 'ем' только ленивых. Не повторяй цифры и факты из текста. Без Markdown."
+		question := "Сделай очень короткую (1–2 предложения) приписку к предупреждению: строго, но дружелюбно, мотивируй не лениться и напомни, что я 'ем' только ленивых. Добавь легкий юмор про то, что если не будет тренироваться, станет обедом. Не повторяй цифры и факты из текста. Без Markdown."
 		if addendum, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
 			addendum = strings.TrimSpace(strings.ReplaceAll(addendum, "**", ""))
 			if addendum != "" {
