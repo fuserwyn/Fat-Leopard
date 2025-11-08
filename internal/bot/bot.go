@@ -1127,22 +1127,28 @@ func (b *Bot) handleSickLeave(msg *tgbotapi.Message) {
 	}
 
 	if messageLog.SickApprovalPending {
-		if justification != "" && b.evaluateSickLeaveJustification(justification) {
-			b.logger.Infof("Sick leave approved during pending state for user %d (%s)", msg.From.ID, messageLog.Username)
-			b.activateSickLeave(msg, messageLog)
-			return
-		}
 		if justification != "" {
-			b.sendSickApprovalWarning(msg.Chat.ID, msg.MessageID, messageLog)
+			if b.evaluateSickLeaveJustification(justification) {
+				b.logger.Infof("Sick leave approved during pending state for user %d (%s)", msg.From.ID, messageLog.Username)
+				b.activateSickLeave(msg, messageLog)
+			} else {
+				b.logger.Infof("Sick leave rejected during pending state for user %d (%s)", msg.From.ID, messageLog.Username)
+				b.sendSickLeaveRejection(msg.Chat.ID, msg.MessageID)
+			}
 		} else {
 			b.sendSickApprovalPendingInfo(msg.Chat.ID, msg.MessageID, messageLog)
 		}
 		return
 	}
 
-	if b.evaluateSickLeaveJustification(justification) {
-		b.logger.Infof("Sick leave auto-approved for user %d (%s)", msg.From.ID, messageLog.Username)
-		b.activateSickLeave(msg, messageLog)
+	if justification != "" {
+		if b.evaluateSickLeaveJustification(justification) {
+			b.logger.Infof("Sick leave auto-approved for user %d (%s)", msg.From.ID, messageLog.Username)
+			b.activateSickLeave(msg, messageLog)
+		} else {
+			b.logger.Infof("Sick leave rejected for user %d (%s): justification not convincing", msg.From.ID, messageLog.Username)
+			b.sendSickLeaveRejection(msg.Chat.ID, msg.MessageID)
+		}
 		return
 	}
 
@@ -1452,6 +1458,18 @@ func (b *Bot) sendSickApprovalPendingInfo(chatID int64, replyTo int, messageLog 
 	}
 }
 
+func (b *Bot) sendSickLeaveRejection(chatID int64, replyTo int) {
+	text := "❌ Больничный не принят.\n\nНе вижу признаков болезни. Если это работа или другие дела — тренируйся честно. " +
+		"Когда действительно заболеешь, дай знать, и я приостановлю таймер."
+	msg := tgbotapi.NewMessage(chatID, text)
+	if replyTo != 0 {
+		msg.ReplyToMessageID = replyTo
+	}
+	if _, err := b.api.Send(msg); err != nil {
+		b.logger.Errorf("Failed to send sick leave rejection message: %v", err)
+	}
+}
+
 func (b *Bot) restoreSickApprovalWatchers() {
 	pending, err := b.db.GetPendingSickApprovals()
 	if err != nil {
@@ -1497,7 +1515,8 @@ func (b *Bot) tryHandleSickApprovalReply(msg *tgbotapi.Message, text string) {
 		b.activateSickLeave(msg, messageLog)
 		return
 	}
-	b.sendSickApprovalWarning(msg.Chat.ID, msg.MessageID, messageLog)
+	b.logger.Infof("Sick leave rejected after reply for user %d", msg.From.ID)
+	b.sendSickLeaveRejection(msg.Chat.ID, msg.MessageID)
 }
 
 func (b *Bot) forceCancelSickLeave(userID, chatID int64) {
