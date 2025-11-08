@@ -1133,7 +1133,7 @@ func (b *Bot) handleSickLeave(msg *tgbotapi.Message) {
 				b.activateSickLeave(msg, messageLog)
 			} else {
 				b.logger.Infof("Sick leave rejected during pending state for user %d (%s)", msg.From.ID, messageLog.Username)
-				b.sendSickLeaveRejection(msg.Chat.ID, msg.MessageID)
+				b.rejectSickLeave(msg, messageLog, msg.MessageID)
 			}
 		} else {
 			b.sendSickApprovalPendingInfo(msg.Chat.ID, msg.MessageID, messageLog)
@@ -1148,7 +1148,7 @@ func (b *Bot) handleSickLeave(msg *tgbotapi.Message) {
 	}
 
 	b.logger.Infof("Sick leave rejected for user %d (%s): justification not convincing", msg.From.ID, messageLog.Username)
-	b.sendSickLeaveRejection(msg.Chat.ID, msg.MessageID)
+	b.rejectSickLeave(msg, messageLog, msg.MessageID)
 	return
 
 	now := utils.GetMoscowTime()
@@ -1469,6 +1469,17 @@ func (b *Bot) sendSickLeaveRejection(chatID int64, replyTo int) {
 	}
 }
 
+func (b *Bot) rejectSickLeave(msg *tgbotapi.Message, messageLog *models.MessageLog, replyTo int) {
+	b.cancelSickApprovalWatcher(msg.From.ID)
+	messageLog.SickApprovalPending = false
+	messageLog.SickApprovalDeadline = nil
+	messageLog.SickApprovalMessageID = nil
+	if err := b.db.SaveMessageLog(messageLog); err != nil {
+		b.logger.Errorf("Failed to clear sick approval flags after rejection: %v", err)
+	}
+	b.sendSickLeaveRejection(msg.Chat.ID, replyTo)
+}
+
 func (b *Bot) restoreSickApprovalWatchers() {
 	pending, err := b.db.GetPendingSickApprovals()
 	if err != nil {
@@ -1515,7 +1526,7 @@ func (b *Bot) tryHandleSickApprovalReply(msg *tgbotapi.Message, text string) {
 		return
 	}
 	b.logger.Infof("Sick leave rejected after reply for user %d", msg.From.ID)
-	b.sendSickLeaveRejection(msg.Chat.ID, msg.MessageID)
+	b.rejectSickLeave(msg, messageLog, msg.MessageID)
 }
 
 func (b *Bot) forceCancelSickLeave(userID, chatID int64) {
