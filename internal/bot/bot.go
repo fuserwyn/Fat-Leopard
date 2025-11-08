@@ -474,8 +474,8 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) {
 			CupsEarned:        0,
 			LastMessage:       timerStartTime,
 			HasTrainingDone:   hasTrainingDone,
-			HasSickLeave:      hasSickLeave,
-			HasHealthy:        hasHealthy,
+			HasSickLeave:      false,
+			HasHealthy:        false,
 			IsDeleted:         false,
 			TimerStartTime:    &timerStartTime,
 		}
@@ -491,8 +491,6 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) {
 		existingLog.Username = username
 		existingLog.LastMessage = utils.FormatMoscowTime(utils.GetMoscowTime())
 		existingLog.HasTrainingDone = hasTrainingDone
-		existingLog.HasSickLeave = hasSickLeave
-		existingLog.HasHealthy = hasHealthy
 		existingLog.IsDeleted = false
 
 		if err := b.db.SaveMessageLog(existingLog); err != nil {
