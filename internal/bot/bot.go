@@ -1127,24 +1127,15 @@ func (b *Bot) handleSickLeave(msg *tgbotapi.Message) {
 	}
 
 	if messageLog.SickApprovalPending {
-		remainingText := ""
-		if messageLog.SickApprovalDeadline != nil {
-			remaining := time.Until(*messageLog.SickApprovalDeadline)
-			if remaining < 0 {
-				remaining = 0
-			}
-			remainingText = b.formatDurationToDays(remaining)
+		if justification != "" && b.evaluateSickLeaveJustification(justification) {
+			b.logger.Infof("Sick leave approved during pending state for user %d (%s)", msg.From.ID, messageLog.Username)
+			b.activateSickLeave(msg, messageLog)
+			return
 		}
-		replyText := "⚠️ Заявка на больничный уже рассматривается. "
-		if remainingText != "" {
-			replyText += fmt.Sprintf("Осталось %s, чтобы меня убедить.", remainingText)
+		if justification != "" {
+			b.sendSickApprovalWarning(msg.Chat.ID, msg.MessageID, messageLog)
 		} else {
-			replyText += "Ответь быстрее, иначе отменю запрос."
-		}
-		response := tgbotapi.NewMessage(msg.Chat.ID, replyText)
-		response.ReplyToMessageID = msg.MessageID
-		if _, sendErr := b.api.Send(response); sendErr != nil {
-			b.logger.Errorf("Failed to send pending sick leave info: %v", sendErr)
+			b.sendSickApprovalPendingInfo(msg.Chat.ID, msg.MessageID, messageLog)
 		}
 		return
 	}
@@ -1407,6 +1398,60 @@ func (b *Bot) startSickApprovalWatcher(userID, chatID int64, deadline time.Time)
 	}()
 }
 
+func (b *Bot) sickApprovalTimeLeft(messageLog *models.MessageLog) string {
+	if messageLog.SickApprovalDeadline != nil {
+		remaining := time.Until(*messageLog.SickApprovalDeadline)
+		if remaining < 0 {
+			remaining = 0
+		}
+		return b.formatDurationToDays(remaining)
+	}
+	return ""
+}
+
+func (b *Bot) sendSickApprovalWarning(chatID int64, replyTo int, messageLog *models.MessageLog) {
+	remainingText := b.sickApprovalTimeLeft(messageLog)
+	warningText := "⚠️ Я всё ещё не вижу доказательств болезни. "
+	if remainingText != "" {
+		warningText += fmt.Sprintf("У тебя осталось %s, чтобы меня убедить. ", remainingText)
+	}
+	warningText += "Если проигнорируешь — отменю больничный и запущу таймер."
+
+	msg := tgbotapi.NewMessage(chatID, warningText)
+	if replyTo != 0 {
+		msg.ReplyToMessageID = replyTo
+	}
+	sent, err := b.api.Send(msg)
+	if err != nil {
+		b.logger.Errorf("Failed to send sick approval warning: %v", err)
+		return
+	}
+
+	messageID := int64(sent.MessageID)
+	messageLog.SickApprovalMessageID = &messageID
+	if err := b.db.SaveMessageLog(messageLog); err != nil {
+		b.logger.Errorf("Failed to update sick approval message id: %v", err)
+	}
+}
+
+func (b *Bot) sendSickApprovalPendingInfo(chatID int64, replyTo int, messageLog *models.MessageLog) {
+	remainingText := b.sickApprovalTimeLeft(messageLog)
+	replyText := "⚠️ Заявка на больничный уже рассматривается."
+	if remainingText != "" {
+		replyText += fmt.Sprintf(" Осталось %s, чтобы меня убедить.", remainingText)
+	} else {
+		replyText += " Ответь быстрее, иначе отменю запрос."
+	}
+
+	msg := tgbotapi.NewMessage(chatID, replyText)
+	if replyTo != 0 {
+		msg.ReplyToMessageID = replyTo
+	}
+	if _, err := b.api.Send(msg); err != nil {
+		b.logger.Errorf("Failed to send pending sick leave message: %v", err)
+	}
+}
+
 func (b *Bot) restoreSickApprovalWatchers() {
 	pending, err := b.db.GetPendingSickApprovals()
 	if err != nil {
@@ -1452,35 +1497,7 @@ func (b *Bot) tryHandleSickApprovalReply(msg *tgbotapi.Message, text string) {
 		b.activateSickLeave(msg, messageLog)
 		return
 	}
-
-	remainingText := ""
-	if messageLog.SickApprovalDeadline != nil {
-		remaining := time.Until(*messageLog.SickApprovalDeadline)
-		if remaining < 0 {
-			remaining = 0
-		}
-		remainingText = b.formatDurationToDays(remaining)
-	}
-
-	warningText := "⚠️ Я всё ещё не вижу доказательств болезни. "
-	if remainingText != "" {
-		warningText += fmt.Sprintf("У тебя осталось %s, чтобы меня убедить. ", remainingText)
-	}
-	warningText += "Если проигнорируешь — отменю больничный и запущу таймер."
-
-	warning := tgbotapi.NewMessage(msg.Chat.ID, warningText)
-	warning.ReplyToMessageID = msg.MessageID
-	sent, err := b.api.Send(warning)
-	if err != nil {
-		b.logger.Errorf("Failed to send sick approval follow-up: %v", err)
-		return
-	}
-
-	messageID := int64(sent.MessageID)
-	messageLog.SickApprovalMessageID = &messageID
-	if err := b.db.SaveMessageLog(messageLog); err != nil {
-		b.logger.Errorf("Failed to update sick approval message id after reply: %v", err)
-	}
+	b.sendSickApprovalWarning(msg.Chat.ID, msg.MessageID, messageLog)
 }
 
 func (b *Bot) forceCancelSickLeave(userID, chatID int64) {
