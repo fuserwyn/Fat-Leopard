@@ -516,3 +516,34 @@ func (d *Database) GetAllUsersWithTimers() ([]*models.MessageLog, error) {
 
 	return users, nil
 }
+
+// GetPendingSickApprovals возвращает пользователей с ожидающим подтверждением больничного
+func (d *Database) GetPendingSickApprovals() ([]*models.MessageLog, error) {
+	query := `
+		SELECT user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion,
+		       timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, gender, sick_approval_pending, sick_approval_deadline, sick_approval_message_id, created_at, updated_at
+		FROM message_log
+		WHERE sick_approval_pending = TRUE AND is_deleted = FALSE
+	`
+
+	rows, err := d.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var approvals []*models.MessageLog
+	for rows.Next() {
+		var msg models.MessageLog
+		err := rows.Scan(
+			&msg.UserID, &msg.Username, &msg.ChatID, &msg.Calories, &msg.StreakDays, &msg.CalorieStreakDays, &msg.CupsEarned, &msg.LastTrainingDate, &msg.LastMessage, &msg.HasTrainingDone,
+			&msg.HasSickLeave, &msg.HasHealthy, &msg.IsDeleted, &msg.IsExemptFromDeletion, &msg.TimerStartTime, &msg.SickLeaveStartTime, &msg.SickLeaveEndTime, &msg.SickTime, &msg.RestTimeTillDel, &msg.Gender,
+			&msg.SickApprovalPending, &msg.SickApprovalDeadline, &msg.SickApprovalMessageID, &msg.CreatedAt, &msg.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		approvals = append(approvals, &msg)
+	}
+
+	return approvals, nil
+}

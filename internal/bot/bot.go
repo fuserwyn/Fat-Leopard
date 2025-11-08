@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"leo-bot/internal/ai"
@@ -18,13 +19,27 @@ import (
 )
 
 type Bot struct {
-	api      *tgbotapi.BotAPI
-	db       *database.Database
-	logger   logger.Logger
-	config   *config.Config
-	timers   map[int64]*models.TimerInfo
-	aiClient *ai.OpenRouterClient
+	api                  *tgbotapi.BotAPI
+	db                   *database.Database
+	logger               logger.Logger
+	config               *config.Config
+	timers               map[int64]*models.TimerInfo
+	aiClient             *ai.OpenRouterClient
+	sickApprovalWatchers map[int64]chan struct{}
+	sickApprovalMutex    sync.Mutex
 }
+
+var (
+	sickLeavePositiveKeywords = []string{
+		"болен", "болею", "болит", "простыл", "простуд", "температур", "кашля", "грипп", "орви", "ангин", "плохо", "лежу", "честно", "правда", "шанс", "выздоров", "выздоравли", "таблет", "врач", "болезн", "недомог", "жар", "сон", "боляч",
+	}
+	sickLeaveSupportKeywords = []string{
+		"дай шанс", "прошу", "пожалуйста", "исправлюсь", "буду тренироваться", "честно-честно", "умоляю", "пожал", "верь", "поверь", "обещаю",
+	}
+	sickLeaveNegativeKeywords = []string{
+		"делами", "работаю", "лень", "просто не", "не хочу", "другие дела", "прогул", "хитр", "обман", "схитрить",
+	}
+)
 
 func New(cfg *config.Config, db *database.Database, log logger.Logger) (*Bot, error) {
 	api, err := tgbotapi.NewBotAPI(cfg.APIToken)
@@ -47,12 +62,13 @@ func New(cfg *config.Config, db *database.Database, log logger.Logger) (*Bot, er
 	}
 
 	return &Bot{
-		api:      api,
-		db:       db,
-		logger:   log,
-		config:   cfg,
-		timers:   make(map[int64]*models.TimerInfo),
-		aiClient: aiClient,
+		api:                  api,
+		db:                   db,
+		logger:               log,
+		config:               cfg,
+		timers:               make(map[int64]*models.TimerInfo),
+		aiClient:             aiClient,
+		sickApprovalWatchers: make(map[int64]chan struct{}),
 	}, nil
 }
 
@@ -64,6 +80,8 @@ func (b *Bot) Start(ctx context.Context) error {
 		b.logger.Errorf("Failed to recover timers from database: %v", err)
 		// Не останавливаем бота, просто логируем ошибку
 	}
+
+	b.restoreSickApprovalWatchers()
 
 	// Сканируем историю сообщений при старте, если включено в конфиге
 	if b.config.ScanHistoryOnStart {
@@ -323,6 +341,8 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) {
 		text = msg.Caption
 	}
 
+	b.tryHandleSickApprovalReply(msg, text)
+
 	// Проверяем, обращается ли пользователь к боту (для вопросов к ИИ)
 	// 1. Упоминание через @ в тексте
 	// 2. Ответ на сообщение бота (reply)
@@ -522,6 +542,16 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 	if err != nil {
 		b.logger.Errorf("Failed to get message log: %v", err)
 		return
+	}
+
+	if messageLog.SickApprovalPending {
+		b.cancelSickApprovalWatcher(msg.From.ID)
+		messageLog.SickApprovalPending = false
+		messageLog.SickApprovalDeadline = nil
+		messageLog.SickApprovalMessageID = nil
+		if err := b.db.SaveMessageLog(messageLog); err != nil {
+			b.logger.Errorf("Failed to clear sick approval flags after training: %v", err)
+		}
 	}
 
 	// Определяем пол пользователя из БД или по имени
@@ -1080,12 +1110,91 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 }
 
 func (b *Bot) handleSickLeave(msg *tgbotapi.Message) {
-	// Получаем данные пользователя
+	justification := extractSickLeaveJustification(msg)
+
 	messageLog, err := b.db.GetMessageLog(msg.From.ID, msg.Chat.ID)
 	if err != nil {
 		b.logger.Errorf("Failed to get message log: %v", err)
 		return
 	}
+
+	if messageLog.HasSickLeave {
+		infoText := "✅ У тебя уже активен больничный. Отдыхай и возвращайся, когда восстановишься."
+		response := tgbotapi.NewMessage(msg.Chat.ID, infoText)
+		response.ReplyToMessageID = msg.MessageID
+		if _, sendErr := b.api.Send(response); sendErr != nil {
+			b.logger.Errorf("Failed to send already sick leave info: %v", sendErr)
+		}
+		return
+	}
+
+	if messageLog.SickApprovalPending {
+		remainingText := ""
+		if messageLog.SickApprovalDeadline != nil {
+			remaining := time.Until(*messageLog.SickApprovalDeadline)
+			if remaining < 0 {
+				remaining = 0
+			}
+			remainingText = b.formatDurationToDays(remaining)
+		}
+		replyText := "⚠️ Заявка на больничный уже рассматривается. "
+		if remainingText != "" {
+			replyText += fmt.Sprintf("Осталось %s, чтобы меня убедить.", remainingText)
+		} else {
+			replyText += "Ответь быстрее, иначе отменю запрос."
+		}
+		response := tgbotapi.NewMessage(msg.Chat.ID, replyText)
+		response.ReplyToMessageID = msg.MessageID
+		if _, sendErr := b.api.Send(response); sendErr != nil {
+			b.logger.Errorf("Failed to send pending sick leave info: %v", sendErr)
+		}
+		return
+	}
+
+	if b.evaluateSickLeaveJustification(justification) {
+		b.logger.Infof("Sick leave auto-approved for user %d (%s)", msg.From.ID, messageLog.Username)
+		b.activateSickLeave(msg, messageLog)
+		return
+	}
+
+	now := utils.GetMoscowTime()
+	deadline := now.Add(24 * time.Hour)
+	messageLog.SickApprovalPending = true
+	messageLog.SickApprovalDeadline = &deadline
+	messageLog.SickApprovalMessageID = nil
+
+	if err := b.db.SaveMessageLog(messageLog); err != nil {
+		b.logger.Errorf("Failed to save sick approval pending state: %v", err)
+		return
+	}
+
+	warningText := "⚠️ Я не вижу убедительных доказательств болезни.\n\n" +
+		"Ответь реплаем на это сообщение и докажи, что действительно болен. " +
+		"Если в течение 24 часов доказательств не будет, я отменю больничный и таймер продолжит тикать."
+	warning := tgbotapi.NewMessage(msg.Chat.ID, warningText)
+	warning.ReplyToMessageID = msg.MessageID
+	sent, err := b.api.Send(warning)
+	if err != nil {
+		b.logger.Errorf("Failed to send sick approval warning: %v", err)
+		return
+	}
+
+	messageID := int64(sent.MessageID)
+	messageLog.SickApprovalMessageID = &messageID
+	if err := b.db.SaveMessageLog(messageLog); err != nil {
+		b.logger.Errorf("Failed to update sick approval message id: %v", err)
+	}
+
+	b.startSickApprovalWatcher(msg.From.ID, msg.Chat.ID, deadline)
+}
+
+func (b *Bot) activateSickLeave(msg *tgbotapi.Message, messageLog *models.MessageLog) {
+	b.cancelSickApprovalWatcher(msg.From.ID)
+	messageLog.SickApprovalPending = false
+	messageLog.SickApprovalDeadline = nil
+	messageLog.SickApprovalMessageID = nil
+	messageLog.SickLeaveEndTime = nil
+	messageLog.SickTime = nil
 
 	// Записываем время начала больничного
 	sickLeaveStartTime := utils.FormatMoscowTime(utils.GetMoscowTime())
@@ -1216,11 +1325,197 @@ func (b *Bot) handleSickLeave(msg *tgbotapi.Message) {
 	reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
 
 	b.logger.Infof("Sending sick leave message to chat %d", msg.Chat.ID)
-	_, err = b.api.Send(reply)
-	if err != nil {
+	if _, err := b.api.Send(reply); err != nil {
 		b.logger.Errorf("Failed to send sick leave message: %v", err)
 	} else {
 		b.logger.Infof("Successfully sent sick leave message to chat %d", msg.Chat.ID)
+	}
+}
+
+func extractSickLeaveJustification(msg *tgbotapi.Message) string {
+	text := msg.Text
+	if text == "" && msg.Caption != "" {
+		text = msg.Caption
+	}
+
+	lower := strings.ToLower(text)
+	lower = strings.ReplaceAll(lower, "#sick_leave", "")
+	lower = strings.ReplaceAll(lower, "#sickleave", "")
+	lower = strings.ReplaceAll(lower, "#healthy", "")
+	lower = strings.ReplaceAll(lower, "#здоров", "")
+	return strings.TrimSpace(lower)
+}
+
+func (b *Bot) evaluateSickLeaveJustification(text string) bool {
+	if text == "" {
+		return false
+	}
+
+	for _, neg := range sickLeaveNegativeKeywords {
+		if strings.Contains(text, neg) {
+			return false
+		}
+	}
+
+	score := 0
+	for _, pos := range sickLeavePositiveKeywords {
+		if strings.Contains(text, pos) {
+			score++
+		}
+	}
+	for _, sup := range sickLeaveSupportKeywords {
+		if strings.Contains(text, sup) {
+			score++
+		}
+	}
+
+	return score >= 1
+}
+
+func (b *Bot) cancelSickApprovalWatcher(userID int64) {
+	b.sickApprovalMutex.Lock()
+	defer b.sickApprovalMutex.Unlock()
+
+	if ch, ok := b.sickApprovalWatchers[userID]; ok {
+		close(ch)
+		delete(b.sickApprovalWatchers, userID)
+	}
+}
+
+func (b *Bot) startSickApprovalWatcher(userID, chatID int64, deadline time.Time) {
+	wait := time.Until(deadline)
+	if wait < 0 {
+		wait = 0
+	}
+
+	cancelChan := make(chan struct{})
+
+	b.sickApprovalMutex.Lock()
+	if existing, ok := b.sickApprovalWatchers[userID]; ok {
+		close(existing)
+	}
+	b.sickApprovalWatchers[userID] = cancelChan
+	b.sickApprovalMutex.Unlock()
+
+	go func() {
+		timer := time.NewTimer(wait)
+		defer timer.Stop()
+		select {
+		case <-timer.C:
+			b.forceCancelSickLeave(userID, chatID)
+		case <-cancelChan:
+			return
+		}
+	}()
+}
+
+func (b *Bot) restoreSickApprovalWatchers() {
+	pending, err := b.db.GetPendingSickApprovals()
+	if err != nil {
+		b.logger.Errorf("Failed to load pending sick approvals: %v", err)
+		return
+	}
+
+	for _, p := range pending {
+		if p.SickApprovalDeadline != nil {
+			b.startSickApprovalWatcher(p.UserID, p.ChatID, *p.SickApprovalDeadline)
+		} else {
+			b.forceCancelSickLeave(p.UserID, p.ChatID)
+		}
+	}
+}
+
+func (b *Bot) tryHandleSickApprovalReply(msg *tgbotapi.Message, text string) {
+	if msg.ReplyToMessage == nil || msg.ReplyToMessage.From == nil || !msg.ReplyToMessage.From.IsBot || msg.ReplyToMessage.From.ID != b.api.Self.ID {
+		return
+	}
+
+	messageLog, err := b.db.GetMessageLog(msg.From.ID, msg.Chat.ID)
+	if err != nil {
+		b.logger.Errorf("Failed to get message log for sick approval reply: %v", err)
+		return
+	}
+
+	if !messageLog.SickApprovalPending || messageLog.SickApprovalMessageID == nil {
+		return
+	}
+
+	if int64(msg.ReplyToMessage.MessageID) != *messageLog.SickApprovalMessageID {
+		return
+	}
+
+	justification := strings.TrimSpace(strings.ToLower(text))
+	justification = strings.ReplaceAll(justification, "#sick_leave", "")
+	justification = strings.ReplaceAll(justification, "#sickleave", "")
+	justification = strings.ReplaceAll(justification, "#healthy", "")
+	justification = strings.ReplaceAll(justification, "#здоров", "")
+	if b.evaluateSickLeaveJustification(justification) {
+		b.logger.Infof("Sick leave approved after reply for user %d", msg.From.ID)
+		b.activateSickLeave(msg, messageLog)
+		return
+	}
+
+	remainingText := ""
+	if messageLog.SickApprovalDeadline != nil {
+		remaining := time.Until(*messageLog.SickApprovalDeadline)
+		if remaining < 0 {
+			remaining = 0
+		}
+		remainingText = b.formatDurationToDays(remaining)
+	}
+
+	warningText := "⚠️ Я всё ещё не вижу доказательств болезни. "
+	if remainingText != "" {
+		warningText += fmt.Sprintf("У тебя осталось %s, чтобы меня убедить. ", remainingText)
+	}
+	warningText += "Если проигнорируешь — отменю больничный и запущу таймер."
+
+	warning := tgbotapi.NewMessage(msg.Chat.ID, warningText)
+	warning.ReplyToMessageID = msg.MessageID
+	sent, err := b.api.Send(warning)
+	if err != nil {
+		b.logger.Errorf("Failed to send sick approval follow-up: %v", err)
+		return
+	}
+
+	messageID := int64(sent.MessageID)
+	messageLog.SickApprovalMessageID = &messageID
+	if err := b.db.SaveMessageLog(messageLog); err != nil {
+		b.logger.Errorf("Failed to update sick approval message id after reply: %v", err)
+	}
+}
+
+func (b *Bot) forceCancelSickLeave(userID, chatID int64) {
+	b.logger.Infof("Force cancelling sick leave request for user %d", userID)
+	b.cancelSickApprovalWatcher(userID)
+
+	messageLog, err := b.db.GetMessageLog(userID, chatID)
+	if err != nil {
+		b.logger.Errorf("Failed to get message log for force cancel: %v", err)
+		return
+	}
+
+	if !messageLog.SickApprovalPending {
+		return
+	}
+
+	replyMessageID := messageLog.SickApprovalMessageID
+	messageLog.SickApprovalPending = false
+	messageLog.SickApprovalDeadline = nil
+	messageLog.SickApprovalMessageID = nil
+
+	if err := b.db.SaveMessageLog(messageLog); err != nil {
+		b.logger.Errorf("Failed to clear sick approval flags on force cancel: %v", err)
+	}
+
+	text := "⛔️ Я не получил подтверждений болезни и отменил больничный. Таймер продолжает тикать. " +
+		"Если действительно болен — предоставь доказательства и попроси снова."
+	alert := tgbotapi.NewMessage(chatID, text)
+	if replyMessageID != nil {
+		alert.ReplyToMessageID = int(*replyMessageID)
+	}
+	if _, err := b.api.Send(alert); err != nil {
+		b.logger.Errorf("Failed to send force cancel message: %v", err)
 	}
 }
 
@@ -1231,6 +1526,11 @@ func (b *Bot) handleHealthy(msg *tgbotapi.Message) {
 		b.logger.Errorf("Failed to get message log: %v", err)
 		return
 	}
+
+	b.cancelSickApprovalWatcher(msg.From.ID)
+	messageLog.SickApprovalPending = false
+	messageLog.SickApprovalDeadline = nil
+	messageLog.SickApprovalMessageID = nil
 
 	// Записываем время окончания больничного
 	sickLeaveEndTime := utils.FormatMoscowTime(utils.GetMoscowTime())
