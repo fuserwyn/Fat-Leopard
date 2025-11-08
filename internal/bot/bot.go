@@ -1128,7 +1128,7 @@ func (b *Bot) handleSickLeave(msg *tgbotapi.Message) {
 
 	if messageLog.SickApprovalPending {
 		if justification != "" {
-			if b.evaluateSickLeaveJustification(justification) {
+			if b.evaluateSickLeaveJustification(justification, messageLog) {
 				b.logger.Infof("Sick leave approved during pending state for user %d (%s)", msg.From.ID, messageLog.Username)
 				b.activateSickLeave(msg, messageLog)
 			} else {
@@ -1141,7 +1141,7 @@ func (b *Bot) handleSickLeave(msg *tgbotapi.Message) {
 		return
 	}
 
-	if justification == "" || b.evaluateSickLeaveJustification(justification) {
+	if justification == "" || b.evaluateSickLeaveJustification(justification, messageLog) {
 		b.logger.Infof("Sick leave auto-approved for user %d (%s)", msg.From.ID, messageLog.Username)
 		b.activateSickLeave(msg, messageLog)
 		return
@@ -1340,7 +1340,7 @@ func extractSickLeaveJustification(msg *tgbotapi.Message) string {
 	return strings.TrimSpace(lower)
 }
 
-func (b *Bot) evaluateSickLeaveJustification(text string) bool {
+func (b *Bot) evaluateSickLeaveHeuristics(text string) bool {
 	if text == "" {
 		return false
 	}
@@ -1362,8 +1362,53 @@ func (b *Bot) evaluateSickLeaveJustification(text string) bool {
 			score++
 		}
 	}
-
 	return score >= 1
+}
+
+func (b *Bot) evaluateSickLeaveJustification(text string, messageLog *models.MessageLog) bool {
+	clean := strings.TrimSpace(strings.ToLower(text))
+	clean = strings.ReplaceAll(clean, "#sick_leave", "")
+	clean = strings.ReplaceAll(clean, "#sickleave", "")
+	clean = strings.ReplaceAll(clean, "#healthy", "")
+	clean = strings.ReplaceAll(clean, "#здоров", "")
+
+	heuristics := b.evaluateSickLeaveHeuristics(clean)
+
+	if b.aiClient == nil || clean == "" {
+		return heuristics
+	}
+
+	var ctxBuilder strings.Builder
+	ctxBuilder.WriteString("Оцени убедительность больничного запроса.\n")
+	if messageLog != nil {
+		ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", messageLog.Username))
+		ctxBuilder.WriteString(fmt.Sprintf("StreakDays: %d\n", messageLog.StreakDays))
+		ctxBuilder.WriteString(fmt.Sprintf("CalorieStreakDays: %d\n", messageLog.CalorieStreakDays))
+		ctxBuilder.WriteString(fmt.Sprintf("HasSickLeave: %t\n", messageLog.HasSickLeave))
+		ctxBuilder.WriteString(fmt.Sprintf("HasHealthy: %t\n", messageLog.HasHealthy))
+	}
+	ctxBuilder.WriteString(fmt.Sprintf("Текст запроса: \"%s\"\n", clean))
+	ctxBuilder.WriteString(fmt.Sprintf("Грубая эвристика считает запрос %t.\n", heuristics))
+
+	question := "Если сообщение описывает реальную болезнь, ответь строго словом APPROVE. " +
+		"Если это похоже на отговорку (работа, дела, лень и т.п.), ответь строго словом REJECT. " +
+		"Никаких других слов или пояснений."
+
+	answer, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String())
+	if err != nil {
+		b.logger.Errorf("AI sick leave evaluation failed: %v", err)
+		return heuristics
+	}
+
+	normalized := strings.ToUpper(strings.TrimSpace(answer))
+	if strings.Contains(normalized, "APPROVE") {
+		return true
+	}
+	if strings.Contains(normalized, "REJECT") {
+		return false
+	}
+
+	return heuristics
 }
 
 func (b *Bot) cancelSickApprovalWatcher(userID int64) {
@@ -1515,12 +1560,7 @@ func (b *Bot) tryHandleSickApprovalReply(msg *tgbotapi.Message, text string) {
 		return
 	}
 
-	justification := strings.TrimSpace(strings.ToLower(text))
-	justification = strings.ReplaceAll(justification, "#sick_leave", "")
-	justification = strings.ReplaceAll(justification, "#sickleave", "")
-	justification = strings.ReplaceAll(justification, "#healthy", "")
-	justification = strings.ReplaceAll(justification, "#здоров", "")
-	if b.evaluateSickLeaveJustification(justification) {
+	if b.evaluateSickLeaveJustification(text, messageLog) {
 		b.logger.Infof("Sick leave approved after reply for user %d", msg.From.ID)
 		b.activateSickLeave(msg, messageLog)
 		return

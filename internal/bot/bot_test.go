@@ -162,7 +162,7 @@ func TestEvaluateSickLeaveJustification(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			processed := extractSickLeaveJustification(&tgbotapi.Message{Text: tc.text})
-			if got := bot.evaluateSickLeaveJustification(processed); got != tc.want {
+			if got := bot.evaluateSickLeaveJustification(processed, nil); got != tc.want {
 				t.Errorf("evaluateSickLeaveJustification(%q) = %v, want %v", tc.text, got, tc.want)
 			}
 		})
