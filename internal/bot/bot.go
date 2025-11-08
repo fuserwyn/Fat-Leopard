@@ -3958,6 +3958,13 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 		contextText.WriteString("История пуста\n")
 	}
 
+	// Добавляем последнее сообщение бота для логической последовательности
+	if lastBotMsg, err := b.db.GetLastAIMessage(msg.Chat.ID); err == nil && lastBotMsg != nil {
+		contextText.WriteString("\n=== ПОСЛЕДНЕЕ СООБЩЕНИЕ БОТА (НЕ ПРОТИВОРЕЧЬ) ===\n")
+		contextText.WriteString(strings.TrimSpace(lastBotMsg.MessageText))
+		contextText.WriteString("\n")
+	}
+
 	// Получаем полные данные пользователя
 	userLog, err := b.db.GetMessageLog(msg.From.ID, msg.Chat.ID)
 	if err == nil {

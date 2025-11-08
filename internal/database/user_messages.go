@@ -53,6 +53,27 @@ func (d *Database) GetUserMessages(userID, chatID int64, startTime, endTime time
 	return messages, nil
 }
 
+// GetLastAIMessage получает последнее сообщение бота (ai_reply) в чате
+func (d *Database) GetLastAIMessage(chatID int64) (*models.UserMessage, error) {
+	query := `
+		SELECT id, user_id, chat_id, username, message_text, message_type, created_at
+		FROM user_messages
+		WHERE chat_id = $1 AND message_type = 'ai_reply'
+		ORDER BY created_at DESC
+		LIMIT 1
+	`
+
+	var msg models.UserMessage
+	err := d.db.QueryRow(query, chatID).Scan(
+		&msg.ID, &msg.UserID, &msg.ChatID, &msg.Username, &msg.MessageText, &msg.MessageType, &msg.CreatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &msg, nil
+}
+
 // GetDailyMessages получает все сообщения за указанный день для всех пользователей в чате
 func (d *Database) GetDailyMessages(chatID int64, date time.Time) ([]*models.UserMessage, error) {
 	startTime := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
