@@ -3959,9 +3959,11 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 	}
 
 	// Добавляем последнее сообщение бота для логической последовательности
+	lastBotMessageText := ""
 	if lastBotMsg, err := b.db.GetLastAIMessage(msg.Chat.ID); err == nil && lastBotMsg != nil {
 		contextText.WriteString("\n=== ПОСЛЕДНЕЕ СООБЩЕНИЕ БОТА (НЕ ПРОТИВОРЕЧЬ) ===\n")
-		contextText.WriteString(strings.TrimSpace(lastBotMsg.MessageText))
+		lastBotMessageText = strings.TrimSpace(lastBotMsg.MessageText)
+		contextText.WriteString(lastBotMessageText)
 		contextText.WriteString("\n")
 	}
 
@@ -4352,7 +4354,16 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 	}
 
 	// Генерируем ответ с помощью ИИ
-	answer, err := b.aiClient.AnswerUserQuestion(questionText, contextText.String())
+	finalQuestion := questionText
+	if lastBotMessageText != "" {
+		finalQuestion = fmt.Sprintf(
+			"МОЁ ПРЕДЫДУЩЕЕ СООБЩЕНИЕ:\n%s\n\nПОЛЬЗОВАТЕЛЬ ОТВЕТИЛ ТАК: %s\n\nСОХРАНИ ЛОГИКУ ПРЕДЫДУЩЕГО СООБЩЕНИЯ. ЕСЛИ ЕГО ОСПАРИВАЮТ ИЛИ ПРОСЛЕЖИВАЕТСЯ ХИТРОСТЬ, ПРОДОЛЖАЙ СТРОГО НАСТАИВАТЬ, ТРЕБУЙ ДОКАЗАТЕЛЬСТВ И НЕ СМЕНЯЙ ТОН НА ПОДДЕРЖИВАЮЩИЙ БЕЗ НОВЫХ ФАКТОВ.",
+			lastBotMessageText,
+			questionText,
+		)
+	}
+
+	answer, err := b.aiClient.AnswerUserQuestion(finalQuestion, contextText.String())
 	if err != nil {
 		b.logger.Errorf("Failed to generate AI answer: %v", err)
 
