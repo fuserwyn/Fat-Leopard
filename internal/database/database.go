@@ -73,6 +73,9 @@ func (d *Database) CreateTables() error {
 			sick_leave_end_time TEXT,
 			sick_time TEXT,
 			rest_time_till_del TEXT,
+			sick_approval_pending BOOLEAN DEFAULT FALSE,
+			sick_approval_deadline TIMESTAMP WITH TIME ZONE,
+			sick_approval_message_id BIGINT,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (user_id, chat_id)
@@ -103,8 +106,8 @@ func (d *Database) CreateTables() error {
 // SaveMessageLog сохраняет информацию о сообщении
 func (d *Database) SaveMessageLog(msg *models.MessageLog) error {
 	query := `
-		INSERT INTO message_log (user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion, timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, gender, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+		INSERT INTO message_log (user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion, timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, gender, sick_approval_pending, sick_approval_deadline, sick_approval_message_id, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
 		ON CONFLICT (user_id, chat_id) 
 		DO UPDATE SET 
 			username = EXCLUDED.username,
@@ -125,7 +128,10 @@ func (d *Database) SaveMessageLog(msg *models.MessageLog) error {
 			sick_time = EXCLUDED.sick_time,
 			rest_time_till_del = EXCLUDED.rest_time_till_del,
 			gender = CASE WHEN EXCLUDED.gender != '' THEN EXCLUDED.gender ELSE message_log.gender END,
-			updated_at = $21
+			sick_approval_pending = EXCLUDED.sick_approval_pending,
+			sick_approval_deadline = EXCLUDED.sick_approval_deadline,
+			sick_approval_message_id = EXCLUDED.sick_approval_message_id,
+			updated_at = $24
 	`
 
 	// Используем московское время
@@ -137,7 +143,8 @@ func (d *Database) SaveMessageLog(msg *models.MessageLog) error {
 
 	result, err := d.db.Exec(query,
 		msg.UserID, msg.Username, msg.ChatID, msg.Calories, msg.StreakDays, msg.CalorieStreakDays, msg.CupsEarned, msg.LastTrainingDate, msg.LastMessage, msg.HasTrainingDone,
-		msg.HasSickLeave, msg.HasHealthy, msg.IsDeleted, msg.IsExemptFromDeletion, msg.TimerStartTime, msg.SickLeaveStartTime, msg.SickLeaveEndTime, msg.SickTime, msg.RestTimeTillDel, msg.Gender, moscowTime)
+		msg.HasSickLeave, msg.HasHealthy, msg.IsDeleted, msg.IsExemptFromDeletion, msg.TimerStartTime, msg.SickLeaveStartTime, msg.SickLeaveEndTime, msg.SickTime, msg.RestTimeTillDel, msg.Gender,
+		msg.SickApprovalPending, msg.SickApprovalDeadline, msg.SickApprovalMessageID, moscowTime)
 
 	if err != nil {
 		fmt.Printf("DEBUG: Save error: %v\n", err)
@@ -155,7 +162,7 @@ func (d *Database) SaveMessageLog(msg *models.MessageLog) error {
 func (d *Database) GetMessageLog(userID, chatID int64) (*models.MessageLog, error) {
 	query := `
 		SELECT user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion,
-		       timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, gender, created_at, updated_at
+		       timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, gender, sick_approval_pending, sick_approval_deadline, sick_approval_message_id, created_at, updated_at
 		FROM message_log 
 		WHERE user_id = $1 AND chat_id = $2 AND is_deleted = FALSE
 		ORDER BY updated_at DESC
@@ -166,7 +173,7 @@ func (d *Database) GetMessageLog(userID, chatID int64) (*models.MessageLog, erro
 	err := d.db.QueryRow(query, userID, chatID).Scan(
 		&msg.UserID, &msg.Username, &msg.ChatID, &msg.Calories, &msg.StreakDays, &msg.CalorieStreakDays, &msg.CupsEarned, &msg.LastTrainingDate, &msg.LastMessage, &msg.HasTrainingDone,
 		&msg.HasSickLeave, &msg.HasHealthy, &msg.IsDeleted, &msg.IsExemptFromDeletion, &msg.TimerStartTime, &msg.SickLeaveStartTime, &msg.SickLeaveEndTime, &msg.SickTime, &msg.RestTimeTillDel, &msg.Gender,
-		&msg.CreatedAt, &msg.UpdatedAt)
+		&msg.SickApprovalPending, &msg.SickApprovalDeadline, &msg.SickApprovalMessageID, &msg.CreatedAt, &msg.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +189,7 @@ func (d *Database) GetMessageLog(userID, chatID int64) (*models.MessageLog, erro
 func (d *Database) GetUsersByChatID(chatID int64) ([]*models.MessageLog, error) {
 	query := `
 		SELECT user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion,
-		       timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, gender, created_at, updated_at
+		       timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, gender, sick_approval_pending, sick_approval_deadline, sick_approval_message_id, created_at, updated_at
 		FROM message_log 
 		WHERE chat_id = $1 AND is_deleted = FALSE
 		ORDER BY calories DESC, last_message DESC
@@ -200,7 +207,7 @@ func (d *Database) GetUsersByChatID(chatID int64) ([]*models.MessageLog, error) 
 		err := rows.Scan(
 			&msg.UserID, &msg.Username, &msg.ChatID, &msg.Calories, &msg.StreakDays, &msg.CalorieStreakDays, &msg.CupsEarned, &msg.LastTrainingDate, &msg.LastMessage, &msg.HasTrainingDone,
 			&msg.HasSickLeave, &msg.HasHealthy, &msg.IsDeleted, &msg.IsExemptFromDeletion, &msg.TimerStartTime, &msg.SickLeaveStartTime, &msg.SickLeaveEndTime, &msg.SickTime, &msg.RestTimeTillDel, &msg.Gender,
-			&msg.CreatedAt, &msg.UpdatedAt)
+			&msg.SickApprovalPending, &msg.SickApprovalDeadline, &msg.SickApprovalMessageID, &msg.CreatedAt, &msg.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -449,7 +456,7 @@ func (d *Database) MarkUserAsDeleted(userID, chatID int64) error {
 func (d *Database) GetTopUsers(chatID int64, limit int) ([]*models.MessageLog, error) {
 	query := `
 		SELECT user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion,
-		       timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, created_at, updated_at
+		       timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, sick_approval_pending, sick_approval_deadline, sick_approval_message_id, created_at, updated_at
 		FROM message_log 
 		WHERE chat_id = $1 AND calories > 0 AND is_deleted = FALSE
 		ORDER BY calories DESC, last_message DESC
@@ -468,7 +475,7 @@ func (d *Database) GetTopUsers(chatID int64, limit int) ([]*models.MessageLog, e
 		err := rows.Scan(
 			&msg.UserID, &msg.Username, &msg.ChatID, &msg.Calories, &msg.StreakDays, &msg.CalorieStreakDays, &msg.CupsEarned, &msg.LastTrainingDate, &msg.LastMessage, &msg.HasTrainingDone,
 			&msg.HasSickLeave, &msg.HasHealthy, &msg.IsDeleted, &msg.IsExemptFromDeletion, &msg.TimerStartTime, &msg.SickLeaveStartTime, &msg.SickLeaveEndTime, &msg.SickTime, &msg.RestTimeTillDel,
-			&msg.CreatedAt, &msg.UpdatedAt)
+			&msg.SickApprovalPending, &msg.SickApprovalDeadline, &msg.SickApprovalMessageID, &msg.CreatedAt, &msg.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -482,7 +489,7 @@ func (d *Database) GetTopUsers(chatID int64, limit int) ([]*models.MessageLog, e
 func (d *Database) GetAllUsersWithTimers() ([]*models.MessageLog, error) {
 	query := `
 		SELECT user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion,
-		       timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, created_at, updated_at
+		       timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, sick_approval_pending, sick_approval_deadline, sick_approval_message_id, created_at, updated_at
 		FROM message_log 
 		WHERE timer_start_time IS NOT NULL AND is_deleted = FALSE
 		ORDER BY timer_start_time ASC
@@ -500,7 +507,7 @@ func (d *Database) GetAllUsersWithTimers() ([]*models.MessageLog, error) {
 		err := rows.Scan(
 			&msg.UserID, &msg.Username, &msg.ChatID, &msg.Calories, &msg.StreakDays, &msg.CalorieStreakDays, &msg.CupsEarned, &msg.LastTrainingDate, &msg.LastMessage, &msg.HasTrainingDone,
 			&msg.HasSickLeave, &msg.HasHealthy, &msg.IsDeleted, &msg.IsExemptFromDeletion, &msg.TimerStartTime, &msg.SickLeaveStartTime, &msg.SickLeaveEndTime, &msg.SickTime, &msg.RestTimeTillDel,
-			&msg.CreatedAt, &msg.UpdatedAt)
+			&msg.SickApprovalPending, &msg.SickApprovalDeadline, &msg.SickApprovalMessageID, &msg.CreatedAt, &msg.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}

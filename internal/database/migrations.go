@@ -141,6 +141,22 @@ var Migrations = []Migration{
 			DROP COLUMN gender;
 		`,
 	},
+	{
+		Version:     7,
+		Description: "Add sick leave approval fields to message_log",
+		UpSQL: `
+			ALTER TABLE message_log 
+			ADD COLUMN IF NOT EXISTS sick_approval_pending BOOLEAN DEFAULT FALSE,
+			ADD COLUMN IF NOT EXISTS sick_approval_deadline TIMESTAMP WITH TIME ZONE,
+			ADD COLUMN IF NOT EXISTS sick_approval_message_id BIGINT;
+		`,
+		DownSQL: `
+			ALTER TABLE message_log 
+			DROP COLUMN IF EXISTS sick_approval_pending,
+			DROP COLUMN IF EXISTS sick_approval_deadline,
+			DROP COLUMN IF EXISTS sick_approval_message_id;
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции
