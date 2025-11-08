@@ -443,21 +443,28 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) {
 	existingLog, err := b.db.GetMessageLog(msg.From.ID, msg.Chat.ID)
 	if err != nil {
 		// Если пользователя нет в БД, создаем новую запись
+		timerStartTime := utils.FormatMoscowTime(utils.GetMoscowTime())
 		messageLog := &models.MessageLog{
-			UserID:          msg.From.ID,
-			ChatID:          msg.Chat.ID,
-			Username:        username,
-			Calories:        0,
-			StreakDays:      0,
-			LastMessage:     utils.FormatMoscowTime(utils.GetMoscowTime()),
-			HasTrainingDone: hasTrainingDone,
-			HasSickLeave:    hasSickLeave,
-			HasHealthy:      hasHealthy,
-			IsDeleted:       false,
+			UserID:            msg.From.ID,
+			ChatID:            msg.Chat.ID,
+			Username:          username,
+			Calories:          0,
+			StreakDays:        0,
+			CalorieStreakDays: 0,
+			CupsEarned:        0,
+			LastMessage:       timerStartTime,
+			HasTrainingDone:   hasTrainingDone,
+			HasSickLeave:      hasSickLeave,
+			HasHealthy:        hasHealthy,
+			IsDeleted:         false,
+			TimerStartTime:    &timerStartTime,
 		}
 
 		if err := b.db.SaveMessageLog(messageLog); err != nil {
 			b.logger.Errorf("Failed to save message log: %v", err)
+		} else {
+			b.logger.Infof("Initialized timer state for new user %d (%s) from message", msg.From.ID, username)
+			b.startTimer(msg.From.ID, msg.Chat.ID, username)
 		}
 	} else {
 		// Обновляем только необходимые поля, сохраняя streak данные
@@ -2220,7 +2227,7 @@ func (b *Bot) cancelTimer(userID int64) {
 
 func (b *Bot) sendWarning(userID, chatID int64, username string) {
 	// Базовый текст предупреждения
-	messageText := fmt.Sprintf("⚠️ Предупреждение!\n\n%s, ты не отправляешь отчет о тренировке уже 6 дней!\n\n🦁 Ням-ням, вкусненько! Я питаюсь ленивыми леопардами и становлюсь жирнее!\n\n💪 Ты ведь не хочешь стать как я?\n\n⏰ У тебя остался 1 день до удаления из чата!\n\n🎯 Отправь #training_done прямо сейчас!", username)
+	messageText := fmt.Sprintf("⚠️ Предупреждение!\n\n%s, ты не отправляешь отчет о тренировке уже 6 дней!\n\n💪 Ты ведь не хочешь стать как я?\n\n⏰ У тебя остался 1 день до удаления из чата!\n\n🎯 Отправь #training_done прямо сейчас!", username)
 
 	// Добавляем короткую ИИ‑приписку к предупреждению
 	if b.aiClient != nil {
