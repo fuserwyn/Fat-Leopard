@@ -2660,6 +2660,11 @@ func (b *Bot) isAdmin(chatID, userID int64) bool {
 		return true
 	}
 
+	if b.api == nil {
+		b.logger.Warn("Bot API is nil, cannot verify admin status via Telegram")
+		return false
+	}
+
 	// Проверяем права администратора
 	member, err := b.api.GetChatMember(tgbotapi.GetChatMemberConfig{
 		ChatConfigWithUser: tgbotapi.ChatConfigWithUser{

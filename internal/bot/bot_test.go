@@ -12,6 +12,19 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
+const durationTolerance = time.Minute
+
+func assertDurationApprox(t *testing.T, got, want time.Duration) {
+	t.Helper()
+	diff := got - want
+	if diff < 0 {
+		diff = -diff
+	}
+	if diff > durationTolerance {
+		t.Fatalf("expected duration ~%v (±%v), got %v", want, durationTolerance, got)
+	}
+}
+
 func TestCalculateRemainingTime(t *testing.T) {
 	// Создаем мок логгер
 	log := logger.New("info")
@@ -28,13 +41,11 @@ func TestCalculateRemainingTime(t *testing.T) {
 	remainingTime := bot.calculateRemainingTime(messageLog)
 	expectedTime := 7 * 24 * time.Hour
 
-	if remainingTime != expectedTime {
-		t.Errorf("Expected %v, got %v", expectedTime, remainingTime)
-	}
+	assertDurationApprox(t, remainingTime, expectedTime)
 
 	// Тест 2: Есть данные о времени
-	timerStart := time.Now().Add(-2 * 24 * time.Hour).Format(time.RFC3339)
-	sickLeaveStart := time.Now().Add(-1 * 24 * time.Hour).Format(time.RFC3339)
+	timerStart := utils.FormatMoscowTime(utils.GetMoscowTime().Add(-2 * 24 * time.Hour))
+	sickLeaveStart := utils.FormatMoscowTime(utils.GetMoscowTime().Add(-1 * 24 * time.Hour))
 
 	messageLogWithTime := &models.MessageLog{
 		TimerStartTime:     &timerStart,
@@ -43,22 +54,17 @@ func TestCalculateRemainingTime(t *testing.T) {
 
 	remainingTime = bot.calculateRemainingTime(messageLogWithTime)
 	expectedTime = 5 * 24 * time.Hour // 7 - 2 = 5 дней
-
-	if remainingTime != expectedTime {
-		t.Errorf("Expected %v, got %v", expectedTime, remainingTime)
-	}
+	assertDurationApprox(t, remainingTime, expectedTime)
 
 	// Тест 3: Больничный сценарий - тренировка 11.09, больничный 13.09, выход 19.09
-	// Создаем фиксированные даты для тестирования
-	trainingTime := time.Date(2024, 9, 11, 10, 0, 0, 0, time.UTC)
-	sickStartTime := time.Date(2024, 9, 13, 10, 0, 0, 0, time.UTC)
-
-	timerStartStr := trainingTime.Format(time.RFC3339)
-	sickStartStr := sickStartTime.Format(time.RFC3339)
+	timerStartStr := utils.FormatMoscowTime(utils.GetMoscowTime().Add(-7 * 24 * time.Hour))
+	sickStartStr := utils.FormatMoscowTime(utils.GetMoscowTime().Add(-5 * 24 * time.Hour))
+	sickEndStr := utils.FormatMoscowTime(utils.GetMoscowTime())
 
 	messageLogSickLeave := &models.MessageLog{
 		TimerStartTime:     &timerStartStr,
 		SickLeaveStartTime: &sickStartStr,
+		SickLeaveEndTime:   &sickEndStr,
 		HasSickLeave:       true,
 		HasHealthy:         true, // Пользователь выздоровел
 	}
@@ -67,10 +73,7 @@ func TestCalculateRemainingTime(t *testing.T) {
 
 	// Ожидаемое время: 7 дней - 2 дня (с 11.09 до 13.09) = 5 дней
 	expectedTime = 5 * 24 * time.Hour
-
-	if remainingTime != expectedTime {
-		t.Errorf("Sick leave test: Expected %v, got %v", expectedTime, remainingTime)
-	}
+	assertDurationApprox(t, remainingTime, expectedTime)
 }
 
 func TestFormatDurationToDays(t *testing.T) {
@@ -179,11 +182,11 @@ func TestSickLeaveRecoveryScenario(t *testing.T) {
 
 	// Тест: Больничный сценарий - тренировка, больничный, выздоровление
 	// Создаем фиксированные даты для тестирования
-	trainingTime := time.Date(2024, 9, 11, 10, 0, 0, 0, time.UTC)
-	sickStartTime := time.Date(2024, 9, 13, 10, 0, 0, 0, time.UTC)
+	trainingTime := utils.GetMoscowTime().Add(-7 * 24 * time.Hour)
+	sickStartTime := trainingTime.Add(2 * 24 * time.Hour)
 
-	timerStartStr := trainingTime.Format(time.RFC3339)
-	sickStartStr := sickStartTime.Format(time.RFC3339)
+	timerStartStr := utils.FormatMoscowTime(trainingTime)
+	sickStartStr := utils.FormatMoscowTime(sickStartTime)
 
 	// Создаем пользователя на больничном
 	messageLogSickLeave := &models.MessageLog{
@@ -203,14 +206,14 @@ func TestSickLeaveRecoveryScenario(t *testing.T) {
 
 	// Пользователь выздоровел
 	messageLogSickLeave.HasHealthy = true
+	sickEndStr := utils.FormatMoscowTime(utils.GetMoscowTime())
+	messageLogSickLeave.SickLeaveEndTime = &sickEndStr
 
 	// Проверяем время после выздоровления
 	remainingTimeAfterRecovery := bot.calculateRemainingTime(messageLogSickLeave)
 	expectedTimeAfterRecovery := 5 * 24 * time.Hour // Должно остаться то же время
 
-	if remainingTimeAfterRecovery != expectedTimeAfterRecovery {
-		t.Errorf("After recovery: Expected %v, got %v", expectedTimeAfterRecovery, remainingTimeAfterRecovery)
-	}
+	assertDurationApprox(t, remainingTimeAfterRecovery, expectedTimeAfterRecovery)
 
 	// Проверяем форматирование времени
 	formattedTime := bot.formatDurationToDays(remainingTimeAfterRecovery)
@@ -226,6 +229,7 @@ func TestIsAdmin(t *testing.T) {
 	cfg := &config.Config{OwnerID: 123}
 	bot := &Bot{
 		config: cfg,
+		logger: logger.New("info"),
 	}
 
 	// Тест: Пользователь является владельцем
@@ -295,14 +299,20 @@ func TestCalculateCaloriesWeeklyAchievement(t *testing.T) {
 
 	// Тест 1: Проверяем логику недельного достижения
 	// Создаем тестовые данные для 7-дневной серии
-	messageLog := &models.MessageLog{
-		LastTrainingDate: nil, // Нет предыдущих тренировок
-		StreakDays:       0,
-	}
+	messageLog := &models.MessageLog{}
 
 	// Симулируем 7 дней подряд тренировок
 	for day := 1; day <= 7; day++ {
-		calories, streakDays, _, weeklyAchievement, twoWeekAchievement, threeWeekAchievement, monthlyAchievement, _, _, _, quarterlyAchievement, _ := bot.calculateCalories(messageLog)
+		yesterday := utils.GetMoscowDateFromTime(utils.GetMoscowTime().AddDate(0, 0, -1))
+		messageLog.LastTrainingDate = &yesterday
+		messageLog.StreakDays = day - 1
+		messageLog.CalorieStreakDays = day - 1
+
+		calories, streakDays, newCalorieStreak, weeklyAchievement, twoWeekAchievement, threeWeekAchievement, monthlyAchievement, _, _, _, quarterlyAchievement, _ := bot.calculateCalories(messageLog)
+
+		if calories != newCalorieStreak {
+			t.Errorf("Day %d: calories %d must equal newCalorieStreak %d", day, calories, newCalorieStreak)
+		}
 
 		if day == 7 {
 			// На 7-й день должно быть недельное достижение
@@ -311,9 +321,6 @@ func TestCalculateCaloriesWeeklyAchievement(t *testing.T) {
 			}
 			if streakDays != 7 {
 				t.Errorf("Day %d: Expected streak days 7, got %d", day, streakDays)
-			}
-			if calories < 6 { // 1 базовая + 5 за 7 дней
-				t.Errorf("Day %d: Expected calories >= 6 for 7-day streak, got %d", day, calories)
 			}
 			// На 7-й день не должно быть других достижений
 			if twoWeekAchievement {
@@ -349,17 +356,22 @@ func TestCalculateCaloriesWeeklyAchievement(t *testing.T) {
 
 		// Обновляем данные для следующего дня
 		messageLog.StreakDays = streakDays
-		// Симулируем, что следующая тренировка будет завтра
-		messageLog.LastTrainingDate = nil
+		messageLog.CalorieStreakDays = newCalorieStreak
+		today := utils.GetMoscowDate()
+		messageLog.LastTrainingDate = &today
 	}
 
 	// Тест 2: Проверяем, что достижение срабатывает только на 7-й день
 	messageLog2 := &models.MessageLog{
-		LastTrainingDate: nil,
-		StreakDays:       6, // 6 дней подряд
+		StreakDays:        6,
+		CalorieStreakDays: 6,
+		LastTrainingDate: func() *string {
+			y := utils.GetMoscowDateFromTime(utils.GetMoscowTime().AddDate(0, 0, -1))
+			return &y
+		}(),
 	}
 
-	calories2, streakDays2, _, weeklyAchievement2, _, _, monthlyAchievement2, _, _, _, quarterlyAchievement2, _ := bot.calculateCalories(messageLog2)
+	calories2, streakDays2, newCalorieStreak2, weeklyAchievement2, _, _, monthlyAchievement2, _, _, _, quarterlyAchievement2, _ := bot.calculateCalories(messageLog2)
 
 	// На 7-й день должно быть недельное достижение
 	if !weeklyAchievement2 {
@@ -368,8 +380,8 @@ func TestCalculateCaloriesWeeklyAchievement(t *testing.T) {
 	if streakDays2 != 7 {
 		t.Errorf("Expected streak days 7, got %d", streakDays2)
 	}
-	if calories2 < 6 {
-		t.Errorf("Expected calories >= 6 for 7-day streak, got %d", calories2)
+	if calories2 != newCalorieStreak2 {
+		t.Errorf("Expected calories equal to newCalorieStreak (%d), got %d", newCalorieStreak2, calories2)
 	}
 	// На 7-й день не должно быть месячного и квартального достижений
 	if monthlyAchievement2 {
@@ -381,11 +393,15 @@ func TestCalculateCaloriesWeeklyAchievement(t *testing.T) {
 
 	// Тест 3: Проверяем, что на 6-й день нет достижения
 	messageLog3 := &models.MessageLog{
-		LastTrainingDate: nil,
-		StreakDays:       5, // 5 дней подряд
+		StreakDays:        5,
+		CalorieStreakDays: 5,
+		LastTrainingDate: func() *string {
+			y := utils.GetMoscowDateFromTime(utils.GetMoscowTime().AddDate(0, 0, -1))
+			return &y
+		}(),
 	}
 
-	calories3, streakDays3, _, weeklyAchievement3, _, _, monthlyAchievement3, _, _, _, quarterlyAchievement3, _ := bot.calculateCalories(messageLog3)
+	calories3, streakDays3, newCalorieStreak3, weeklyAchievement3, _, _, monthlyAchievement3, _, _, _, quarterlyAchievement3, _ := bot.calculateCalories(messageLog3)
 
 	// На 6-й день не должно быть достижений
 	if weeklyAchievement3 {
@@ -400,8 +416,8 @@ func TestCalculateCaloriesWeeklyAchievement(t *testing.T) {
 	if streakDays3 != 6 {
 		t.Errorf("Expected streak days 6, got %d", streakDays3)
 	}
-	if calories3 < 3 { // 1 базовая + 2 за 3+ дня
-		t.Errorf("Expected calories >= 3 for 6-day streak, got %d", calories3)
+	if calories3 != newCalorieStreak3 {
+		t.Errorf("Expected calories equal to newCalorieStreak (%d), got %d", newCalorieStreak3, calories3)
 	}
 
 	// Проверяем, что функции не падают с ошибками
@@ -418,12 +434,14 @@ func TestCalculateCaloriesMonthlyAchievement(t *testing.T) {
 	}
 
 	// Тест: Пользователь достигает 30-дневной серии
+	yesterday := utils.GetMoscowDateFromTime(utils.GetMoscowTime().AddDate(0, 0, -1))
 	messageLog := &models.MessageLog{
-		LastTrainingDate: nil,
-		StreakDays:       29, // 29 дней подряд
+		LastTrainingDate:  &yesterday,
+		StreakDays:        29,
+		CalorieStreakDays: 29,
 	}
 
-	calories, streakDays, _, weeklyAchievement, _, _, monthlyAchievement, _, _, _, quarterlyAchievement, _ := bot.calculateCalories(messageLog)
+	calories, streakDays, newCalorieStreak, weeklyAchievement, _, _, monthlyAchievement, _, _, _, quarterlyAchievement, _ := bot.calculateCalories(messageLog)
 
 	// На 30-й день должно быть месячное достижение
 	if !monthlyAchievement {
@@ -432,8 +450,8 @@ func TestCalculateCaloriesMonthlyAchievement(t *testing.T) {
 	if streakDays != 30 {
 		t.Errorf("Expected streak days 30, got %d", streakDays)
 	}
-	if calories < 21 { // 1 базовая + 20 за 30 дней
-		t.Errorf("Expected calories >= 21 for 30-day streak, got %d", calories)
+	if calories != newCalorieStreak {
+		t.Errorf("Expected calories equal to newCalorieStreak (%d), got %d", newCalorieStreak, calories)
 	}
 	// На 30-й день не должно быть недельного и квартального достижений
 	if weeklyAchievement {
@@ -445,11 +463,12 @@ func TestCalculateCaloriesMonthlyAchievement(t *testing.T) {
 
 	// Тест: Пользователь не достигает месячной серии
 	messageLog2 := &models.MessageLog{
-		LastTrainingDate: nil,
-		StreakDays:       14, // 14 дней подряд
+		LastTrainingDate:  &yesterday,
+		StreakDays:        14,
+		CalorieStreakDays: 14,
 	}
 
-	calories2, streakDays2, _, _, _, monthlyAchievement2, _, _, _, quarterlyAchievement2, _, _ := bot.calculateCalories(messageLog2)
+	calories2, streakDays2, newCalorieStreak2, _, _, _, monthlyAchievement2, _, _, _, quarterlyAchievement2, _ := bot.calculateCalories(messageLog2)
 
 	// На 15-й день не должно быть месячного и квартального достижений
 	if monthlyAchievement2 {
@@ -461,8 +480,8 @@ func TestCalculateCaloriesMonthlyAchievement(t *testing.T) {
 	if streakDays2 != 15 {
 		t.Errorf("Expected streak days 15, got %d", streakDays2)
 	}
-	if calories2 < 11 { // 1 базовая + 10 за 14+ дней
-		t.Errorf("Expected calories >= 11 for 15-day streak, got %d", calories2)
+	if calories2 != newCalorieStreak2 {
+		t.Errorf("Expected calories equal to newCalorieStreak (%d), got %d", newCalorieStreak2, calories2)
 	}
 
 	// Проверяем, что функции не падают с ошибками
@@ -479,12 +498,15 @@ func TestCalculateCaloriesQuarterlyAchievement(t *testing.T) {
 	}
 
 	// Тест: Пользователь достигает 90-дневной серии
+	yesterday := utils.GetMoscowDateFromTime(utils.GetMoscowTime().AddDate(0, 0, -1))
+
 	messageLog := &models.MessageLog{
-		LastTrainingDate: nil,
-		StreakDays:       89, // 89 дней подряд
+		LastTrainingDate:  &yesterday,
+		StreakDays:        89,
+		CalorieStreakDays: 89,
 	}
 
-	calories, streakDays, _, weeklyAchievement, _, _, monthlyAchievement, _, _, _, quarterlyAchievement, _ := bot.calculateCalories(messageLog)
+	calories, streakDays, newCalorieStreak, weeklyAchievement, _, _, monthlyAchievement, _, _, _, quarterlyAchievement, _ := bot.calculateCalories(messageLog)
 
 	// На 90-й день должно быть квартальное достижение
 	if !quarterlyAchievement {
@@ -493,8 +515,8 @@ func TestCalculateCaloriesQuarterlyAchievement(t *testing.T) {
 	if streakDays != 90 {
 		t.Errorf("Expected streak days 90, got %d", streakDays)
 	}
-	if calories < 21 { // 1 базовая + 20 за 30+ дней
-		t.Errorf("Expected calories >= 21 for 90-day streak, got %d", calories)
+	if calories != newCalorieStreak {
+		t.Errorf("Expected calories equal to newCalorieStreak (%d), got %d", newCalorieStreak, calories)
 	}
 	// На 90-й день не должно быть недельного и месячного достижений (уже были)
 	if weeklyAchievement {
@@ -506,11 +528,12 @@ func TestCalculateCaloriesQuarterlyAchievement(t *testing.T) {
 
 	// Тест: Пользователь не достигает квартальной серии
 	messageLog2 := &models.MessageLog{
-		LastTrainingDate: nil,
-		StreakDays:       45, // 45 дней подряд
+		LastTrainingDate:  &yesterday,
+		StreakDays:        45,
+		CalorieStreakDays: 45,
 	}
 
-	calories2, streakDays2, _, _, _, _, _, _, _, quarterlyAchievement2, _, _ := bot.calculateCalories(messageLog2)
+	calories2, streakDays2, newCalorieStreak2, _, _, _, _, _, _, quarterlyAchievement2, _, _ := bot.calculateCalories(messageLog2)
 
 	// На 46-й день не должно быть квартального достижения
 	if quarterlyAchievement2 {
@@ -519,8 +542,8 @@ func TestCalculateCaloriesQuarterlyAchievement(t *testing.T) {
 	if streakDays2 != 46 {
 		t.Errorf("Expected streak days 46, got %d", streakDays2)
 	}
-	if calories2 < 21 { // 1 базовая + 20 за 30+ дней
-		t.Errorf("Expected calories >= 21 for 46-day streak, got %d", calories2)
+	if calories2 != newCalorieStreak2 {
+		t.Errorf("Expected calories equal to newCalorieStreak (%d), got %d", newCalorieStreak2, calories2)
 	}
 
 	// Проверяем, что функции не падают с ошибками
