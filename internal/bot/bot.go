@@ -2014,6 +2014,22 @@ func (b *Bot) handleSendToChat(msg *tgbotapi.Message) {
 		b.api.Send(reply)
 		b.logger.Errorf("Failed to send message to chat %d: %v", chatID, err)
 	} else {
+		botUsername := b.api.Self.UserName
+		if botUsername == "" {
+			botUsername = fmt.Sprintf("bot_%d", b.api.Self.ID)
+		}
+		if saveErr := b.db.SaveUserMessage(&models.UserMessage{
+			UserID:      b.api.Self.ID,
+			ChatID:      chatID,
+			Username:    botUsername,
+			MessageText: messageText,
+			MessageType: "ai_reply",
+		}); saveErr != nil {
+			b.logger.Warnf("Failed to persist send_to_chat message for chat %d: %v", chatID, saveErr)
+		} else {
+			b.logger.Infof("Persisted send_to_chat message for chat %d", chatID)
+		}
+
 		successMsg := fmt.Sprintf("✅ Сообщение успешно отправлено в чат %d", chatID)
 		reply := tgbotapi.NewMessage(msg.Chat.ID, successMsg)
 		b.api.Send(reply)
