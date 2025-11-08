@@ -138,6 +138,11 @@ func TestEvaluateSickLeaveJustification(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "Short symptom phrase",
+			text: "плохое самочувствие",
+			want: true,
+		},
+		{
 			name: "Support request without symptoms",
 			text: "Пожалуйста, дай шанс, честно-честно поправлюсь и буду тренироваться",
 			want: true,

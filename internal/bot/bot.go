@@ -1357,6 +1357,9 @@ func (b *Bot) evaluateSickLeaveHeuristics(text string) bool {
 			score++
 		}
 	}
+	if strings.Contains(text, "плохое самочувствие") {
+		score++
+	}
 	for _, sup := range sickLeaveSupportKeywords {
 		if strings.Contains(text, sup) {
 			score++
