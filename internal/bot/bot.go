@@ -1560,6 +1560,7 @@ func (b *Bot) handleHealthy(msg *tgbotapi.Message) {
 
 	// Обновляем флаг выздоровления
 	messageLog.HasHealthy = true
+	messageLog.HasSickLeave = false
 
 	// Добавляем подробное логирование перед сохранением
 	b.logger.Infof("Saving message log with fields:")
