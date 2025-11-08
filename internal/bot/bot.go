@@ -1141,16 +1141,15 @@ func (b *Bot) handleSickLeave(msg *tgbotapi.Message) {
 		return
 	}
 
-	if justification != "" {
-		if b.evaluateSickLeaveJustification(justification) {
-			b.logger.Infof("Sick leave auto-approved for user %d (%s)", msg.From.ID, messageLog.Username)
-			b.activateSickLeave(msg, messageLog)
-		} else {
-			b.logger.Infof("Sick leave rejected for user %d (%s): justification not convincing", msg.From.ID, messageLog.Username)
-			b.sendSickLeaveRejection(msg.Chat.ID, msg.MessageID)
-		}
+	if justification == "" || b.evaluateSickLeaveJustification(justification) {
+		b.logger.Infof("Sick leave auto-approved for user %d (%s)", msg.From.ID, messageLog.Username)
+		b.activateSickLeave(msg, messageLog)
 		return
 	}
+
+	b.logger.Infof("Sick leave rejected for user %d (%s): justification not convincing", msg.From.ID, messageLog.Username)
+	b.sendSickLeaveRejection(msg.Chat.ID, msg.MessageID)
+	return
 
 	now := utils.GetMoscowTime()
 	deadline := now.Add(24 * time.Hour)
