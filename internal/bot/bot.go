@@ -31,7 +31,7 @@ type Bot struct {
 
 var (
 	sickLeavePositiveKeywords = []string{
-		"болен", "болею", "болит", "простыл", "простуд", "температур", "кашля", "грипп", "орви", "ангин", "плохо", "лежу", "честно", "правда", "шанс", "выздоров", "выздоравли", "таблет", "врач", "болезн", "недомог", "жар", "сон", "боляч",
+		"болен", "болею", "болит", "заболел", "заболела", "забол", "заболева", "простыл", "простуд", "температур", "кашля", "кашель", "грипп", "орви", "ангин", "плохо", "лежу", "честно", "правда", "шанс", "выздоров", "выздоравли", "таблет", "врач", "болезн", "недомог", "жар", "сон", "боляч", "мигрен", "лихорад", "fever", "flu", "cold", "ill", "sick",
 	}
 	sickLeaveSupportKeywords = []string{
 		"дай шанс", "прошу", "пожалуйста", "исправлюсь", "буду тренироваться", "честно-честно", "умоляю", "пожал", "верь", "поверь", "обещаю",
@@ -1356,6 +1356,21 @@ func (b *Bot) evaluateSickLeaveHeuristics(text string) (approved bool, hasNegati
 		if strings.Contains(text, pos) {
 			score++
 		}
+	}
+	if strings.Contains(text, "боле") {
+		score++
+	}
+	if strings.Contains(text, "забол") {
+		score++
+	}
+	if strings.Contains(text, "простуд") {
+		score++
+	}
+	if strings.Contains(text, "температ") {
+		score++
+	}
+	if strings.Contains(text, "кашл") {
+		score++
 	}
 	if strings.Contains(text, "плохое самочувствие") {
 		score++
