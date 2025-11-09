@@ -1340,14 +1340,14 @@ func extractSickLeaveJustification(msg *tgbotapi.Message) string {
 	return strings.TrimSpace(lower)
 }
 
-func (b *Bot) evaluateSickLeaveHeuristics(text string) bool {
+func (b *Bot) evaluateSickLeaveHeuristics(text string) (approved bool, hasNegative bool) {
 	if text == "" {
-		return false
+		return false, false
 	}
 
 	for _, neg := range sickLeaveNegativeKeywords {
 		if strings.Contains(text, neg) {
-			return false
+			return false, true
 		}
 	}
 
@@ -1365,7 +1365,7 @@ func (b *Bot) evaluateSickLeaveHeuristics(text string) bool {
 			score++
 		}
 	}
-	return score >= 1
+	return score >= 1, false
 }
 
 func (b *Bot) evaluateSickLeaveJustification(text string, messageLog *models.MessageLog) bool {
@@ -1375,10 +1375,16 @@ func (b *Bot) evaluateSickLeaveJustification(text string, messageLog *models.Mes
 	clean = strings.ReplaceAll(clean, "#healthy", "")
 	clean = strings.ReplaceAll(clean, "#здоров", "")
 
-	heuristics := b.evaluateSickLeaveHeuristics(clean)
+	heuristicsApprove, hasNegative := b.evaluateSickLeaveHeuristics(clean)
 
+	if heuristicsApprove {
+		return true
+	}
+	if hasNegative {
+		return false
+	}
 	if b.aiClient == nil || clean == "" {
-		return heuristics
+		return false
 	}
 
 	var ctxBuilder strings.Builder
@@ -1391,7 +1397,7 @@ func (b *Bot) evaluateSickLeaveJustification(text string, messageLog *models.Mes
 		ctxBuilder.WriteString(fmt.Sprintf("HasHealthy: %t\n", messageLog.HasHealthy))
 	}
 	ctxBuilder.WriteString(fmt.Sprintf("Текст запроса: \"%s\"\n", clean))
-	ctxBuilder.WriteString(fmt.Sprintf("Грубая эвристика считает запрос %t.\n", heuristics))
+	ctxBuilder.WriteString("Эвристика не нашла явных признаков ни болезни, ни обмана.\n")
 
 	question := "Если сообщение описывает реальную болезнь, ответь строго словом APPROVE. " +
 		"Если это похоже на отговорку (работа, дела, лень и т.п.), ответь строго словом REJECT. " +
@@ -1400,7 +1406,7 @@ func (b *Bot) evaluateSickLeaveJustification(text string, messageLog *models.Mes
 	answer, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String())
 	if err != nil {
 		b.logger.Errorf("AI sick leave evaluation failed: %v", err)
-		return heuristics
+		return false
 	}
 
 	normalized := strings.ToUpper(strings.TrimSpace(answer))
@@ -1411,7 +1417,7 @@ func (b *Bot) evaluateSickLeaveJustification(text string, messageLog *models.Mes
 		return false
 	}
 
-	return heuristics
+	return false
 }
 
 func (b *Bot) cancelSickApprovalWatcher(userID int64) {
