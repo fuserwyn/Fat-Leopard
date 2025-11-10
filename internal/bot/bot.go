@@ -4372,13 +4372,19 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 		contextText.WriteString("История пуста\n")
 	}
 
-	// Добавляем последнее сообщение бота для логической последовательности
+	// Добавляем предыдущее сообщение бота только если пользователь отвечает на него
 	lastBotMessageText := ""
-	if lastBotMsg, err := b.db.GetLastAIMessage(msg.Chat.ID); err == nil && lastBotMsg != nil {
-		contextText.WriteString("\n=== ПОСЛЕДНЕЕ СООБЩЕНИЕ БОТА (НЕ ПРОТИВОРЕЧЬ) ===\n")
-		lastBotMessageText = strings.TrimSpace(lastBotMsg.MessageText)
-		contextText.WriteString(lastBotMessageText)
-		contextText.WriteString("\n")
+	if msg.ReplyToMessage != nil && msg.ReplyToMessage.From != nil && msg.ReplyToMessage.From.IsBot && msg.ReplyToMessage.From.ID == b.api.Self.ID {
+		replyText := strings.TrimSpace(msg.ReplyToMessage.Text)
+		if replyText == "" && msg.ReplyToMessage.Caption != "" {
+			replyText = strings.TrimSpace(msg.ReplyToMessage.Caption)
+		}
+		if replyText != "" {
+			contextText.WriteString("\n=== ПОСЛЕДНЕЕ СООБЩЕНИЕ БОТА (ПРОДОЛЖАЙ ЛОГИКУ) ===\n")
+			contextText.WriteString(replyText)
+			contextText.WriteString("\n")
+			lastBotMessageText = replyText
+		}
 	}
 
 	// Получаем полные данные пользователя
@@ -4776,6 +4782,7 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 			questionText,
 		)
 	}
+	finalQuestion += "\n\nОТВЕЧАЙ СТРОГО ПО СУТИ ВОПРОСА ПОЛЬЗОВАТЕЛЯ. СНАЧАЛА ДАЙ ПОЛНЫЙ, ПОДРОБНЫЙ ОТВЕТ ПО ВОПРОСУ. ЕСЛИ ВОПРОС НЕ ПРО ТРЕНИРОВКИ ИЛИ БОЛЬНИЧНЫЙ, НЕ ПЕРЕХОДИ К ЭТИМ ТЕМАМ БЕЗ ЯВНОГО ЗАПРОСА И НЕ ВЫПОЛНЯЙ НЕПРОСИМЫЕ ПРЕДУПРЕЖДЕНИЯ. ЛЮБЫЕ МОТИВИРУЮЩИЕ ДОПОЛНЕНИЯ МОЖНО ДАВАТЬ ТОЛЬКО В КОНЦЕ И ТОЛЬКО ЕСЛИ ОНИ ПОДЧЕРКИВАЮТ СУТЬ ОТВЕТА."
 
 	answer, err := b.aiClient.AnswerUserQuestion(finalQuestion, contextText.String())
 	if err != nil {
