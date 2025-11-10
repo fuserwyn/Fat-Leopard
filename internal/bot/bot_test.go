@@ -5,8 +5,9 @@ import (
 	"time"
 
 	"leo-bot/internal/config"
+	"leo-bot/internal/domain"
 	"leo-bot/internal/logger"
-	"leo-bot/internal/models"
+	"leo-bot/internal/usecase/sickleave"
 	"leo-bot/internal/utils"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -32,12 +33,13 @@ func TestCalculateRemainingTime(t *testing.T) {
 	// Создаем тестовый бот
 	cfg := &config.Config{OwnerID: 123}
 	bot := &Bot{
-		logger: log,
-		config: cfg,
+		logger:             log,
+		config:             cfg,
+		sickLeaveEvaluator: sickleave.NewEvaluator(nil, log),
 	}
 
 	// Тест 1: Нет данных о времени
-	messageLog := &models.MessageLog{}
+	messageLog := &domain.MessageLog{}
 	remainingTime := bot.calculateRemainingTime(messageLog)
 	expectedTime := 7 * 24 * time.Hour
 
@@ -47,7 +49,7 @@ func TestCalculateRemainingTime(t *testing.T) {
 	timerStart := utils.FormatMoscowTime(utils.GetMoscowTime().Add(-2 * 24 * time.Hour))
 	sickLeaveStart := utils.FormatMoscowTime(utils.GetMoscowTime().Add(-1 * 24 * time.Hour))
 
-	messageLogWithTime := &models.MessageLog{
+	messageLogWithTime := &domain.MessageLog{
 		TimerStartTime:     &timerStart,
 		SickLeaveStartTime: &sickLeaveStart,
 	}
@@ -61,7 +63,7 @@ func TestCalculateRemainingTime(t *testing.T) {
 	sickStartStr := utils.FormatMoscowTime(utils.GetMoscowTime().Add(-5 * 24 * time.Hour))
 	sickEndStr := utils.FormatMoscowTime(utils.GetMoscowTime())
 
-	messageLogSickLeave := &models.MessageLog{
+	messageLogSickLeave := &domain.MessageLog{
 		TimerStartTime:     &timerStartStr,
 		SickLeaveStartTime: &sickStartStr,
 		SickLeaveEndTime:   &sickEndStr,
@@ -125,7 +127,11 @@ func TestFormatDurationToDays(t *testing.T) {
 }
 
 func TestEvaluateSickLeaveJustification(t *testing.T) {
-	bot := &Bot{}
+	log := logger.New("info")
+	bot := &Bot{
+		logger:             log,
+		sickLeaveEvaluator: sickleave.NewEvaluator(nil, log),
+	}
 
 	cases := []struct {
 		name string
@@ -167,8 +173,8 @@ func TestEvaluateSickLeaveJustification(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			processed := extractSickLeaveJustification(&tgbotapi.Message{Text: tc.text})
-			if got := bot.evaluateSickLeaveJustification(processed, nil); got != tc.want {
-				t.Errorf("evaluateSickLeaveJustification(%q) = %v, want %v", tc.text, got, tc.want)
+			if got := bot.sickLeaveEvaluator.Evaluate(processed, nil); got != tc.want {
+				t.Errorf("sickLeaveEvaluator.Evaluate(%q) = %v, want %v", tc.text, got, tc.want)
 			}
 		})
 	}
@@ -181,8 +187,9 @@ func TestSickLeaveRecoveryScenario(t *testing.T) {
 	// Создаем тестовый бот
 	cfg := &config.Config{OwnerID: 123}
 	bot := &Bot{
-		logger: log,
-		config: cfg,
+		logger:             log,
+		config:             cfg,
+		sickLeaveEvaluator: sickleave.NewEvaluator(nil, log),
 	}
 
 	// Тест: Больничный сценарий - тренировка, больничный, выздоровление
@@ -194,7 +201,7 @@ func TestSickLeaveRecoveryScenario(t *testing.T) {
 	sickStartStr := utils.FormatMoscowTime(sickStartTime)
 
 	// Создаем пользователя на больничном
-	messageLogSickLeave := &models.MessageLog{
+	messageLogSickLeave := &domain.MessageLog{
 		TimerStartTime:     &timerStartStr,
 		SickLeaveStartTime: &sickStartStr,
 		HasSickLeave:       true,
@@ -304,7 +311,7 @@ func TestCalculateCaloriesWeeklyAchievement(t *testing.T) {
 
 	// Тест 1: Проверяем логику недельного достижения
 	// Создаем тестовые данные для 7-дневной серии
-	messageLog := &models.MessageLog{}
+	messageLog := &domain.MessageLog{}
 
 	// Симулируем 7 дней подряд тренировок
 	for day := 1; day <= 7; day++ {
@@ -367,7 +374,7 @@ func TestCalculateCaloriesWeeklyAchievement(t *testing.T) {
 	}
 
 	// Тест 2: Проверяем, что достижение срабатывает только на 7-й день
-	messageLog2 := &models.MessageLog{
+	messageLog2 := &domain.MessageLog{
 		StreakDays:        6,
 		CalorieStreakDays: 6,
 		LastTrainingDate: func() *string {
@@ -397,7 +404,7 @@ func TestCalculateCaloriesWeeklyAchievement(t *testing.T) {
 	}
 
 	// Тест 3: Проверяем, что на 6-й день нет достижения
-	messageLog3 := &models.MessageLog{
+	messageLog3 := &domain.MessageLog{
 		StreakDays:        5,
 		CalorieStreakDays: 5,
 		LastTrainingDate: func() *string {
@@ -440,7 +447,7 @@ func TestCalculateCaloriesMonthlyAchievement(t *testing.T) {
 
 	// Тест: Пользователь достигает 30-дневной серии
 	yesterday := utils.GetMoscowDateFromTime(utils.GetMoscowTime().AddDate(0, 0, -1))
-	messageLog := &models.MessageLog{
+	messageLog := &domain.MessageLog{
 		LastTrainingDate:  &yesterday,
 		StreakDays:        29,
 		CalorieStreakDays: 29,
@@ -467,7 +474,7 @@ func TestCalculateCaloriesMonthlyAchievement(t *testing.T) {
 	}
 
 	// Тест: Пользователь не достигает месячной серии
-	messageLog2 := &models.MessageLog{
+	messageLog2 := &domain.MessageLog{
 		LastTrainingDate:  &yesterday,
 		StreakDays:        14,
 		CalorieStreakDays: 14,
@@ -505,7 +512,7 @@ func TestCalculateCaloriesQuarterlyAchievement(t *testing.T) {
 	// Тест: Пользователь достигает 90-дневной серии
 	yesterday := utils.GetMoscowDateFromTime(utils.GetMoscowTime().AddDate(0, 0, -1))
 
-	messageLog := &models.MessageLog{
+	messageLog := &domain.MessageLog{
 		LastTrainingDate:  &yesterday,
 		StreakDays:        89,
 		CalorieStreakDays: 89,
@@ -532,7 +539,7 @@ func TestCalculateCaloriesQuarterlyAchievement(t *testing.T) {
 	}
 
 	// Тест: Пользователь не достигает квартальной серии
-	messageLog2 := &models.MessageLog{
+	messageLog2 := &domain.MessageLog{
 		LastTrainingDate:  &yesterday,
 		StreakDays:        45,
 		CalorieStreakDays: 45,
@@ -652,7 +659,7 @@ func TestCalculateCaloriesDoubleTraining(t *testing.T) {
 	bot := &Bot{config: cfg, logger: logger.New("info")}
 
 	// Тест 1: Первая тренировка сегодня
-	messageLog1 := &models.MessageLog{
+	messageLog1 := &domain.MessageLog{
 		LastTrainingDate: nil,
 		StreakDays:       0,
 	}
@@ -678,7 +685,7 @@ func TestCalculateCaloriesDoubleTraining(t *testing.T) {
 
 	// Тест 2: Вторая тренировка в тот же день
 	today := utils.GetMoscowDate()
-	messageLog2 := &models.MessageLog{
+	messageLog2 := &domain.MessageLog{
 		LastTrainingDate: &today,
 		StreakDays:       1,
 	}
@@ -705,7 +712,7 @@ func TestCalculateCaloriesDoubleTraining(t *testing.T) {
 	// Тест 3: Тренировка на следующий день после двойной тренировки
 	yesterday := utils.GetMoscowTime().AddDate(0, 0, -1)
 	yesterdayStr := utils.GetMoscowDateFromTime(yesterday)
-	messageLog3 := &models.MessageLog{
+	messageLog3 := &domain.MessageLog{
 		LastTrainingDate: &yesterdayStr,
 		StreakDays:       1,
 	}

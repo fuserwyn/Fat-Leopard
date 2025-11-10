@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"leo-bot/internal/domain"
 	"leo-bot/internal/logger"
-	"leo-bot/internal/models"
 	"leo-bot/internal/utils"
 
 	_ "github.com/lib/pq"
@@ -104,7 +104,7 @@ func (d *Database) CreateTables() error {
 }
 
 // SaveMessageLog сохраняет информацию о сообщении
-func (d *Database) SaveMessageLog(msg *models.MessageLog) error {
+func (d *Database) SaveMessageLog(msg *domain.MessageLog) error {
 	query := `
 		INSERT INTO message_log (user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion, timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, gender, sick_approval_pending, sick_approval_deadline, sick_approval_message_id, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
@@ -159,7 +159,7 @@ func (d *Database) SaveMessageLog(msg *models.MessageLog) error {
 }
 
 // GetMessageLog получает информацию о сообщении пользователя
-func (d *Database) GetMessageLog(userID, chatID int64) (*models.MessageLog, error) {
+func (d *Database) GetMessageLog(userID, chatID int64) (*domain.MessageLog, error) {
 	query := `
 		SELECT user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion,
 		       timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, gender, sick_approval_pending, sick_approval_deadline, sick_approval_message_id, created_at, updated_at
@@ -169,7 +169,7 @@ func (d *Database) GetMessageLog(userID, chatID int64) (*models.MessageLog, erro
 		LIMIT 1
 	`
 
-	var msg models.MessageLog
+	var msg domain.MessageLog
 	err := d.db.QueryRow(query, userID, chatID).Scan(
 		&msg.UserID, &msg.Username, &msg.ChatID, &msg.Calories, &msg.StreakDays, &msg.CalorieStreakDays, &msg.CupsEarned, &msg.LastTrainingDate, &msg.LastMessage, &msg.HasTrainingDone,
 		&msg.HasSickLeave, &msg.HasHealthy, &msg.IsDeleted, &msg.IsExemptFromDeletion, &msg.TimerStartTime, &msg.SickLeaveStartTime, &msg.SickLeaveEndTime, &msg.SickTime, &msg.RestTimeTillDel, &msg.Gender,
@@ -186,7 +186,7 @@ func (d *Database) GetMessageLog(userID, chatID int64) (*models.MessageLog, erro
 }
 
 // GetUsersByChatID получает всех пользователей в чате
-func (d *Database) GetUsersByChatID(chatID int64) ([]*models.MessageLog, error) {
+func (d *Database) GetUsersByChatID(chatID int64) ([]*domain.MessageLog, error) {
 	query := `
 		SELECT user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion,
 		       timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, gender, sick_approval_pending, sick_approval_deadline, sick_approval_message_id, created_at, updated_at
@@ -201,9 +201,9 @@ func (d *Database) GetUsersByChatID(chatID int64) ([]*models.MessageLog, error) 
 	}
 	defer rows.Close()
 
-	var users []*models.MessageLog
+	var users []*domain.MessageLog
 	for rows.Next() {
-		var msg models.MessageLog
+		var msg domain.MessageLog
 		err := rows.Scan(
 			&msg.UserID, &msg.Username, &msg.ChatID, &msg.Calories, &msg.StreakDays, &msg.CalorieStreakDays, &msg.CupsEarned, &msg.LastTrainingDate, &msg.LastMessage, &msg.HasTrainingDone,
 			&msg.HasSickLeave, &msg.HasHealthy, &msg.IsDeleted, &msg.IsExemptFromDeletion, &msg.TimerStartTime, &msg.SickLeaveStartTime, &msg.SickLeaveEndTime, &msg.SickTime, &msg.RestTimeTillDel, &msg.Gender,
@@ -269,7 +269,7 @@ func (d *Database) GetUserIDByUsername(username string, chatID int64) (int64, er
 }
 
 // SaveTrainingLog сохраняет отчет о тренировке
-func (d *Database) SaveTrainingLog(training *models.TrainingLog) error {
+func (d *Database) SaveTrainingLog(training *domain.TrainingLog) error {
 	query := `
 		INSERT INTO training_log (user_id, username, last_report, updated_at)
 		VALUES ($1, $2, $3, $4)
@@ -453,7 +453,7 @@ func (d *Database) MarkUserAsDeleted(userID, chatID int64) error {
 }
 
 // GetTopUsers получает топ пользователей по калориям
-func (d *Database) GetTopUsers(chatID int64, limit int) ([]*models.MessageLog, error) {
+func (d *Database) GetTopUsers(chatID int64, limit int) ([]*domain.MessageLog, error) {
 	query := `
 		SELECT user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion,
 		       timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, sick_approval_pending, sick_approval_deadline, sick_approval_message_id, created_at, updated_at
@@ -469,9 +469,9 @@ func (d *Database) GetTopUsers(chatID int64, limit int) ([]*models.MessageLog, e
 	}
 	defer rows.Close()
 
-	var users []*models.MessageLog
+	var users []*domain.MessageLog
 	for rows.Next() {
-		var msg models.MessageLog
+		var msg domain.MessageLog
 		err := rows.Scan(
 			&msg.UserID, &msg.Username, &msg.ChatID, &msg.Calories, &msg.StreakDays, &msg.CalorieStreakDays, &msg.CupsEarned, &msg.LastTrainingDate, &msg.LastMessage, &msg.HasTrainingDone,
 			&msg.HasSickLeave, &msg.HasHealthy, &msg.IsDeleted, &msg.IsExemptFromDeletion, &msg.TimerStartTime, &msg.SickLeaveStartTime, &msg.SickLeaveEndTime, &msg.SickTime, &msg.RestTimeTillDel,
@@ -486,7 +486,7 @@ func (d *Database) GetTopUsers(chatID int64, limit int) ([]*models.MessageLog, e
 }
 
 // GetAllUsersWithTimers получает всех пользователей с активными таймерами
-func (d *Database) GetAllUsersWithTimers() ([]*models.MessageLog, error) {
+func (d *Database) GetAllUsersWithTimers() ([]*domain.MessageLog, error) {
 	query := `
 		SELECT user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion,
 		       timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, sick_approval_pending, sick_approval_deadline, sick_approval_message_id, created_at, updated_at
@@ -501,9 +501,9 @@ func (d *Database) GetAllUsersWithTimers() ([]*models.MessageLog, error) {
 	}
 	defer rows.Close()
 
-	var users []*models.MessageLog
+	var users []*domain.MessageLog
 	for rows.Next() {
-		var msg models.MessageLog
+		var msg domain.MessageLog
 		err := rows.Scan(
 			&msg.UserID, &msg.Username, &msg.ChatID, &msg.Calories, &msg.StreakDays, &msg.CalorieStreakDays, &msg.CupsEarned, &msg.LastTrainingDate, &msg.LastMessage, &msg.HasTrainingDone,
 			&msg.HasSickLeave, &msg.HasHealthy, &msg.IsDeleted, &msg.IsExemptFromDeletion, &msg.TimerStartTime, &msg.SickLeaveStartTime, &msg.SickLeaveEndTime, &msg.SickTime, &msg.RestTimeTillDel,
@@ -518,7 +518,7 @@ func (d *Database) GetAllUsersWithTimers() ([]*models.MessageLog, error) {
 }
 
 // GetPendingSickApprovals возвращает пользователей с ожидающим подтверждением больничного
-func (d *Database) GetPendingSickApprovals() ([]*models.MessageLog, error) {
+func (d *Database) GetPendingSickApprovals() ([]*domain.MessageLog, error) {
 	query := `
 		SELECT user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion,
 		       timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, gender, sick_approval_pending, sick_approval_deadline, sick_approval_message_id, created_at, updated_at
@@ -532,9 +532,9 @@ func (d *Database) GetPendingSickApprovals() ([]*models.MessageLog, error) {
 	}
 	defer rows.Close()
 
-	var approvals []*models.MessageLog
+	var approvals []*domain.MessageLog
 	for rows.Next() {
-		var msg models.MessageLog
+		var msg domain.MessageLog
 		err := rows.Scan(
 			&msg.UserID, &msg.Username, &msg.ChatID, &msg.Calories, &msg.StreakDays, &msg.CalorieStreakDays, &msg.CupsEarned, &msg.LastTrainingDate, &msg.LastMessage, &msg.HasTrainingDone,
 			&msg.HasSickLeave, &msg.HasHealthy, &msg.IsDeleted, &msg.IsExemptFromDeletion, &msg.TimerStartTime, &msg.SickLeaveStartTime, &msg.SickLeaveEndTime, &msg.SickTime, &msg.RestTimeTillDel, &msg.Gender,
