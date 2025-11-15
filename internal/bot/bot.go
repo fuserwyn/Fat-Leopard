@@ -1090,7 +1090,7 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 	// Если пользователь был на больничном, сбрасываем флаги больничного и помечаем как здорового
 	if wasOnSickLeave {
 		// Отправляем предупреждение о забытом #healthy
-		warningMessage := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("⚠️ Внимание, %s!\n\nТы забыл отправить #healthy перед тренировкой!\n\n✅ Я автоматически засчитал выздоровление, но в следующий раз не забывай отправлять #healthy перед #training_done", username))
+		warningMessage := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("⚠️ Внимание, %s!\n\nне забывай отправлять #healthy перед тренировкой!\n\n✅ Я автоматически засчитал выздоровление, но в следующий раз не забывай отправлять #healthy перед #training_done", username))
 		b.logger.Infof("Sending forgotten #healthy warning to user %d (%s)", msg.From.ID, username)
 		b.api.Send(warningMessage)
 
