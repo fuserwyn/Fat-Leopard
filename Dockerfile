@@ -14,8 +14,8 @@ RUN go mod download
 # Копируем остальные файлы
 COPY . .
 
-# Проверяем, что все файлы на месте и зависимости корректны
-RUN go mod verify
+# Синхронизируем зависимости после копирования всех файлов
+RUN go mod tidy
 
 # Собираем приложение
 RUN CGO_ENABLED=0 GOOS=linux go build -o main ./cmd/bot
