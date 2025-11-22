@@ -32,7 +32,7 @@ func (b *Bot) handleSickLeave(msg *tgbotapi.Message) {
 
 	if messageLog.SickApprovalPending {
 		if justification != "" {
-			if b.sickLeaveEvaluator.Evaluate(justification, messageLog) {
+			if b.evaluateSickLeaveJustification(justification, messageLog) {
 				b.logger.Infof("Sick leave approved during pending state for user %d (%s)", msg.From.ID, messageLog.Username)
 				b.activateSickLeave(msg, messageLog)
 			} else {
@@ -45,7 +45,7 @@ func (b *Bot) handleSickLeave(msg *tgbotapi.Message) {
 		return
 	}
 
-	if justification == "" || b.sickLeaveEvaluator.Evaluate(justification, messageLog) {
+	if justification == "" || b.evaluateSickLeaveJustification(justification, messageLog) {
 		b.logger.Infof("Sick leave auto-approved for user %d (%s)", msg.From.ID, messageLog.Username)
 		b.activateSickLeave(msg, messageLog)
 		return
@@ -394,7 +394,7 @@ func (b *Bot) tryHandleSickApprovalReply(msg *tgbotapi.Message, text string) {
 		return
 	}
 
-	if b.sickLeaveEvaluator.Evaluate(text, messageLog) {
+	if b.evaluateSickLeaveJustification(text, messageLog) {
 		b.logger.Infof("Sick leave approved after reply for user %d", msg.From.ID)
 		b.activateSickLeave(msg, messageLog)
 		return

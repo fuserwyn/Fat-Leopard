@@ -7,7 +7,6 @@ import (
 	"leo-bot/internal/config"
 	"leo-bot/internal/domain"
 	"leo-bot/internal/logger"
-	"leo-bot/internal/usecase/sickleave"
 	"leo-bot/internal/utils"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -33,9 +32,8 @@ func TestCalculateRemainingTime(t *testing.T) {
 	// Создаем тестовый бот
 	cfg := &config.Config{OwnerID: 123}
 	bot := &Bot{
-		logger:             log,
-		config:             cfg,
-		sickLeaveEvaluator: sickleave.NewEvaluator(nil, log),
+		logger: log,
+		config: cfg,
 	}
 
 	// Тест 1: Нет данных о времени
@@ -129,8 +127,7 @@ func TestFormatDurationToDays(t *testing.T) {
 func TestEvaluateSickLeaveJustification(t *testing.T) {
 	log := logger.New("info")
 	bot := &Bot{
-		logger:             log,
-		sickLeaveEvaluator: sickleave.NewEvaluator(nil, log),
+		logger: log,
 	}
 
 	cases := []struct {
@@ -173,8 +170,8 @@ func TestEvaluateSickLeaveJustification(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			processed := extractSickLeaveJustification(&tgbotapi.Message{Text: tc.text})
-			if got := bot.sickLeaveEvaluator.Evaluate(processed, nil); got != tc.want {
-				t.Errorf("sickLeaveEvaluator.Evaluate(%q) = %v, want %v", tc.text, got, tc.want)
+			if got := bot.evaluateSickLeaveJustification(processed, nil); got != tc.want {
+				t.Errorf("evaluateSickLeaveJustification(%q) = %v, want %v", tc.text, got, tc.want)
 			}
 		})
 	}
@@ -187,9 +184,8 @@ func TestSickLeaveRecoveryScenario(t *testing.T) {
 	// Создаем тестовый бот
 	cfg := &config.Config{OwnerID: 123}
 	bot := &Bot{
-		logger:             log,
-		config:             cfg,
-		sickLeaveEvaluator: sickleave.NewEvaluator(nil, log),
+		logger: log,
+		config: cfg,
 	}
 
 	// Тест: Больничный сценарий - тренировка, больничный, выздоровление
