@@ -3,12 +3,12 @@ package database
 import (
 	"time"
 
-	"leo-bot/internal/models"
+	"leo-bot/internal/domain"
 	"leo-bot/internal/utils"
 )
 
 // SaveUserMessage сохраняет сообщение пользователя для RAG контекста
-func (d *Database) SaveUserMessage(msg *models.UserMessage) error {
+func (d *Database) SaveUserMessage(msg *domain.UserMessage) error {
 	query := `
 		INSERT INTO user_messages (user_id, chat_id, username, message_text, message_type, created_at)
 		VALUES ($1, $2, $3, $4, $5, $6)
@@ -25,7 +25,7 @@ func (d *Database) SaveUserMessage(msg *models.UserMessage) error {
 }
 
 // GetUserMessages получает сообщения пользователя за указанный период
-func (d *Database) GetUserMessages(userID, chatID int64, startTime, endTime time.Time) ([]*models.UserMessage, error) {
+func (d *Database) GetUserMessages(userID, chatID int64, startTime, endTime time.Time) ([]*domain.UserMessage, error) {
 	query := `
 		SELECT id, user_id, chat_id, username, message_text, message_type, created_at
 		FROM user_messages
@@ -40,9 +40,9 @@ func (d *Database) GetUserMessages(userID, chatID int64, startTime, endTime time
 	}
 	defer rows.Close()
 
-	var messages []*models.UserMessage
+	var messages []*domain.UserMessage
 	for rows.Next() {
-		var msg models.UserMessage
+		var msg domain.UserMessage
 		err := rows.Scan(&msg.ID, &msg.UserID, &msg.ChatID, &msg.Username, &msg.MessageText, &msg.MessageType, &msg.CreatedAt)
 		if err != nil {
 			return nil, err
@@ -54,7 +54,7 @@ func (d *Database) GetUserMessages(userID, chatID int64, startTime, endTime time
 }
 
 // GetLastAIMessage получает последнее сообщение бота (ai_reply) в чате
-func (d *Database) GetLastAIMessage(chatID int64) (*models.UserMessage, error) {
+func (d *Database) GetLastAIMessage(chatID int64) (*domain.UserMessage, error) {
 	query := `
 		SELECT id, user_id, chat_id, username, message_text, message_type, created_at
 		FROM user_messages
@@ -63,7 +63,7 @@ func (d *Database) GetLastAIMessage(chatID int64) (*models.UserMessage, error) {
 		LIMIT 1
 	`
 
-	var msg models.UserMessage
+	var msg domain.UserMessage
 	err := d.db.QueryRow(query, chatID).Scan(
 		&msg.ID, &msg.UserID, &msg.ChatID, &msg.Username, &msg.MessageText, &msg.MessageType, &msg.CreatedAt,
 	)
@@ -75,7 +75,7 @@ func (d *Database) GetLastAIMessage(chatID int64) (*models.UserMessage, error) {
 }
 
 // GetDailyMessages получает все сообщения за указанный день для всех пользователей в чате
-func (d *Database) GetDailyMessages(chatID int64, date time.Time) ([]*models.UserMessage, error) {
+func (d *Database) GetDailyMessages(chatID int64, date time.Time) ([]*domain.UserMessage, error) {
 	startTime := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
 	endTime := startTime.Add(24 * time.Hour)
 
@@ -93,9 +93,9 @@ func (d *Database) GetDailyMessages(chatID int64, date time.Time) ([]*models.Use
 	}
 	defer rows.Close()
 
-	var messages []*models.UserMessage
+	var messages []*domain.UserMessage
 	for rows.Next() {
-		var msg models.UserMessage
+		var msg domain.UserMessage
 		err := rows.Scan(&msg.ID, &msg.UserID, &msg.ChatID, &msg.Username, &msg.MessageText, &msg.MessageType, &msg.CreatedAt)
 		if err != nil {
 			return nil, err
@@ -107,7 +107,7 @@ func (d *Database) GetDailyMessages(chatID int64, date time.Time) ([]*models.Use
 }
 
 // GetMessagesInRange получает все сообщения для чата за произвольный интервал
-func (d *Database) GetMessagesInRange(chatID int64, startTime, endTime time.Time) ([]*models.UserMessage, error) {
+func (d *Database) GetMessagesInRange(chatID int64, startTime, endTime time.Time) ([]*domain.UserMessage, error) {
 	query := `
         SELECT id, user_id, chat_id, username, message_text, message_type, created_at
         FROM user_messages
@@ -122,9 +122,9 @@ func (d *Database) GetMessagesInRange(chatID int64, startTime, endTime time.Time
 	}
 	defer rows.Close()
 
-	var messages []*models.UserMessage
+	var messages []*domain.UserMessage
 	for rows.Next() {
-		var msg models.UserMessage
+		var msg domain.UserMessage
 		if err := rows.Scan(&msg.ID, &msg.UserID, &msg.ChatID, &msg.Username, &msg.MessageText, &msg.MessageType, &msg.CreatedAt); err != nil {
 			return nil, err
 		}
@@ -135,7 +135,7 @@ func (d *Database) GetMessagesInRange(chatID int64, startTime, endTime time.Time
 }
 
 // GetMonthlyMessages получает все сообщения за указанный месяц для всех пользователей в чате
-func (d *Database) GetMonthlyMessages(chatID int64, month time.Time) ([]*models.UserMessage, error) {
+func (d *Database) GetMonthlyMessages(chatID int64, month time.Time) ([]*domain.UserMessage, error) {
 	startTime := time.Date(month.Year(), month.Month(), 1, 0, 0, 0, 0, month.Location())
 	endTime := startTime.AddDate(0, 1, 0) // Первый день следующего месяца
 
@@ -153,9 +153,9 @@ func (d *Database) GetMonthlyMessages(chatID int64, month time.Time) ([]*models.
 	}
 	defer rows.Close()
 
-	var messages []*models.UserMessage
+	var messages []*domain.UserMessage
 	for rows.Next() {
-		var msg models.UserMessage
+		var msg domain.UserMessage
 		err := rows.Scan(&msg.ID, &msg.UserID, &msg.ChatID, &msg.Username, &msg.MessageText, &msg.MessageType, &msg.CreatedAt)
 		if err != nil {
 			return nil, err
@@ -167,7 +167,7 @@ func (d *Database) GetMonthlyMessages(chatID int64, month time.Time) ([]*models.
 }
 
 // GetUserTrainingHistory получает историю тренировок пользователя для RAG контекста
-func (d *Database) GetUserTrainingHistory(userID, chatID int64, limit int) ([]*models.UserMessage, error) {
+func (d *Database) GetUserTrainingHistory(userID, chatID int64, limit int) ([]*domain.UserMessage, error) {
 	if limit <= 0 {
 		limit = 50 // По умолчанию 50 последних сообщений
 	}
@@ -186,9 +186,9 @@ func (d *Database) GetUserTrainingHistory(userID, chatID int64, limit int) ([]*m
 	}
 	defer rows.Close()
 
-	var messages []*models.UserMessage
+	var messages []*domain.UserMessage
 	for rows.Next() {
-		var msg models.UserMessage
+		var msg domain.UserMessage
 		err := rows.Scan(&msg.ID, &msg.UserID, &msg.ChatID, &msg.Username, &msg.MessageText, &msg.MessageType, &msg.CreatedAt)
 		if err != nil {
 			return nil, err

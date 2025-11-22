@@ -100,7 +100,7 @@ LeoPoacherBot/
 │   ├── logger/
 │   │   └── logger.go       # Логирование
 │   └── models/
-│       └── models.go       # Модели данных
+│       └── domain.go       # Доменные модели и типы
 ├── Dockerfile              # Docker образ
 ├── docker-compose.yml      # Docker Compose
 ├── go.mod                  # Зависимости Go
