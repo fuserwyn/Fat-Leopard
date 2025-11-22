@@ -5,7 +5,8 @@ FROM golang:1.21
 WORKDIR /app
 
 # Копируем go.mod и go.sum для кеширования зависимостей
-COPY go.mod go.sum ./
+COPY go.mod ./
+COPY go.sum* ./
 
 # Скачиваем зависимости
 RUN go mod download
