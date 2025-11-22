@@ -54,36 +54,6 @@ func (b *Bot) handleSickLeave(msg *tgbotapi.Message) {
 	b.logger.Infof("Sick leave rejected for user %d (%s): justification not convincing", msg.From.ID, messageLog.Username)
 	b.rejectSickLeave(msg, messageLog, msg.MessageID)
 	return
-
-	now := utils.GetMoscowTime()
-	deadline := now.Add(24 * time.Hour)
-	messageLog.SickApprovalPending = true
-	messageLog.SickApprovalDeadline = &deadline
-	messageLog.SickApprovalMessageID = nil
-
-	if err := b.db.SaveMessageLog(messageLog); err != nil {
-		b.logger.Errorf("Failed to save sick approval pending state: %v", err)
-		return
-	}
-
-	warningText := "⚠️ Я не вижу убедительных доказательств болезни.\n\n" +
-		"Ответь реплаем на это сообщение и докажи, что действительно болен. " +
-		"Если в течение 24 часов доказательств не будет, я отменю больничный и таймер продолжит тикать."
-	warning := tgbotapi.NewMessage(msg.Chat.ID, warningText)
-	warning.ReplyToMessageID = msg.MessageID
-	sent, err := b.api.Send(warning)
-	if err != nil {
-		b.logger.Errorf("Failed to send sick approval warning: %v", err)
-		return
-	}
-
-	messageID := int64(sent.MessageID)
-	messageLog.SickApprovalMessageID = &messageID
-	if err := b.db.SaveMessageLog(messageLog); err != nil {
-		b.logger.Errorf("Failed to update sick approval message id: %v", err)
-	}
-
-	b.startSickApprovalWatcher(msg.From.ID, msg.Chat.ID, deadline)
 }
 
 func (b *Bot) activateSickLeave(msg *tgbotapi.Message, messageLog *domain.MessageLog) {
