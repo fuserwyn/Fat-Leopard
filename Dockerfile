@@ -10,8 +10,8 @@ COPY go.mod go.sum* ./
 # Скачиваем зависимости (это создаст go.sum, если его нет)
 RUN go mod download
 
-# Проверяем и обновляем зависимости
-RUN go mod verify && go mod tidy
+# Проверяем зависимости
+RUN go mod verify
 
 # Копируем остальные файлы
 COPY . .
