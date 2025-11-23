@@ -439,6 +439,23 @@ func (d *Database) GetUserCups(userID, chatID int64) (int, error) {
 	return cups, nil
 }
 
+// CountUsersWithCups получает количество пользователей с указанным количеством кубков или больше
+func (d *Database) CountUsersWithCups(chatID int64, minCups int) (int, error) {
+	query := `
+		SELECT COUNT(DISTINCT user_id)
+		FROM message_log 
+		WHERE chat_id = $1 AND cups_earned >= $2 AND is_deleted = FALSE
+	`
+
+	var count int
+	err := d.db.QueryRow(query, chatID, minCups).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}
+
 // MarkUserAsDeleted помечает пользователя как удаленного
 func (d *Database) MarkUserAsDeleted(userID, chatID int64) error {
 	query := `

@@ -254,6 +254,13 @@ func (b *Bot) processTrainingDone(msg *tgbotapi.Message) {
 
 	if caloriesToAdd > 0 {
 		totalCups, _ := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
+
+		// Проверяем достижение 420 кубков для розыгрыша
+		if totalCups >= 420 && totalCups-caloriesToAdd < 420 {
+			b.checkMerchGiveawayCompletion(msg, msg.Chat.ID)
+		}
+
+		// Проверяем супер-уровень 10000 кубков
 		if totalCups >= 10000 && totalCups-caloriesToAdd < 10000 {
 			b.sendSuperLevelMessage(msg, username, totalCups)
 		}
@@ -403,5 +410,30 @@ func (b *Bot) sendSuperLevelMessage(msg *tgbotapi.Message, username string, tota
 	reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
 	if _, err := b.api.Send(reply); err != nil {
 		b.logger.Errorf("Failed to send super level message: %v", err)
+	}
+}
+
+// checkMerchGiveawayCompletion проверяет, завершен ли розыгрыш (3 участника с 420+ кубками)
+func (b *Bot) checkMerchGiveawayCompletion(msg *tgbotapi.Message, chatID int64) {
+	usersWith420Cups, err := b.db.CountUsersWithCups(chatID, 420)
+	if err != nil {
+		b.logger.Errorf("Failed to count users with 420+ cups: %v", err)
+		return
+	}
+
+	if usersWith420Cups == 3 {
+		// 3-й участник достиг 420 кубков - розыгрыш завершен
+		merchMessage := tgbotapi.NewMessage(chatID, `🎉🎊 РОЗЫГРЫШ ЗАВЕРШЕН! 🎊🎉
+
+Третий участник достиг 420 кубков! 
+
+🏆 Розыгрыш футболки Fat Leopard официально закрыт!
+
+Поздравляем всех участников, которые набрали 420+ кубков! 🦁💪`)
+		if _, err := b.api.Send(merchMessage); err != nil {
+			b.logger.Errorf("Failed to send merch giveaway completion message: %v", err)
+		} else {
+			b.logger.Infof("Merch giveaway completed! 3 participants reached 420+ cups in chat %d", chatID)
+		}
 	}
 }

@@ -710,10 +710,16 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 		}
 
 		if monthlyAchievement {
+			// Проверяем кубки до начисления
+			cupsBefore, _ := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
 			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 420); err != nil {
 				b.logger.Errorf("Failed to add monthly cups: %v", err)
 			} else {
 				b.logger.Infof("Successfully added 420 cups for monthly achievement")
+				// Проверяем, достиг ли пользователь 420 кубков и является ли 3-м
+				if cupsBefore < 420 {
+					b.checkMerchGiveawayCompletion(msg, msg.Chat.ID)
+				}
 			}
 		}
 
@@ -734,18 +740,30 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 		}
 
 		if sixtyDayAchievement {
+			// Проверяем кубки до начисления
+			cupsBefore, _ := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
 			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 420); err != nil {
 				b.logger.Errorf("Failed to add 60-day cups: %v", err)
 			} else {
 				b.logger.Infof("Successfully added 420 cups for 60-day achievement")
+				// Проверяем, достиг ли пользователь 420 кубков и является ли 3-м
+				if cupsBefore < 420 {
+					b.checkMerchGiveawayCompletion(msg, msg.Chat.ID)
+				}
 			}
 		}
 
 		if quarterlyAchievement {
+			// Проверяем кубки до начисления
+			cupsBefore, _ := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
 			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 420); err != nil {
 				b.logger.Errorf("Failed to add quarterly cups: %v", err)
 			} else {
 				b.logger.Infof("Successfully added 420 cups for quarterly achievement")
+				// Проверяем, достиг ли пользователь 420 кубков и является ли 3-м
+				if cupsBefore < 420 {
+					b.checkMerchGiveawayCompletion(msg, msg.Chat.ID)
+				}
 			}
 		}
 
@@ -1081,9 +1099,29 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 		totalCups, err := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
 		if err != nil {
 			b.logger.Errorf("Failed to get user cups for super level check: %v", err)
-		} else if totalCups > 420 {
-			// Отправляем сообщение о супер-уровне
-			b.sendSuperLevelMessage(msg, username, totalCups)
+		} else if totalCups >= 420 {
+			// Проверяем, является ли этот пользователь 3-м с 420+ кубками
+			usersWith420Cups, err := b.db.CountUsersWithCups(msg.Chat.ID, 420)
+			if err != nil {
+				b.logger.Errorf("Failed to count users with 420+ cups: %v", err)
+			} else if usersWith420Cups == 3 {
+				// 3-й участник достиг 420 кубков - розыгрыш завершен
+				merchMessage := tgbotapi.NewMessage(msg.Chat.ID, `🎉🎊 РОЗЫГРЫШ ЗАВЕРШЕН! 🎊🎉
+
+Третий участник достиг 420 кубков! 
+
+🏆 Розыгрыш футболки Fat Leopard официально закрыт!
+
+Поздравляем всех участников, которые набрали 420+ кубков! 🦁💪`)
+				if _, err := b.api.Send(merchMessage); err != nil {
+					b.logger.Errorf("Failed to send merch giveaway completion message: %v", err)
+				}
+			}
+
+			// Отправляем сообщение о супер-уровне (если еще не достигли 10000)
+			if totalCups < 10000 {
+				b.sendSuperLevelMessage(msg, username, totalCups)
+			}
 		}
 	}
 
