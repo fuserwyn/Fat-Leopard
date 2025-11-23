@@ -440,11 +440,12 @@ func (d *Database) GetUserCups(userID, chatID int64) (int, error) {
 }
 
 // CountUsersWithCups получает количество пользователей с указанным количеством кубков или больше
+// Включает удаленных пользователей, если у них есть нужное количество кубков
 func (d *Database) CountUsersWithCups(chatID int64, minCups int) (int, error) {
 	query := `
 		SELECT COUNT(DISTINCT user_id)
 		FROM message_log 
-		WHERE chat_id = $1 AND cups_earned >= $2 AND is_deleted = FALSE
+		WHERE chat_id = $1 AND cups_earned >= $2
 	`
 
 	var count int
