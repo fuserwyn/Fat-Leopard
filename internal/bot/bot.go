@@ -343,7 +343,105 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) {
 
 	b.tryHandleSickApprovalReply(msg, text)
 
-	// Проверяем, обращается ли пользователь к боту (для вопросов к ИИ)
+	// КРИТИЧЕСКИ ВАЖНО: Сначала проверяем хештеги команд (#training_done, #sick_leave, и т.д.)
+	// Команды имеют приоритет над ИИ-обработкой
+	hasTrainingDone := strings.Contains(strings.ToLower(text), "#training_done")
+	hasSickLeave := strings.Contains(strings.ToLower(text), "#sick_leave")
+	hasHealthy := strings.Contains(strings.ToLower(text), "#healthy")
+	hasChange := strings.Contains(strings.ToLower(text), "#change")
+	hasCommand := hasTrainingDone || hasSickLeave || hasHealthy || hasChange
+
+	// Если есть команда, обрабатываем её и НЕ обрабатываем через ИИ
+	if hasCommand {
+		// Получаем никнейм пользователя
+		username := ""
+		if msg.From.UserName != "" {
+			username = "@" + msg.From.UserName
+		} else if msg.From.FirstName != "" {
+			username = msg.From.FirstName
+			if msg.From.LastName != "" {
+				username += " " + msg.From.LastName
+			}
+		} else {
+			username = fmt.Sprintf("User%d", msg.From.ID)
+		}
+
+		// Сохраняем сообщение в БД для RAG контекста
+		if text != "" {
+			messageType := "general"
+			if hasTrainingDone {
+				messageType = "training_done"
+			} else if hasSickLeave {
+				messageType = "sick_leave"
+			} else if hasHealthy {
+				messageType = "healthy"
+			}
+
+			userMsg := &domain.UserMessage{
+				UserID:      msg.From.ID,
+				ChatID:      msg.Chat.ID,
+				Username:    username,
+				MessageText: text,
+				MessageType: messageType,
+			}
+			if err := b.db.SaveUserMessage(userMsg); err != nil {
+				b.logger.Errorf("Failed to save user message: %v", err)
+			}
+		}
+
+		// Получаем существующие данные пользователя
+		existingLog, err := b.db.GetMessageLog(msg.From.ID, msg.Chat.ID)
+		if err != nil {
+			// Если пользователя нет в БД, создаем новую запись
+			timerStartTime := utils.FormatMoscowTime(utils.GetMoscowTime())
+			messageLog := &domain.MessageLog{
+				UserID:            msg.From.ID,
+				ChatID:            msg.Chat.ID,
+				Username:          username,
+				Calories:          0,
+				StreakDays:        0,
+				CalorieStreakDays: 0,
+				CupsEarned:        0,
+				LastMessage:       timerStartTime,
+				HasTrainingDone:   hasTrainingDone,
+				HasSickLeave:      false,
+				HasHealthy:        false,
+				IsDeleted:         false,
+				TimerStartTime:    &timerStartTime,
+			}
+
+			if err := b.db.SaveMessageLog(messageLog); err != nil {
+				b.logger.Errorf("Failed to save message log: %v", err)
+			} else {
+				b.logger.Infof("Initialized timer state for new user %d (%s) from message", msg.From.ID, username)
+				b.startTimer(msg.From.ID, msg.Chat.ID, username)
+			}
+		} else {
+			// Обновляем только необходимые поля, сохраняя streak данные
+			existingLog.Username = username
+			existingLog.LastMessage = utils.FormatMoscowTime(utils.GetMoscowTime())
+			existingLog.HasTrainingDone = hasTrainingDone
+			existingLog.IsDeleted = false
+
+			if err := b.db.SaveMessageLog(existingLog); err != nil {
+				b.logger.Errorf("Failed to update message log: %v", err)
+			}
+		}
+
+		// Обрабатываем хештеги
+		if hasTrainingDone {
+			b.handleTrainingDone(msg)
+		} else if hasSickLeave {
+			b.handleSickLeave(msg)
+		} else if hasHealthy {
+			b.handleHealthy(msg)
+		} else if hasChange {
+			b.handleChange(msg)
+		}
+		return // Выходим, не обрабатывая через ИИ
+	}
+
+	// Если нет команд, проверяем обращение к боту (для вопросов к ИИ)
 	// 1. Упоминание через @ в тексте
 	// 2. Ответ на сообщение бота (reply)
 	// 3. Выбор бота из списка участников (bot_command или просто упоминание)
@@ -418,96 +516,7 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) {
 		return
 	}
 
-	hasTrainingDone := strings.Contains(strings.ToLower(text), "#training_done")
-	hasSickLeave := strings.Contains(strings.ToLower(text), "#sick_leave")
-	hasHealthy := strings.Contains(strings.ToLower(text), "#healthy")
-	hasChange := strings.Contains(strings.ToLower(text), "#change")
-
-	// Получаем никнейм пользователя
-	username := ""
-	if msg.From.UserName != "" {
-		username = "@" + msg.From.UserName
-	} else if msg.From.FirstName != "" {
-		username = msg.From.FirstName
-		if msg.From.LastName != "" {
-			username += " " + msg.From.LastName
-		}
-	} else {
-		username = fmt.Sprintf("User%d", msg.From.ID)
-	}
-
-	// Сохраняем сообщение в БД для RAG контекста
-	if text != "" {
-		messageType := "general"
-		if hasTrainingDone {
-			messageType = "training_done"
-		} else if hasSickLeave {
-			messageType = "sick_leave"
-		} else if hasHealthy {
-			messageType = "healthy"
-		}
-
-		userMsg := &domain.UserMessage{
-			UserID:      msg.From.ID,
-			ChatID:      msg.Chat.ID,
-			Username:    username,
-			MessageText: text,
-			MessageType: messageType,
-		}
-		if err := b.db.SaveUserMessage(userMsg); err != nil {
-			b.logger.Errorf("Failed to save user message: %v", err)
-		}
-	}
-
-	// Получаем существующие данные пользователя
-	existingLog, err := b.db.GetMessageLog(msg.From.ID, msg.Chat.ID)
-	if err != nil {
-		// Если пользователя нет в БД, создаем новую запись
-		timerStartTime := utils.FormatMoscowTime(utils.GetMoscowTime())
-		messageLog := &domain.MessageLog{
-			UserID:            msg.From.ID,
-			ChatID:            msg.Chat.ID,
-			Username:          username,
-			Calories:          0,
-			StreakDays:        0,
-			CalorieStreakDays: 0,
-			CupsEarned:        0,
-			LastMessage:       timerStartTime,
-			HasTrainingDone:   hasTrainingDone,
-			HasSickLeave:      false,
-			HasHealthy:        false,
-			IsDeleted:         false,
-			TimerStartTime:    &timerStartTime,
-		}
-
-		if err := b.db.SaveMessageLog(messageLog); err != nil {
-			b.logger.Errorf("Failed to save message log: %v", err)
-		} else {
-			b.logger.Infof("Initialized timer state for new user %d (%s) from message", msg.From.ID, username)
-			b.startTimer(msg.From.ID, msg.Chat.ID, username)
-		}
-	} else {
-		// Обновляем только необходимые поля, сохраняя streak данные
-		existingLog.Username = username
-		existingLog.LastMessage = utils.FormatMoscowTime(utils.GetMoscowTime())
-		existingLog.HasTrainingDone = hasTrainingDone
-		existingLog.IsDeleted = false
-
-		if err := b.db.SaveMessageLog(existingLog); err != nil {
-			b.logger.Errorf("Failed to update message log: %v", err)
-		}
-	}
-
-	// Обрабатываем хештеги
-	if hasTrainingDone {
-		b.handleTrainingDone(msg)
-	} else if hasSickLeave {
-		b.handleSickLeave(msg)
-	} else if hasHealthy {
-		b.handleHealthy(msg)
-	} else if hasChange {
-		b.handleChange(msg)
-	}
+	// Если дошли сюда, значит нет ни команд, ни обращения к боту - просто игнорируем сообщение
 }
 
 func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
@@ -523,6 +532,10 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 	} else {
 		username = fmt.Sprintf("User%d", msg.From.ID)
 	}
+
+	// КРИТИЧЕСКИ ВАЖНО: Перезапускаем таймер СРАЗУ, чтобы отменить старый таймер
+	// и предотвратить удаление пользователя, если таймер уже сработал
+	b.startTimer(msg.From.ID, msg.Chat.ID, username)
 
 	// Сохраняем отчет о тренировке
 	trainingLog := &domain.TrainingLog{
@@ -1141,8 +1154,7 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 		b.logger.Infof("Reset sick leave flags and marked as healthy for user %d (%s) after training during sick leave", msg.From.ID, username)
 	}
 
-	// Запускаем новый таймер
-	b.startTimer(msg.From.ID, msg.Chat.ID, username)
+	// Таймер уже перезапущен в начале функции для предотвращения race condition
 }
 
 func (b *Bot) evaluateSickLeaveHeuristics(text string) (approved bool, hasNegative bool) {

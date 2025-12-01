@@ -224,8 +224,30 @@ func (b *Bot) sendWarning(userID, chatID int64, username string) {
 func (b *Bot) removeUser(userID, chatID int64, username string) {
 	b.logger.Infof("Attempting to remove user %d (%s) from chat %d", userID, username, chatID)
 
+	// КРИТИЧЕСКИ ВАЖНО: Проверяем, не был ли только что отправлен #training_done
+	// Если пользователь отправил #training_done, таймер должен был быть перезапущен
+	// и этот вызов removeUser не должен был произойти
+	messageLog, err := b.db.GetMessageLog(userID, chatID)
+	if err == nil {
+		// Проверяем, был ли недавно отправлен #training_done
+		// Если HasTrainingDone = true и LastMessage недавно обновлен, не удаляем
+		if messageLog.HasTrainingDone {
+			lastMessageTime, parseErr := time.Parse("2006-01-02 15:04:05", messageLog.LastMessage)
+			if parseErr == nil {
+				timeSinceLastMessage := time.Since(lastMessageTime)
+				// Если последнее сообщение было менее 1 минуты назад и содержит #training_done, не удаляем
+				if timeSinceLastMessage < 1*time.Minute {
+					b.logger.Infof("User %d (%s) just sent #training_done (%v ago), cancelling removal", userID, username, timeSinceLastMessage)
+					// Отменяем таймер, если он еще существует
+					b.cancelTimer(userID)
+					return
+				}
+			}
+		}
+	}
+
 	// Пытаемся удалить пользователя из чата
-	_, err := b.api.Request(tgbotapi.BanChatMemberConfig{
+	_, err = b.api.Request(tgbotapi.BanChatMemberConfig{
 		ChatMemberConfig: tgbotapi.ChatMemberConfig{
 			ChatID: chatID,
 			UserID: userID,
