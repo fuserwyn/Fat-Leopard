@@ -2414,21 +2414,43 @@ func (b *Bot) generateMonthlySummaryForChat(chatID int64, month time.Time) {
 		return
 	}
 
-	// Генерируем сводку с помощью ИИ
-	summary, err := b.aiClient.GenerateMonthlySummary(usersData)
-	if err != nil {
-		b.logger.Errorf("Failed to generate monthly summary: %v", err)
+	// Формируем детерминированную (НЕ ИИ) сводку без выдуманных тренировок
+	var sb strings.Builder
 
-		// Если ошибка связана с настройкой политики данных, пропускаем сводку
-		errorMsg := err.Error()
-		if strings.Contains(errorMsg, "data policy") || strings.Contains(errorMsg, "Model Training") {
-			b.logger.Warnf("Skipping monthly summary due to OpenRouter data policy configuration. User needs to enable 'Model Training' at https://openrouter.ai/settings/privacy")
+	sb.WriteString("Привет, стая! 🦁\n\n")
+	sb.WriteString("Подводим итоги прошедшего месяца по фактическим данным:\n\n")
+
+	for _, u := range usersData {
+		username := u.Username
+		if username == "" {
+			username = fmt.Sprintf("User%d", u.UserID)
 		}
-		return
+
+		sb.WriteString(fmt.Sprintf("%s — серия: %d дней, калории: %d, кубки: %d", username, u.StreakDays, u.Calories, u.Cups))
+
+		// Краткие статусы без фантазий о тренировках
+		var flags []string
+		if u.HasTraining {
+			flags = append(flags, "отправлял(а) #training_done")
+		}
+		if u.HasSickLeave {
+			flags = append(flags, "был(а) на #sick_leave")
+		}
+		if u.HasHealthy {
+			flags = append(flags, "вернулся(лась) с #healthy")
+		}
+		if len(flags) > 0 {
+			sb.WriteString(" (")
+			sb.WriteString(strings.Join(flags, ", "))
+			sb.WriteString(")")
+		}
+
+		sb.WriteString(".\n")
 	}
 
-	// Удаляем markdown форматирование (**) перед отправкой
-	summary = strings.ReplaceAll(summary, "**", "")
+	sb.WriteString("\nДержим курс и продолжаем в новом месяце 💪")
+
+	summary := sb.String()
 
 	// Отправляем сводку в чат
 	reply := tgbotapi.NewMessage(chatID, summary)
