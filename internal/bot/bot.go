@@ -1080,32 +1080,42 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 	if hasAnyAchievement {
 		b.logger.Infof("Sending achievement messages instead of regular confirmation")
 
+		// Получаем пол пользователя для правильных форм слов
+		messageLog, err := b.db.GetMessageLog(msg.From.ID, msg.Chat.ID)
+		userGender := ""
+		if err == nil {
+			userGender = strings.TrimSpace(strings.ToLower(messageLog.Gender))
+			if userGender == "" {
+				userGender = b.detectGenderFromName(msg.From.FirstName)
+			}
+		}
+
 		if weeklyAchievement {
-			b.sendWeeklyCupsReward(msg, username, newStreakDays, caloriesToAdd)
+			b.sendWeeklyCupsReward(msg, username, newStreakDays, caloriesToAdd, userGender)
 		}
 		if twoWeekAchievement {
-			b.sendTwoWeekCupsReward(msg, username, newStreakDays, caloriesToAdd)
+			b.sendTwoWeekCupsReward(msg, username, newStreakDays, caloriesToAdd, userGender)
 		}
 		if threeWeekAchievement {
-			b.sendThreeWeekCupsReward(msg, username, newStreakDays, caloriesToAdd)
+			b.sendThreeWeekCupsReward(msg, username, newStreakDays, caloriesToAdd, userGender)
 		}
 		if monthlyAchievement {
-			b.sendMonthlyCupsReward(msg, username, newStreakDays, caloriesToAdd)
+			b.sendMonthlyCupsReward(msg, username, newStreakDays, caloriesToAdd, userGender)
 		}
 		if fortyTwoDayAchievement {
-			b.sendFortyTwoDayCupsReward(msg, username, newStreakDays, caloriesToAdd)
+			b.sendFortyTwoDayCupsReward(msg, username, newStreakDays, caloriesToAdd, userGender)
 		}
 		if fiftyDayAchievement {
-			b.sendFiftyDayCupsReward(msg, username, newStreakDays, caloriesToAdd)
+			b.sendFiftyDayCupsReward(msg, username, newStreakDays, caloriesToAdd, userGender)
 		}
 		if sixtyDayAchievement {
-			b.sendSixtyDayCupsReward(msg, username, newStreakDays, caloriesToAdd)
+			b.sendSixtyDayCupsReward(msg, username, newStreakDays, caloriesToAdd, userGender)
 		}
 		if quarterlyAchievement {
-			b.sendQuarterlyCupsReward(msg, username, newStreakDays, caloriesToAdd)
+			b.sendQuarterlyCupsReward(msg, username, newStreakDays, caloriesToAdd, userGender)
 		}
 		if hundredDayAchievement {
-			b.sendHundredDayCupsReward(msg, username, newStreakDays, caloriesToAdd)
+			b.sendHundredDayCupsReward(msg, username, newStreakDays, caloriesToAdd, userGender)
 		}
 
 		// Проверяем супер-уровень после начисления кубков
@@ -1120,11 +1130,11 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 			} else if usersWith420Cups == 3 {
 				// 3-й участник достиг 420 кубков - розыгрыш завершен
 				merchMessage := tgbotapi.NewMessage(msg.Chat.ID, `🎉🎊 РОЗЫГРЫШ ЗАВЕРШЕН! 🎊🎉
-
+				
 Третий участник достиг 420 кубков! 
-
+				
 🏆 Розыгрыш футболки Fat Leopard официально закрыт!
-
+				
 Поздравляем всех участников, которые набрали 420+ кубков! 🦁💪`)
 				if _, err := b.api.Send(merchMessage); err != nil {
 					b.logger.Errorf("Failed to send merch giveaway completion message: %v", err)
@@ -1133,7 +1143,7 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 
 			// Отправляем сообщение о супер-уровне (если еще не достигли 10000)
 			if totalCups < 10000 {
-				b.sendSuperLevelMessage(msg, username, totalCups)
+				b.sendSuperLevelMessage(msg, username, totalCups, userGender)
 			}
 		}
 	}
