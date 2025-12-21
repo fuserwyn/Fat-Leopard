@@ -834,8 +834,8 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 					}
 				}()
 
-				// Формируем вопрос и контекст для краткой приписки с вариативностью
-				question := b.getVariedTrainingPrompt(newStreakDays, totalCalories, currentCups, wasOnSickLeave)
+				// Формируем вопрос для единого AI-сообщения (объединяем приписку и мудрость в одно)
+				question := b.getUnifiedTrainingPrompt(newStreakDays, totalCalories, currentCups, wasOnSickLeave)
 				var ctxBuilder strings.Builder
 				ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
 				// Добавляем пол пользователя в контекст
@@ -917,53 +917,13 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 					ctxBuilder.WriteString("ВАЖНО: Завтра будет 21 день подряд — впечатляющая серия! Можешь мягко намекнуть на это.\n")
 				}
 
-				if addendum, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
-					addendum = strings.TrimSpace(strings.ReplaceAll(addendum, "**", ""))
-					if addendum != "" {
-						messageText = messageText + "\n\n" + addendum
+				if aiResponse, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
+					aiResponse = strings.TrimSpace(strings.ReplaceAll(aiResponse, "**", ""))
+					if aiResponse != "" {
+						messageText = messageText + "\n\n" + aiResponse
 					}
 				} else {
-					b.logger.Warnf("AI addendum generation failed: %v", err)
-				}
-
-				// Дополнительно: короткая мудрость для участника (1 предложение) с вариативностью
-				wisdomQuestion := b.getVariedWisdomPrompt(newStreakDays, totalCalories, currentCups)
-				var wisdomCtx strings.Builder
-				wisdomCtx.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
-				// Добавляем пол пользователя в контекст
-				if genderNormalized != "" {
-					var genderText string
-					if genderNormalized == "f" {
-						genderText = "женский"
-					} else if genderNormalized == "m" {
-						genderText = "мужской"
-					}
-					if genderText != "" {
-						wisdomCtx.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
-					}
-				}
-				// Добавляем текст сообщения пользователя
-				if trainingText != "" {
-					trainingTextClean := strings.ReplaceAll(trainingText, "#training_done", "")
-					trainingTextClean = strings.TrimSpace(trainingTextClean)
-					if trainingTextClean != "" {
-						wisdomCtx.WriteString(fmt.Sprintf("Сообщение о тренировке: %s\n", trainingTextClean))
-					}
-				}
-				wisdomCtx.WriteString(fmt.Sprintf("Серия: %d дней\n", newStreakDays))
-				wisdomCtx.WriteString(fmt.Sprintf("Всего калорий: %d\n", totalCalories))
-				wisdomCtx.WriteString(fmt.Sprintf("Всего кубков: %d\n", currentCups))
-
-				// Добавляем контекст времени для разнообразия мудрости (используем уже вычисленные значения)
-				wisdomCtx.WriteString(fmt.Sprintf("Время тренировки: %s, %d:00\n", weekdayNames[weekday], hour))
-				wisdomCtx.WriteString(fmt.Sprintf("Время суток: %s\n", timeOfDay))
-				if w, err := b.aiClient.AnswerUserQuestion(wisdomQuestion, wisdomCtx.String()); err == nil {
-					w = strings.TrimSpace(strings.ReplaceAll(w, "**", ""))
-					if w != "" {
-						messageText = messageText + "\n" + w
-					}
-				} else {
-					b.logger.Warnf("AI wisdom generation failed: %v", err)
+					b.logger.Warnf("AI response generation failed: %v", err)
 				}
 			}
 
@@ -1016,12 +976,12 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 					}
 				}()
 
-				// Вариативные промпты для дополнительной тренировки
+				// Единое сообщение для дополнительной тренировки (объединяем приписку и мудрость)
 				doubleTrainingPrompts := []string{
-					"Сделай очень короткую (1–2 предложения) дружелюбную, но строгую приписку после дополнительной тренировки в тот же день. Не повторяй цифры из сообщения. КРИТИЧЕСКИ ВАЖНО: используй ТОЛЬКО те упражнения и детали, которые указаны в сообщении пользователя. НЕ выдумывай детали, которых нет. Без Markdown.",
-					"Напиши короткую (1–2 предложения) приписку после второй тренировки за день: отметь упорство, но оставайся требовательным. Используй ТОЛЬКО упражнения из сообщения. Без Markdown.",
-					"Сделай короткую (1–2 предложения) приписку: двойная тренировка — это особое упорство! Похвали, но используй ТОЛЬКО упражнения из сообщения. Без Markdown.",
-					"Напиши короткую (1–2 предложения) приписку после дополнительной тренировки: энергия впечатляет, но дисциплина важнее. Используй упражнения из сообщения. Без Markdown.",
+					"Напиши одно связное сообщение (2-3 предложения) после дополнительной тренировки в тот же день: первое — отметь упорство и упражнения, второе — мудрая мысль о преданности делу. Не повторяй цифры. КРИТИЧЕСКИ ВАЖНО: используй ТОЛЬКО те упражнения и детали, которые указаны в сообщении пользователя. НЕ выдумывай детали, которых нет. Без Markdown.",
+					"Сделай одно цельное сообщение (2-3 предложения) после второй тренировки за день: первое — похвали за энергию и отметь упражнения, второе — мысль о важности дисциплины. Используй ТОЛЬКО упражнения из сообщения. Без Markdown.",
+					"Напиши одно связное сообщение (2-3 предложения): двойная тренировка — это особое упорство! Первое — отметь это и упражнения, второе — вдохновляющая мысль о преданности. Используй ТОЛЬКО упражнения из сообщения. Без Markdown.",
+					"Сделай одно цельное сообщение (2-3 предложения) после дополнительной тренировки: первое — энергия впечатляет, отметь упражнения, второе — мудрая мысль о том, как каждая тренировка приближает к цели. Используй упражнения из сообщения. Без Markdown.",
 				}
 				now := utils.GetMoscowTime()
 				question := doubleTrainingPrompts[now.Unix()%int64(len(doubleTrainingPrompts))]
@@ -1058,57 +1018,13 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 					ctxBuilder.WriteString("Недавно был больничный, теперь снова в строю.\n")
 				}
 
-				if addendum, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
-					addendum = strings.TrimSpace(strings.ReplaceAll(addendum, "**", ""))
-					if addendum != "" {
-						messageText = messageText + "\n\n" + addendum
+				if aiResponse, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
+					aiResponse = strings.TrimSpace(strings.ReplaceAll(aiResponse, "**", ""))
+					if aiResponse != "" {
+						messageText = messageText + "\n\n" + aiResponse
 					}
 				} else {
-					b.logger.Warnf("AI addendum generation (double) failed: %v", err)
-				}
-
-				// Дополнительно: короткая мудрость (1 предложение) для повторной тренировки с вариативностью
-				doubleWisdomPrompts := []string{
-					"Дай одну очень короткую мудрую мысль (1 предложение) после второй тренировки за день: спокойно, уважительно; без пафоса и без повторения чисел. КРИТИЧЕСКИ ВАЖНО: используй ТОЛЬКО те упражнения и детали, которые указаны в сообщении пользователя. НЕ выдумывай детали, которых нет. Без Markdown.",
-					"Напиши одну короткую мысль (1 предложение) о двойной тренировке: это особое упорство. Используй упражнения из сообщения. Без Markdown.",
-					"Дай одну короткую мудрую мысль (1 предложение) о том, как вторая тренировка за день показывает преданность делу. Используй ТОЛЬКО упражнения из сообщения. Без Markdown.",
-				}
-				wisdomQuestion := doubleWisdomPrompts[now.Unix()%int64(len(doubleWisdomPrompts))]
-				var wisdomCtx strings.Builder
-				wisdomCtx.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
-				// Добавляем пол пользователя в контекст (используем уже объявленную переменную genderNormalized)
-				if genderNormalized != "" {
-					var genderText string
-					if genderNormalized == "f" {
-						genderText = "женский"
-					} else if genderNormalized == "m" {
-						genderText = "мужской"
-					}
-					if genderText != "" {
-						wisdomCtx.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
-					}
-				}
-				// Добавляем текст сообщения пользователя
-				trainingTextRepeat := msg.Text
-				if trainingTextRepeat == "" && msg.Caption != "" {
-					trainingTextRepeat = msg.Caption
-				}
-				if trainingTextRepeat != "" {
-					trainingTextClean := strings.ReplaceAll(trainingTextRepeat, "#training_done", "")
-					trainingTextClean = strings.TrimSpace(trainingTextClean)
-					if trainingTextClean != "" {
-						wisdomCtx.WriteString(fmt.Sprintf("Сообщение о тренировке: %s\n", trainingTextClean))
-					}
-				}
-				wisdomCtx.WriteString("Повторная тренировка сегодня.\n")
-				wisdomCtx.WriteString(fmt.Sprintf("Всего кубков: %d\n", currentCups))
-				if w, err := b.aiClient.AnswerUserQuestion(wisdomQuestion, wisdomCtx.String()); err == nil {
-					w = strings.TrimSpace(strings.ReplaceAll(w, "**", ""))
-					if w != "" {
-						messageText = messageText + "\n" + w
-					}
-				} else {
-					b.logger.Warnf("AI wisdom generation (double) failed: %v", err)
+					b.logger.Warnf("AI response generation (double) failed: %v", err)
 				}
 			}
 
@@ -3355,7 +3271,56 @@ func (b *Bot) detectGenderFromMessage(text string) string {
 	return ""
 }
 
-// getVariedTrainingPrompt генерирует разнообразные промпты для AI в зависимости от контекста
+// getUnifiedTrainingPrompt генерирует единый промпт для AI, объединяющий приписку и мудрость в одно сообщение
+func (b *Bot) getUnifiedTrainingPrompt(streakDays, totalCalories, totalCups int, wasOnSickLeave bool) string {
+	now := utils.GetMoscowTime()
+	hour := now.Hour()
+	weekday := now.Weekday()
+	
+	// Базовые стили единых промптов (объединяют приписку и мудрость)
+	prompts := []string{
+		"Напиши одно связное сообщение (2-3 предложения) после отчёта #training_done: дружелюбно, но строго, как мудрый тренер. Первое предложение — комментарий к тренировке, второе — короткая мудрая мысль. НЕ повторяй цифры из сообщения, не перечисляй правила. КРИТИЧЕСКИ ВАЖНО: используй ТОЛЬКО те упражнения и детали, которые указаны в сообщении пользователя. НЕ выдумывай детали, которых нет. Без Markdown.",
+		
+		"Сделай одно цельное сообщение (2-3 предложения) после тренировки: первое — мотивирующий комментарий про упражнения, второе — философская мысль о дисциплине. Будь конкретным про упражнения из сообщения, но не упоминай цифры. Без Markdown.",
+		
+		"Напиши одно связное сообщение (2-3 предложения) от лица строгого, но справедливого тренера Fat Leopard: первое — оценка тренировки с упоминанием упражнений, второе — мудрая мысль о прогрессе. Используй ТОЛЬКО упражнения из сообщения пользователя. Без Markdown.",
+		
+		"Сделай одно цельное сообщение (2-3 предложения) после #training_done: первое — поддерживающий комментарий про конкретные упражнения, второе — вдохновляющая мысль о важности регулярности. Не повторяй цифры, используй ТОЛЬКО упражнения из сообщения. Без Markdown.",
+		
+		"Напиши одно связное сообщение (2-3 предложения) в стиле мудрого наставника: первое — конкретный комментарий к упражнениям из сообщения, второе — глубокая мысль о тренировках. Будь конкретным, но не упоминай цифры. Без Markdown.",
+	}
+	
+	// Специальные промпты в зависимости от контекста
+	if wasOnSickLeave {
+		prompts = append(prompts, "Напиши одно связное сообщение (2-3 предложения) после тренировки: пользователь недавно вернулся после больничного. Первое — похвали за возвращение и отметь упражнения, второе — напомни о важности регулярности. Используй ТОЛЬКО упражнения из сообщения. Без Markdown.")
+	}
+	
+	if streakDays >= 7 && streakDays < 14 {
+		prompts = append(prompts, "Сделай одно цельное сообщение (2-3 предложения): пользователь уже неделю тренируется подряд — это важный рубеж! Первое — отметь это и упражнения, второе — мотивируй продолжать. Используй упражнения из сообщения. Без Markdown.")
+	}
+	
+	if streakDays >= 21 {
+		prompts = append(prompts, "Напиши одно связное сообщение (2-3 предложения): пользователь показывает отличную дисциплину с длинной серией. Первое — признай это и отметь упражнения, второе — мудрая мысль о долгосрочном прогрессе. Используй упражнения из сообщения. Без Markdown.")
+	}
+	
+	if hour >= 22 || hour < 6 {
+		prompts = append(prompts, "Сделай одно цельное сообщение (2-3 предложения): тренировка поздним вечером или ночью — это особое упорство! Первое — отметь это и упражнения, второе — мысль о преданности делу. Используй ТОЛЬКО упражнения из сообщения. Без Markdown.")
+	}
+	
+	if weekday == time.Saturday || weekday == time.Sunday {
+		prompts = append(prompts, "Напиши одно связное сообщение (2-3 предложения): тренировка в выходной день — это настоящая преданность! Первое — похвали и отметь упражнения, второе — мысль о дисциплине. Используй упражнения из сообщения. Без Markdown.")
+	}
+	
+	if totalCups >= 1000 {
+		prompts = append(prompts, "Сделай одно цельное сообщение (2-3 предложения): пользователь накопил много кубков — это опытный участник. Первое — обратись как к ветерану, отметь упражнения, второе — мудрая мысль о накопленном опыте. Используй упражнения из сообщения. Без Markdown.")
+	}
+	
+	// Выбираем случайный промпт
+	selectedPrompt := prompts[now.Unix()%int64(len(prompts))]
+	return selectedPrompt
+}
+
+// getVariedTrainingPrompt генерирует разнообразные промпты для AI в зависимости от контекста (оставлено для совместимости)
 func (b *Bot) getVariedTrainingPrompt(streakDays, totalCalories, totalCups int, wasOnSickLeave bool) string {
 	now := utils.GetMoscowTime()
 	hour := now.Hour()
