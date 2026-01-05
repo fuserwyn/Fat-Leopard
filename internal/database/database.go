@@ -565,3 +565,78 @@ func (d *Database) GetPendingSickApprovals() ([]*domain.MessageLog, error) {
 
 	return approvals, nil
 }
+
+// GetRecentUserMessages получает последние сообщения пользователя и других участников чата для контекста
+// Возвращает последние сообщения из поля last_message (обновляется при каждом сохранении)
+// Включает сообщение текущего пользователя и сообщения других участников чата (до limit сообщений)
+func (d *Database) GetRecentUserMessages(userID, chatID int64, limit int) ([]string, error) {
+	// Получаем текущее сообщение пользователя
+	messageLog, err := d.GetMessageLog(userID, chatID)
+	if err != nil {
+		return nil, err
+	}
+
+	var messages []string
+	if messageLog.LastMessage != "" && strings.TrimSpace(messageLog.LastMessage) != "" {
+		messages = append(messages, messageLog.LastMessage)
+	}
+
+	// Также получаем сообщения других пользователей в чате для контекста
+	// (это поможет понять общий контекст общения)
+	chatUsers, err := d.GetUsersByChatID(chatID)
+	if err == nil {
+		for _, user := range chatUsers {
+			if user.UserID != userID && user.LastMessage != "" && strings.TrimSpace(user.LastMessage) != "" {
+				if len(messages) >= limit {
+					break
+				}
+				// Добавляем только уникальные сообщения
+				isDuplicate := false
+				for _, existingMsg := range messages {
+					if existingMsg == user.LastMessage {
+						isDuplicate = true
+						break
+					}
+				}
+				if !isDuplicate {
+					messages = append(messages, user.LastMessage)
+				}
+			}
+		}
+	}
+
+	return messages, nil
+}
+
+// GetChatContext получает контекст чата: информацию о других участниках и их последних сообщениях
+func (d *Database) GetChatContext(chatID int64, excludeUserID int64, limit int) ([]*domain.MessageLog, error) {
+	query := `
+		SELECT user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion,
+		       timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, gender, sick_approval_pending, sick_approval_deadline, sick_approval_message_id, created_at, updated_at
+		FROM message_log 
+		WHERE chat_id = $1 AND user_id != $2 AND is_deleted = FALSE AND last_message != '' AND last_message IS NOT NULL
+		ORDER BY updated_at DESC
+		LIMIT $3
+	`
+
+	rows, err := d.db.Query(query, chatID, excludeUserID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []*domain.MessageLog
+	for rows.Next() {
+		var msg domain.MessageLog
+		err := rows.Scan(
+			&msg.UserID, &msg.Username, &msg.ChatID, &msg.Calories, &msg.StreakDays, &msg.CalorieStreakDays, &msg.CupsEarned, &msg.LastTrainingDate, &msg.LastMessage, &msg.HasTrainingDone,
+			&msg.HasSickLeave, &msg.HasHealthy, &msg.IsDeleted, &msg.IsExemptFromDeletion, &msg.TimerStartTime, &msg.SickLeaveStartTime, &msg.SickLeaveEndTime, &msg.SickTime, &msg.RestTimeTillDel, &msg.Gender,
+			&msg.SickApprovalPending, &msg.SickApprovalDeadline, &msg.SickApprovalMessageID, &msg.CreatedAt, &msg.UpdatedAt)
+		if err != nil {
+			continue
+		}
+		users = append(users, &msg)
+	}
+
+	return users, nil
+}
