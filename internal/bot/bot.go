@@ -1516,6 +1516,12 @@ func (b *Bot) evaluateSickLeaveJustification(text string, messageLog *domain.Mes
 }
 
 func (b *Bot) handleChange(msg *tgbotapi.Message) {
+	// Определяем тип чата для адаптации текста
+	chatType, err := b.db.GetChatType(msg.Chat.ID)
+	if err != nil {
+		chatType = "training" // По умолчанию
+	}
+
 	// Получаем никнейм пользователя
 	username := ""
 	if msg.From.UserName != "" {
@@ -1546,20 +1552,38 @@ func (b *Bot) handleChange(msg *tgbotapi.Message) {
 		currentCups = 0
 	}
 
-	// Курс обмена: 100 калорий = 42 кубка
+	// Курс обмена: 100 калорий/слов = 42 кубка
 	exchangeRate := 100
 	cupsPerExchange := 42
 	exchangesCanMake := currentCalories / exchangeRate
 
 	if exchangesCanMake == 0 {
-		// Недостаточно калорий для обмена
-		reply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("💪 %s, у тебя %d калорий\n\n🔄 Для обмена нужно минимум %d калорий\n🏆 За %d калорий можно получить %d кубков\n\n⏰ Пока рано! Еще потренируйся!\n\n🎯 Продолжай тренироваться и накапливай калории!", username, currentCalories, exchangeRate, exchangeRate, cupsPerExchange))
-		b.logger.Infof("Sending insufficient calories message to chat %d", msg.Chat.ID)
+		// Недостаточно калорий/слов для обмена
+		var replyText string
+		if chatType == "writing" {
+			replyText = fmt.Sprintf("💪 %s, у тебя %d слов\n\n🔄 Для обмена нужно минимум %d слов\n🏆 За %d слов можно получить %d кубков\n\n⏰ Пока рано! Еще попиши!\n\n🎯 Продолжай писать и накапливай слова!", username, currentCalories, exchangeRate, exchangeRate, cupsPerExchange)
+		} else {
+			replyText = fmt.Sprintf("💪 %s, у тебя %d калорий\n\n🔄 Для обмена нужно минимум %d калорий\n🏆 За %d калорий можно получить %d кубков\n\n⏰ Пока рано! Еще потренируйся!\n\n🎯 Продолжай тренироваться и накапливай калории!", username, currentCalories, exchangeRate, exchangeRate, cupsPerExchange)
+		}
+		reply := tgbotapi.NewMessage(msg.Chat.ID, replyText)
+		if chatType == "writing" {
+			b.logger.Infof("Sending insufficient words message to chat %d", msg.Chat.ID)
+		} else {
+			b.logger.Infof("Sending insufficient calories message to chat %d", msg.Chat.ID)
+		}
 		_, err = b.api.Send(reply)
 		if err != nil {
-			b.logger.Errorf("Failed to send insufficient calories message: %v", err)
+			if chatType == "writing" {
+				b.logger.Errorf("Failed to send insufficient words message: %v", err)
+			} else {
+				b.logger.Errorf("Failed to send insufficient calories message: %v", err)
+			}
 		} else {
-			b.logger.Infof("Successfully sent insufficient calories message to chat %d", msg.Chat.ID)
+			if chatType == "writing" {
+				b.logger.Infof("Successfully sent insufficient words message to chat %d", msg.Chat.ID)
+			} else {
+				b.logger.Infof("Successfully sent insufficient calories message to chat %d", msg.Chat.ID)
+			}
 		}
 		return
 	}
@@ -1568,10 +1592,16 @@ func (b *Bot) handleChange(msg *tgbotapi.Message) {
 	caloriesToSpend := exchangesCanMake * exchangeRate
 	cupsToAdd := exchangesCanMake * cupsPerExchange
 
-	// Списываем калории
+	// Списываем калории/слова
+	var spendErrorMsg string
+	if chatType == "writing" {
+		spendErrorMsg = "❌ Ошибка при списании слов"
+	} else {
+		spendErrorMsg = "❌ Ошибка при списании калорий"
+	}
 	if err := b.db.AddCalories(msg.From.ID, msg.Chat.ID, -caloriesToSpend); err != nil {
-		b.logger.Errorf("Failed to spend calories: %v", err)
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Ошибка при списании калорий")
+		b.logger.Errorf("Failed to spend calories/words: %v", err)
+		reply := tgbotapi.NewMessage(msg.Chat.ID, spendErrorMsg)
 		b.api.Send(reply)
 		return
 	}
@@ -1600,7 +1630,13 @@ func (b *Bot) handleChange(msg *tgbotapi.Message) {
 	newCups := currentCups + cupsToAdd
 
 	// Отправляем сообщение об успешном обмене
-	reply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("🔄 Обмен выполнен! 💪\n\n%s сожжено 🔥 %d калорий → 🏆 %d кубка\n\n📊 Твой баланс:\n🔥 Калории: %d\n🏆 Кубки: %d\n\n💡 Курс: %d калорий = %d кубка", username, caloriesToSpend, cupsToAdd, newCalories, newCups, exchangeRate, cupsPerExchange))
+	var replyText string
+	if chatType == "writing" {
+		replyText = fmt.Sprintf("🔄 Обмен выполнен! 💪\n\n%s написано 📝 %d слов → 🏆 %d кубка\n\n📊 Твой баланс:\n📝 Слова: %d\n🏆 Кубки: %d\n\n💡 Курс: %d слов = %d кубка", username, caloriesToSpend, cupsToAdd, newCalories, newCups, exchangeRate, cupsPerExchange)
+	} else {
+		replyText = fmt.Sprintf("🔄 Обмен выполнен! 💪\n\n%s сожжено 🔥 %d калорий → 🏆 %d кубка\n\n📊 Твой баланс:\n🔥 Калории: %d\n🏆 Кубки: %d\n\n💡 Курс: %d калорий = %d кубка", username, caloriesToSpend, cupsToAdd, newCalories, newCups, exchangeRate, cupsPerExchange)
+	}
+	reply := tgbotapi.NewMessage(msg.Chat.ID, replyText)
 
 	b.logger.Infof("Sending exchange success message to chat %d", msg.Chat.ID)
 	_, err = b.api.Send(reply)
