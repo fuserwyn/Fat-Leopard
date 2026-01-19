@@ -661,15 +661,25 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 		b.logger.Infof("DEBUG: Successfully added %d calories", caloriesToAdd)
 	}
 
-	// Проверяем, достиг ли пользователь 100 калорий для обмена
+	// Проверяем, достиг ли пользователь 100 калорий/слов для обмена
 	if caloriesToAdd > 0 {
-		// Получаем обновленное количество калорий
+		// Получаем обновленное количество калорий/слов
 		updatedCalories, err := b.db.GetUserCalories(msg.From.ID, msg.Chat.ID)
 		if err != nil {
 			b.logger.Errorf("Failed to get updated calories: %v", err)
 		} else if updatedCalories >= 100 && updatedCalories-caloriesToAdd < 100 {
-			// Пользователь только что достиг 100 калорий
-			messageText := fmt.Sprintf("🎉 Поздравляю! 🎉\n\n%s, достигнуто %d калорий!\n\n🔄 Теперь можешь совершить обмен!\n💡 Напиши #change для обмена 100 калорий на 42 кубка!", username, updatedCalories)
+			// Определяем тип чата для адаптации текста
+			chatTypeForExchange, err := b.db.GetChatType(msg.Chat.ID)
+			if err != nil {
+				chatTypeForExchange = "training" // По умолчанию
+			}
+			// Пользователь только что достиг 100 калорий/слов
+			var messageText string
+			if chatTypeForExchange == "writing" {
+				messageText = fmt.Sprintf("🎉 Поздравляю! 🎉\n\n%s, достигнуто %d слов!\n\n🔄 Теперь можешь совершить обмен!\n💡 Напиши #change для обмена 100 слов на 42 кубка!", username, updatedCalories)
+			} else {
+				messageText = fmt.Sprintf("🎉 Поздравляю! 🎉\n\n%s, достигнуто %d калорий!\n\n🔄 Теперь можешь совершить обмен!\n💡 Напиши #change для обмена 100 калорий на 42 кубка!", username, updatedCalories)
+			}
 
 			// Короткая ИИ‑приписка про обмен
 			if b.aiClient != nil {
@@ -691,7 +701,12 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 				}()
 
 				totalCups, _ := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
-				q := "Сделай короткую приписку (1–2 предложения): дружелюбно и по делу предложи обмен через #change. Обязательно поясни, что после обмена калории обнулятся и начнут накапливаться заново; обмен имеет смысл, если ожидается перерыв в тренировках. Укажи, что серия и кубки продолжаются как обычно. Не повторяй цифры из текста, без Markdown."
+				var q string
+				if chatTypeForExchange == "writing" {
+					q = "Сделай короткую приписку (1–2 предложения): дружелюбно и по делу предложи обмен через #change. Обязательно поясни, что после обмена слова обнулятся и начнут накапливаться заново; обмен имеет смысл, если ожидается перерыв в писательстве. Укажи, что серия и кубки продолжаются как обычно. Не повторяй цифры из текста, без Markdown."
+				} else {
+					q = "Сделай короткую приписку (1–2 предложения): дружелюбно и по делу предложи обмен через #change. Обязательно поясни, что после обмена калории обнулятся и начнут накапливаться заново; обмен имеет смысл, если ожидается перерыв в тренировках. Укажи, что серия и кубки продолжаются как обычно. Не повторяй цифры из текста, без Markdown."
+				}
 				var ctxBuilder strings.Builder
 				ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
 				// Добавляем пол пользователя в контекст
@@ -866,6 +881,12 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 		currentCups = 0
 	}
 
+	// Определяем тип чата для адаптации текста
+	chatType, err := b.db.GetChatType(msg.Chat.ID)
+	if err != nil {
+		chatType = "training" // По умолчанию
+	}
+
 	// Проверяем, есть ли achievement
 	hasAnyAchievement := weeklyAchievement || twoWeekAchievement || threeWeekAchievement || monthlyAchievement || fortyTwoDayAchievement || fiftyDayAchievement || sixtyDayAchievement || quarterlyAchievement || hundredDayAchievement
 
@@ -881,7 +902,13 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 			}
 
 			// Новая тренировка БЕЗ achievement - готовим базовый текст
-			messageText := fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Ты тренируешься дней подряд: %d\n🔥 +%d калорий\n🔥 Всего калорий: %d\n🏆 +1 кубок за тренировку!\n🏆 Всего кубков: %d\n\n⏰ Таймер перезапускается на 7 дней", newStreakDays, caloriesToAdd, totalCalories, currentCups)
+			// Адаптируем текст в зависимости от типа чата
+			var messageText string
+			if chatType == "writing" {
+				messageText = fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Ты пишешь дней подряд: %d\n📝 +%d слов\n📝 Всего слов: %d\n🏆 +1 кубок за писательскую сессию!\n🏆 Всего кубков: %d\n\n⏰ Таймер перезапускается на 7 дней", newStreakDays, caloriesToAdd, totalCalories, currentCups)
+			} else {
+				messageText = fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Ты тренируешься дней подряд: %d\n🔥 +%d калорий\n🔥 Всего калорий: %d\n🏆 +1 кубок за тренировку!\n🏆 Всего кубков: %d\n\n⏰ Таймер перезапускается на 7 дней", newStreakDays, caloriesToAdd, totalCalories, currentCups)
+			}
 
 			// Дополняем короткой ИИ-припиской по текущему контексту
 			if b.aiClient != nil {
@@ -1030,8 +1057,12 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 				}
 			}
 
-			// Добавляем фразу о продолжении тренировок в самом конце
-			messageText = messageText + "\n\n🎯 Продолжай тренироваться и не забывай отправлять #training_done!"
+			// Добавляем фразу о продолжении тренировок/писательства в самом конце
+			if chatType == "writing" {
+				messageText = messageText + "\n\n🎯 Продолжай писать и не забывай отправлять #training_done!"
+			} else {
+				messageText = messageText + "\n\n🎯 Продолжай тренироваться и не забывай отправлять #training_done!"
+			}
 
 			reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
 
@@ -1058,7 +1089,13 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 				currentCups = 0
 			}
 
-			messageText := fmt.Sprintf("🦁 Какой мотивированный леопард! Еще одна тренировка сегодня! 💪\n\n🔥 Твоя мотивация впечатляет\n🏆 +1 кубок за дополнительную тренировку!\n🏆 Всего кубков: %d\n\n⏰ Таймер уже перезапущен на 7 дней\n\n🎯 Завтра снова отправляй #training_done для продолжения серии!", currentCups)
+			// Адаптируем текст для дополнительной тренировки/писательской сессии
+			var messageText string
+			if chatType == "writing" {
+				messageText = fmt.Sprintf("🦁 Какой мотивированный леопард! Еще одна писательская сессия сегодня! 💪\n\n🔥 Твоя мотивация впечатляет\n🏆 +1 кубок за дополнительную писательскую сессию!\n🏆 Всего кубков: %d\n\n⏰ Таймер уже перезапущен на 7 дней\n\n🎯 Завтра снова отправляй #training_done для продолжения серии!", currentCups)
+			} else {
+				messageText = fmt.Sprintf("🦁 Какой мотивированный леопард! Еще одна тренировка сегодня! 💪\n\n🔥 Твоя мотивация впечатляет\n🏆 +1 кубок за дополнительную тренировку!\n🏆 Всего кубков: %d\n\n⏰ Таймер уже перезапущен на 7 дней\n\n🎯 Завтра снова отправляй #training_done для продолжения серии!", currentCups)
+			}
 
 			// Короткая ИИ-приписка и здесь
 			if b.aiClient != nil {
@@ -1652,15 +1689,32 @@ func (b *Bot) handleTop(msg *tgbotapi.Message) {
 		return
 	}
 
+	// Определяем тип чата для адаптации текста
+	chatType, err := b.db.GetChatType(msg.Chat.ID)
+	if err != nil {
+		chatType = "training" // По умолчанию
+	}
+
 	if len(topUsers) == 0 {
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "🏆 **Топ пользователей:**\n\n📊 Пока нет данных о тренировках")
+		var emptyText string
+		if chatType == "writing" {
+			emptyText = "🏆 **Топ пользователей:**\n\n📊 Пока нет данных о писательских сессиях"
+		} else {
+			emptyText = "🏆 **Топ пользователей:**\n\n📊 Пока нет данных о тренировках"
+		}
+		reply := tgbotapi.NewMessage(msg.Chat.ID, emptyText)
 		reply.ParseMode = "Markdown"
 		b.api.Send(reply)
 		return
 	}
 
 	// Формируем топ
-	topText := "🏆 Топ пользователей по очкам:\n\n"
+	var topText string
+	if chatType == "writing" {
+		topText = "🏆 Топ пользователей по очкам (слов):\n\n"
+	} else {
+		topText = "🏆 Топ пользователей по очкам (калорий):\n\n"
+	}
 	for i, user := range topUsers {
 		emoji := "🥇"
 		if i == 1 {
@@ -1670,7 +1724,11 @@ func (b *Bot) handleTop(msg *tgbotapi.Message) {
 		} else {
 			emoji = fmt.Sprintf("%d️⃣", i+1)
 		}
-		topText += fmt.Sprintf("%s %s - %d калорий\n", emoji, user.Username, user.Calories)
+		if chatType == "writing" {
+			topText += fmt.Sprintf("%s %s - %d слов\n", emoji, user.Username, user.Calories)
+		} else {
+			topText += fmt.Sprintf("%s %s - %d калорий\n", emoji, user.Username, user.Calories)
+		}
 	}
 
 	reply := tgbotapi.NewMessage(msg.Chat.ID, topText)
@@ -1685,13 +1743,19 @@ func (b *Bot) handleTop(msg *tgbotapi.Message) {
 }
 
 func (b *Bot) handlePoints(msg *tgbotapi.Message) {
-	// Получаем калории пользователя
+	// Получаем калории/слова пользователя
 	calories, err := b.db.GetUserCalories(msg.From.ID, msg.Chat.ID)
 	if err != nil {
 		b.logger.Errorf("Failed to get user calories: %v", err)
 		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Ошибка при получении данных")
 		b.api.Send(reply)
 		return
+	}
+
+	// Определяем тип чата для адаптации текста
+	chatType, err := b.db.GetChatType(msg.Chat.ID)
+	if err != nil {
+		chatType = "training" // По умолчанию
 	}
 
 	// Получаем никнейм пользователя
@@ -1708,7 +1772,12 @@ func (b *Bot) handlePoints(msg *tgbotapi.Message) {
 	}
 
 	// Формируем сообщение
-	caloriesText := fmt.Sprintf("🔥 Ваши калории:\n\n👤 %s\n🎯 Всего сожжено калорий: %d\n\n💡 Отправляйте #training_done для сжигания калорий!", username, calories)
+	var caloriesText string
+	if chatType == "writing" {
+		caloriesText = fmt.Sprintf("📝 Ваши слова:\n\n👤 %s\n🎯 Всего написано слов: %d\n\n💡 Отправляйте #training_done для написания слов!", username, calories)
+	} else {
+		caloriesText = fmt.Sprintf("🔥 Ваши калории:\n\n👤 %s\n🎯 Всего сожжено калорий: %d\n\n💡 Отправляйте #training_done для сжигания калорий!", username, calories)
+	}
 
 	reply := tgbotapi.NewMessage(msg.Chat.ID, caloriesText)
 
@@ -2393,7 +2462,17 @@ func (b *Bot) auditProcessTrainingDone(um *domain.UserMessage) {
 	already := messageLog.LastTrainingDate != nil && *messageLog.LastTrainingDate == dateStr
 	if already {
 		// ДЕНЬ УЖЕ УЧТЕН: не начисляем ничего, отправляем только подтверждение, если его могло не быть
-		text := fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Я вижу твою тренировку за %s.\n\n⏰ Бот был перезапущен — отправляю подтверждение сейчас.", um.CreatedAt.In(loc).Format("02.01 15:04"))
+		// Определяем тип чата для адаптации текста
+		chatType, err := b.db.GetChatType(um.ChatID)
+		if err != nil {
+			chatType = "training" // По умолчанию
+		}
+		var text string
+		if chatType == "writing" {
+			text = fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Я вижу твою писательскую сессию за %s.\n\n⏰ Бот был перезапущен — отправляю подтверждение сейчас.", um.CreatedAt.In(loc).Format("02.01 15:04"))
+		} else {
+			text = fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Я вижу твою тренировку за %s.\n\n⏰ Бот был перезапущен — отправляю подтверждение сейчас.", um.CreatedAt.In(loc).Format("02.01 15:04"))
+		}
 		b.api.Send(tgbotapi.NewMessage(um.ChatID, text))
 		return
 	}
@@ -2435,12 +2514,32 @@ func (b *Bot) auditProcessTrainingDone(um *domain.UserMessage) {
 
 		totalCalories, _ := b.db.GetUserCalories(um.UserID, um.ChatID)
 		currentCups, _ := b.db.GetUserCups(um.UserID, um.ChatID)
-		text := fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Ты тренируешься дней подряд: %d\n🔥 +%d калорий\n🔥 Всего калорий: %d\n🏆 +1 кубок за тренировку!\n🏆 Всего кубков: %d\n\n⏰ Таймер перезапускается на 7 дней", newStreakDays, caloriesToAdd, totalCalories, currentCups)
+		// Определяем тип чата для адаптации текста
+		chatType, err := b.db.GetChatType(um.ChatID)
+		if err != nil {
+			chatType = "training" // По умолчанию
+		}
+		var text string
+		if chatType == "writing" {
+			text = fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Ты пишешь дней подряд: %d\n📝 +%d слов\n📝 Всего слов: %d\n🏆 +1 кубок за писательскую сессию!\n🏆 Всего кубков: %d\n\n⏰ Таймер перезапускается на 7 дней", newStreakDays, caloriesToAdd, totalCalories, currentCups)
+		} else {
+			text = fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Ты тренируешься дней подряд: %d\n🔥 +%d калорий\n🔥 Всего калорий: %d\n🏆 +1 кубок за тренировку!\n🏆 Всего кубков: %d\n\n⏰ Таймер перезапускается на 7 дней", newStreakDays, caloriesToAdd, totalCalories, currentCups)
+		}
 		b.api.Send(tgbotapi.NewMessage(um.ChatID, text))
 	} else {
 		_ = b.db.AddCups(um.UserID, um.ChatID, 1)
 		currentCups, _ := b.db.GetUserCups(um.UserID, um.ChatID)
-		text := fmt.Sprintf("🦁 Какой мотивированный леопард! Еще одна тренировка сегодня! 💪\n\n🏆 +1 кубок за дополнительную тренировку!\n🏆 Всего кубков: %d", currentCups)
+		// Определяем тип чата для адаптации текста
+		chatType, err := b.db.GetChatType(um.ChatID)
+		if err != nil {
+			chatType = "training" // По умолчанию
+		}
+		var text string
+		if chatType == "writing" {
+			text = fmt.Sprintf("🦁 Какой мотивированный леопард! Еще одна писательская сессия сегодня! 💪\n\n🏆 +1 кубок за дополнительную писательскую сессию!\n🏆 Всего кубков: %d", currentCups)
+		} else {
+			text = fmt.Sprintf("🦁 Какой мотивированный леопард! Еще одна тренировка сегодня! 💪\n\n🏆 +1 кубок за дополнительную тренировку!\n🏆 Всего кубков: %d", currentCups)
+		}
 		b.api.Send(tgbotapi.NewMessage(um.ChatID, text))
 	}
 
