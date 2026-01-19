@@ -157,6 +157,28 @@ var Migrations = []Migration{
 			DROP COLUMN IF EXISTS sick_approval_message_id;
 		`,
 	},
+	{
+		Version:     8,
+		Description: "Create chat_types table for storing chat type (training/writing)",
+		UpSQL: `
+			-- Создаем таблицу для хранения типов чатов
+			CREATE TABLE IF NOT EXISTS chat_types (
+				chat_id BIGINT PRIMARY KEY,
+				chat_type TEXT NOT NULL DEFAULT 'training',
+				created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'Europe/Moscow'),
+				updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'Europe/Moscow')
+			);
+			
+			-- Создаем индекс для быстрого поиска
+			CREATE INDEX IF NOT EXISTS idx_chat_types_chat_type ON chat_types (chat_type);
+		`,
+		DownSQL: `
+			-- Удаляем индекс
+			DROP INDEX IF EXISTS idx_chat_types_chat_type;
+			-- Удаляем таблицу chat_types
+			DROP TABLE IF EXISTS chat_types;
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции

@@ -567,10 +567,35 @@ func (d *Database) GetPendingSickApprovals() ([]*domain.MessageLog, error) {
 }
 
 // GetRecentUserMessages получает последние сообщения пользователя и других участников чата для контекста
-// Возвращает последние сообщения из поля last_message (обновляется при каждом сохранении)
-// Включает сообщение текущего пользователя и сообщения других участников чата (до limit сообщений)
+// Для чатов писательства использует полную историю из user_messages
+// Для чатов тренировок использует last_message из message_log
 func (d *Database) GetRecentUserMessages(userID, chatID int64, limit int) ([]string, error) {
-	// Получаем текущее сообщение пользователя
+	// Определяем тип чата
+	chatType, err := d.GetChatType(chatID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Для чатов писательства используем полную историю из user_messages
+	if chatType == "writing" {
+		userMessages, err := d.GetUserWritingMessages(userID, chatID, limit)
+		if err != nil {
+			return nil, err
+		}
+
+		var messages []string
+		for _, msg := range userMessages {
+			if msg.MessageText != "" && strings.TrimSpace(msg.MessageText) != "" {
+				// Пропускаем служебные типы сообщений
+				if msg.MessageType != "ai_reply" {
+					messages = append(messages, msg.MessageText)
+				}
+			}
+		}
+		return messages, nil
+	}
+
+	// Для чатов тренировок используем старую логику (last_message)
 	messageLog, err := d.GetMessageLog(userID, chatID)
 	if err != nil {
 		return nil, err
@@ -582,7 +607,6 @@ func (d *Database) GetRecentUserMessages(userID, chatID int64, limit int) ([]str
 	}
 
 	// Также получаем сообщения других пользователей в чате для контекста
-	// (это поможет понять общий контекст общения)
 	chatUsers, err := d.GetUsersByChatID(chatID)
 	if err == nil {
 		for _, user := range chatUsers {
@@ -609,7 +633,26 @@ func (d *Database) GetRecentUserMessages(userID, chatID int64, limit int) ([]str
 }
 
 // GetChatContext получает контекст чата: информацию о других участниках и их последних сообщениях
+// Для чатов писательства использует GetChatWritingContext для получения полной истории
+// Для чатов тренировок использует message_log с last_message
+// Возвращает []*domain.MessageLog для обратной совместимости, но для чатов писательства
+// используйте GetChatWritingContext напрямую
 func (d *Database) GetChatContext(chatID int64, excludeUserID int64, limit int) ([]*domain.MessageLog, error) {
+	// Определяем тип чата
+	chatType, err := d.GetChatType(chatID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Для чатов писательства используем полную историю из user_messages
+	if chatType == "writing" {
+		// Для чатов писательства возвращаем пустой список MessageLog
+		// так как для них нужен другой тип данных (UserMessage)
+		// Используйте GetChatWritingContext напрямую для чатов писательства
+		return []*domain.MessageLog{}, nil
+	}
+
+	// Для чатов тренировок используем старую логику (message_log)
 	query := `
 		SELECT user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion,
 		       timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, gender, sick_approval_pending, sick_approval_deadline, sick_approval_message_id, created_at, updated_at
@@ -639,4 +682,103 @@ func (d *Database) GetChatContext(chatID int64, excludeUserID int64, limit int) 
 	}
 
 	return users, nil
+}
+
+// GetChatType получает тип чата (training/writing), по умолчанию возвращает "training"
+func (d *Database) GetChatType(chatID int64) (string, error) {
+	query := `SELECT chat_type FROM chat_types WHERE chat_id = $1`
+	var chatType string
+	err := d.db.QueryRow(query, chatID).Scan(&chatType)
+	if err != nil {
+		// Если запись не найдена, возвращаем тип по умолчанию
+		return "training", nil
+	}
+	return chatType, nil
+}
+
+// SetChatType устанавливает тип чата (training/writing)
+func (d *Database) SetChatType(chatID int64, chatType string) error {
+	if chatType != "training" && chatType != "writing" {
+		return fmt.Errorf("invalid chat type: %s (must be 'training' or 'writing')", chatType)
+	}
+
+	query := `
+		INSERT INTO chat_types (chat_id, chat_type, updated_at)
+		VALUES ($1, $2, NOW() AT TIME ZONE 'Europe/Moscow')
+		ON CONFLICT (chat_id) 
+		DO UPDATE SET chat_type = $2, updated_at = NOW() AT TIME ZONE 'Europe/Moscow'
+	`
+
+	_, err := d.db.Exec(query, chatID, chatType)
+	return err
+}
+
+// GetChatWritingContext получает полный контекст переписки для чата писательства
+// Возвращает последние сообщения из user_messages (до limit сообщений)
+func (d *Database) GetChatWritingContext(chatID int64, excludeUserID int64, limit int) ([]*domain.UserMessage, error) {
+	query := `
+		SELECT id, user_id, chat_id, username, message_text, message_type, created_at
+		FROM user_messages
+		WHERE chat_id = $1 AND user_id != $2
+		ORDER BY created_at DESC
+		LIMIT $3
+	`
+
+	rows, err := d.db.Query(query, chatID, excludeUserID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var messages []*domain.UserMessage
+	for rows.Next() {
+		var msg domain.UserMessage
+		err := rows.Scan(&msg.ID, &msg.UserID, &msg.ChatID, &msg.Username, &msg.MessageText, &msg.MessageType, &msg.CreatedAt)
+		if err != nil {
+			continue
+		}
+		messages = append(messages, &msg)
+	}
+
+	// Разворачиваем список для хронологического порядка (от старых к новым)
+	for i, j := 0, len(messages)-1; i < j; i, j = i+1, j-1 {
+		messages[i], messages[j] = messages[j], messages[i]
+	}
+
+	return messages, nil
+}
+
+// GetUserWritingMessages получает последние сообщения пользователя для чата писательства
+// Возвращает последние сообщения из user_messages (до limit сообщений)
+func (d *Database) GetUserWritingMessages(userID, chatID int64, limit int) ([]*domain.UserMessage, error) {
+	query := `
+		SELECT id, user_id, chat_id, username, message_text, message_type, created_at
+		FROM user_messages
+		WHERE user_id = $1 AND chat_id = $2
+		ORDER BY created_at DESC
+		LIMIT $3
+	`
+
+	rows, err := d.db.Query(query, userID, chatID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var messages []*domain.UserMessage
+	for rows.Next() {
+		var msg domain.UserMessage
+		err := rows.Scan(&msg.ID, &msg.UserID, &msg.ChatID, &msg.Username, &msg.MessageText, &msg.MessageType, &msg.CreatedAt)
+		if err != nil {
+			continue
+		}
+		messages = append(messages, &msg)
+	}
+
+	// Разворачиваем список для хронологического порядка (от старых к новым)
+	for i, j := 0, len(messages)-1; i < j; i, j = i+1, j-1 {
+		messages[i], messages[j] = messages[j], messages[i]
+	}
+
+	return messages, nil
 }

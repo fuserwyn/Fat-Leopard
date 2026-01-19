@@ -222,6 +222,8 @@ func (b *Bot) handleCommand(msg *tgbotapi.Message) {
 		b.generateAndSendDailyWisdom()
 	case "audit_last24":
 		b.auditLast24h()
+	case "set_chat_type":
+		b.handleSetChatType(msg)
 	default:
 		b.logger.Warnf("Unknown command: %s", command)
 	}
@@ -516,7 +518,43 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) {
 		return
 	}
 
-	// Если дошли сюда, значит нет ни команд, ни обращения к боту - просто игнорируем сообщение
+	// Если дошли сюда, значит нет ни команд, ни обращения к боту - сохраняем обычное сообщение в БД
+	if text != "" {
+		username := ""
+		if msg.From.UserName != "" {
+			username = "@" + msg.From.UserName
+		} else if msg.From.FirstName != "" {
+			username = msg.From.FirstName
+			if msg.From.LastName != "" {
+				username += " " + msg.From.LastName
+			}
+		} else {
+			username = fmt.Sprintf("User%d", msg.From.ID)
+		}
+
+		// Сохраняем в user_messages для контекста
+		userMsg := &domain.UserMessage{
+			UserID:      msg.From.ID,
+			ChatID:      msg.Chat.ID,
+			Username:    username,
+			MessageText: text,
+			MessageType: "general", // Обычное сообщение
+		}
+		if err := b.db.SaveUserMessage(userMsg); err != nil {
+			b.logger.Errorf("Failed to save user message: %v", err)
+		}
+
+		// Обновляем LastMessage в message_log
+		messageLog, err := b.db.GetMessageLog(msg.From.ID, msg.Chat.ID)
+		if err == nil {
+			messageLog.Username = username
+			messageLog.LastMessage = text
+			messageLog.IsDeleted = false
+			if err := b.db.SaveMessageLog(messageLog); err != nil {
+				b.logger.Errorf("Failed to update message log: %v", err)
+			}
+		}
+	}
 }
 
 func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
@@ -918,11 +956,12 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 				}
 
 				// Добавляем контекст истории сообщений пользователя
-				recentMessages, err := b.db.GetRecentUserMessages(msg.From.ID, msg.Chat.ID, 42)
+				messageLimit := 420
+				recentMessages, err := b.db.GetRecentUserMessages(msg.From.ID, msg.Chat.ID, messageLimit)
 				if err == nil && len(recentMessages) > 0 {
-					ctxBuilder.WriteString("\nИстория последних сообщений (для понимания контекста общения, до 42 сообщений):\n")
+					ctxBuilder.WriteString(fmt.Sprintf("\nИстория последних сообщений (для понимания контекста общения, до %d сообщений):\n", messageLimit))
 					for i, recentMsg := range recentMessages {
-						if i >= 42 { // Ограничиваем до 42 последних сообщений
+						if i >= messageLimit { // Ограничиваем до последних сообщений
 							break
 						}
 						// Убираем хэштеги для читаемости
@@ -935,7 +974,8 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 				}
 
 				// Добавляем контекст других участников чата
-				chatContext, err := b.db.GetChatContext(msg.Chat.ID, msg.From.ID, 42)
+				chatContextLimit := 420
+				chatContext, err := b.db.GetChatContext(msg.Chat.ID, msg.From.ID, chatContextLimit)
 				if err == nil && len(chatContext) > 0 {
 					ctxBuilder.WriteString("\nКонтекст других участников чата (последние сообщения):\n")
 					for _, otherUser := range chatContext {
@@ -1051,11 +1091,12 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 				}
 
 				// Добавляем контекст истории сообщений пользователя
-				recentMessages, err := b.db.GetRecentUserMessages(msg.From.ID, msg.Chat.ID, 42)
+				messageLimit := 420
+				recentMessages, err := b.db.GetRecentUserMessages(msg.From.ID, msg.Chat.ID, messageLimit)
 				if err == nil && len(recentMessages) > 0 {
-					ctxBuilder.WriteString("\nИстория последних сообщений (для понимания контекста общения, до 42 сообщений):\n")
+					ctxBuilder.WriteString(fmt.Sprintf("\nИстория последних сообщений (для понимания контекста общения, до %d сообщений):\n", messageLimit))
 					for i, recentMsg := range recentMessages {
-						if i >= 42 { // Ограничиваем до 42 последних сообщений
+						if i >= messageLimit { // Ограничиваем до последних сообщений
 							break
 						}
 						// Убираем хэштеги для читаемости
@@ -1068,7 +1109,8 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 				}
 
 				// Добавляем контекст других участников чата
-				chatContext, err := b.db.GetChatContext(msg.Chat.ID, msg.From.ID, 42)
+				chatContextLimit := 420
+				chatContext, err := b.db.GetChatContext(msg.Chat.ID, msg.From.ID, chatContextLimit)
 				if err == nil && len(chatContext) > 0 {
 					ctxBuilder.WriteString("\nКонтекст других участников чата (последние сообщения):\n")
 					for _, otherUser := range chatContext {
@@ -2542,7 +2584,20 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 
 	// Формируем полный контекст о пользователе
 	var contextText strings.Builder
-	contextText.WriteString("=== ИСТОРИЯ ТРЕНИРОВОК ПОЛЬЗОВАТЕЛЯ ===\n\n")
+
+	// Определяем тип чата для правильного заголовка и контекста
+	chatType, err := b.db.GetChatType(msg.Chat.ID)
+	if err != nil {
+		b.logger.Warnf("Failed to get chat type: %v", err)
+		chatType = "training" // По умолчанию
+	}
+
+	if chatType == "writing" {
+		contextText.WriteString("=== КОНТЕКСТ ЧАТА ПИСАТЕЛЬСТВА ===\n\n")
+		contextText.WriteString("Это чат для писательства. Веди себя как мудрый литературный наставник. Помни всю переписку в этом чате и используй её для контекста при ответе.\n\n")
+	} else {
+		contextText.WriteString("=== ИСТОРИЯ ТРЕНИРОВОК ПОЛЬЗОВАТЕЛЯ ===\n\n")
+	}
 
 	// Добавляем историю сообщений
 	if len(history) > 0 {
@@ -2644,25 +2699,49 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 		contextText.WriteString("\n⚠️ Данные пользователя не найдены\n")
 	}
 
-	// Недавний контекст беседы (последние 2 часа, до 10 сообщений)
+	// Недавний контекст беседы (зависит от типа чата)
 	{
-		end := time.Now()
-		start := end.Add(-2 * time.Hour)
-		recentChat, err := b.db.GetMessagesInRange(msg.Chat.ID, start, end)
-		if err == nil && len(recentChat) > 0 {
-			contextText.WriteString("\n=== НЕДАВНИЙ КОНТЕКСТ БЕСЕДЫ (2 часа) ===\n")
-			count := 0
-			for i := len(recentChat) - 1; i >= 0 && count < 10; i-- {
-				text := strings.TrimSpace(recentChat[i].MessageText)
-				if text == "" {
-					continue
+		if chatType == "writing" {
+			// Для чатов писательства используем полную историю переписки
+			writingContext, err := b.db.GetChatWritingContext(msg.Chat.ID, msg.From.ID, 420)
+			if err == nil && len(writingContext) > 0 {
+				contextText.WriteString("\n=== КОНТЕКСТ ПЕРЕПИСКИ (писательство, последние 420 сообщений) ===\n")
+				for _, msg := range writingContext {
+					text := strings.TrimSpace(msg.MessageText)
+					if text == "" {
+						continue
+					}
+					if len(text) > 300 {
+						text = text[:300] + "…"
+					}
+					ts := msg.CreatedAt.In(time.FixedZone("MSK", 3*3600)).Format("2006-01-02 15:04")
+					messageType := ""
+					if msg.MessageType == "ai_reply" {
+						messageType = " [БОТ]"
+					}
+					contextText.WriteString(fmt.Sprintf("• [%s]%s %s: %s\n", ts, messageType, msg.Username, text))
 				}
-				if len(text) > 300 {
-					text = text[:300] + "…"
+			}
+		} else {
+			// Для чатов тренировок используем последние 2 часа
+			end := time.Now()
+			start := end.Add(-2 * time.Hour)
+			recentChat, err := b.db.GetMessagesInRange(msg.Chat.ID, start, end)
+			if err == nil && len(recentChat) > 0 {
+				contextText.WriteString("\n=== НЕДАВНИЙ КОНТЕКСТ БЕСЕДЫ (2 часа) ===\n")
+				count := 0
+				for i := len(recentChat) - 1; i >= 0 && count < 10; i-- {
+					text := strings.TrimSpace(recentChat[i].MessageText)
+					if text == "" {
+						continue
+					}
+					if len(text) > 300 {
+						text = text[:300] + "…"
+					}
+					ts := recentChat[i].CreatedAt.In(time.FixedZone("MSK", 3*3600)).Format("15:04")
+					contextText.WriteString("• [" + ts + "] " + text + "\n")
+					count++
 				}
-				ts := recentChat[i].CreatedAt.In(time.FixedZone("MSK", 3*3600)).Format("15:04")
-				contextText.WriteString("• [" + ts + "] " + text + "\n")
-				count++
 			}
 		}
 	}
@@ -2964,6 +3043,7 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 	}
 
 	// Генерируем ответ с помощью ИИ
+	// Используем уже определенный chatType из блока выше
 	finalQuestion := questionText
 	if lastBotMessageText != "" {
 		finalQuestion = fmt.Sprintf(
@@ -2972,7 +3052,12 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 			questionText,
 		)
 	}
-	finalQuestion += "\n\nОТВЕЧАЙ СТРОГО ПО СУТИ ВОПРОСА ПОЛЬЗОВАТЕЛЯ. СНАЧАЛА ДАЙ ПОЛНЫЙ, ПОДРОБНЫЙ ОТВЕТ ПО ВОПРОСУ. ЕСЛИ ВОПРОС НЕ ПРО ТРЕНИРОВКИ ИЛИ БОЛЬНИЧНЫЙ, НЕ ПЕРЕХОДИ К ЭТИМ ТЕМАМ БЕЗ ЯВНОГО ЗАПРОСА И НЕ ВЫПОЛНЯЙ НЕПРОСИМЫЕ ПРЕДУПРЕЖДЕНИЯ. ЛЮБЫЕ МОТИВИРУЮЩИЕ ДОПОЛНЕНИЯ МОЖНО ДАВАТЬ ТОЛЬКО В КОНЦЕ И ТОЛЬКО ЕСЛИ ОНИ ПОДЧЕРКИВАЮТ СУТЬ ОТВЕТА."
+
+	if chatType == "writing" {
+		finalQuestion += "\n\nВАЖНО: Это чат для писательства. Ты мудрый литературный наставник Fat Leopard. Используй весь контекст переписки из этого чата для понимания темы и сюжета. Отвечай в контексте писательства, поддерживай обсуждение литературных тем, помогай с развитием сюжета, персонажей и стиля. Не переходи на темы тренировок, если об этом явно не спрашивают."
+	} else {
+		finalQuestion += "\n\nОТВЕЧАЙ СТРОГО ПО СУТИ ВОПРОСА ПОЛЬЗОВАТЕЛЯ. СНАЧАЛА ДАЙ ПОЛНЫЙ, ПОДРОБНЫЙ ОТВЕТ ПО ВОПРОСУ. ЕСЛИ ВОПРОС НЕ ПРО ТРЕНИРОВКИ ИЛИ БОЛЬНИЧНЫЙ, НЕ ПЕРЕХОДИ К ЭТИМ ТЕМАМ БЕЗ ЯВНОГО ЗАПРОСА И НЕ ВЫПОЛНЯЙ НЕПРОСИМЫЕ ПРЕДУПРЕЖДЕНИЯ. ЛЮБЫЕ МОТИВИРУЮЩИЕ ДОПОЛНЕНИЯ МОЖНО ДАВАТЬ ТОЛЬКО В КОНЦЕ И ТОЛЬКО ЕСЛИ ОНИ ПОДЧЕРКИВАЮТ СУТЬ ОТВЕТА."
+	}
 
 	answer, err := b.aiClient.AnswerUserQuestion(finalQuestion, contextText.String())
 	if err != nil {
@@ -3488,4 +3573,37 @@ func (b *Bot) updateUserGender(userID, chatID int64, gender string) error {
 	}
 
 	return nil
+}
+
+// handleSetChatType устанавливает тип чата (training/writing)
+// Использование: /set_chat_type <training|writing>
+func (b *Bot) handleSetChatType(msg *tgbotapi.Message) {
+	args := strings.Fields(msg.CommandArguments())
+	if len(args) < 1 {
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Использование: /set_chat_type <training|writing>")
+		b.api.Send(reply)
+		return
+	}
+
+	chatType := strings.ToLower(strings.TrimSpace(args[0]))
+	if chatType != "training" && chatType != "writing" {
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Тип чата должен быть 'training' или 'writing'")
+		b.api.Send(reply)
+		return
+	}
+
+	if err := b.db.SetChatType(msg.Chat.ID, chatType); err != nil {
+		b.logger.Errorf("Failed to set chat type: %v", err)
+		reply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("❌ Ошибка при установке типа чата: %v", err))
+		b.api.Send(reply)
+		return
+	}
+
+	chatTypeText := "тренировок"
+	if chatType == "writing" {
+		chatTypeText = "писательства"
+	}
+
+	reply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("✅ Тип чата установлен: %s\n\nТеперь бот будет вести отдельный контекст для чата %s.", chatTypeText, chatTypeText))
+	b.api.Send(reply)
 }
