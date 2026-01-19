@@ -21,7 +21,17 @@ func (b *Bot) handleSickLeave(msg *tgbotapi.Message) {
 	}
 
 	if messageLog.HasSickLeave {
-		infoText := "✅ У тебя уже активен больничный. Отдыхай и возвращайся, когда восстановишься."
+		// Определяем тип чата для адаптации текста
+		chatType, err := b.db.GetChatType(msg.Chat.ID)
+		if err != nil {
+			chatType = "training" // По умолчанию
+		}
+		var infoText string
+		if chatType == "writing" {
+			infoText = "✅ У тебя уже активен больничный. Отдыхай и возвращайся к писательству, когда восстановишься."
+		} else {
+			infoText = "✅ У тебя уже активен больничный. Отдыхай и возвращайся, когда восстановишься."
+		}
 		response := tgbotapi.NewMessage(msg.Chat.ID, infoText)
 		response.ReplyToMessageID = msg.MessageID
 		if _, sendErr := b.api.Send(response); sendErr != nil {
@@ -53,10 +63,15 @@ func (b *Bot) handleSickLeave(msg *tgbotapi.Message) {
 
 	b.logger.Infof("Sick leave rejected for user %d (%s): justification not convincing", msg.From.ID, messageLog.Username)
 	b.rejectSickLeave(msg, messageLog, msg.MessageID)
-	return
 }
 
 func (b *Bot) activateSickLeave(msg *tgbotapi.Message, messageLog *domain.MessageLog) {
+	// Определяем тип чата для адаптации текста
+	chatType, err := b.db.GetChatType(msg.Chat.ID)
+	if err != nil {
+		chatType = "training" // По умолчанию
+	}
+
 	b.cancelSickApprovalWatcher(msg.From.ID)
 	messageLog.SickApprovalPending = false
 	messageLog.SickApprovalDeadline = nil
@@ -138,7 +153,12 @@ func (b *Bot) activateSickLeave(msg *tgbotapi.Message, messageLog *domain.Messag
 	remainingTimeFormatted := b.formatDurationToDays(remainingTime)
 
 	// Отправляем подтверждение с информацией о времени после разморозки
-	messageText := fmt.Sprintf("🏥 Больничный принят! 🤒\n\n⏸️ Таймер приостановлен на время болезни\n\n❄️ После выздоровления останется: %s до удаления\n\n💪 Выздоравливай и возвращайся к тренировкам!\n\n📝 Когда поправишься, отправь #healthy для возобновления таймера", remainingTimeFormatted)
+	var messageText string
+	if chatType == "writing" {
+		messageText = fmt.Sprintf("🏥 Больничный принят! 🤒\n\n⏸️ Таймер приостановлен на время болезни\n\n❄️ После выздоровления останется: %s до удаления\n\n💪 Выздоравливай и возвращайся к писательству!\n\n📝 Когда поправишься, отправь #healthy для возобновления таймера", remainingTimeFormatted)
+	} else {
+		messageText = fmt.Sprintf("🏥 Больничный принят! 🤒\n\n⏸️ Таймер приостановлен на время болезни\n\n❄️ После выздоровления останется: %s до удаления\n\n💪 Выздоравливай и возвращайся к тренировкам!\n\n📝 Когда поправишься, отправь #healthy для возобновления таймера", remainingTimeFormatted)
+	}
 
 	// ИИ‑приписка: пожелание выздоровления (5 предложений)
 	if b.aiClient != nil {
@@ -160,7 +180,12 @@ func (b *Bot) activateSickLeave(msg *tgbotapi.Message, messageLog *domain.Messag
 		}()
 
 		totalCups, _ := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
-		question := "Сделай ровно 5 предложений‑приписку после сообщения о взятии больничного: строго, дружелюбно, пожелай скорейшего восстановления и мягко мотивируй вернуться к режиму. Учитывай текущие калории и кубки, упомяни, что я 'ем' только ленивых (без угроз активным). Не повторяй цифры из основного текста. Без Markdown."
+		var question string
+		if chatType == "writing" {
+			question = "Сделай ровно 5 предложений‑приписку после сообщения о взятии больничного: строго, дружелюбно, пожелай скорейшего восстановления и мягко мотивируй вернуться к писательству. НЕ упоминай тренировки, спорт или физическую активность. Учитывай текущие слова и кубки, упомяни, что я 'ем' только ленивых (без угроз активным). Не повторяй цифры из основного текста. Без Markdown."
+		} else {
+			question = "Сделай ровно 5 предложений‑приписку после сообщения о взятии больничного: строго, дружелюбно, пожелай скорейшего восстановления и мягко мотивируй вернуться к режиму. Учитывай текущие калории и кубки, упомяни, что я 'ем' только ленивых (без угроз активным). Не повторяй цифры из основного текста. Без Markdown."
+		}
 		var ctxBuilder strings.Builder
 		ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", messageLog.Username))
 		// Добавляем пол пользователя в контекст
@@ -179,7 +204,11 @@ func (b *Bot) activateSickLeave(msg *tgbotapi.Message, messageLog *domain.Messag
 		}
 		ctxBuilder.WriteString("Событие: взят больничный (таймер приостановлен).\n")
 		ctxBuilder.WriteString(fmt.Sprintf("После выздоровления останется: %s\n", remainingTimeFormatted))
-		ctxBuilder.WriteString(fmt.Sprintf("Всего калорий: %d\n", messageLog.Calories))
+		if chatType == "writing" {
+			ctxBuilder.WriteString(fmt.Sprintf("Всего слов: %d\n", messageLog.Calories))
+		} else {
+			ctxBuilder.WriteString(fmt.Sprintf("Всего калорий: %d\n", messageLog.Calories))
+		}
 		ctxBuilder.WriteString(fmt.Sprintf("Всего кубков: %d\n", totalCups))
 		if addendum, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
 			addendum = strings.TrimSpace(strings.ReplaceAll(addendum, "**", ""))
@@ -408,6 +437,12 @@ func (b *Bot) forceCancelSickLeave(userID, chatID int64) {
 }
 
 func (b *Bot) handleHealthy(msg *tgbotapi.Message) {
+	// Определяем тип чата для адаптации текста
+	chatType, err := b.db.GetChatType(msg.Chat.ID)
+	if err != nil {
+		chatType = "training" // По умолчанию
+	}
+
 	// Получаем данные о времени таймера и больничного
 	messageLog, err := b.db.GetMessageLog(msg.From.ID, msg.Chat.ID)
 	if err != nil {
@@ -501,7 +536,13 @@ func (b *Bot) handleHealthy(msg *tgbotapi.Message) {
 		}
 
 		// Отправляем сообщение об истечении времени
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "⏰ Время истекло! 🚫\n\n💪 Выздоровление принято, но время таймера уже истекло.\n\n🦁 Ням-ням, вкусненько! Я питаюсь ленивыми леопардами и становлюсь жирнее!\n\n💪 Ты ведь не хочешь стать как я?\n\nТогда тренируйтесь и отправляйте отчеты!")
+		var replyText string
+		if chatType == "writing" {
+			replyText = "⏰ Время истекло! 🚫\n\n💪 Выздоровление принято, но время таймера уже истекло.\n\n🦁 Ням-ням, вкусненько! Я питаюсь ленивыми леопардами и становлюсь жирнее!\n\n💪 Ты ведь не хочешь стать как я?\n\nТогда пишите и отправляйте отчеты!"
+		} else {
+			replyText = "⏰ Время истекло! 🚫\n\n💪 Выздоровление принято, но время таймера уже истекло.\n\n🦁 Ням-ням, вкусненько! Я питаюсь ленивыми леопардами и становлюсь жирнее!\n\n💪 Ты ведь не хочешь стать как я?\n\nТогда тренируйтесь и отправляйте отчеты!"
+		}
+		reply := tgbotapi.NewMessage(msg.Chat.ID, replyText)
 		b.api.Send(reply)
 
 		// Удаляем пользователя
@@ -538,7 +579,12 @@ func (b *Bot) handleHealthy(msg *tgbotapi.Message) {
 		}()
 
 		totalCups, _ := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
-		question := "Сделай ровно 5 предложений‑приписку после сообщения о выздоровлении: поздравь, напомни о дисциплине, похвали за честность и предупреди о контроле таймера. Учитывай текущие калории и кубки. Не повторяй цифры из основного текста. Без Markdown."
+		var question string
+		if chatType == "writing" {
+			question = "Сделай ровно 5 предложений‑приписку после сообщения о выздоровлении: поздравь, напомни о дисциплине писательства, похвали за честность и предупреди о контроле таймера. НЕ упоминай тренировки, спорт или физическую активность. Учитывай текущие слова и кубки. Не повторяй цифры из основного текста. Без Markdown."
+		} else {
+			question = "Сделай ровно 5 предложений‑приписку после сообщения о выздоровлении: поздравь, напомни о дисциплине, похвали за честность и предупреди о контроле таймера. Учитывай текущие калории и кубки. Не повторяй цифры из основного текста. Без Markdown."
+		}
 		var ctxBuilder strings.Builder
 		ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", messageLog.Username))
 		userGender := strings.TrimSpace(strings.ToLower(messageLog.Gender))
@@ -555,7 +601,11 @@ func (b *Bot) handleHealthy(msg *tgbotapi.Message) {
 			}
 		}
 		ctxBuilder.WriteString(fmt.Sprintf("После выздоровления осталось: %s\n", remainingTimeFormatted))
-		ctxBuilder.WriteString(fmt.Sprintf("Всего калорий: %d\n", messageLog.Calories))
+		if chatType == "writing" {
+			ctxBuilder.WriteString(fmt.Sprintf("Всего слов: %d\n", messageLog.Calories))
+		} else {
+			ctxBuilder.WriteString(fmt.Sprintf("Всего калорий: %d\n", messageLog.Calories))
+		}
 		ctxBuilder.WriteString(fmt.Sprintf("Всего кубков: %d\n", totalCups))
 		if addendum, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
 			addendum = strings.TrimSpace(strings.ReplaceAll(addendum, "**", ""))
