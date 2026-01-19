@@ -566,99 +566,61 @@ func (d *Database) GetPendingSickApprovals() ([]*domain.MessageLog, error) {
 	return approvals, nil
 }
 
-// GetRecentUserMessages получает последние сообщения пользователя и других участников чата для контекста
-// Для чатов писательства использует полную историю из user_messages
-// Для чатов тренировок использует last_message из message_log
+// GetRecentUserMessages получает последние сообщения ВСЕХ участников чата для контекста
+// Для всех типов чатов использует полную историю из user_messages всех пользователей
+// Включает все сообщения, включая ответы бота (ai_reply) для полного контекста диалога
 func (d *Database) GetRecentUserMessages(userID, chatID int64, limit int) ([]string, error) {
-	// Определяем тип чата
-	chatType, err := d.GetChatType(chatID)
+	// Для всех типов чатов используем полную историю из user_messages всех пользователей
+	// Получаем последние сообщения ВСЕХ участников чата, включая ответы бота
+	query := `
+		SELECT message_text
+		FROM user_messages
+		WHERE chat_id = $1
+		ORDER BY created_at DESC
+		LIMIT $2
+	`
+
+	rows, err := d.db.Query(query, chatID, limit)
 	if err != nil {
 		return nil, err
 	}
-
-	// Для чатов писательства используем полную историю из user_messages
-	if chatType == "writing" {
-		userMessages, err := d.GetUserWritingMessages(userID, chatID, limit)
-		if err != nil {
-			return nil, err
-		}
-
-		var messages []string
-		for _, msg := range userMessages {
-			if msg.MessageText != "" && strings.TrimSpace(msg.MessageText) != "" {
-				// Пропускаем служебные типы сообщений
-				if msg.MessageType != "ai_reply" {
-					messages = append(messages, msg.MessageText)
-				}
-			}
-		}
-		return messages, nil
-	}
-
-	// Для чатов тренировок используем старую логику (last_message)
-	messageLog, err := d.GetMessageLog(userID, chatID)
-	if err != nil {
-		return nil, err
-	}
+	defer rows.Close()
 
 	var messages []string
-	if messageLog.LastMessage != "" && strings.TrimSpace(messageLog.LastMessage) != "" {
-		messages = append(messages, messageLog.LastMessage)
+	for rows.Next() {
+		var msgText string
+		if err := rows.Scan(&msgText); err != nil {
+			continue
+		}
+		if msgText != "" && strings.TrimSpace(msgText) != "" {
+			messages = append(messages, msgText)
+		}
 	}
 
-	// Также получаем сообщения других пользователей в чате для контекста
-	chatUsers, err := d.GetUsersByChatID(chatID)
-	if err == nil {
-		for _, user := range chatUsers {
-			if user.UserID != userID && user.LastMessage != "" && strings.TrimSpace(user.LastMessage) != "" {
-				if len(messages) >= limit {
-					break
-				}
-				// Добавляем только уникальные сообщения
-				isDuplicate := false
-				for _, existingMsg := range messages {
-					if existingMsg == user.LastMessage {
-						isDuplicate = true
-						break
-					}
-				}
-				if !isDuplicate {
-					messages = append(messages, user.LastMessage)
-				}
-			}
-		}
+	// Разворачиваем список для хронологического порядка (от старых к новым)
+	for i, j := 0, len(messages)-1; i < j; i, j = i+1, j-1 {
+		messages[i], messages[j] = messages[j], messages[i]
 	}
 
 	return messages, nil
 }
 
 // GetChatContext получает контекст чата: информацию о других участниках и их последних сообщениях
-// Для чатов писательства использует GetChatWritingContext для получения полной истории
-// Для чатов тренировок использует message_log с last_message
-// Возвращает []*domain.MessageLog для обратной совместимости, но для чатов писательства
-// используйте GetChatWritingContext напрямую
+// Возвращает []*domain.MessageLog для обратной совместимости
+// Теперь всегда использует user_messages для получения полного контекста всех пользователей
 func (d *Database) GetChatContext(chatID int64, excludeUserID int64, limit int) ([]*domain.MessageLog, error) {
-	// Определяем тип чата
-	chatType, err := d.GetChatType(chatID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Для чатов писательства используем полную историю из user_messages
-	if chatType == "writing" {
-		// Для чатов писательства возвращаем пустой список MessageLog
-		// так как для них нужен другой тип данных (UserMessage)
-		// Используйте GetChatWritingContext напрямую для чатов писательства
-		return []*domain.MessageLog{}, nil
-	}
-
-	// Для чатов тренировок используем старую логику (message_log)
+	// Получаем последние сообщения всех пользователей из user_messages
+	// Используем подзапрос для получения последнего сообщения каждого пользователя
 	query := `
-		SELECT user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion,
-		       timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, gender, sick_approval_pending, sick_approval_deadline, sick_approval_message_id, created_at, updated_at
-		FROM message_log 
-		WHERE chat_id = $1 AND user_id != $2 AND is_deleted = FALSE AND last_message != '' AND last_message IS NOT NULL
-		ORDER BY updated_at DESC
+		SELECT user_id, username, chat_id, message_text as last_message
+		FROM (
+			SELECT user_id, username, chat_id, message_text,
+			       ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC) as rn
+			FROM user_messages
+			WHERE chat_id = $1 AND user_id != $2
+		) AS ranked
+		WHERE rn = 1
+		ORDER BY user_id DESC
 		LIMIT $3
 	`
 
@@ -671,14 +633,21 @@ func (d *Database) GetChatContext(chatID int64, excludeUserID int64, limit int) 
 	var users []*domain.MessageLog
 	for rows.Next() {
 		var msg domain.MessageLog
-		err := rows.Scan(
-			&msg.UserID, &msg.Username, &msg.ChatID, &msg.Calories, &msg.StreakDays, &msg.CalorieStreakDays, &msg.CupsEarned, &msg.LastTrainingDate, &msg.LastMessage, &msg.HasTrainingDone,
-			&msg.HasSickLeave, &msg.HasHealthy, &msg.IsDeleted, &msg.IsExemptFromDeletion, &msg.TimerStartTime, &msg.SickLeaveStartTime, &msg.SickLeaveEndTime, &msg.SickTime, &msg.RestTimeTillDel, &msg.Gender,
-			&msg.SickApprovalPending, &msg.SickApprovalDeadline, &msg.SickApprovalMessageID, &msg.CreatedAt, &msg.UpdatedAt)
+		err := rows.Scan(&msg.UserID, &msg.Username, &msg.ChatID, &msg.LastMessage)
 		if err != nil {
 			continue
 		}
-		users = append(users, &msg)
+		// Получаем полную информацию о пользователе из message_log
+		fullUserLog, err := d.GetMessageLog(msg.UserID, chatID)
+		if err == nil {
+			// Копируем последнее сообщение из user_messages
+			fullUserLog.LastMessage = msg.LastMessage
+			users = append(users, fullUserLog)
+		} else {
+			// Если нет записи в message_log, создаем минимальную
+			msg.ChatID = chatID
+			users = append(users, &msg)
+		}
 	}
 
 	return users, nil

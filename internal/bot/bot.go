@@ -616,6 +616,20 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 		}
 	}
 
+	// Автоматически определяем тип чата на основе содержимого сообщения
+	text := msg.Text
+	if text == "" && msg.Caption != "" {
+		text = msg.Caption
+	}
+	if b.shouldDetectChatTypeAsWriting(text, msg.Chat.ID) {
+		// Автоматически устанавливаем тип чата как "writing", если в сообщении есть контекст писательства
+		if err := b.db.SetChatType(msg.Chat.ID, "writing"); err != nil {
+			b.logger.Warnf("Failed to auto-set chat type to writing: %v", err)
+		} else {
+			b.logger.Infof("Auto-detected chat type as 'writing' for chat %d based on message content", msg.Chat.ID)
+		}
+	}
+
 	// Рассчитываем калории и серию
 	caloriesToAdd, newStreakDays, newCalorieStreakDays, weeklyAchievement, twoWeekAchievement, threeWeekAchievement, monthlyAchievement, fortyTwoDayAchievement, fiftyDayAchievement, sixtyDayAchievement, quarterlyAchievement, hundredDayAchievement := b.calculateCalories(messageLog)
 
@@ -3573,6 +3587,36 @@ func (b *Bot) updateUserGender(userID, chatID int64, gender string) error {
 	}
 
 	return nil
+}
+
+// shouldDetectChatTypeAsWriting определяет, нужно ли автоматически установить тип чата как "writing"
+// на основе содержимого сообщения
+func (b *Bot) shouldDetectChatTypeAsWriting(text string, chatID int64) bool {
+	// Проверяем, не установлен ли уже тип чата
+	currentType, err := b.db.GetChatType(chatID)
+	if err == nil && currentType == "writing" {
+		return false // Уже установлен как writing
+	}
+
+	// Ключевые слова, указывающие на писательство
+	writingKeywords := []string{
+		"писатель", "писать", "текст", "рассказ", "роман", "повесть", "рассказ", "стих", "стихи", "поэма",
+		"автор", "сюжет", "персонаж", "персонажи", "герой", "герои", "глава", "глав", "страниц", "страница",
+		"сочинение", "сочинять", "рукопись", "издательство", "публикация", "публиковать",
+		"литератур", "проза", "проз", "драматург", "драматурги", "поэт", "поэтесс",
+		"writing", "author", "text", "story", "novel", "chapter", "character", "plot",
+		"manuscript", "publish", "literature", "prose", "poem", "poetry",
+	}
+
+	textLower := strings.ToLower(text)
+	for _, keyword := range writingKeywords {
+		if strings.Contains(textLower, keyword) {
+			b.logger.Infof("Detected writing keyword '%s' in message, will set chat type to 'writing'", keyword)
+			return true
+		}
+	}
+
+	return false
 }
 
 // handleSetChatType устанавливает тип чата (training/writing)
