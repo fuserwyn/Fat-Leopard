@@ -174,7 +174,7 @@ func (b *Bot) processTrainingDone(msg *tgbotapi.Message) {
 		}
 
 		if monthlyAchievement {
-			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 200); err != nil {
+			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 420); err != nil {
 				b.logger.Errorf("Failed to add monthly cups: %v", err)
 			}
 		}
@@ -516,7 +516,38 @@ func (b *Bot) sendThreeWeekCupsReward(msg *tgbotapi.Message, username string, st
 }
 
 func (b *Bot) sendMonthlyCupsReward(msg *tgbotapi.Message, username string, streakDays int, caloriesAdded int, userGender string) {
-	b.sendStreakReward(msg, username, streakDays, caloriesAdded, 200, "🏆 30 дней!", "💥 Месяц без пауз — ты держишь линию, продолжай.")
+	totalCalories, _ := b.db.GetUserCalories(msg.From.ID, msg.Chat.ID)
+	totalCups, _ := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
+	rewardCups := 420
+	forms := b.getGenderForms(userGender)
+
+	messageText := fmt.Sprintf(`🏆🏆🏆🏆🏆🏆 МЕСЯЦ ПОБЕДЫ! 🏆🏆🏆🏆🏆🏆
+
+%s, ты тренируешься уже %d дней подряд! 
+
+🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆
+🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆
+🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆
+
+🎯 +%d КУБКОВ ЗА ТВОЮ СЕРИЮ %d ДНЕЙ! 🎯
+
+🔥 +%d калорий
+🔥 Всего калорий: %d
+🏆 +%d кубков
+🏆 Всего кубков: %d
+🦁 Fat Leopard не может поверить в твою силу воли! 
+💪 Ты %s %s дисциплины!
+🔥 Месяц абсолютной преданности — это уровень чемпионов!
+⭐ Ты не просто тренируешься — ты создаёшь новую версию себя!
+👑 Каждый день ты %s лучше, сильнее, увереннее!
+🌟 Твоя дисциплина — пример для всех — ты %s!
+💎 Ты %s, что можешь достичь ЛЮБОЙ цели — небо не предел!
+
+#thirty_days_champion #420_cups #training_perfection`,
+		username, streakDays, rewardCups, streakDays, caloriesAdded, totalCalories, rewardCups, totalCups, forms.Invincible, forms.Titan, forms.Became, forms.Champion, forms.Proved)
+
+	reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
+	b.api.Send(reply)
 }
 
 func (b *Bot) sendFortyTwoDayCupsReward(msg *tgbotapi.Message, username string, streakDays int, caloriesAdded int, userGender string) {
