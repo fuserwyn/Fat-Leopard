@@ -375,6 +375,7 @@ type GenderForms struct {
 	Titan       string // титан / титанисса
 	Olympian    string // олимпийский чемпион / олимпийская чемпионка
 	Invincible  string // непобедимый / непобедимая
+	Reached     string // достиг / достигла
 }
 
 func (b *Bot) getGenderForms(gender string) GenderForms {
@@ -393,6 +394,7 @@ func (b *Bot) getGenderForms(gender string) GenderForms {
 			Titan:       "титанисса",
 			Olympian:    "олимпийская чемпионка",
 			Invincible:  "непобедимая",
+			Reached:     "достигла",
 		}
 	}
 	return GenderForms{
@@ -408,6 +410,7 @@ func (b *Bot) getGenderForms(gender string) GenderForms {
 		Titan:       "титан",
 		Olympian:    "олимпийский чемпион",
 		Invincible:  "непобедимый",
+		Reached:     "достиг",
 	}
 }
 
@@ -665,9 +668,41 @@ func (b *Bot) sendHundredDayCupsReward(msg *tgbotapi.Message, username string, s
 }
 
 func (b *Bot) sendSuperLevelMessage(msg *tgbotapi.Message, username string, totalCups int, userGender string) {
+	// Определяем тип чата для адаптации текста
+	chatType, err := b.db.GetChatType(msg.Chat.ID)
+	if err != nil {
+		chatType = "training" // По умолчанию
+	}
+
 	forms := b.getGenderForms(userGender)
 
-	messageText := fmt.Sprintf(`🌟⚡️ СУПЕР-УРОВЕНЬ ДОСТИГНУТ! ⚡️🌟
+	var messageText string
+	if chatType == "writing" {
+		messageText = fmt.Sprintf(`🌟⚡️ СУПЕР-УРОВЕНЬ ДОСТИГНУТ! ⚡️🌟
+
+%s, ты %s %d кубков! 
+
+🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆
+🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆
+🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆
+🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆
+🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆
+
+🎊 ВСЕ ОЖИДАНИЯ ПРЕВЗОЙДЕНЫ! 🎊
+
+🦁 Fat Leopard в полном восторге! 
+💪 Ты не просто %s - ты СУПЕР-%s!
+🔥 Твоя сила и мощь безграничны!
+⭐️ Ты вдохновляешь всю стаю!
+👑 Мотивация не верит, что такое бывает!
+🌟 Ты сияешь ярче всех!
+
+🎯 Продолжай писать, супер-леопард!
+
+#super_level #%d_cups #writing_master`,
+			username, forms.Accumulated, totalCups, forms.Champion, strings.ToUpper(forms.Champion), totalCups)
+	} else {
+		messageText = fmt.Sprintf(`🌟⚡️ СУПЕР-УРОВЕНЬ ДОСТИГНУТ! ⚡️🌟
 
 %s, ты %s %d кубков! 
 
@@ -689,7 +724,8 @@ func (b *Bot) sendSuperLevelMessage(msg *tgbotapi.Message, username string, tota
 🎯 Продолжай в том же духе, супер-леопард!
 
 #super_level #%d_cups #motivation_king`,
-		username, forms.Accumulated, totalCups, forms.Champion, strings.ToUpper(forms.Champion), totalCups)
+			username, forms.Accumulated, totalCups, forms.Champion, strings.ToUpper(forms.Champion), totalCups)
+	}
 
 	reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
 	if _, err := b.api.Send(reply); err != nil {

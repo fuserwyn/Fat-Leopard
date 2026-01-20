@@ -2064,6 +2064,17 @@ func (b *Bot) handleCups(msg *tgbotapi.Message) {
 		chatType = "training" // По умолчанию
 	}
 
+	// Получаем пол пользователя для гендерной адаптации
+	messageLog, err := b.db.GetMessageLog(msg.From.ID, msg.Chat.ID)
+	userGender := ""
+	if err == nil {
+		userGender = strings.TrimSpace(strings.ToLower(messageLog.Gender))
+		if userGender == "" {
+			userGender = b.detectGenderFromName(msg.From.FirstName)
+		}
+	}
+	forms := b.getGenderForms(userGender)
+
 	// Получаем никнейм пользователя
 	username := ""
 	if msg.From.UserName != "" {
@@ -2082,7 +2093,11 @@ func (b *Bot) handleCups(msg *tgbotapi.Message) {
 	if cups > 420 {
 		cupsText = fmt.Sprintf("🌟⚡ СУПЕР-УРОВЕНЬ! ⚡🌟\n\n👤 %s\n🎯 Всего заработано кубков: %d\n\n🎊 ВСЕ ОЖИДАНИЯ ПРЕВЗОЙДЕНЫ! 🎊\n\n🦁 Fat Leopard в полном восторге!\n💪 Ты не просто чемпион - ты СУПЕР-ЧЕМПИОН!\n🔥 Твоя сила и мощь безграничны!\n⭐️ Ты вдохновляешь всю стаю!\n👑 Мотивация не верит, что такое бывает!\n🌟 Ты сияешь ярче всех!\n\n🎯 Продолжай в том же духе, супер-леопард!", username, cups)
 	} else if cups >= 420 {
-		cupsText = fmt.Sprintf("🎊 ПОЗДРАВЛЯЕМ! 🎊\n\n👤 %s\n🎯 Всего заработано кубков: %d\n\n🏆 ТЫ ДОСТИГ ЦЕЛИ РОЗЫГРЫША!\n🎁 Участвуешь в розыгрыше футболки Fat Leopard!\n💪 Ты настоящий чемпион!\n🔥 Продолжай тренироваться!", username, cups)
+		if chatType == "writing" {
+			cupsText = fmt.Sprintf("🎊 ПОЗДРАВЛЯЕМ! 🎊\n\n👤 %s\n🎯 Всего заработано кубков: %d\n\n🏆 ТЫ %s ЦЕЛИ РОЗЫГРЫША!\n🎁 Участвуешь в розыгрыше футболки Fat Leopard!\n💪 Ты настоящая %s!\n🔥 Продолжай писать!", username, cups, strings.ToUpper(forms.Reached), forms.Champion)
+		} else {
+			cupsText = fmt.Sprintf("🎊 ПОЗДРАВЛЯЕМ! 🎊\n\n👤 %s\n🎯 Всего заработано кубков: %d\n\n🏆 ТЫ %s ЦЕЛИ РОЗЫГРЫША!\n🎁 Участвуешь в розыгрыше футболки Fat Leopard!\n💪 Ты настоящий %s!\n🔥 Продолжай тренироваться!", username, cups, strings.ToUpper(forms.Reached), forms.Champion)
+		}
 	} else {
 		if chatType == "writing" {
 			cupsText = fmt.Sprintf("🏆 Ваши кубки:\n\n👤 %s\n🎯 Всего заработано кубков: %d\n\n💡 Отправляйте #writing_done для получения кубков!\n\n🎊 Розыгрыш футболки Fat Leopard при достижении 420 кубков!", username, cups)
@@ -2636,28 +2651,73 @@ func (b *Bot) generateAndSendDailyWisdom() {
 		return
 	}
 
-	// Генерируем мудрость
-	wisdom, err := b.aiClient.GenerateDailyWisdom()
-	if err != nil {
-		b.logger.Errorf("Failed to generate daily wisdom: %v", err)
-		// Фолбэк на статическую мудрость
-		candidates := []string{
-			"Тишина внутри сильнее шума вокруг. Дисциплина — это форма заботы о себе. Начни с малого и будь верен пути.",
-			"Сила духа рождается в простых шагах. Выбери одно действие сегодня — и сделай его спокойно.",
-			"Тело слушает разум. Разум слушает дыхание. Ровное дыхание — ровный прогресс.",
-			"Пусть тренировка будет краткой, но честной. Постоянство сильнее порывов.",
-			"Не ищи идеального момента. Сделай его. Терпение и движение — союзники."}
-		idx := int(time.Now().Unix() % int64(len(candidates)))
-		wisdom = candidates[idx]
-	} else {
-		wisdom = strings.ReplaceAll(wisdom, "**", "")
-	}
+	// Группируем чаты по типу для генерации разных мудростей
+	writingChats := []int64{}
+	trainingChats := []int64{}
 
 	for _, chatID := range chatIDs {
-		msg := tgbotapi.NewMessage(chatID, wisdom)
-		b.logger.Infof("Sending daily wisdom to chat %d", chatID)
-		if _, err := b.api.Send(msg); err != nil {
-			b.logger.Errorf("Failed to send daily wisdom to chat %d: %v", chatID, err)
+		chatType, err := b.db.GetChatType(chatID)
+		if err != nil {
+			chatType = "training" // По умолчанию
+		}
+		if chatType == "writing" {
+			writingChats = append(writingChats, chatID)
+		} else {
+			trainingChats = append(trainingChats, chatID)
+		}
+	}
+
+	// Генерируем мудрость для чатов тренировок
+	if len(trainingChats) > 0 {
+		wisdom, err := b.aiClient.GenerateDailyWisdom("training")
+		if err != nil {
+			b.logger.Errorf("Failed to generate daily wisdom for training: %v", err)
+			// Фолбэк на статическую мудрость
+			candidates := []string{
+				"Тишина внутри сильнее шума вокруг. Дисциплина — это форма заботы о себе. Начни с малого и будь верен пути.",
+				"Сила духа рождается в простых шагах. Выбери одно действие сегодня — и сделай его спокойно.",
+				"Тело слушает разум. Разум слушает дыхание. Ровное дыхание — ровный прогресс.",
+				"Пусть тренировка будет краткой, но честной. Постоянство сильнее порывов.",
+				"Не ищи идеального момента. Сделай его. Терпение и движение — союзники."}
+			idx := int(time.Now().Unix() % int64(len(candidates)))
+			wisdom = candidates[idx]
+		} else {
+			wisdom = strings.ReplaceAll(wisdom, "**", "")
+		}
+
+		for _, chatID := range trainingChats {
+			msg := tgbotapi.NewMessage(chatID, wisdom)
+			b.logger.Infof("Sending daily wisdom to training chat %d", chatID)
+			if _, err := b.api.Send(msg); err != nil {
+				b.logger.Errorf("Failed to send daily wisdom to chat %d: %v", chatID, err)
+			}
+		}
+	}
+
+	// Генерируем мудрость для чатов писательства
+	if len(writingChats) > 0 {
+		wisdom, err := b.aiClient.GenerateDailyWisdom("writing")
+		if err != nil {
+			b.logger.Errorf("Failed to generate daily wisdom for writing: %v", err)
+			// Фолбэк на статическую мудрость для писательства
+			candidates := []string{
+				"Тишина внутри сильнее шума вокруг. Дисциплина письма — это форма заботы о творчестве. Начни с малого и будь верен тексту.",
+				"Сила слова рождается в простых предложениях. Выбери одну мысль сегодня — и вырази её спокойно.",
+				"Перо слушает разум. Разум слушает вдохновение. Ровное дыхание — ровный текст.",
+				"Пусть писательская сессия будет краткой, но честной. Постоянство сильнее порывов.",
+				"Не ищи идеального момента. Создай его. Терпение и слово — союзники."}
+			idx := int(time.Now().Unix() % int64(len(candidates)))
+			wisdom = candidates[idx]
+		} else {
+			wisdom = strings.ReplaceAll(wisdom, "**", "")
+		}
+
+		for _, chatID := range writingChats {
+			msg := tgbotapi.NewMessage(chatID, wisdom)
+			b.logger.Infof("Sending daily wisdom to writing chat %d", chatID)
+			if _, err := b.api.Send(msg); err != nil {
+				b.logger.Errorf("Failed to send daily wisdom to chat %d: %v", chatID, err)
+			}
 		}
 	}
 }
