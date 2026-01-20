@@ -4092,11 +4092,7 @@ func (b *Bot) shouldDetectChatTypeAsWriting(text string, chatID int64) bool {
 
 	// Ключевые слова, указывающие на писательство
 	writingKeywords := []string{
-		"писатель", "писать", "пописала", "пописал", "писала", "писал", "написала", "написал", "написанное", "написан",
-		"редактир", "редактор", "редактировал", "редактировала", "редактировать",
-		"writing", "author", "text", "story", "novel", "chapter", "character", "plot",
-		"manuscript", "publish", "literature", "prose", "poem", "poetry", "book", "books",
-		"newspaper", "article", "scene", "dialogue", "edit", "editing",
+		"editingssssss",
 	}
 
 	textLower := strings.ToLower(text)
