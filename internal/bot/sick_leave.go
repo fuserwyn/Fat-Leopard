@@ -205,7 +205,7 @@ func (b *Bot) activateSickLeave(msg *tgbotapi.Message, messageLog *domain.Messag
 		ctxBuilder.WriteString("Событие: взят больничный (таймер приостановлен).\n")
 		ctxBuilder.WriteString(fmt.Sprintf("После выздоровления останется: %s\n", remainingTimeFormatted))
 		if chatType == "writing" {
-			ctxBuilder.WriteString(fmt.Sprintf("Всего слов: %d\n", messageLog.Calories))
+			ctxBuilder.WriteString(fmt.Sprintf("Всего %s: %d\n", getWordForm(messageLog.Calories), messageLog.Calories))
 		} else {
 			ctxBuilder.WriteString(fmt.Sprintf("Всего калорий: %d\n", messageLog.Calories))
 		}
@@ -602,7 +602,7 @@ func (b *Bot) handleHealthy(msg *tgbotapi.Message) {
 		}
 		ctxBuilder.WriteString(fmt.Sprintf("После выздоровления осталось: %s\n", remainingTimeFormatted))
 		if chatType == "writing" {
-			ctxBuilder.WriteString(fmt.Sprintf("Всего слов: %d\n", messageLog.Calories))
+			ctxBuilder.WriteString(fmt.Sprintf("Всего %s: %d\n", getWordForm(messageLog.Calories), messageLog.Calories))
 		} else {
 			ctxBuilder.WriteString(fmt.Sprintf("Всего калорий: %d\n", messageLog.Calories))
 		}

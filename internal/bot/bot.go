@@ -737,7 +737,7 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 			// Пользователь только что достиг 100 калорий/слов
 			var messageText string
 			if chatTypeForExchange == "writing" {
-				messageText = fmt.Sprintf("🎉 Поздравляю! 🎉\n\n%s, достигнуто %d слов!\n\n🔄 Теперь можешь совершить обмен!\n💡 Напиши #change для обмена 100 слов на 42 кубка!", username, updatedCalories)
+				messageText = fmt.Sprintf("🎉 Поздравляю! 🎉\n\n%s, достигнуто %d %s!\n\n🔄 Теперь можешь совершить обмен!\n💡 Напиши #change для обмена 100 %s на 42 кубка!", username, updatedCalories, getWordForm(updatedCalories), getWordForm(100))
 			} else {
 				messageText = fmt.Sprintf("🎉 Поздравляю! 🎉\n\n%s, достигнуто %d калорий!\n\n🔄 Теперь можешь совершить обмен!\n💡 Напиши #change для обмена 100 калорий на 42 кубка!", username, updatedCalories)
 			}
@@ -966,7 +966,7 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 			// Адаптируем текст в зависимости от типа чата
 			var messageText string
 			if chatType == "writing" {
-				messageText = fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Ты пишешь дней подряд: %d\n📝 +%d слов\n📝 Всего слов: %d\n🏆 +1 кубок за писательскую сессию!\n🏆 Всего кубков: %d\n\n⏰ Таймер перезапускается на 7 дней", newStreakDays, caloriesToAdd, totalCalories, currentCups)
+				messageText = fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Ты пишешь дней подряд: %d\n📝 +%d %s\n📝 Всего %s: %d\n🏆 +1 кубок за писательскую сессию!\n🏆 Всего кубков: %d\n\n⏰ Таймер перезапускается на 7 дней", newStreakDays, caloriesToAdd, getWordForm(caloriesToAdd), getWordForm(totalCalories), totalCalories, currentCups)
 			} else {
 				messageText = fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Ты тренируешься дней подряд: %d\n🔥 +%d калорий\n🔥 Всего калорий: %d\n🏆 +1 кубок за тренировку!\n🏆 Всего кубков: %d\n\n⏰ Таймер перезапускается на 7 дней", newStreakDays, caloriesToAdd, totalCalories, currentCups)
 			}
@@ -1027,8 +1027,8 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 				}
 				ctxBuilder.WriteString(fmt.Sprintf("Серия: %d дней\n", newStreakDays))
 				if chatType == "writing" {
-					ctxBuilder.WriteString(fmt.Sprintf("Добавлено слов: %d\n", caloriesToAdd))
-					ctxBuilder.WriteString(fmt.Sprintf("Текущие слова: %d\n", totalCalories))
+					ctxBuilder.WriteString(fmt.Sprintf("Добавлено %s: %d\n", getWordForm(caloriesToAdd), caloriesToAdd))
+					ctxBuilder.WriteString(fmt.Sprintf("Текущие %s: %d\n", getWordForm(totalCalories), totalCalories))
 				} else {
 					ctxBuilder.WriteString(fmt.Sprintf("Добавлено калорий: %d\n", caloriesToAdd))
 					ctxBuilder.WriteString(fmt.Sprintf("Текущие калории: %d\n", totalCalories))
@@ -1561,7 +1561,7 @@ func (b *Bot) handleChange(msg *tgbotapi.Message) {
 		// Недостаточно калорий/слов для обмена
 		var replyText string
 		if chatType == "writing" {
-			replyText = fmt.Sprintf("💪 %s, у тебя %d слов\n\n🔄 Для обмена нужно минимум %d слов\n🏆 За %d слов можно получить %d кубков\n\n⏰ Пока рано! Еще попиши!\n\n🎯 Продолжай писать и накапливай слова!", username, currentCalories, exchangeRate, exchangeRate, cupsPerExchange)
+			replyText = fmt.Sprintf("💪 %s, у тебя %d %s\n\n🔄 Для обмена нужно минимум %d %s\n🏆 За %d %s можно получить %d кубков\n\n⏰ Пока рано! Еще попиши!\n\n🎯 Продолжай писать и накапливай слова!", username, currentCalories, getWordForm(currentCalories), exchangeRate, getWordForm(exchangeRate), exchangeRate, getWordForm(exchangeRate), cupsPerExchange)
 		} else {
 			replyText = fmt.Sprintf("💪 %s, у тебя %d калорий\n\n🔄 Для обмена нужно минимум %d калорий\n🏆 За %d калорий можно получить %d кубков\n\n⏰ Пока рано! Еще потренируйся!\n\n🎯 Продолжай тренироваться и накапливай калории!", username, currentCalories, exchangeRate, exchangeRate, cupsPerExchange)
 		}
@@ -1632,7 +1632,7 @@ func (b *Bot) handleChange(msg *tgbotapi.Message) {
 	// Отправляем сообщение об успешном обмене
 	var replyText string
 	if chatType == "writing" {
-		replyText = fmt.Sprintf("🔄 Обмен выполнен! 💪\n\n%s написано 📝 %d слов → 🏆 %d кубка\n\n📊 Твой баланс:\n📝 Слова: %d\n🏆 Кубки: %d\n\n💡 Курс: %d слов = %d кубка", username, caloriesToSpend, cupsToAdd, newCalories, newCups, exchangeRate, cupsPerExchange)
+		replyText = fmt.Sprintf("🔄 Обмен выполнен! 💪\n\n%s написано 📝 %d %s → 🏆 %d кубка\n\n📊 Твой баланс:\n📝 Слова: %d\n🏆 Кубки: %d\n\n💡 Курс: %d %s = %d кубка", username, caloriesToSpend, getWordForm(caloriesToSpend), cupsToAdd, newCalories, newCups, exchangeRate, getWordForm(exchangeRate), cupsPerExchange)
 	} else {
 		replyText = fmt.Sprintf("🔄 Обмен выполнен! 💪\n\n%s сожжено 🔥 %d калорий → 🏆 %d кубка\n\n📊 Твой баланс:\n🔥 Калории: %d\n🏆 Кубки: %d\n\n💡 Курс: %d калорий = %d кубка", username, caloriesToSpend, cupsToAdd, newCalories, newCups, exchangeRate, cupsPerExchange)
 	}
@@ -1983,7 +1983,7 @@ func (b *Bot) handleTop(msg *tgbotapi.Message) {
 			emoji = fmt.Sprintf("%d️⃣", i+1)
 		}
 		if chatType == "writing" {
-			topText += fmt.Sprintf("%s %s - %d слов\n", emoji, user.Username, user.Calories)
+			topText += fmt.Sprintf("%s %s - %d %s\n", emoji, user.Username, user.Calories, getWordForm(user.Calories))
 		} else {
 			topText += fmt.Sprintf("%s %s - %d калорий\n", emoji, user.Username, user.Calories)
 		}
@@ -2032,7 +2032,7 @@ func (b *Bot) handlePoints(msg *tgbotapi.Message) {
 	// Формируем сообщение
 	var caloriesText string
 	if chatType == "writing" {
-		caloriesText = fmt.Sprintf("📝 Ваши слова:\n\n👤 %s\n🎯 Всего написано слов: %d\n\n💡 Отправляйте #writing_done для написания слов!", username, calories)
+		caloriesText = fmt.Sprintf("📝 Ваши слова:\n\n👤 %s\n🎯 Всего написано %s: %d\n\n💡 Отправляйте #writing_done для написания слов!", username, getWordForm(calories), calories)
 	} else {
 		caloriesText = fmt.Sprintf("🔥 Ваши калории:\n\n👤 %s\n🎯 Всего сожжено калорий: %d\n\n💡 Отправляйте #training_done для сжигания калорий!", username, calories)
 	}
@@ -2849,7 +2849,7 @@ func (b *Bot) auditProcessTrainingDone(um *domain.UserMessage) {
 		}
 		var text string
 		if chatType == "writing" {
-			text = fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Ты пишешь дней подряд: %d\n📝 +%d слов\n📝 Всего слов: %d\n🏆 +1 кубок за писательскую сессию!\n🏆 Всего кубков: %d\n\n⏰ Таймер перезапускается на 7 дней", newStreakDays, caloriesToAdd, totalCalories, currentCups)
+			text = fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Ты пишешь дней подряд: %d\n📝 +%d %s\n📝 Всего %s: %d\n🏆 +1 кубок за писательскую сессию!\n🏆 Всего кубков: %d\n\n⏰ Таймер перезапускается на 7 дней", newStreakDays, caloriesToAdd, getWordForm(caloriesToAdd), getWordForm(totalCalories), totalCalories, currentCups)
 		} else {
 			text = fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Ты тренируешься дней подряд: %d\n🔥 +%d калорий\n🔥 Всего калорий: %d\n🏆 +1 кубок за тренировку!\n🏆 Всего кубков: %d\n\n⏰ Таймер перезапускается на 7 дней", newStreakDays, caloriesToAdd, totalCalories, currentCups)
 		}

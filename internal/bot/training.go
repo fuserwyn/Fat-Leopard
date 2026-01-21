@@ -414,6 +414,31 @@ func (b *Bot) getGenderForms(gender string) GenderForms {
 	}
 }
 
+// getWordForm возвращает правильную форму слова "слов" в зависимости от числа
+// 1, 21, 31, 41... → "слово"
+// 2, 3, 4, 22, 23, 24, 32, 33, 34... → "слова"
+// 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 25, 26... → "слов"
+func getWordForm(count int) string {
+	// Берем последнюю цифру и предпоследнюю для определения склонения
+	lastDigit := count % 10
+	secondLastDigit := (count / 10) % 10
+
+	// Если предпоследняя цифра 1 (10-19), всегда "слов"
+	if secondLastDigit == 1 {
+		return "слов"
+	}
+
+	// Иначе смотрим на последнюю цифру
+	switch lastDigit {
+	case 1:
+		return "слово"
+	case 2, 3, 4:
+		return "слова"
+	default:
+		return "слов"
+	}
+}
+
 func (b *Bot) sendWeeklyCupsReward(msg *tgbotapi.Message, username string, streakDays int, caloriesAdded int, userGender string) {
 	totalCalories, _ := b.db.GetUserCalories(msg.From.ID, msg.Chat.ID)
 	totalCups, _ := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
