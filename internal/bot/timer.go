@@ -152,7 +152,7 @@ func (b *Bot) cancelTimer(userID int64) {
 
 func (b *Bot) sendWarning(userID, chatID int64, username string) {
 	// Базовый текст предупреждения
-	messageText := fmt.Sprintf("⚠️ Предупреждение!\n\n%s, ты не отправляешь отчет о тренировке уже 6 дней!\n\n💪 Ты ведь не хочешь стать как я?\n\n⏰ У тебя остался 1 день до удаления из чата!\n\n🎯 Отправь #training_done прямо сейчас!", username)
+	messageText := fmt.Sprintf("⚠️ Предупреждение!\n\n%s, ты не отправляешь отчет о тренировке уже 6 дней!\n\n⏰ У тебя остался 1 день до удаления из чата!\n\n🎯 Отправь #training_done прямо сейчас!", username)
 
 	// Добавляем короткую ИИ‑приписку к предупреждению
 	if b.aiClient != nil {
