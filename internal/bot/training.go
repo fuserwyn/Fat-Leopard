@@ -162,13 +162,13 @@ func (b *Bot) processTrainingDone(msg *tgbotapi.Message) {
 		}
 
 		if twoWeekAchievement {
-			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 84); err != nil {
+			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 42); err != nil {
 				b.logger.Errorf("Failed to add two-week cups: %v", err)
 			}
 		}
 
 		if threeWeekAchievement {
-			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 126); err != nil {
+			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 42); err != nil {
 				b.logger.Errorf("Failed to add three-week cups: %v", err)
 			}
 		}
@@ -180,13 +180,13 @@ func (b *Bot) processTrainingDone(msg *tgbotapi.Message) {
 		}
 
 		if fortyTwoDayAchievement {
-			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 300); err != nil {
+			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 42); err != nil {
 				b.logger.Errorf("Failed to add 42-day cups: %v", err)
 			}
 		}
 
 		if fiftyDayAchievement {
-			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 360); err != nil {
+			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 42); err != nil {
 				b.logger.Errorf("Failed to add 50-day cups: %v", err)
 			}
 		}
@@ -256,9 +256,9 @@ func (b *Bot) processTrainingDone(msg *tgbotapi.Message) {
 		totalCups, _ := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
 
 		// Проверяем достижение 420 кубков для розыгрыша
-		if totalCups >= 420 && totalCups-caloriesToAdd < 420 {
-			b.checkMerchGiveawayCompletion(msg, msg.Chat.ID)
-		}
+		// if totalCups >= 420 && totalCups-caloriesToAdd < 420 {
+		// 	b.checkMerchGiveawayCompletion(msg, msg.Chat.ID)
+		// }
 
 		// Проверяем супер-уровень 10000 кубков
 		if totalCups >= 10000 && totalCups-caloriesToAdd < 10000 {
@@ -476,7 +476,7 @@ func (b *Bot) sendWeeklyCupsReward(msg *tgbotapi.Message, username string, strea
 func (b *Bot) sendTwoWeekCupsReward(msg *tgbotapi.Message, username string, streakDays int, caloriesAdded int, userGender string) {
 	totalCalories, _ := b.db.GetUserCalories(msg.From.ID, msg.Chat.ID)
 	totalCups, _ := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
-	rewardCups := 84
+	rewardCups := 42
 
 	forms := b.getGenderForms(userGender)
 
@@ -501,7 +501,7 @@ func (b *Bot) sendTwoWeekCupsReward(msg *tgbotapi.Message, username string, stre
 👑 Каждая тренировка приближает тебя к цели!
 🌟 Продолжай в том же духе — ты на пути к величию!
 
-#fourteen_days_champion #84_cups #training_momentum`,
+#fourteen_days_champion #42_cups #training_momentum`,
 		username, streakDays, rewardCups, streakDays, caloriesAdded, totalCalories, rewardCups, totalCups, forms.Warrior)
 
 	reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
@@ -511,7 +511,7 @@ func (b *Bot) sendTwoWeekCupsReward(msg *tgbotapi.Message, username string, stre
 func (b *Bot) sendThreeWeekCupsReward(msg *tgbotapi.Message, username string, streakDays int, caloriesAdded int, userGender string) {
 	totalCalories, _ := b.db.GetUserCalories(msg.From.ID, msg.Chat.ID)
 	totalCups, _ := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
-	rewardCups := 126
+	rewardCups := 42
 
 	forms := b.getGenderForms(userGender)
 
@@ -536,7 +536,7 @@ func (b *Bot) sendThreeWeekCupsReward(msg *tgbotapi.Message, username string, st
 👑 Это уже не усилие — это твоя суть!
 🌟 Впереди ещё больше побед — не сбавляй темп!
 
-#twenty_one_days_elite #126_cups #training_lifestyle`,
+#twenty_one_days_elite #42_cups #training_lifestyle`,
 		username, streakDays, rewardCups, streakDays, caloriesAdded, totalCalories, rewardCups, totalCups, forms.Entered, forms.Proved)
 
 	reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
@@ -581,7 +581,7 @@ func (b *Bot) sendMonthlyCupsReward(msg *tgbotapi.Message, username string, stre
 func (b *Bot) sendFortyTwoDayCupsReward(msg *tgbotapi.Message, username string, streakDays int, caloriesAdded int, userGender string) {
 	totalCalories, _ := b.db.GetUserCalories(msg.From.ID, msg.Chat.ID)
 	totalCups, _ := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
-	rewardCups := 300
+	rewardCups := 42
 	forms := b.getGenderForms(userGender)
 
 	messageText := fmt.Sprintf(`🏆🏆🏆🏆🏆🏆 ЛЕГЕНДАРНО! 🏆🏆🏆🏆🏆🏆
@@ -605,7 +605,7 @@ func (b *Bot) sendFortyTwoDayCupsReward(msg *tgbotapi.Message, username string, 
 👑 Твоя сила воли теперь невероятна — ты это %s!
 🌟 Продолжай — ты на пути к легенде!
 
-#forty_two_days_legend #300_cups #training_mastery`,
+#forty_two_days_legend #42_cups #training_mastery`,
 		username, streakDays, rewardCups, streakDays, caloriesAdded, totalCalories, rewardCups, totalCups, forms.Deserved)
 
 	reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
@@ -615,7 +615,7 @@ func (b *Bot) sendFortyTwoDayCupsReward(msg *tgbotapi.Message, username string, 
 func (b *Bot) sendFiftyDayCupsReward(msg *tgbotapi.Message, username string, streakDays int, caloriesAdded int, userGender string) {
 	totalCalories, _ := b.db.GetUserCalories(msg.From.ID, msg.Chat.ID)
 	totalCups, _ := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
-	rewardCups := 360
+	rewardCups := 42
 
 	forms := b.getGenderForms(userGender)
 
@@ -640,7 +640,7 @@ func (b *Bot) sendFiftyDayCupsReward(msg *tgbotapi.Message, username string, str
 👑 Каждая тренировка — инвестиция в себя, и ты видишь результаты!
 🌟 Не останавливайся — впереди ещё больше возможностей!
 
-#fifty_days_olympian #360_cups #training_excellence`,
+#fifty_days_olympian #42_cups #training_excellence`,
 		username, streakDays, rewardCups, streakDays, caloriesAdded, totalCalories, rewardCups, totalCups, forms.Olympian, forms.Entered)
 
 	reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
