@@ -316,7 +316,7 @@ func TestCalculateCaloriesWeeklyAchievement(t *testing.T) {
 		messageLog.StreakDays = day - 1
 		messageLog.CalorieStreakDays = day - 1
 
-		calories, streakDays, newCalorieStreak, weeklyAchievement, twoWeekAchievement, threeWeekAchievement, monthlyAchievement, _, _, _, quarterlyAchievement, _ := bot.calculateCalories(messageLog)
+		calories, streakDays, newCalorieStreak, weeklyAchievement, twoWeekAchievement, threeWeekAchievement, monthlyAchievement, _, _, _, quarterlyAchievement, _, _, _, _ := bot.calculateCalories(messageLog)
 
 		if calories != newCalorieStreak {
 			t.Errorf("Day %d: calories %d must equal newCalorieStreak %d", day, calories, newCalorieStreak)
@@ -379,7 +379,7 @@ func TestCalculateCaloriesWeeklyAchievement(t *testing.T) {
 		}(),
 	}
 
-	calories2, streakDays2, newCalorieStreak2, weeklyAchievement2, _, _, monthlyAchievement2, _, _, _, quarterlyAchievement2, _ := bot.calculateCalories(messageLog2)
+	calories2, streakDays2, newCalorieStreak2, weeklyAchievement2, _, _, monthlyAchievement2, _, _, _, quarterlyAchievement2, _, _, _, _ := bot.calculateCalories(messageLog2)
 
 	// На 7-й день должно быть недельное достижение
 	if !weeklyAchievement2 {
@@ -409,7 +409,7 @@ func TestCalculateCaloriesWeeklyAchievement(t *testing.T) {
 		}(),
 	}
 
-	calories3, streakDays3, newCalorieStreak3, weeklyAchievement3, _, _, monthlyAchievement3, _, _, _, quarterlyAchievement3, _ := bot.calculateCalories(messageLog3)
+	calories3, streakDays3, newCalorieStreak3, weeklyAchievement3, _, _, monthlyAchievement3, _, _, _, quarterlyAchievement3, _, _, _, _ := bot.calculateCalories(messageLog3)
 
 	// На 6-й день не должно быть достижений
 	if weeklyAchievement3 {
@@ -449,7 +449,7 @@ func TestCalculateCaloriesMonthlyAchievement(t *testing.T) {
 		CalorieStreakDays: 29,
 	}
 
-	calories, streakDays, newCalorieStreak, weeklyAchievement, _, _, monthlyAchievement, _, _, _, quarterlyAchievement, _ := bot.calculateCalories(messageLog)
+	calories, streakDays, newCalorieStreak, weeklyAchievement, _, _, monthlyAchievement, _, _, _, quarterlyAchievement, _, _, _, _ := bot.calculateCalories(messageLog)
 
 	// На 30-й день должно быть месячное достижение
 	if !monthlyAchievement {
@@ -476,7 +476,7 @@ func TestCalculateCaloriesMonthlyAchievement(t *testing.T) {
 		CalorieStreakDays: 14,
 	}
 
-	calories2, streakDays2, newCalorieStreak2, _, _, _, monthlyAchievement2, _, _, _, quarterlyAchievement2, _ := bot.calculateCalories(messageLog2)
+	calories2, streakDays2, newCalorieStreak2, _, _, _, monthlyAchievement2, _, _, _, quarterlyAchievement2, _, _, _, _ := bot.calculateCalories(messageLog2)
 
 	// На 15-й день не должно быть месячного и квартального достижений
 	if monthlyAchievement2 {
@@ -514,7 +514,7 @@ func TestCalculateCaloriesQuarterlyAchievement(t *testing.T) {
 		CalorieStreakDays: 89,
 	}
 
-	calories, streakDays, newCalorieStreak, weeklyAchievement, _, _, monthlyAchievement, _, _, _, quarterlyAchievement, _ := bot.calculateCalories(messageLog)
+	calories, streakDays, newCalorieStreak, weeklyAchievement, _, _, monthlyAchievement, _, _, _, quarterlyAchievement, _, _, _, _ := bot.calculateCalories(messageLog)
 
 	// На 90-й день должно быть квартальное достижение
 	if !quarterlyAchievement {
@@ -541,7 +541,7 @@ func TestCalculateCaloriesQuarterlyAchievement(t *testing.T) {
 		CalorieStreakDays: 45,
 	}
 
-	calories2, streakDays2, newCalorieStreak2, _, _, _, _, _, _, quarterlyAchievement2, _, _ := bot.calculateCalories(messageLog2)
+	calories2, streakDays2, newCalorieStreak2, _, _, _, _, _, _, quarterlyAchievement2, _, _, _, _, _ := bot.calculateCalories(messageLog2)
 
 	// На 46-й день не должно быть квартального достижения
 	if quarterlyAchievement2 {
@@ -660,7 +660,7 @@ func TestCalculateCaloriesDoubleTraining(t *testing.T) {
 		StreakDays:       0,
 	}
 
-	calories1, streakDays1, _, weeklyAchievement1, _, _, monthlyAchievement1, _, _, _, quarterlyAchievement1, _ := bot.calculateCalories(messageLog1)
+	calories1, streakDays1, _, weeklyAchievement1, _, _, monthlyAchievement1, _, _, _, quarterlyAchievement1, _, _, _, _ := bot.calculateCalories(messageLog1)
 
 	// Первая тренировка должна дать калории и увеличить streak
 	if calories1 == 0 {
@@ -686,7 +686,7 @@ func TestCalculateCaloriesDoubleTraining(t *testing.T) {
 		StreakDays:       1,
 	}
 
-	calories2, streakDays2, _, weeklyAchievement2, _, _, monthlyAchievement2, _, _, _, quarterlyAchievement2, _ := bot.calculateCalories(messageLog2)
+	calories2, streakDays2, _, weeklyAchievement2, _, _, monthlyAchievement2, _, _, _, quarterlyAchievement2, _, _, _, _ := bot.calculateCalories(messageLog2)
 
 	// Вторая тренировка в тот же день не должна дать калории и не должна изменить streak
 	if calories2 != 0 {
@@ -713,7 +713,7 @@ func TestCalculateCaloriesDoubleTraining(t *testing.T) {
 		StreakDays:       1,
 	}
 
-	calories3, streakDays3, _, weeklyAchievement3, _, _, monthlyAchievement3, _, _, _, quarterlyAchievement3, _ := bot.calculateCalories(messageLog3)
+	calories3, streakDays3, _, weeklyAchievement3, _, _, monthlyAchievement3, _, _, _, quarterlyAchievement3, _, _, _, _ := bot.calculateCalories(messageLog3)
 
 	// Тренировка на следующий день должна продолжить серию
 	if calories3 == 0 {

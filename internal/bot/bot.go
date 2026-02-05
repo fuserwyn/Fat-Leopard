@@ -709,11 +709,11 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 	}
 
 	// Рассчитываем калории и серию
-	caloriesToAdd, newStreakDays, newCalorieStreakDays, weeklyAchievement, twoWeekAchievement, threeWeekAchievement, monthlyAchievement, fortyTwoDayAchievement, fiftyDayAchievement, sixtyDayAchievement, quarterlyAchievement, hundredDayAchievement := b.calculateCalories(messageLog)
+	caloriesToAdd, newStreakDays, newCalorieStreakDays, weeklyAchievement, twoWeekAchievement, threeWeekAchievement, monthlyAchievement, fortyTwoDayAchievement, fiftyDayAchievement, sixtyDayAchievement, quarterlyAchievement, hundredDayAchievement, oneHundredEightyDayAchievement, twoHundredDayAchievement, twoHundredFortyDayAchievement := b.calculateCalories(messageLog)
 
 	// ДЕБАГ: Логируем результат расчета
-	b.logger.Infof("DEBUG handleTrainingDone: caloriesToAdd=%d, newStreakDays=%d, newCalorieStreakDays=%d, weeklyAchievement=%t, twoWeekAchievement=%t, threeWeekAchievement=%t, monthlyAchievement=%t, fortyTwoDayAchievement=%t, fiftyDayAchievement=%t, sixtyDayAchievement=%t, quarterlyAchievement=%t, hundredDayAchievement=%t",
-		caloriesToAdd, newStreakDays, newCalorieStreakDays, weeklyAchievement, twoWeekAchievement, threeWeekAchievement, monthlyAchievement, fortyTwoDayAchievement, fiftyDayAchievement, sixtyDayAchievement, quarterlyAchievement, hundredDayAchievement)
+	b.logger.Infof("DEBUG handleTrainingDone: caloriesToAdd=%d, newStreakDays=%d, newCalorieStreakDays=%d, weeklyAchievement=%t, twoWeekAchievement=%t, threeWeekAchievement=%t, monthlyAchievement=%t, fortyTwoDayAchievement=%t, fiftyDayAchievement=%t, sixtyDayAchievement=%t, quarterlyAchievement=%t, hundredDayAchievement=%t, oneHundredEightyDayAchievement=%t, twoHundredDayAchievement=%t, twoHundredFortyDayAchievement=%t",
+		caloriesToAdd, newStreakDays, newCalorieStreakDays, weeklyAchievement, twoWeekAchievement, threeWeekAchievement, monthlyAchievement, fortyTwoDayAchievement, fiftyDayAchievement, sixtyDayAchievement, quarterlyAchievement, hundredDayAchievement, oneHundredEightyDayAchievement, twoHundredDayAchievement, twoHundredFortyDayAchievement)
 
 	// Начисляем калории
 	if err := b.db.AddCalories(msg.From.ID, msg.Chat.ID, caloriesToAdd); err != nil {
@@ -930,6 +930,28 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 				b.logger.Errorf("Failed to add 100-day cups: %v", err)
 			} else {
 				b.logger.Infof("Successfully added 4200 cups for 100-day achievement")
+			}
+		}
+
+		if oneHundredEightyDayAchievement {
+			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 420); err != nil {
+				b.logger.Errorf("Failed to add 180-day cups: %v", err)
+			} else {
+				b.logger.Infof("Successfully added 420 cups for 180-day achievement")
+			}
+		}
+		if twoHundredDayAchievement {
+			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 420); err != nil {
+				b.logger.Errorf("Failed to add 200-day cups: %v", err)
+			} else {
+				b.logger.Infof("Successfully added 420 cups for 200-day achievement")
+			}
+		}
+		if twoHundredFortyDayAchievement {
+			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 420); err != nil {
+				b.logger.Errorf("Failed to add 240-day cups: %v", err)
+			} else {
+				b.logger.Infof("Successfully added 420 cups for 240-day achievement")
 			}
 		}
 	}
@@ -2805,7 +2827,7 @@ func (b *Bot) auditProcessTrainingDone(um *domain.UserMessage) {
 		return
 	}
 
-	caloriesToAdd, newStreakDays, newCalorieStreakDays, weeklyAchievement, twoWeekAchievement, threeWeekAchievement, monthlyAchievement, fortyTwoDayAchievement, fiftyDayAchievement, sixtyDayAchievement, quarterlyAchievement, hundredDayAchievement := b.calculateCalories(messageLog)
+	caloriesToAdd, newStreakDays, newCalorieStreakDays, weeklyAchievement, twoWeekAchievement, threeWeekAchievement, monthlyAchievement, fortyTwoDayAchievement, fiftyDayAchievement, sixtyDayAchievement, quarterlyAchievement, hundredDayAchievement, oneHundredEightyDayAchievement, twoHundredDayAchievement, twoHundredFortyDayAchievement := b.calculateCalories(messageLog)
 
 	if caloriesToAdd > 0 {
 		_ = b.db.AddCalories(um.UserID, um.ChatID, caloriesToAdd)
@@ -2838,6 +2860,15 @@ func (b *Bot) auditProcessTrainingDone(um *domain.UserMessage) {
 		}
 		if hundredDayAchievement {
 			_ = b.db.AddCups(um.UserID, um.ChatID, 4200)
+		}
+		if oneHundredEightyDayAchievement {
+			_ = b.db.AddCups(um.UserID, um.ChatID, 420)
+		}
+		if twoHundredDayAchievement {
+			_ = b.db.AddCups(um.UserID, um.ChatID, 420)
+		}
+		if twoHundredFortyDayAchievement {
+			_ = b.db.AddCups(um.UserID, um.ChatID, 420)
 		}
 
 		totalCalories, _ := b.db.GetUserCalories(um.UserID, um.ChatID)
