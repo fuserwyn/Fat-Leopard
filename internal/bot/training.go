@@ -60,10 +60,10 @@ func (b *Bot) processTrainingDone(msg *tgbotapi.Message) {
 		}
 	}
 
-	caloriesToAdd, newStreakDays, newCalorieStreakDays, weeklyAchievement, twoWeekAchievement, threeWeekAchievement, monthlyAchievement, fortyTwoDayAchievement, fiftyDayAchievement, sixtyDayAchievement, quarterlyAchievement, hundredDayAchievement := b.calculateCalories(messageLog)
+	caloriesToAdd, newStreakDays, newCalorieStreakDays, weeklyAchievement, twoWeekAchievement, threeWeekAchievement, monthlyAchievement, fortyTwoDayAchievement, fiftyDayAchievement, sixtyDayAchievement, quarterlyAchievement, hundredDayAchievement, oneHundredEightyDayAchievement, twoHundredDayAchievement, twoHundredFortyDayAchievement := b.calculateCalories(messageLog)
 
-	b.logger.Infof("DEBUG handleTrainingDone: caloriesToAdd=%d, newStreakDays=%d, newCalorieStreakDays=%d, weeklyAchievement=%t, twoWeekAchievement=%t, threeWeekAchievement=%t, monthlyAchievement=%t, fortyTwoDayAchievement=%t, fiftyDayAchievement=%t, sixtyDayAchievement=%t, quarterlyAchievement=%t, hundredDayAchievement=%t",
-		caloriesToAdd, newStreakDays, newCalorieStreakDays, weeklyAchievement, twoWeekAchievement, threeWeekAchievement, monthlyAchievement, fortyTwoDayAchievement, fiftyDayAchievement, sixtyDayAchievement, quarterlyAchievement, hundredDayAchievement)
+	b.logger.Infof("DEBUG handleTrainingDone: caloriesToAdd=%d, newStreakDays=%d, newCalorieStreakDays=%d, weeklyAchievement=%t, twoWeekAchievement=%t, threeWeekAchievement=%t, monthlyAchievement=%t, fortyTwoDayAchievement=%t, fiftyDayAchievement=%t, sixtyDayAchievement=%t, quarterlyAchievement=%t, hundredDayAchievement=%t, oneHundredEightyDayAchievement=%t, twoHundredDayAchievement=%t, twoHundredFortyDayAchievement=%t",
+		caloriesToAdd, newStreakDays, newCalorieStreakDays, weeklyAchievement, twoWeekAchievement, threeWeekAchievement, monthlyAchievement, fortyTwoDayAchievement, fiftyDayAchievement, sixtyDayAchievement, quarterlyAchievement, hundredDayAchievement, oneHundredEightyDayAchievement, twoHundredDayAchievement, twoHundredFortyDayAchievement)
 
 	if err := b.db.AddCalories(msg.From.ID, msg.Chat.ID, caloriesToAdd); err != nil {
 		b.logger.Errorf("Failed to add calories: %v", err)
@@ -208,6 +208,24 @@ func (b *Bot) processTrainingDone(msg *tgbotapi.Message) {
 				b.logger.Errorf("Failed to add 100-day cups: %v", err)
 			}
 		}
+
+		if oneHundredEightyDayAchievement {
+			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 420); err != nil {
+				b.logger.Errorf("Failed to add 180-day cups: %v", err)
+			}
+		}
+
+		if twoHundredDayAchievement {
+			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 420); err != nil {
+				b.logger.Errorf("Failed to add 200-day cups: %v", err)
+			}
+		}
+
+		if twoHundredFortyDayAchievement {
+			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 420); err != nil {
+				b.logger.Errorf("Failed to add 240-day cups: %v", err)
+			}
+		}
 	}
 
 	if wasOnSickLeave {
@@ -251,6 +269,15 @@ func (b *Bot) processTrainingDone(msg *tgbotapi.Message) {
 	if hundredDayAchievement {
 		b.sendHundredDayCupsReward(msg, username, newStreakDays, caloriesToAdd, userGender)
 	}
+	if oneHundredEightyDayAchievement {
+		b.sendOneHundredEightyDayCupsReward(msg, username, newStreakDays, caloriesToAdd, userGender)
+	}
+	if twoHundredDayAchievement {
+		b.sendTwoHundredDayCupsReward(msg, username, newStreakDays, caloriesToAdd, userGender)
+	}
+	if twoHundredFortyDayAchievement {
+		b.sendTwoHundredFortyDayCupsReward(msg, username, newStreakDays, caloriesToAdd, userGender)
+	}
 
 	if caloriesToAdd > 0 {
 		totalCups, _ := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
@@ -267,11 +294,11 @@ func (b *Bot) processTrainingDone(msg *tgbotapi.Message) {
 	}
 }
 
-func (b *Bot) calculateCalories(messageLog *domain.MessageLog) (int, int, int, bool, bool, bool, bool, bool, bool, bool, bool, bool) {
+func (b *Bot) calculateCalories(messageLog *domain.MessageLog) (int, int, int, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool) {
 	today := utils.GetMoscowDate()
 
 	if messageLog.LastTrainingDate != nil && *messageLog.LastTrainingDate == today {
-		return 0, messageLog.StreakDays, messageLog.CalorieStreakDays, false, false, false, false, false, false, false, false, false
+		return 0, messageLog.StreakDays, messageLog.CalorieStreakDays, false, false, false, false, false, false, false, false, false, false, false, false
 	}
 
 	newStreakDays := 1
@@ -314,8 +341,11 @@ func (b *Bot) calculateCalories(messageLog *domain.MessageLog) (int, int, int, b
 	sixtyDayAchievement := newStreakDays == 60
 	quarterlyAchievement := newStreakDays == 90
 	hundredDayAchievement := newStreakDays == 100
+	oneHundredEightyDayAchievement := newStreakDays == 180
+	twoHundredDayAchievement := newStreakDays == 200
+	twoHundredFortyDayAchievement := newStreakDays == 240
 
-	return caloriesToAdd, newStreakDays, newCalorieStreakDays, weeklyAchievement, twoWeekAchievement, threeWeekAchievement, monthlyAchievement, fortyTwoDayAchievement, fiftyDayAchievement, sixtyDayAchievement, quarterlyAchievement, hundredDayAchievement
+	return caloriesToAdd, newStreakDays, newCalorieStreakDays, weeklyAchievement, twoWeekAchievement, threeWeekAchievement, monthlyAchievement, fortyTwoDayAchievement, fiftyDayAchievement, sixtyDayAchievement, quarterlyAchievement, hundredDayAchievement, oneHundredEightyDayAchievement, twoHundredDayAchievement, twoHundredFortyDayAchievement
 }
 
 func (b *Bot) sendStreakReward(
@@ -690,6 +720,38 @@ func (b *Bot) sendHundredDayCupsReward(msg *tgbotapi.Message, username string, s
 
 	reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
 	b.api.Send(reply)
+}
+
+func (b *Bot) sendOneHundredEightyDayCupsReward(msg *tgbotapi.Message, username string, streakDays int, caloriesAdded int, userGender string) {
+	b.sendStreakReward(msg, username, streakDays, caloriesAdded, 420, "🏆 180 дней!", "🔥 Полгода серии — +420 кубков!")
+}
+
+func (b *Bot) sendTwoHundredDayCupsReward(msg *tgbotapi.Message, username string, streakDays int, caloriesAdded int, userGender string) {
+	totalCalories, _ := b.db.GetUserCalories(msg.From.ID, msg.Chat.ID)
+	totalCups, _ := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
+	rewardCups := 420
+	messageText := fmt.Sprintf(`🌸 БУКЕТ ИЗ КУБКОВ! 🌸
+
+%s, 200 дней подряд!
+
+🏆🌸🏆🌸🏆🌸🏆🌸🏆🌸🏆🌸🏆
+🌸🏆🌸🏆🌸🏆🌸🏆🌸🏆🌸🏆🌸
+🏆🌸🏆🌸🏆🌸🏆🌸🏆🌸🏆🌸🏆
+
+🎯 +%d кубков — букет из кубков за твою серию %d дней!
+
+🔥 +%d калорий (всего: %d)
+🏆 +%d кубков (всего: %d)
+🦁 Fat Leopard дарит тебе этот букет — ты легенда!
+
+#two_hundred_days #bouquet_of_cups #420_cups`,
+		username, rewardCups, streakDays, caloriesAdded, totalCalories, rewardCups, totalCups)
+	reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
+	b.api.Send(reply)
+}
+
+func (b *Bot) sendTwoHundredFortyDayCupsReward(msg *tgbotapi.Message, username string, streakDays int, caloriesAdded int, userGender string) {
+	b.sendStreakReward(msg, username, streakDays, caloriesAdded, 420, "🏆 240 дней!", "🔥 240 дней серии — уровень титана!")
 }
 
 func (b *Bot) sendSuperLevelMessage(msg *tgbotapi.Message, username string, totalCups int, userGender string) {
