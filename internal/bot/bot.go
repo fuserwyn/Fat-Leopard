@@ -1144,11 +1144,13 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 					}
 				}
 
-				// Добавляем контекст других участников чата
+				// Контекст других участников — только для понимания обстановки в чате.
+				// Для ОТЧЁТА #training_done ответ всегда персональный: комментируем только отправителя отчёта.
+				// (В обычном чате / ответах леопард по-прежнему использует полный контекст и может отвечать про любого участника.)
 				chatContextLimit := 420
 				chatContext, err := b.db.GetChatContext(msg.Chat.ID, msg.From.ID, chatContextLimit)
 				if err == nil && len(chatContext) > 0 {
-					ctxBuilder.WriteString("\nКонтекст других участников чата (последние сообщения):\n")
+					ctxBuilder.WriteString("\nКРИТИЧЕСКИ ВАЖНО: Твой ответ адресован ТОЛЬКО пользователю «" + username + "». Ниже — сообщения ДРУГИХ участников чата. ЗАПРЕЩЕНО приписывать текущему пользователю события, проблемы или детали из сообщений других людей (телефон, сим-карта, пробежка и т.п.). Комментируй исключительно то, что написал в своём отчёте текущий пользователь.\n\nКонтекст других участников чата (последние сообщения):\n")
 					for _, otherUser := range chatContext {
 						if otherUser.LastMessage != "" {
 							cleanMsg := strings.ReplaceAll(otherUser.LastMessage, "#training_done", "")
@@ -1313,11 +1315,11 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 					}
 				}
 
-				// Добавляем контекст других участников чата
+				// Для повторной тренировки в тот же день — ответ тоже персональный (только про отправителя).
 				chatContextLimit := 420
 				chatContext, err := b.db.GetChatContext(msg.Chat.ID, msg.From.ID, chatContextLimit)
 				if err == nil && len(chatContext) > 0 {
-					ctxBuilder.WriteString("\nКонтекст других участников чата (последние сообщения):\n")
+					ctxBuilder.WriteString("\nКРИТИЧЕСКИ ВАЖНО: Твой ответ адресован ТОЛЬКО пользователю «" + username + "». Ниже — сообщения ДРУГИХ участников. ЗАПРЕЩЕНО приписывать текущему пользователю события или детали из сообщений других людей. Комментируй только то, что написал текущий пользователь.\n\nКонтекст других участников чата (последние сообщения):\n")
 					for _, otherUser := range chatContext {
 						if otherUser.LastMessage != "" {
 							cleanMsg := strings.ReplaceAll(otherUser.LastMessage, "#training_done", "")
