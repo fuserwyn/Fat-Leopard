@@ -3193,10 +3193,10 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 	// Недавний контекст беседы (зависит от типа чата)
 	{
 		if chatType == "writing" {
-			// Для чатов писательства используем полную историю переписки
-			writingContext, err := b.db.GetChatWritingContext(msg.Chat.ID, msg.From.ID, 420)
+			// КРИТИЧЕСКИ ВАЖНО: только переписка с ЭТИМ пользователем (по user_id)
+			writingContext, err := b.db.GetUserWritingMessages(msg.From.ID, msg.Chat.ID, 420)
 			if err == nil && len(writingContext) > 0 {
-				contextText.WriteString("\n=== КОНТЕКСТ ПЕРЕПИСКИ (писательство, последние 420 сообщений) ===\n")
+				contextText.WriteString("\n=== КОНТЕКСТ ПЕРЕПИСКИ С ЭТИМ ПОЛЬЗОВАТЕЛЕМ (писательство, последние 420 сообщений) ===\n")
 				for _, msg := range writingContext {
 					text := strings.TrimSpace(msg.MessageText)
 					if text == "" {
@@ -3214,22 +3214,23 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 				}
 			}
 		} else {
-			// Для чатов тренировок используем последние 2 часа
+			// КРИТИЧЕСКИ ВАЖНО: используем ТОЛЬКО сообщения ЭТОГО пользователя (по user_id),
+			// чтобы не смешивать данные других пользователей при ответе
 			end := time.Now()
-			start := end.Add(-2 * time.Hour)
-			recentChat, err := b.db.GetMessagesInRange(msg.Chat.ID, start, end)
-			if err == nil && len(recentChat) > 0 {
-				contextText.WriteString("\n=== НЕДАВНИЙ КОНТЕКСТ БЕСЕДЫ (2 часа) ===\n")
+			start := end.AddDate(0, 0, -3) // Последние 3 дня — контекст переписки с этим пользователем
+			recentUserMsgs, err := b.db.GetUserMessages(msg.From.ID, msg.Chat.ID, start, end)
+			if err == nil && len(recentUserMsgs) > 0 {
+				contextText.WriteString("\n=== НЕДАВНИЙ КОНТЕКСТ ПЕРЕПИСКИ С ЭТИМ ПОЛЬЗОВАТЕЛЕМ (3 дня) ===\n")
 				count := 0
-				for i := len(recentChat) - 1; i >= 0 && count < 10; i-- {
-					text := strings.TrimSpace(recentChat[i].MessageText)
+				for i := len(recentUserMsgs) - 1; i >= 0 && count < 10; i-- {
+					text := strings.TrimSpace(recentUserMsgs[i].MessageText)
 					if text == "" {
 						continue
 					}
 					if len(text) > 300 {
 						text = text[:300] + "…"
 					}
-					ts := recentChat[i].CreatedAt.In(time.FixedZone("MSK", 3*3600)).Format("15:04")
+					ts := recentUserMsgs[i].CreatedAt.In(time.FixedZone("MSK", 3*3600)).Format("15:04")
 					contextText.WriteString("• [" + ts + "] " + text + "\n")
 					count++
 				}
@@ -3264,16 +3265,16 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 		}
 	}
 
-	// Легкий RAG по чату: несколько анонимных примеров удачных тренировок
+	// Примеры тренировок ТОЛЬКО этого пользователя (по user_id) — никогда не брать данные других
 	{
 		end := time.Now()
 		start := end.AddDate(0, 0, -14)
-		examples, err := b.db.GetMessagesInRange(msg.Chat.ID, start, end)
+		userExamples, err := b.db.GetUserMessages(msg.From.ID, msg.Chat.ID, start, end)
 		if err == nil {
 			var picked []string
-			for i := len(examples) - 1; i >= 0 && len(picked) < 3; i-- {
-				if examples[i].MessageType == "training_done" {
-					text := examples[i].MessageText
+			for i := len(userExamples) - 1; i >= 0 && len(picked) < 3; i-- {
+				if userExamples[i].MessageType == "training_done" {
+					text := userExamples[i].MessageText
 					if len(text) > 200 {
 						text = text[:200] + "…"
 					}
@@ -3281,7 +3282,7 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 				}
 			}
 			if len(picked) > 0 {
-				contextText.WriteString("\n=== ПРИМЕРЫ ИЗ ЭТОГО ЧАТА (АНОНИМНО, ДЛЯ ВАРИАЦИИ СОВЕТОВ) ===\n")
+				contextText.WriteString("\n=== ПРИМЕРЫ ТРЕНИРОВОК ЭТОГО ПОЛЬЗОВАТЕЛЯ (ДЛЯ ВАРИАЦИИ СОВЕТОВ) ===\n")
 				for _, p := range picked {
 					contextText.WriteString("• " + p + "\n")
 				}
