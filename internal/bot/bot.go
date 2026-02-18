@@ -3193,31 +3193,60 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 	// Недавний контекст беседы (зависит от типа чата)
 	{
 		if chatType == "writing" {
-			// КРИТИЧЕСКИ ВАЖНО: только переписка с ЭТИМ пользователем (по user_id)
+			// Личная переписка с этим пользователем (всегда)
 			writingContext, err := b.db.GetUserWritingMessages(msg.From.ID, msg.Chat.ID, 420)
 			if err == nil && len(writingContext) > 0 {
 				contextText.WriteString("\n=== КОНТЕКСТ ПЕРЕПИСКИ С ЭТИМ ПОЛЬЗОВАТЕЛЕМ (писательство, последние 420 сообщений) ===\n")
-				for _, msg := range writingContext {
-					text := strings.TrimSpace(msg.MessageText)
+				for _, m := range writingContext {
+					text := strings.TrimSpace(m.MessageText)
 					if text == "" {
 						continue
 					}
 					if len(text) > 300 {
 						text = text[:300] + "…"
 					}
-					ts := msg.CreatedAt.In(time.FixedZone("MSK", 3*3600)).Format("2006-01-02 15:04")
+					ts := m.CreatedAt.In(time.FixedZone("MSK", 3*3600)).Format("2006-01-02 15:04")
 					messageType := ""
-					if msg.MessageType == "ai_reply" {
+					if m.MessageType == "ai_reply" {
 						messageType = " [БОТ]"
 					}
-					contextText.WriteString(fmt.Sprintf("• [%s]%s %s: %s\n", ts, messageType, msg.Username, text))
+					contextText.WriteString(fmt.Sprintf("• [%s]%s %s: %s\n", ts, messageType, m.Username, text))
+				}
+			}
+			// В группе: полный контекст чата с указанием автора (другие могут комментировать)
+			if msg.Chat.Type != "private" {
+				end := time.Now()
+				start := end.AddDate(0, 0, -3)
+				recentChat, err := b.db.GetMessagesInRange(msg.Chat.ID, start, end)
+				if err == nil && len(recentChat) > 0 {
+					contextText.WriteString("\n=== КОНТЕКСТ ВСЕГО ЧАТА (сообщения от разных людей, 3 дня) ===\n")
+					count := 0
+					for i := len(recentChat) - 1; i >= 0 && count < 15; i-- {
+						text := strings.TrimSpace(recentChat[i].MessageText)
+						if text == "" {
+							continue
+						}
+						if len(text) > 300 {
+							text = text[:300] + "…"
+						}
+						ts := recentChat[i].CreatedAt.In(time.FixedZone("MSK", 3*3600)).Format("15:04")
+						author := recentChat[i].Username
+						if author == "" {
+							author = fmt.Sprintf("User%d", recentChat[i].UserID)
+						}
+						contextText.WriteString(fmt.Sprintf("• [%s] %s: %s\n", ts, author, text))
+						count++
+					}
 				}
 			}
 		} else {
-			// КРИТИЧЕСКИ ВАЖНО: используем ТОЛЬКО сообщения ЭТОГО пользователя (по user_id),
-			// чтобы не смешивать данные других пользователей при ответе
+			// Режим 1 — ЛИЧНЫЙ (private): только переписка с этим пользователем
+			// Режим 2 — ГРУППОВОЙ: личная переписка + полный контекст чата с указанием КТО что сказал
 			end := time.Now()
-			start := end.AddDate(0, 0, -3) // Последние 3 дня — контекст переписки с этим пользователем
+			start := end.AddDate(0, 0, -3) // Последние 3 дня
+			isPrivateChat := msg.Chat.Type == "private"
+
+			// Всегда добавляем личную переписку с этим пользователем
 			recentUserMsgs, err := b.db.GetUserMessages(msg.From.ID, msg.Chat.ID, start, end)
 			if err == nil && len(recentUserMsgs) > 0 {
 				contextText.WriteString("\n=== НЕДАВНИЙ КОНТЕКСТ ПЕРЕПИСКИ С ЭТИМ ПОЛЬЗОВАТЕЛЕМ (3 дня) ===\n")
@@ -3233,6 +3262,32 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 					ts := recentUserMsgs[i].CreatedAt.In(time.FixedZone("MSK", 3*3600)).Format("15:04")
 					contextText.WriteString("• [" + ts + "] " + text + "\n")
 					count++
+				}
+			}
+
+			// В группе: дополнительно контекст ВСЕГО чата с указанием автора каждого сообщения
+			// (другие пользователи могут комментировать — бот должен понимать, кто что сказал)
+			if !isPrivateChat {
+				recentChat, err := b.db.GetMessagesInRange(msg.Chat.ID, start, end)
+				if err == nil && len(recentChat) > 0 {
+					contextText.WriteString("\n=== КОНТЕКСТ ВСЕГО ЧАТА (сообщения от разных людей, 3 дня) ===\n")
+					count := 0
+					for i := len(recentChat) - 1; i >= 0 && count < 15; i-- {
+						text := strings.TrimSpace(recentChat[i].MessageText)
+						if text == "" {
+							continue
+						}
+						if len(text) > 300 {
+							text = text[:300] + "…"
+						}
+						ts := recentChat[i].CreatedAt.In(time.FixedZone("MSK", 3*3600)).Format("15:04")
+						author := recentChat[i].Username
+						if author == "" {
+							author = fmt.Sprintf("User%d", recentChat[i].UserID)
+						}
+						contextText.WriteString(fmt.Sprintf("• [%s] %s: %s\n", ts, author, text))
+						count++
+					}
 				}
 			}
 		}
