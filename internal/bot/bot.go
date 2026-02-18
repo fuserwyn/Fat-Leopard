@@ -390,7 +390,7 @@ func (b *Bot) sendWelcomeMessage(chatID int64, username string, userID int64) {
 
 🔄 Обмен:
 • #change — Обменять калории на кубки (100 калорий = 42 кубка)
-• #save_streak — Восстановить серию (до 12:00 — 1000 калорий, 12:00–15:00 — 2000 калорий; если пропустил день)
+• #save_streak — Восстановить серию за 1000/2000 калорий (если пропустил день)
 
 ⏰ Как я слежу за тренировками:
 • Таймер уже запущен! У тебя есть 7 дней на первую тренировку
@@ -454,12 +454,13 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) {
 
 	hasTrainingDone := strings.Contains(strings.ToLower(text), "#training_done")
 	hasWritingDone := strings.Contains(strings.ToLower(text), "#writing_done")
+	hasSaveStreak := strings.Contains(strings.ToLower(text), "#save_streak")
 	// Для чатов писательства принимаем оба хештега для совместимости, но приоритет у #writing_done
 	hasTrainingDone = hasTrainingDone || (hasWritingDone && chatTypeForCommand == "writing")
 	hasSickLeave := strings.Contains(strings.ToLower(text), "#sick_leave")
 	hasHealthy := strings.Contains(strings.ToLower(text), "#healthy")
 	hasChange := strings.Contains(strings.ToLower(text), "#change")
-	hasCommand := hasTrainingDone || hasWritingDone || hasSickLeave || hasHealthy || hasChange
+	hasCommand := hasTrainingDone || hasWritingDone || hasSickLeave || hasHealthy || hasChange || (hasSaveStreak && chatTypeForCommand != "writing")
 
 	// Если есть команда, обрабатываем её и НЕ обрабатываем через ИИ
 	if hasCommand {
@@ -479,8 +480,8 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) {
 		// Сохраняем сообщение в БД для RAG контекста
 		if text != "" {
 			messageType := "general"
-			if hasTrainingDone || hasWritingDone {
-				messageType = "training_done" // Используем единый тип для обоих хештегов
+			if hasTrainingDone || hasWritingDone || hasSaveStreak {
+				messageType = "training_done"
 			} else if hasSickLeave {
 				messageType = "sick_leave"
 			} else if hasHealthy {
@@ -539,7 +540,9 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) {
 		}
 
 		// Обрабатываем хештеги
-		if hasTrainingDone {
+		if hasSaveStreak && chatTypeForCommand != "writing" {
+			b.handleSaveStreak(msg)
+		} else if hasTrainingDone {
 			b.handleTrainingDone(msg)
 		} else if hasSickLeave {
 			b.handleSickLeave(msg)
@@ -665,6 +668,95 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) {
 	}
 }
 
+func (b *Bot) handleSaveStreak(msg *tgbotapi.Message) {
+	username := ""
+	if msg.From.UserName != "" {
+		username = "@" + msg.From.UserName
+	} else if msg.From.FirstName != "" {
+		username = msg.From.FirstName
+		if msg.From.LastName != "" {
+			username += " " + msg.From.LastName
+		}
+	} else {
+		username = fmt.Sprintf("User%d", msg.From.ID)
+	}
+
+	b.startTimer(msg.From.ID, msg.Chat.ID, username)
+
+	messageLog, err := b.db.GetMessageLog(msg.From.ID, msg.Chat.ID)
+	if err != nil {
+		b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "❌ Ошибка получения данных. Сначала отправь #training_done."))
+		return
+	}
+
+	if messageLog.StreakDays == 0 || messageLog.LastTrainingDate == nil {
+		b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("⚠️ %s, #save_streak — когда пропущен ровно 1 день и была серия. Сейчас нет серии или нет последней тренировки.", username)))
+		return
+	}
+
+	now := utils.GetMoscowTime()
+	inWindow, caloriesToSpend := getSaveStreakCost(*messageLog.LastTrainingDate, now)
+	if !inWindow {
+		twoDaysAgo := utils.GetMoscowDateFromTime(now.AddDate(0, 0, -2))
+		if *messageLog.LastTrainingDate == twoDaysAgo {
+			b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("⚠️ %s, окно #save_streak — до 15:00 следующего дня (до 12:00 — 1000 калорий, 12:00–15:00 — 2000). Сейчас уже позже 15:00.", username)))
+		} else {
+			b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("⚠️ %s, #save_streak работает только если пропущен ровно 1 день (до 15:00 следующего дня).", username)))
+		}
+		return
+	}
+
+	userCalories, _ := b.db.GetUserCalories(msg.From.ID, msg.Chat.ID)
+	if userCalories < caloriesToSpend {
+		timeSlot := "до 12:00"
+		if caloriesToSpend == 2000 {
+			timeSlot = "12:00–15:00"
+		}
+		b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("⚠️ %s, для #save_streak нужно %d калорий (%s). У тебя %d.", username, caloriesToSpend, timeSlot, userCalories)))
+		return
+	}
+
+	// Списываем калории
+	if err := b.db.AddCalories(msg.From.ID, msg.Chat.ID, -caloriesToSpend); err != nil {
+		b.logger.Errorf("Failed to deduct calories for #save_streak: %v", err)
+		b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "❌ Ошибка при списании калорий."))
+		return
+	}
+
+	newStreakDays := messageLog.StreakDays + 1
+	newCalorieStreakDays := messageLog.CalorieStreakDays + 1
+	caloriesToAdd := newCalorieStreakDays
+	missedDay := addDaysToDate(*messageLog.LastTrainingDate, 1)
+	if missedDay == "" {
+		missedDay = utils.GetMoscowDate()
+	}
+
+	// Начисляем калории за тренировку
+	_ = b.db.AddCalories(msg.From.ID, msg.Chat.ID, caloriesToAdd)
+	_ = b.db.UpdateStreak(msg.From.ID, msg.Chat.ID, newStreakDays, missedDay)
+	_ = b.db.UpdateCalorieStreakWithDate(msg.From.ID, msg.Chat.ID, newCalorieStreakDays, missedDay)
+	_ = b.db.AddCups(msg.From.ID, msg.Chat.ID, 1)
+
+	// Дополнительные кубки за achievements
+	for _, check := range []struct{ cond bool; cups int }{
+		{newStreakDays == 7, 42}, {newStreakDays == 14, 42}, {newStreakDays == 21, 42}, {newStreakDays == 30, 420},
+		{newStreakDays == 42, 42}, {newStreakDays == 50, 42}, {newStreakDays == 60, 420}, {newStreakDays == 90, 420},
+		{newStreakDays == 100, 4200}, {newStreakDays == 180, 420}, {newStreakDays == 200, 420}, {newStreakDays == 240, 420},
+	} {
+		if check.cond {
+			_ = b.db.AddCups(msg.From.ID, msg.Chat.ID, check.cups)
+		}
+	}
+
+	totalCalories, _ := b.db.GetUserCalories(msg.From.ID, msg.Chat.ID)
+	currentCups, _ := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
+
+	b.logger.Infof("User %d used #save_streak: streak %d→%d, spent %d calories, training dated %s", msg.From.ID, messageLog.StreakDays, newStreakDays, caloriesToSpend, missedDay)
+
+	reply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("🔄 %s, серия восстановлена! 💪\n\n📅 Тренировка засчитана за %s\n💪 Серия: %d дней подряд\n🔥 +%d калорий (после списания %d)\n🔥 Всего калорий: %d\n🏆 +1 кубок\n🏆 Всего кубков: %d\n\n⏰ Таймер перезапущен на 7 дней.", username, missedDay, newStreakDays, caloriesToAdd, caloriesToSpend, totalCalories, currentCups))
+	b.api.Send(reply)
+}
+
 func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 	// Получаем никнейм пользователя
 	username := ""
@@ -762,52 +854,6 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 
 	// Рассчитываем калории и серию
 	caloriesToAdd, newStreakDays, newCalorieStreakDays, weeklyAchievement, twoWeekAchievement, threeWeekAchievement, monthlyAchievement, fortyTwoDayAchievement, fiftyDayAchievement, sixtyDayAchievement, quarterlyAchievement, hundredDayAchievement, oneHundredEightyDayAchievement, twoHundredDayAchievement, twoHundredFortyDayAchievement := b.calculateCalories(messageLog, trainingDate)
-
-	// #save_streak: восстановить серию за 1000/2000 калорий (если пропустил день, до 12:00 — 1000, 12:00–15:00 — 2000)
-	hasSaveStreak := currentType != "writing" && strings.Contains(strings.ToLower(text), "#save_streak")
-	if hasSaveStreak && newStreakDays == 1 && messageLog.StreakDays > 0 && messageLog.LastTrainingDate != nil {
-		now := utils.GetMoscowTime()
-		inWindow, caloriesToSpend := getSaveStreakCost(*messageLog.LastTrainingDate, now)
-		if inWindow {
-			userCalories, _ := b.db.GetUserCalories(msg.From.ID, msg.Chat.ID)
-			if userCalories >= caloriesToSpend {
-				if err := b.db.AddCalories(msg.From.ID, msg.Chat.ID, -caloriesToSpend); err != nil {
-					b.logger.Errorf("Failed to deduct %d calories for #save_streak: %v", caloriesToSpend, err)
-				} else {
-					newStreakDays = messageLog.StreakDays + 1
-					newCalorieStreakDays = messageLog.CalorieStreakDays + 1
-					caloriesToAdd = newCalorieStreakDays
-					weeklyAchievement = newStreakDays == 7
-					twoWeekAchievement = newStreakDays == 14
-					threeWeekAchievement = newStreakDays == 21
-					monthlyAchievement = newStreakDays == 30
-					fortyTwoDayAchievement = newStreakDays == 42
-					fiftyDayAchievement = newStreakDays == 50
-					sixtyDayAchievement = newStreakDays == 60
-					quarterlyAchievement = newStreakDays == 90
-					hundredDayAchievement = newStreakDays == 100
-					oneHundredEightyDayAchievement = newStreakDays == 180
-					twoHundredDayAchievement = newStreakDays == 200
-					twoHundredFortyDayAchievement = newStreakDays == 240
-					// Тренировка засчитывается за пропущенный день (3 фев при отправке 4 фев)
-					if missedDay := addDaysToDate(*messageLog.LastTrainingDate, 1); missedDay != "" {
-						trainingDate = missedDay
-					}
-					b.logger.Infof("User %d used #save_streak: streak recovered from %d to %d days (spent %d calories), training dated %s", msg.From.ID, messageLog.StreakDays, newStreakDays, caloriesToSpend, trainingDate)
-				}
-			} else {
-				timeSlot := "до 12:00"
-				if caloriesToSpend == 2000 {
-					timeSlot = "12:00–15:00"
-				}
-				b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("⚠️ %s, для #save_streak нужно %d калорий (%s). У тебя %d. Тренировка засчитана, но серия сброшена.", username, caloriesToSpend, timeSlot, userCalories)))
-			}
-		} else if *messageLog.LastTrainingDate == utils.GetMoscowDateFromTime(now.AddDate(0, 0, -2)) && !inWindow {
-			b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("⚠️ %s, окно #save_streak — до 15:00 следующего дня (до 12:00 — 1000 калорий, 12:00–15:00 — 2000). Сейчас уже позже 15:00.", username)))
-		} else {
-			b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("⚠️ %s, #save_streak работает только если пропущен ровно 1 день (до 15:00 следующего дня). Сейчас окно восстановления прошло.", username)))
-		}
-	}
 
 	// ДЕБАГ: Логируем результат расчета
 	b.logger.Infof("DEBUG handleTrainingDone: caloriesToAdd=%d, newStreakDays=%d, newCalorieStreakDays=%d, weeklyAchievement=%t, twoWeekAchievement=%t, threeWeekAchievement=%t, monthlyAchievement=%t, fortyTwoDayAchievement=%t, fiftyDayAchievement=%t, sixtyDayAchievement=%t, quarterlyAchievement=%t, hundredDayAchievement=%t, oneHundredEightyDayAchievement=%t, twoHundredDayAchievement=%t, twoHundredFortyDayAchievement=%t",
@@ -1897,7 +1943,7 @@ func (b *Bot) handleHelp(msg *tgbotapi.Message) {
 
 🔄 Обмен:
 • #change — Обменять калории на кубки (100 калорий = 42 кубка)
-• #save_streak — Восстановить серию (до 12:00 — 1000 калорий, 12:00–15:00 — 2000 калорий; если пропустил день)
+• #save_streak — Восстановить серию за 1000/2000 калорий (если пропустил день)
 
 ⏰ Как работает бот:
 • При добавлении бота в чат запускаются таймеры для всех участников
