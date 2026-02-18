@@ -60,7 +60,7 @@ func (b *Bot) processTrainingDone(msg *tgbotapi.Message) {
 		}
 	}
 
-	caloriesToAdd, newStreakDays, newCalorieStreakDays, weeklyAchievement, twoWeekAchievement, threeWeekAchievement, monthlyAchievement, fortyTwoDayAchievement, fiftyDayAchievement, sixtyDayAchievement, quarterlyAchievement, hundredDayAchievement, oneHundredEightyDayAchievement, twoHundredDayAchievement, twoHundredFortyDayAchievement := b.calculateCalories(messageLog)
+	caloriesToAdd, newStreakDays, newCalorieStreakDays, weeklyAchievement, twoWeekAchievement, threeWeekAchievement, monthlyAchievement, fortyTwoDayAchievement, fiftyDayAchievement, sixtyDayAchievement, quarterlyAchievement, hundredDayAchievement, oneHundredEightyDayAchievement, twoHundredDayAchievement, twoHundredFortyDayAchievement := b.calculateCalories(messageLog, "")
 
 	b.logger.Infof("DEBUG handleTrainingDone: caloriesToAdd=%d, newStreakDays=%d, newCalorieStreakDays=%d, weeklyAchievement=%t, twoWeekAchievement=%t, threeWeekAchievement=%t, monthlyAchievement=%t, fortyTwoDayAchievement=%t, fiftyDayAchievement=%t, sixtyDayAchievement=%t, quarterlyAchievement=%t, hundredDayAchievement=%t, oneHundredEightyDayAchievement=%t, twoHundredDayAchievement=%t, twoHundredFortyDayAchievement=%t",
 		caloriesToAdd, newStreakDays, newCalorieStreakDays, weeklyAchievement, twoWeekAchievement, threeWeekAchievement, monthlyAchievement, fortyTwoDayAchievement, fiftyDayAchievement, sixtyDayAchievement, quarterlyAchievement, hundredDayAchievement, oneHundredEightyDayAchievement, twoHundredDayAchievement, twoHundredFortyDayAchievement)
@@ -294,17 +294,33 @@ func (b *Bot) processTrainingDone(msg *tgbotapi.Message) {
 	}
 }
 
-func (b *Bot) calculateCalories(messageLog *domain.MessageLog) (int, int, int, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool) {
-	today := utils.GetMoscowDate()
+// calculateCalories возвращает калории, серии и achievements.
+// trainingDate — дата тренировки по времени отправки сообщения (YYYY-MM-DD в Москве).
+// Если пустая, используется текущая дата сервера (для обратной совместимости).
+func (b *Bot) calculateCalories(messageLog *domain.MessageLog, trainingDate string) (int, int, int, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool) {
+	if trainingDate == "" {
+		trainingDate = utils.GetMoscowDate()
+	}
+	today := trainingDate
 
 	if messageLog.LastTrainingDate != nil && *messageLog.LastTrainingDate == today {
 		return 0, messageLog.StreakDays, messageLog.CalorieStreakDays, false, false, false, false, false, false, false, false, false, false, false, false
 	}
 
+	// yesterday относительно даты тренировки (когда сообщение было отправлено)
+	moscowLoc, _ := time.LoadLocation("Europe/Moscow")
+	if moscowLoc == nil {
+		moscowLoc = time.FixedZone("MSK", 3*3600)
+	}
+	todayTime, err := time.ParseInLocation("2006-01-02", today, moscowLoc)
+	if err != nil {
+		todayTime = utils.GetMoscowTime()
+	}
+	yesterday := todayTime.AddDate(0, 0, -1)
+	yesterdayStr := yesterday.Format("2006-01-02")
+
 	newStreakDays := 1
 	if messageLog.LastTrainingDate != nil {
-		yesterday := utils.GetMoscowTime().AddDate(0, 0, -1)
-		yesterdayStr := utils.GetMoscowDateFromTime(yesterday)
 		if *messageLog.LastTrainingDate == yesterdayStr {
 			newStreakDays = messageLog.StreakDays + 1
 		} else {
@@ -316,8 +332,6 @@ func (b *Bot) calculateCalories(messageLog *domain.MessageLog) (int, int, int, b
 
 	newCalorieStreakDays := 1
 	if messageLog.LastTrainingDate != nil {
-		yesterday := utils.GetMoscowTime().AddDate(0, 0, -1)
-		yesterdayStr := utils.GetMoscowDateFromTime(yesterday)
 		if *messageLog.LastTrainingDate == yesterdayStr {
 			newCalorieStreakDays = messageLog.CalorieStreakDays + 1
 		} else {

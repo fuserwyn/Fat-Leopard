@@ -29,6 +29,32 @@ type Bot struct {
 	sickApprovalMutex    sync.Mutex
 }
 
+// addDaysToDate добавляет days к дате (YYYY-MM-DD), возвращает "" при ошибке.
+func addDaysToDate(dateStr string, days int) string {
+	moscowLoc, err := time.LoadLocation("Europe/Moscow")
+	if err != nil {
+		moscowLoc = time.FixedZone("MSK", 3*3600)
+	}
+	t, err := time.ParseInLocation("2006-01-02", dateStr, moscowLoc)
+	if err != nil {
+		return ""
+	}
+	return t.AddDate(0, 0, days).Format("2006-01-02")
+}
+
+// getTrainingDateFromMessage возвращает дату тренировки (YYYY-MM-DD) по времени отправки сообщения в Москве.
+func getTrainingDateFromMessage(msg *tgbotapi.Message) string {
+	if msg == nil || msg.Date == 0 {
+		return ""
+	}
+	moscowLoc, err := time.LoadLocation("Europe/Moscow")
+	if err != nil {
+		moscowLoc = time.FixedZone("MSK", 3*3600)
+	}
+	t := time.Unix(int64(msg.Date), 0).In(moscowLoc)
+	return t.Format("2006-01-02")
+}
+
 // getSaveStreakCost возвращает (inWindow, caloriesToSpend) для #save_streak.
 // lastTrainingDate — дата последней тренировки (YYYY-MM-DD), now — текущее время.
 // До 12:00 — 1000 калорий, 12:00–15:00 — 2000, после 15:00 — окно закрыто.
@@ -731,8 +757,11 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 		}
 	}
 
+	// Дата тренировки — по времени отправки сообщения (не по времени обработки сервером)
+	trainingDate := getTrainingDateFromMessage(msg)
+
 	// Рассчитываем калории и серию
-	caloriesToAdd, newStreakDays, newCalorieStreakDays, weeklyAchievement, twoWeekAchievement, threeWeekAchievement, monthlyAchievement, fortyTwoDayAchievement, fiftyDayAchievement, sixtyDayAchievement, quarterlyAchievement, hundredDayAchievement, oneHundredEightyDayAchievement, twoHundredDayAchievement, twoHundredFortyDayAchievement := b.calculateCalories(messageLog)
+	caloriesToAdd, newStreakDays, newCalorieStreakDays, weeklyAchievement, twoWeekAchievement, threeWeekAchievement, monthlyAchievement, fortyTwoDayAchievement, fiftyDayAchievement, sixtyDayAchievement, quarterlyAchievement, hundredDayAchievement, oneHundredEightyDayAchievement, twoHundredDayAchievement, twoHundredFortyDayAchievement := b.calculateCalories(messageLog, trainingDate)
 
 	// #save_streak: восстановить серию за 1000/2000 калорий (если пропустил день, до 12:00 — 1000, 12:00–15:00 — 2000)
 	hasSaveStreak := currentType != "writing" && strings.Contains(strings.ToLower(text), "#save_streak")
@@ -760,7 +789,11 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 					oneHundredEightyDayAchievement = newStreakDays == 180
 					twoHundredDayAchievement = newStreakDays == 200
 					twoHundredFortyDayAchievement = newStreakDays == 240
-					b.logger.Infof("User %d used #save_streak: streak recovered from %d to %d days (spent %d calories)", msg.From.ID, messageLog.StreakDays, newStreakDays, caloriesToSpend)
+					// Тренировка засчитывается за пропущенный день (3 фев при отправке 4 фев)
+					if missedDay := addDaysToDate(*messageLog.LastTrainingDate, 1); missedDay != "" {
+						trainingDate = missedDay
+					}
+					b.logger.Infof("User %d used #save_streak: streak recovered from %d to %d days (spent %d calories), training dated %s", msg.From.ID, messageLog.StreakDays, newStreakDays, caloriesToSpend, trainingDate)
 				}
 			} else {
 				timeSlot := "до 12:00"
@@ -874,19 +907,22 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 
 	// Обновляем серию только если была добавлена новая тренировка
 	if caloriesToAdd > 0 {
-		today := utils.GetMoscowDate()
+		// Используем дату из сообщения, чтобы тренировка 3 фев в 23:50 и 4 фев в 00:10 считались разными днями
+		if trainingDate == "" {
+			trainingDate = utils.GetMoscowDate()
+		}
 
 		// Обновляем streak_days для кубков
-		b.logger.Infof("DEBUG: Updating streak to %d with date %s", newStreakDays, today)
-		if err := b.db.UpdateStreak(msg.From.ID, msg.Chat.ID, newStreakDays, today); err != nil {
+		b.logger.Infof("DEBUG: Updating streak to %d with date %s", newStreakDays, trainingDate)
+		if err := b.db.UpdateStreak(msg.From.ID, msg.Chat.ID, newStreakDays, trainingDate); err != nil {
 			b.logger.Errorf("Failed to update streak: %v", err)
 		} else {
 			b.logger.Infof("DEBUG: Successfully updated streak to %d", newStreakDays)
 		}
 
 		// Обновляем серию дней для калорий
-		b.logger.Infof("DEBUG: Updating calorie streak to %d with date %s", newCalorieStreakDays, today)
-		if err := b.db.UpdateCalorieStreakWithDate(msg.From.ID, msg.Chat.ID, newCalorieStreakDays, today); err != nil {
+		b.logger.Infof("DEBUG: Updating calorie streak to %d with date %s", newCalorieStreakDays, trainingDate)
+		if err := b.db.UpdateCalorieStreakWithDate(msg.From.ID, msg.Chat.ID, newCalorieStreakDays, trainingDate); err != nil {
 			b.logger.Errorf("Failed to update calorie streak: %v", err)
 		} else {
 			b.logger.Infof("DEBUG: Successfully updated calorie streak to %d", newCalorieStreakDays)
@@ -2895,7 +2931,7 @@ func (b *Bot) auditProcessTrainingDone(um *domain.UserMessage) {
 		return
 	}
 
-	caloriesToAdd, newStreakDays, newCalorieStreakDays, weeklyAchievement, twoWeekAchievement, threeWeekAchievement, monthlyAchievement, fortyTwoDayAchievement, fiftyDayAchievement, sixtyDayAchievement, quarterlyAchievement, hundredDayAchievement, oneHundredEightyDayAchievement, twoHundredDayAchievement, twoHundredFortyDayAchievement := b.calculateCalories(messageLog)
+	caloriesToAdd, newStreakDays, newCalorieStreakDays, weeklyAchievement, twoWeekAchievement, threeWeekAchievement, monthlyAchievement, fortyTwoDayAchievement, fiftyDayAchievement, sixtyDayAchievement, quarterlyAchievement, hundredDayAchievement, oneHundredEightyDayAchievement, twoHundredDayAchievement, twoHundredFortyDayAchievement := b.calculateCalories(messageLog, dateStr)
 
 	if caloriesToAdd > 0 {
 		_ = b.db.AddCalories(um.UserID, um.ChatID, caloriesToAdd)

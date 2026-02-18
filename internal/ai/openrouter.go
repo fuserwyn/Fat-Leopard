@@ -614,21 +614,21 @@ func (c *OpenRouterClient) GenerateDailyWisdom(chatType string) (string, error) 
 		}
 	} else {
 		theme = "дисциплина"
-	switch weekday {
-	case time.Monday:
-		theme = "старт и дисциплина"
-	case time.Tuesday:
-		theme = "выносливость"
-	case time.Wednesday:
-		theme = "равновесие и техника"
-	case time.Thursday:
-		theme = "терпение и прогресс"
-	case time.Friday:
-		theme = "радость движения без спешки"
-	case time.Saturday:
-		theme = "осознанность и восстановление"
-	case time.Sunday:
-		theme = "тихая сила духа"
+		switch weekday {
+		case time.Monday:
+			theme = "старт и дисциплина"
+		case time.Tuesday:
+			theme = "выносливость"
+		case time.Wednesday:
+			theme = "равновесие и техника"
+		case time.Thursday:
+			theme = "терпение и прогресс"
+		case time.Friday:
+			theme = "радость движения без спешки"
+		case time.Saturday:
+			theme = "осознанность и восстановление"
+		case time.Sunday:
+			theme = "тихая сила духа"
 		}
 	}
 
