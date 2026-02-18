@@ -734,3 +734,91 @@ func TestCalculateCaloriesDoubleTraining(t *testing.T) {
 
 	t.Log("Double training logic test passed")
 }
+
+func TestGetSaveStreakCost(t *testing.T) {
+	moscow := time.FixedZone("MSK", 3*3600)
+
+	tests := []struct {
+		name              string
+		lastTrainingDate  string
+		now               time.Time
+		wantInWindow      bool
+		wantCaloriesSpend int
+	}{
+		{
+			name:              "before noon, 1000 calories",
+			lastTrainingDate:  "2025-02-02",
+			now:               time.Date(2025, 2, 4, 9, 0, 0, 0, moscow), // Feb 4 09:00 MSK, last was Feb 2
+			wantInWindow:      true,
+			wantCaloriesSpend: 1000,
+		},
+		{
+			name:              "at 11:59, 1000 calories",
+			lastTrainingDate:  "2025-02-02",
+			now:               time.Date(2025, 2, 4, 11, 59, 0, 0, moscow),
+			wantInWindow:      true,
+			wantCaloriesSpend: 1000,
+		},
+		{
+			name:              "at noon, 2000 calories",
+			lastTrainingDate:  "2025-02-02",
+			now:               time.Date(2025, 2, 4, 12, 0, 0, 0, moscow),
+			wantInWindow:      true,
+			wantCaloriesSpend: 2000,
+		},
+		{
+			name:              "12:00-15:00, 2000 calories",
+			lastTrainingDate:  "2025-02-02",
+			now:               time.Date(2025, 2, 4, 14, 30, 0, 0, moscow),
+			wantInWindow:      true,
+			wantCaloriesSpend: 2000,
+		},
+		{
+			name:              "at 14:59, 2000 calories",
+			lastTrainingDate:  "2025-02-02",
+			now:               time.Date(2025, 2, 4, 14, 59, 0, 0, moscow),
+			wantInWindow:      true,
+			wantCaloriesSpend: 2000,
+		},
+		{
+			name:              "after 15:00, window closed",
+			lastTrainingDate:  "2025-02-02",
+			now:               time.Date(2025, 2, 4, 15, 0, 0, 0, moscow),
+			wantInWindow:      false,
+			wantCaloriesSpend: 0,
+		},
+		{
+			name:              "at 18:00, window closed",
+			lastTrainingDate:  "2025-02-02",
+			now:               time.Date(2025, 2, 4, 18, 0, 0, 0, moscow),
+			wantInWindow:      false,
+			wantCaloriesSpend: 0,
+		},
+		{
+			name:              "wrong date, not two days ago",
+			lastTrainingDate:  "2025-02-01",
+			now:               time.Date(2025, 2, 4, 10, 0, 0, 0, moscow), // last was 3 days ago
+			wantInWindow:      false,
+			wantCaloriesSpend: 0,
+		},
+		{
+			name:              "yesterday, not eligible",
+			lastTrainingDate:  "2025-02-03",
+			now:               time.Date(2025, 2, 4, 10, 0, 0, 0, moscow), // last was yesterday, streak would continue normally
+			wantInWindow:      false,
+			wantCaloriesSpend: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotInWindow, gotCalories := getSaveStreakCost(tt.lastTrainingDate, tt.now)
+			if gotInWindow != tt.wantInWindow {
+				t.Errorf("getSaveStreakCost() inWindow = %v, want %v", gotInWindow, tt.wantInWindow)
+			}
+			if gotCalories != tt.wantCaloriesSpend {
+				t.Errorf("getSaveStreakCost() caloriesToSpend = %d, want %d", gotCalories, tt.wantCaloriesSpend)
+			}
+		})
+	}
+}
