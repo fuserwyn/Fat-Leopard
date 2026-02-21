@@ -29,16 +29,18 @@ func (b *Bot) startTimerWithDuration(userID, chatID int64, username string, dura
 
 	// Создаем новые таймеры
 	warningTask := make(chan bool)
+	criticalWarningTask := make(chan bool)
 	removalTask := make(chan bool)
 
 	timerStartTime := utils.FormatMoscowTime(utils.GetMoscowTime())
 	timerInfo := &domain.TimerInfo{
-		UserID:         userID,
-		ChatID:         chatID,
-		Username:       username,
-		WarningTask:    warningTask,
-		RemovalTask:    removalTask,
-		TimerStartTime: timerStartTime,
+		UserID:              userID,
+		ChatID:              chatID,
+		Username:            username,
+		WarningTask:         warningTask,
+		CriticalWarningTask: criticalWarningTask,
+		RemovalTask:         removalTask,
+		TimerStartTime:      timerStartTime,
 	}
 
 	b.timers[userID] = timerInfo
@@ -58,21 +60,34 @@ func (b *Bot) startTimerWithDuration(userID, chatID int64, username string, dura
 	}
 
 	// Рассчитываем время предупреждения (6 дней до удаления)
-	warningTime := duration - 24*time.Hour // Предупреждение за 1 день до удаления
-	if warningTime < 0 {
-		warningTime = duration / 2 // Fallback если время слишком короткое
+	// Если до удаления осталось меньше 24 часов — предупреждение уже было отправлено,
+	// не планируем повторное (например, при восстановлении после перезапуска бота)
+	warningTime := duration - 24*time.Hour
+	if warningTime > 0 {
+		go func() {
+			time.Sleep(warningTime)
+			select {
+			case <-warningTask:
+				return // Таймер отменен
+			default:
+				b.sendWarning(userID, chatID, username)
+			}
+		}()
 	}
 
-	// Запускаем предупреждение
-	go func() {
-		time.Sleep(warningTime)
-		select {
-		case <-warningTask:
-			return // Таймер отменен
-		default:
-			b.sendWarning(userID, chatID, username)
-		}
-	}()
+	// Критическое предупреждение за 3 часа до удаления (Леопард уже готовит, расставляет тарелки)
+	criticalWarningTime := duration - 3*time.Hour
+	if criticalWarningTime > 0 {
+		go func() {
+			time.Sleep(criticalWarningTime)
+			select {
+			case <-criticalWarningTask:
+				return // Таймер отменен
+			default:
+				b.sendCriticalWarning(userID, chatID, username)
+			}
+		}()
+	}
 
 	// Запускаем удаление через указанное время
 	go func() {
@@ -85,7 +100,13 @@ func (b *Bot) startTimerWithDuration(userID, chatID int64, username string, dura
 		}
 	}()
 
-	b.logger.Infof("Started timer for user %d (%s) - warning in %v, removal in %v", userID, username, warningTime, duration)
+	if warningTime > 0 && criticalWarningTime > 0 {
+		b.logger.Infof("Started timer for user %d (%s) - warning in %v, critical in %v, removal in %v", userID, username, warningTime, criticalWarningTime, duration)
+	} else if criticalWarningTime > 0 {
+		b.logger.Infof("Started timer for user %d (%s) - warning skipped (<24h left), critical in %v, removal in %v", userID, username, criticalWarningTime, duration)
+	} else {
+		b.logger.Infof("Started timer for user %d (%s) - warnings skipped (<3h left), removal in %v", userID, username, duration)
+	}
 }
 
 // restoreTimerWithDuration восстанавливает таймер без обновления timer_start_time в БД
@@ -95,15 +116,17 @@ func (b *Bot) restoreTimerWithDuration(userID, chatID int64, username string, du
 
 	// Создаем новые таймеры
 	warningTask := make(chan bool)
+	criticalWarningTask := make(chan bool)
 	removalTask := make(chan bool)
 
 	timerInfo := &domain.TimerInfo{
-		UserID:         userID,
-		ChatID:         chatID,
-		Username:       username,
-		WarningTask:    warningTask,
-		RemovalTask:    removalTask,
-		TimerStartTime: existingTimerStartTime, // Используем существующее время из БД
+		UserID:              userID,
+		ChatID:              chatID,
+		Username:            username,
+		WarningTask:         warningTask,
+		CriticalWarningTask: criticalWarningTask,
+		RemovalTask:         removalTask,
+		TimerStartTime:      existingTimerStartTime, // Используем существующее время из БД
 	}
 
 	b.timers[userID] = timerInfo
@@ -111,21 +134,39 @@ func (b *Bot) restoreTimerWithDuration(userID, chatID int64, username string, du
 	// НЕ обновляем timer_start_time в БД - используем существующее значение
 
 	// Рассчитываем время предупреждения (6 дней до удаления)
-	warningTime := duration - 24*time.Hour // Предупреждение за 1 день до удаления
-	if warningTime < 0 {
-		warningTime = duration / 2 // Fallback если время слишком короткое
+	// Если до удаления осталось меньше 24 часов — предупреждение уже было отправлено
+	// при срабатывании оригинального таймера. Не планируем повторное предупреждение.
+	warningTime := duration - 24*time.Hour
+	if warningTime > 0 {
+		go func() {
+			time.Sleep(warningTime)
+			select {
+			case <-warningTask:
+				return // Таймер отменен
+			default:
+				b.sendWarning(userID, chatID, username)
+			}
+		}()
+	} else {
+		b.logger.Infof("Skipping warning for user %d (%s) - less than 24h until removal, warning already sent", userID, username)
 	}
 
-	// Запускаем предупреждение
-	go func() {
-		time.Sleep(warningTime)
-		select {
-		case <-warningTask:
-			return // Таймер отменен
-		default:
-			b.sendWarning(userID, chatID, username)
-		}
-	}()
+	// Критическое предупреждение за 3 часа до удаления
+	// Если осталось меньше 3 часов — критическое предупреждение уже было или скоро удаление
+	criticalWarningTime := duration - 3*time.Hour
+	if criticalWarningTime > 0 {
+		go func() {
+			time.Sleep(criticalWarningTime)
+			select {
+			case <-criticalWarningTask:
+				return // Таймер отменен
+			default:
+				b.sendCriticalWarning(userID, chatID, username)
+			}
+		}()
+	} else {
+		b.logger.Infof("Skipping critical warning for user %d (%s) - less than 3h until removal", userID, username)
+	}
 
 	// Запускаем удаление через указанное время
 	go func() {
@@ -138,12 +179,13 @@ func (b *Bot) restoreTimerWithDuration(userID, chatID int64, username string, du
 		}
 	}()
 
-	b.logger.Infof("Restored timer for user %d (%s) - warning in %v, removal in %v (timer start time: %s)", userID, username, warningTime, duration, existingTimerStartTime)
+	b.logger.Infof("Restored timer for user %d (%s) - warning in %v, critical in %v, removal in %v (timer start time: %s)", userID, username, warningTime, criticalWarningTime, duration, existingTimerStartTime)
 }
 
 func (b *Bot) cancelTimer(userID int64) {
 	if timer, exists := b.timers[userID]; exists {
 		close(timer.WarningTask)
+		close(timer.CriticalWarningTask)
 		close(timer.RemovalTask)
 		delete(b.timers, userID)
 		b.logger.Infof("Cancelled timer for user %d", userID)
@@ -218,6 +260,69 @@ func (b *Bot) sendWarning(userID, chatID int64, username string) {
 		b.logger.Errorf("Failed to send warning: %v", err)
 	} else {
 		b.logger.Infof("Successfully sent warning to user %d (%s)", userID, username)
+	}
+}
+
+func (b *Bot) sendCriticalWarning(userID, chatID int64, username string) {
+	// Критическое предупреждение за 3 часа до удаления — Леопард уже готовит
+	messageText := fmt.Sprintf("🚨 КРИТИЧЕСКОЕ ПРЕДУПРЕЖДЕНИЕ! 🚨\n\n%s, я уже готовлюсь к обеду! Расставляю тарелки, накрываю на стол... Осталось всего 3 ЧАСА до удаления из чата!\n\n⏰ Это твой последний шанс!\n\n🎯 Отправь #training_done ПРЯМО СЕЙЧАС — или станешь главным блюдом! 😬", username)
+
+	// Добавляем короткую ИИ‑приписку в духе «Леопард уже ест»
+	if b.aiClient != nil {
+		action := tgbotapi.NewChatAction(chatID, tgbotapi.ChatTyping)
+		b.api.Send(action)
+		stopTyping := make(chan struct{})
+		defer close(stopTyping)
+		go func() {
+			ticker := time.NewTicker(4 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					b.api.Send(action)
+				case <-stopTyping:
+					return
+				}
+			}
+		}()
+
+		var ctxBuilder strings.Builder
+		ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
+		if log, err := b.db.GetMessageLog(userID, chatID); err == nil {
+			userGender := strings.TrimSpace(strings.ToLower(log.Gender))
+			if userGender != "" {
+				var genderText string
+				if userGender == "f" {
+					genderText = "женский"
+				} else if userGender == "m" {
+					genderText = "мужской"
+				}
+				if genderText != "" {
+					ctxBuilder.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
+				}
+			}
+			ctxBuilder.WriteString(fmt.Sprintf("Серия: %d дней\n", log.StreakDays))
+			ctxBuilder.WriteString("Осталось 3 часа до удаления. Леопард уже готовит, расставляет тарелки.\n")
+		}
+
+		question := "Сделай очень короткую (1 предложение) приписку к КРИТИЧЕСКОМУ предупреждению: я Fat Leopard, уже готовлюсь к обеду, расставляю тарелки, скоро буду есть. Строго и с юмором — пользователь станет обедом через 3 часа, если не отправит #training_done. Срочно! Без Markdown."
+		if addendum, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
+			addendum = strings.TrimSpace(strings.ReplaceAll(addendum, "**", ""))
+			if addendum != "" {
+				messageText = messageText + "\n\n" + addendum
+			}
+		} else {
+			b.logger.Warnf("AI addendum generation (critical warning) failed: %v", err)
+		}
+	}
+
+	msg := tgbotapi.NewMessage(chatID, messageText)
+	b.logger.Infof("Sending critical warning to user %d (%s)", userID, username)
+	_, err := b.api.Send(msg)
+	if err != nil {
+		b.logger.Errorf("Failed to send critical warning: %v", err)
+	} else {
+		b.logger.Infof("Successfully sent critical warning to user %d (%s)", userID, username)
 	}
 }
 

@@ -51,12 +51,13 @@ type ChatMember struct {
 
 // TimerInfo представляет информацию о таймере
 type TimerInfo struct {
-	UserID         int64
-	ChatID         int64
-	Username       string
-	WarningTask    chan bool
-	RemovalTask    chan bool
-	TimerStartTime string
+	UserID              int64
+	ChatID              int64
+	Username            string
+	WarningTask         chan bool
+	CriticalWarningTask chan bool // Критическое предупреждение за 3 часа до удаления
+	RemovalTask         chan bool
+	TimerStartTime      string
 }
 
 // UserMessage представляет сообщение пользователя для RAG контекста
