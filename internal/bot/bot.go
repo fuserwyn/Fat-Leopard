@@ -2862,6 +2862,18 @@ func (b *Bot) generateAndSendMonthlySummary(month time.Time) {
 	}
 }
 
+// monthlyReportUser данные пользователя для месячного отчёта
+type monthlyReportUser struct {
+	UserID        int64
+	Username      string
+	TrainingCount int
+	HasSickLeave  bool
+	HasHealthy    bool
+	StreakDays    int
+	Calories      int
+	Cups          int
+}
+
 // generateMonthlySummaryForChat генерирует месячную сводку для конкретного чата
 func (b *Bot) generateMonthlySummaryForChat(chatID int64, month time.Time) {
 	// Получаем сообщения за месяц
@@ -2875,98 +2887,146 @@ func (b *Bot) generateMonthlySummaryForChat(chatID int64, month time.Time) {
 		return // Нет сообщений за месяц
 	}
 
-	// Группируем сообщения по пользователям
-	userMap := make(map[int64]*ai.UserTrainingData)
+	// Определяем тип чата
+	chatType, err := b.db.GetChatType(chatID)
+	if err != nil {
+		chatType = "training"
+	}
+
+	// Группируем и считаем по пользователям
+	userMap := make(map[int64]*monthlyReportUser)
 	for _, msg := range messages {
 		if userMap[msg.UserID] == nil {
-			// Получаем данные пользователя
 			userLog, err := b.db.GetMessageLog(msg.UserID, msg.ChatID)
 			if err != nil {
 				continue
 			}
-
 			cups, _ := b.db.GetUserCups(msg.UserID, msg.ChatID)
-			userMap[msg.UserID] = &ai.UserTrainingData{
-				UserID:       msg.UserID,
-				Username:     msg.Username,
-				HasTraining:  false,
-				HasSickLeave: false,
-				HasHealthy:   false,
-				StreakDays:   userLog.StreakDays,
-				Calories:     userLog.Calories,
-				Cups:         cups,
+			userMap[msg.UserID] = &monthlyReportUser{
+				UserID:        msg.UserID,
+				Username:      msg.Username,
+				TrainingCount: 0,
+				HasSickLeave:  false,
+				HasHealthy:    false,
+				StreakDays:    userLog.StreakDays,
+				Calories:      userLog.Calories,
+				Cups:          cups,
 			}
 		}
 
-		user := userMap[msg.UserID]
-		if msg.MessageType == "training_done" {
-			user.HasTraining = true
-			if user.TrainingMessage == "" {
-				user.TrainingMessage = msg.MessageText
-			}
-		} else if msg.MessageType == "sick_leave" {
-			user.HasSickLeave = true
-		} else if msg.MessageType == "healthy" {
-			user.HasHealthy = true
+		u := userMap[msg.UserID]
+		switch msg.MessageType {
+		case "training_done":
+			u.TrainingCount++
+		case "sick_leave":
+			u.HasSickLeave = true
+		case "healthy":
+			u.HasHealthy = true
 		}
 	}
 
-	// Преобразуем map в slice
-	var usersData []ai.UserTrainingData
-	for _, user := range userMap {
-		usersData = append(usersData, *user)
+	// Преобразуем в slice и сортируем по количеству тренировок (убыв.)
+	var usersData []*monthlyReportUser
+	for _, u := range userMap {
+		usersData = append(usersData, u)
+	}
+	for i := 0; i < len(usersData)-1; i++ {
+		for j := i + 1; j < len(usersData); j++ {
+			if usersData[j].TrainingCount > usersData[i].TrainingCount {
+				usersData[i], usersData[j] = usersData[j], usersData[i]
+			}
+		}
 	}
 
 	if len(usersData) == 0 {
 		return
 	}
 
-	// Формируем детерминированную (НЕ ИИ) сводку без выдуманных тренировок
+	// Название месяца на русском
+	monthNames := []string{"января", "февраля", "марта", "апреля", "мая", "июня",
+		"июля", "августа", "сентября", "октября", "ноября", "декабря"}
+	monthName := monthNames[month.Month()-1]
+	year := month.Year()
+
+	// Формируем отчёт в стиле Fat Leopard
 	var sb strings.Builder
 
+	sb.WriteString("📊 Отчёт Fat Leopard за ")
+	sb.WriteString(monthName)
+	sb.WriteString(fmt.Sprintf(" %d\n\n", year))
 	sb.WriteString("Привет, стая! 🦁\n\n")
-	sb.WriteString("Подводим итоги прошедшего месяца по фактическим данным:\n\n")
 
+	// Максимум в месяце
+	maxTrainings := 0
 	for _, u := range usersData {
-		username := u.Username
-		if username == "" {
-			username = fmt.Sprintf("User%d", u.UserID)
+		if u.TrainingCount > maxTrainings {
+			maxTrainings = u.TrainingCount
 		}
-
-		sb.WriteString(fmt.Sprintf("%s — серия: %d дней, калории: %d, кубки: %d", username, u.StreakDays, u.Calories, u.Cups))
-
-		// Краткие статусы без фантазий о тренировках
-		var flags []string
-		if u.HasTraining {
-			flags = append(flags, "отправлял(а) #training_done")
-		}
-		if u.HasSickLeave {
-			flags = append(flags, "был(а) на #sick_leave")
-		}
-		if u.HasHealthy {
-			flags = append(flags, "вернулся(лась) с #healthy")
-		}
-		if len(flags) > 0 {
-			sb.WriteString(" (")
-			sb.WriteString(strings.Join(flags, ", "))
-			sb.WriteString(")")
-		}
-
-		sb.WriteString(".\n")
+	}
+	workLabel := "тренировок"
+	if chatType == "writing" {
+		workLabel = "писательских сессий"
+	}
+	if maxTrainings > 0 {
+		sb.WriteString(fmt.Sprintf("Максимум в месяце: %d %s\n\n", maxTrainings, workLabel))
 	}
 
-	sb.WriteString("\nДержим курс и продолжаем в новом месяце 💪")
+	// Сводка по каждому: пользователь, сколько тренировок, серия на момент отчёта
+	for _, u := range usersData {
+		name := u.Username
+		if name == "" {
+			name = fmt.Sprintf("User%d", u.UserID)
+		}
+
+		sb.WriteString(fmt.Sprintf("• %s: %d %s", name, u.TrainingCount, workLabel))
+		sb.WriteString(fmt.Sprintf(", серия на момент отчёта: %d дн.", u.StreakDays))
+		if chatType == "writing" {
+			sb.WriteString(fmt.Sprintf(", %d %s, %d кубков", u.Calories, getWordForm(u.Calories), u.Cups))
+		} else {
+			sb.WriteString(fmt.Sprintf(", %d калорий, %d кубков", u.Calories, u.Cups))
+		}
+
+		var flags []string
+		if u.HasSickLeave {
+			flags = append(flags, "больничный")
+		}
+		if u.HasHealthy {
+			flags = append(flags, "выздоровел(а)")
+		}
+		if len(flags) > 0 {
+			sb.WriteString(" (" + strings.Join(flags, ", ") + ")")
+		}
+		sb.WriteString("\n")
+	}
+
+	// Заключение от Fat Leopard
+	sb.WriteString("\n")
+	anyTraining := false
+	for _, u := range usersData {
+		if u.TrainingCount > 0 {
+			anyTraining = true
+			break
+		}
+	}
+	if anyTraining {
+		if chatType == "writing" {
+			sb.WriteString("Я бы съел пирог. Вы — пишете. Продолжаем в том же духе! 💪🦁")
+		} else {
+			sb.WriteString("Я бы съел пиццу. Вы — тренировки. Продолжаем в том же духе! 💪🦁")
+		}
+	} else {
+		sb.WriteString("Новый месяц — новый шанс. Не дайте мне превратить вас в обед! 🦁💪")
+	}
 
 	summary := sb.String()
 
-	// Отправляем сводку в чат
 	reply := tgbotapi.NewMessage(chatID, summary)
-	b.logger.Infof("Sending monthly summary to chat %d", chatID)
+	b.logger.Infof("Sending monthly report to chat %d", chatID)
 	_, err = b.api.Send(reply)
 	if err != nil {
-		b.logger.Errorf("Failed to send monthly summary: %v", err)
+		b.logger.Errorf("Failed to send monthly report: %v", err)
 	} else {
-		b.logger.Infof("Successfully sent monthly summary to chat %d", chatID)
+		b.logger.Infof("Successfully sent monthly report to chat %d", chatID)
 	}
 }
 
