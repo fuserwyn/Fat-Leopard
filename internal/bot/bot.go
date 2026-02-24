@@ -27,6 +27,8 @@ type Bot struct {
 	aiClient             *ai.OpenRouterClient
 	sickApprovalWatchers map[int64]chan struct{}
 	sickApprovalMutex    sync.Mutex
+	adminSessions        map[int64]*adminSession
+	adminSessionsMutex   sync.Mutex
 }
 
 var (
@@ -69,6 +71,7 @@ func New(cfg *config.Config, db *database.Database, log logger.Logger) (*Bot, er
 		timers:               make(map[int64]*domain.TimerInfo),
 		aiClient:             aiClient,
 		sickApprovalWatchers: make(map[int64]chan struct{}),
+		adminSessions:        make(map[int64]*adminSession),
 	}, nil
 }
 
@@ -143,6 +146,11 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 
 	msg := update.Message
 	b.logger.Infof("Received message from %d: %s", msg.From.ID, msg.Text)
+
+	// Админ-мастер перехватывает сообщения владельца в личке при активной сессии.
+	if b.handleAdminFlowMessage(msg) {
+		return
+	}
 
 	// Обрабатываем команды
 	if msg.IsCommand() {
@@ -220,6 +228,8 @@ func (b *Bot) handleCommand(msg *tgbotapi.Message) {
 	case "send_wisdom":
 		// Ручной запуск рассылки мудрости дня
 		b.generateAndSendDailyWisdom()
+	case "admin":
+		b.handleAdmin(msg)
 	case "audit_last24":
 		b.auditLast24h()
 	case "set_chat_type":
@@ -650,6 +660,13 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 	if err != nil {
 		b.logger.Errorf("Failed to get message log: %v", err)
 		return
+	}
+
+	// Фиксируем кубки до начислений, чтобы сохранить точный cups_added в training_sessions.
+	cupsBefore, err := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
+	if err != nil {
+		b.logger.Warnf("Failed to get initial cups before training session save: %v", err)
+		cupsBefore = 0
 	}
 
 	if messageLog.SickApprovalPending {
@@ -1383,6 +1400,101 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 			b.logger.Errorf("Failed to reset sick leave flags: %v", err)
 		}
 		b.logger.Infof("Reset sick leave flags and marked as healthy for user %d (%s) after training during sick leave", msg.From.ID, username)
+	}
+
+	// Сохраняем сессию в отдельную таблицу для аналитики (начиная с 2026-03-01).
+	// Это позволяет отвечать на вопросы: "что делал", "сколько тренировок", "сколько кубков за день".
+	sessionDate := utils.GetMoscowDate()
+	if sessionDate >= "2026-03-01" {
+		cupsAfter, cupsErr := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
+		if cupsErr != nil {
+			b.logger.Warnf("Failed to get cups after training session save: %v", cupsErr)
+			cupsAfter = cupsBefore
+		}
+		cupsAdded := cupsAfter - cupsBefore
+		if cupsAdded < 0 {
+			cupsAdded = 0
+		}
+
+		sessionText := text
+		sessionText = strings.ReplaceAll(sessionText, "#training_done", "")
+		sessionText = strings.ReplaceAll(sessionText, "#writing_done", "")
+		sessionText = strings.TrimSpace(sessionText)
+
+		if err := b.db.SaveTrainingSession(&domain.TrainingSession{
+			UserID:         msg.From.ID,
+			ChatID:         msg.Chat.ID,
+			SessionDate:    sessionDate,
+			MessageText:    sessionText,
+			TrainingsCount: 1,
+			CupsAdded:      cupsAdded,
+			IsBonus:        false,
+		}); err != nil {
+			b.logger.Errorf("Failed to save training session: %v", err)
+		} else {
+			// Логика бонуса по вашему правилу:
+			// 1) бонус считается ТОЛЬКО в день возврата после пропуска;
+			// 2) считаем тренировки в предыдущие 7 дней (без текущего дня);
+			// 3) бонус = floor(count/3) * 10;
+			// 4) в день серии 7/7 (weeklyAchievement) эта логика не применяется;
+			// 5) новое окно стартует с даты выдачи бонуса.
+			nowMSK := utils.GetMoscowTime()
+			yesterday := utils.GetMoscowDateFromTime(nowMSK.AddDate(0, 0, -1))
+			returnAfterSkip := messageLog.LastTrainingDate != nil &&
+				*messageLog.LastTrainingDate != yesterday &&
+				*messageLog.LastTrainingDate != sessionDate
+
+			if returnAfterSkip && !weeklyAchievement {
+				// Базовое окно: предыдущие 7 дней (без текущего дня).
+				windowEndDate := utils.GetMoscowDateFromTime(nowMSK.AddDate(0, 0, -1))
+				windowStartDate := utils.GetMoscowDateFromTime(nowMSK.AddDate(0, 0, -7))
+
+				// Если бонус уже был, окно не может начинаться раньше даты последнего бонуса.
+				lastBonusDate, lastBonusErr := b.db.GetLastBonusSessionDate(msg.From.ID, msg.Chat.ID)
+				if lastBonusErr != nil {
+					b.logger.Errorf("Failed to get last bonus date: %v", lastBonusErr)
+				} else if lastBonusDate != nil && *lastBonusDate > windowStartDate {
+					windowStartDate = *lastBonusDate
+				}
+
+				sessionCountInWindow, cntErr := b.db.CountTrainingSessionsInDateRange(msg.From.ID, msg.Chat.ID, windowStartDate, windowEndDate)
+				if cntErr != nil {
+					b.logger.Errorf("Failed to count training sessions for 7-day return bonus: %v", cntErr)
+				} else {
+					bonusCups := (sessionCountInWindow / 3) * 10
+					if bonusCups > 0 {
+						if addErr := b.db.AddCups(msg.From.ID, msg.Chat.ID, bonusCups); addErr != nil {
+							b.logger.Errorf("Failed to add 7-day return bonus cups: %v", addErr)
+						} else {
+							// Маркер бонуса: фиксируем дату старта следующего окна.
+							if saveBonusErr := b.db.SaveTrainingSession(&domain.TrainingSession{
+								UserID:         msg.From.ID,
+								ChatID:         msg.Chat.ID,
+								SessionDate:    sessionDate,
+								MessageText:    "BONUS_7D_WINDOW",
+								TrainingsCount: 0,
+								CupsAdded:      bonusCups,
+								IsBonus:        true,
+							}); saveBonusErr != nil {
+								b.logger.Errorf("Failed to save 7-day return bonus marker: %v", saveBonusErr)
+							}
+
+							chatTypeForBonus, typeErr := b.db.GetChatType(msg.Chat.ID)
+							if typeErr != nil {
+								chatTypeForBonus = "training"
+							}
+							bonusText := fmt.Sprintf("🎁 Бонус активности: в предыдущие 7 дней у тебя %d тренировок. +%d кубков 🏆", sessionCountInWindow, bonusCups)
+							if chatTypeForBonus == "writing" {
+								bonusText = fmt.Sprintf("🎁 Бонус активности: в предыдущие 7 дней у тебя %d писательских сессий. +%d кубков 🏆", sessionCountInWindow, bonusCups)
+							}
+							if _, sendErr := b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, bonusText)); sendErr != nil {
+								b.logger.Errorf("Failed to send 7-day return bonus message: %v", sendErr)
+							}
+						}
+					}
+				}
+			}
+		}
 	}
 
 	// Таймер уже перезапущен в начале функции для предотвращения race condition
@@ -3821,6 +3933,11 @@ func (b *Bot) handleAIMemory(msg *tgbotapi.Message) {
 func (b *Bot) handleCallbackQuery(callback *tgbotapi.CallbackQuery) {
 	data := callback.Data
 	msg := callback.Message
+
+	if strings.HasPrefix(data, "admin_") {
+		b.handleAdminCallbackQuery(callback)
+		return
+	}
 
 	switch data {
 	case "back_to_menu":
