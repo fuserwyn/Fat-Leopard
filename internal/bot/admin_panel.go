@@ -201,6 +201,13 @@ func (b *Bot) handleAdminFlowMessage(msg *tgbotapi.Message) bool {
 			b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "⚠️ Вопрос пустой, отправь текст вопроса."))
 			return true
 		}
+		if len([]rune(question)) > 300 {
+			b.api.Send(tgbotapi.NewMessage(
+				msg.Chat.ID,
+				"⚠️ Вопрос слишком длинный для Telegram-опроса (макс. 300 символов). Сократи текст и отправь снова.",
+			))
+			return true
+		}
 		session.PollQuestion = question
 		session.Step = "await_poll_options"
 		b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "🗳 Отправь варианты через `|`, например:\nДа | Нет | Нужно доработать"))
@@ -222,6 +229,15 @@ func (b *Bot) handleAdminFlowMessage(msg *tgbotapi.Message) bool {
 		if len(options) > 10 {
 			b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "⚠️ Максимум 10 вариантов."))
 			return true
+		}
+		for _, opt := range options {
+			if len([]rune(opt)) > 100 {
+				b.api.Send(tgbotapi.NewMessage(
+					msg.Chat.ID,
+					"⚠️ Один из вариантов слишком длинный (макс. 100 символов). Сократи варианты и отправь снова.",
+				))
+				return true
+			}
 		}
 		poll := tgbotapi.NewPoll(session.TargetChatID, session.PollQuestion, options...)
 		if _, err := b.api.Send(poll); err != nil {
