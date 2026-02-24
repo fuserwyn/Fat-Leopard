@@ -27,6 +27,8 @@ type Bot struct {
 	aiClient             *ai.OpenRouterClient
 	sickApprovalWatchers map[int64]chan struct{}
 	sickApprovalMutex    sync.Mutex
+	adminSessions        map[int64]*adminSession
+	adminSessionsMutex   sync.Mutex
 }
 
 // addDaysToDate добавляет days к дате (YYYY-MM-DD), возвращает "" при ошибке.
@@ -117,6 +119,7 @@ func New(cfg *config.Config, db *database.Database, log logger.Logger) (*Bot, er
 		timers:               make(map[int64]*domain.TimerInfo),
 		aiClient:             aiClient,
 		sickApprovalWatchers: make(map[int64]chan struct{}),
+		adminSessions:        make(map[int64]*adminSession),
 	}, nil
 }
 
@@ -191,6 +194,11 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 
 	msg := update.Message
 	b.logger.Infof("Received message from %d: %s", msg.From.ID, msg.Text)
+
+	// Админ-мастер перехватывает сообщения владельца в личке при активной сессии.
+	if b.handleAdminFlowMessage(msg) {
+		return
+	}
 
 	// Обрабатываем команды
 	if msg.IsCommand() {
@@ -268,6 +276,8 @@ func (b *Bot) handleCommand(msg *tgbotapi.Message) {
 	case "send_wisdom":
 		// Ручной запуск рассылки мудрости дня
 		b.generateAndSendDailyWisdom()
+	case "admin":
+		b.handleAdmin(msg)
 	case "audit_last24":
 		b.auditLast24h()
 	case "set_chat_type":
@@ -793,6 +803,13 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 		return
 	}
 
+	// Фиксируем кубки до начислений, чтобы сохранить точный cups_added в training_sessions.
+	cupsBefore, err := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
+	if err != nil {
+		b.logger.Warnf("Failed to get initial cups before training session save: %v", err)
+		cupsBefore = 0
+	}
+
 	if messageLog.SickApprovalPending {
 		b.cancelSickApprovalWatcher(msg.From.ID)
 		messageLog.SickApprovalPending = false
@@ -1163,6 +1180,7 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 				// Формируем вопрос для единого AI-сообщения (объединяем приписку и мудрость в одно)
 				question := b.getUnifiedTrainingPrompt(newStreakDays, totalCalories, currentCups, wasOnSickLeave, chatType)
 				var ctxBuilder strings.Builder
+				ctxBuilder.WriteString("КРИТИЧЕСКИ ВАЖНО: Отвечай ТОЛЬКО на этот отчёт. НЕ используй историю чата, последние сообщения или сообщения других участников. Комментируй исключительно то, что написано в этом сообщении.\n\n")
 				ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
 				// Добавляем пол пользователя в контекст
 				genderNormalized := strings.TrimSpace(strings.ToLower(userGender))
@@ -1273,41 +1291,8 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 					}
 				}
 
-				// Добавляем контекст истории сообщений пользователя
-				messageLimit := 420
-				recentMessages, err := b.db.GetRecentUserMessages(msg.From.ID, msg.Chat.ID, messageLimit)
-				if err == nil && len(recentMessages) > 0 {
-					ctxBuilder.WriteString(fmt.Sprintf("\nИстория последних сообщений (для понимания контекста общения, до %d сообщений):\n", messageLimit))
-					for i, recentMsg := range recentMessages {
-						if i >= messageLimit { // Ограничиваем до последних сообщений
-							break
-						}
-						// Убираем хэштеги для читаемости
-						cleanMsg := strings.ReplaceAll(recentMsg, "#training_done", "")
-						cleanMsg = strings.TrimSpace(cleanMsg)
-						if cleanMsg != "" && cleanMsg != trainingText {
-							ctxBuilder.WriteString(fmt.Sprintf("- %s\n", cleanMsg))
-						}
-					}
-				}
-
-				// Контекст других участников — только для понимания обстановки в чате.
-				// Для ОТЧЁТА #training_done ответ всегда персональный: комментируем только отправителя отчёта.
-				// (В обычном чате / ответах леопард по-прежнему использует полный контекст и может отвечать про любого участника.)
-				chatContextLimit := 420
-				chatContext, err := b.db.GetChatContext(msg.Chat.ID, msg.From.ID, chatContextLimit)
-				if err == nil && len(chatContext) > 0 {
-					ctxBuilder.WriteString("\nКРИТИЧЕСКИ ВАЖНО: Твой ответ адресован ТОЛЬКО пользователю «" + username + "». Ниже — сообщения ДРУГИХ участников чата. ЗАПРЕЩЕНО приписывать текущему пользователю события, проблемы или детали из сообщений других людей (телефон, сим-карта, пробежка и т.п.). Комментируй исключительно то, что написал в своём отчёте текущий пользователь.\n\nКонтекст других участников чата (последние сообщения):\n")
-					for _, otherUser := range chatContext {
-						if otherUser.LastMessage != "" {
-							cleanMsg := strings.ReplaceAll(otherUser.LastMessage, "#training_done", "")
-							cleanMsg = strings.TrimSpace(cleanMsg)
-							if cleanMsg != "" {
-								ctxBuilder.WriteString(fmt.Sprintf("%s: %s\n", otherUser.Username, cleanMsg))
-							}
-						}
-					}
-				}
+				// КРИТИЧЕСКИ ВАЖНО: НЕ добавляем историю сообщений и контекст других участников.
+				// Ответ должен быть ТОЛЬКО на этот отчёт о тренировке/писательстве — без смешивания с другими сообщениями чата.
 
 				if aiResponse, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
 					aiResponse = strings.TrimSpace(strings.ReplaceAll(aiResponse, "**", ""))
@@ -1382,22 +1367,21 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 				var doubleTrainingPrompts []string
 				if chatType == "writing" {
 					doubleTrainingPrompts = []string{
-						"Напиши одно связное сообщение (2-3 предложения) после дополнительной писательской сессии в тот же день: первое — отметь упорство и писательскую работу, второе — короткое практическое замечание по писательству. НЕ упоминай тренировки, спорт или физическую активность. НЕ используй фразы 'помни', 'дух', 'воля', 'преданность делу'. Не повторяй цифры. КРИТИЧЕСКИ ВАЖНО: используй ТОЛЬКО детали о писательской работе, которые указаны в сообщении пользователя. НЕ выдумывай детали, которых нет. Без Markdown.",
-						"Сделай одно цельное сообщение (2-3 предложения) после второй писательской сессии за день: первое — похвали за энергию и отметь писательскую работу, второе — конкретное наблюдение по писательству. НЕ упоминай тренировки, спорт или физическую активность. Избегай фраз 'помни', 'дух', 'воля', 'дисциплина'. Используй ТОЛЬКО детали о писательской работе из сообщения. Без Markdown.",
-						"Напиши одно связное сообщение (2-3 предложения): двойная писательская сессия — это особое вдохновение! Первое — отметь это и писательскую работу, второе — короткий комментарий по писательству. НЕ упоминай тренировки, спорт или физическую активность. НЕ используй абстрактные фразы про 'дух', 'волю', 'помни', 'преданность'. Используй ТОЛЬКО детали о писательской работе из сообщения. Без Markdown.",
-						"Сделай одно цельное сообщение (2-3 предложения) после дополнительной писательской сессии: первое — энергия впечатляет, отметь писательскую работу, второе — практический совет по писательству. НЕ упоминай тренировки, спорт или физическую активность. Избегай фраз 'помни', 'дух', 'воля', 'приближает к цели'. Используй детали о писательской работе из сообщения. Без Markdown.",
+						"Двойная писательская сессия за день — особое вдохновение! Напиши 2-3 предложения: первое — отметь упорство и писательскую работу, второе — короткое практическое замечание. Используй ТОЛЬКО этот отчёт. Без Markdown.",
+						"Вторая писательская сессия за день. Напиши 2-3 предложения: первое — похвали за энергию и отметь работу, второе — конкретное наблюдение. Используй ТОЛЬКО этот отчёт. Без Markdown.",
 					}
 				} else {
 					doubleTrainingPrompts = []string{
-						"Напиши одно связное сообщение (2-3 предложения) после дополнительной тренировки в тот же день: первое — отметь упорство и упражнения, второе — короткое практическое замечание. НЕ используй фразы 'помни', 'дух', 'воля', 'преданность делу'. Не повторяй цифры. КРИТИЧЕСКИ ВАЖНО: используй ТОЛЬКО те упражнения и детали, которые указаны в сообщении пользователя. НЕ выдумывай детали, которых нет. Без Markdown.",
-						"Сделай одно цельное сообщение (2-3 предложения) после второй тренировки за день: первое — похвали за энергию и отметь упражнения, второе — конкретное наблюдение. Избегай фраз 'помни', 'дух', 'воля', 'дисциплина'. Используй ТОЛЬКО упражнения из сообщения. Без Markdown.",
-						"Напиши одно связное сообщение (2-3 предложения): двойная тренировка — это особое упорство! Первое — отметь это и упражнения, второе — короткий комментарий. НЕ используй абстрактные фразы про 'дух', 'волю', 'помни', 'преданность'. Используй ТОЛЬКО упражнения из сообщения. Без Markdown.",
-						"Сделай одно цельное сообщение (2-3 предложения) после дополнительной тренировки: первое — энергия впечатляет, отметь упражнения, второе — практический совет. Избегай фраз 'помни', 'дух', 'воля', 'приближает к цели'. Используй упражнения из сообщения. Без Markdown.",
+						"Двойная тренировка за день — Fat Leopard впечатлён! Напиши 2-3 предложения: первое — отметь упорство и упражнения, второе — короткое замечание. Можно лёгкий юмор: «таких я не ем». Используй ТОЛЬКО этот отчёт. Без Markdown.",
+						"Вторая тренировка за день — не все на это способны. Напиши 2-3 предложения: первое — похвали за энергию и отметь упражнения, второе — короткий совет по восстановлению. Используй ТОЛЬКО этот отчёт. Без Markdown.",
+						"Двойная тренировка — особое упорство! Напиши 2-3 предложения: первое — отметь упражнения, второе — комментарий. Fat Leopard одобряет. Используй ТОЛЬКО этот отчёт. Без Markdown.",
+						"Ещё одна тренировка сегодня — энергия впечатляет. Напиши 2-3 предложения: первое — отметь упражнения, второе — практический совет. Используй ТОЛЬКО этот отчёт. Без Markdown.",
 					}
 				}
 				now := utils.GetMoscowTime()
 				question := doubleTrainingPrompts[now.Unix()%int64(len(doubleTrainingPrompts))]
 				var ctxBuilder strings.Builder
+				ctxBuilder.WriteString("КРИТИЧЕСКИ ВАЖНО: Отвечай ТОЛЬКО на этот отчёт. НЕ используй историю чата или сообщения других участников.\n\n")
 				ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
 				// Добавляем пол пользователя в контекст
 				genderNormalized := strings.TrimSpace(strings.ToLower(userGender))
@@ -1444,39 +1428,8 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 					}
 				}
 
-				// Добавляем контекст истории сообщений пользователя
-				messageLimit := 420
-				recentMessages, err := b.db.GetRecentUserMessages(msg.From.ID, msg.Chat.ID, messageLimit)
-				if err == nil && len(recentMessages) > 0 {
-					ctxBuilder.WriteString(fmt.Sprintf("\nИстория последних сообщений (для понимания контекста общения, до %d сообщений):\n", messageLimit))
-					for i, recentMsg := range recentMessages {
-						if i >= messageLimit { // Ограничиваем до последних сообщений
-							break
-						}
-						// Убираем хэштеги для читаемости
-						cleanMsg := strings.ReplaceAll(recentMsg, "#training_done", "")
-						cleanMsg = strings.TrimSpace(cleanMsg)
-						if cleanMsg != "" && cleanMsg != trainingTextDouble {
-							ctxBuilder.WriteString(fmt.Sprintf("- %s\n", cleanMsg))
-						}
-					}
-				}
-
-				// Для повторной тренировки в тот же день — ответ тоже персональный (только про отправителя).
-				chatContextLimit := 420
-				chatContext, err := b.db.GetChatContext(msg.Chat.ID, msg.From.ID, chatContextLimit)
-				if err == nil && len(chatContext) > 0 {
-					ctxBuilder.WriteString("\nКРИТИЧЕСКИ ВАЖНО: Твой ответ адресован ТОЛЬКО пользователю «" + username + "». Ниже — сообщения ДРУГИХ участников. ЗАПРЕЩЕНО приписывать текущему пользователю события или детали из сообщений других людей. Комментируй только то, что написал текущий пользователь.\n\nКонтекст других участников чата (последние сообщения):\n")
-					for _, otherUser := range chatContext {
-						if otherUser.LastMessage != "" {
-							cleanMsg := strings.ReplaceAll(otherUser.LastMessage, "#training_done", "")
-							cleanMsg = strings.TrimSpace(cleanMsg)
-							if cleanMsg != "" {
-								ctxBuilder.WriteString(fmt.Sprintf("%s: %s\n", otherUser.Username, cleanMsg))
-							}
-						}
-					}
-				}
+				// КРИТИЧЕСКИ ВАЖНО: НЕ добавляем историю сообщений и контекст других участников.
+				// Ответ только на этот отчёт — без смешивания с другими сообщениями чата.
 
 				if aiResponse, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
 					aiResponse = strings.TrimSpace(strings.ReplaceAll(aiResponse, "**", ""))
@@ -1579,13 +1532,116 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 		b.logger.Infof("Sending forgotten #healthy warning to user %d (%s)", msg.From.ID, username)
 		b.api.Send(warningMessage)
 
-		messageLog.HasSickLeave = false
-		messageLog.HasHealthy = true
-		messageLog.SickLeaveStartTime = nil
-		if err := b.db.SaveMessageLog(messageLog); err != nil {
+		// ВАЖНО: перечитываем актуальную запись из БД, чтобы не перетереть свежие
+		// начисления кубков/калорий и обновления серий устаревшим messageLog.
+		latestLog, err := b.db.GetMessageLog(msg.From.ID, msg.Chat.ID)
+		if err != nil {
+			b.logger.Errorf("Failed to refresh message log before sick leave reset: %v", err)
+			latestLog = messageLog // fallback на старую запись, чтобы не блокировать флоу
+		}
+
+		latestLog.HasSickLeave = false
+		latestLog.HasHealthy = true
+		latestLog.SickLeaveStartTime = nil
+		if err := b.db.SaveMessageLog(latestLog); err != nil {
 			b.logger.Errorf("Failed to reset sick leave flags: %v", err)
 		}
 		b.logger.Infof("Reset sick leave flags and marked as healthy for user %d (%s) after training during sick leave", msg.From.ID, username)
+	}
+
+	// Сохраняем сессию в отдельную таблицу для аналитики (начиная с 2026-03-01).
+	// Это позволяет отвечать на вопросы: "что делал", "сколько тренировок", "сколько кубков за день".
+	sessionDate := utils.GetMoscowDate()
+	if sessionDate >= "2026-03-01" {
+		cupsAfter, cupsErr := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
+		if cupsErr != nil {
+			b.logger.Warnf("Failed to get cups after training session save: %v", cupsErr)
+			cupsAfter = cupsBefore
+		}
+		cupsAdded := cupsAfter - cupsBefore
+		if cupsAdded < 0 {
+			cupsAdded = 0
+		}
+
+		sessionText := text
+		sessionText = strings.ReplaceAll(sessionText, "#training_done", "")
+		sessionText = strings.ReplaceAll(sessionText, "#writing_done", "")
+		sessionText = strings.TrimSpace(sessionText)
+
+		if err := b.db.SaveTrainingSession(&domain.TrainingSession{
+			UserID:         msg.From.ID,
+			ChatID:         msg.Chat.ID,
+			SessionDate:    sessionDate,
+			MessageText:    sessionText,
+			TrainingsCount: 1,
+			CupsAdded:      cupsAdded,
+			IsBonus:        false,
+		}); err != nil {
+			b.logger.Errorf("Failed to save training session: %v", err)
+		} else {
+			// Логика бонуса по вашему правилу:
+			// 1) бонус считается ТОЛЬКО в день возврата после пропуска;
+			// 2) считаем тренировки в предыдущие 7 дней (без текущего дня);
+			// 3) бонус = floor(count/3) * 10;
+			// 4) в день серии 7/7 (weeklyAchievement) эта логика не применяется;
+			// 5) новое окно стартует с даты выдачи бонуса.
+			nowMSK := utils.GetMoscowTime()
+			yesterday := utils.GetMoscowDateFromTime(nowMSK.AddDate(0, 0, -1))
+			returnAfterSkip := messageLog.LastTrainingDate != nil &&
+				*messageLog.LastTrainingDate != yesterday &&
+				*messageLog.LastTrainingDate != sessionDate
+
+			if returnAfterSkip && !weeklyAchievement {
+				// Базовое окно: предыдущие 7 дней (без текущего дня).
+				windowEndDate := utils.GetMoscowDateFromTime(nowMSK.AddDate(0, 0, -1))
+				windowStartDate := utils.GetMoscowDateFromTime(nowMSK.AddDate(0, 0, -7))
+
+				// Если бонус уже был, окно не может начинаться раньше даты последнего бонуса.
+				lastBonusDate, lastBonusErr := b.db.GetLastBonusSessionDate(msg.From.ID, msg.Chat.ID)
+				if lastBonusErr != nil {
+					b.logger.Errorf("Failed to get last bonus date: %v", lastBonusErr)
+				} else if lastBonusDate != nil && *lastBonusDate > windowStartDate {
+					windowStartDate = *lastBonusDate
+				}
+
+				sessionCountInWindow, cntErr := b.db.CountTrainingSessionsInDateRange(msg.From.ID, msg.Chat.ID, windowStartDate, windowEndDate)
+				if cntErr != nil {
+					b.logger.Errorf("Failed to count training sessions for 7-day return bonus: %v", cntErr)
+				} else {
+					bonusCups := (sessionCountInWindow / 3) * 10
+					if bonusCups > 0 {
+						if addErr := b.db.AddCups(msg.From.ID, msg.Chat.ID, bonusCups); addErr != nil {
+							b.logger.Errorf("Failed to add 7-day return bonus cups: %v", addErr)
+						} else {
+							// Маркер бонуса: фиксируем дату старта следующего окна.
+							if saveBonusErr := b.db.SaveTrainingSession(&domain.TrainingSession{
+								UserID:         msg.From.ID,
+								ChatID:         msg.Chat.ID,
+								SessionDate:    sessionDate,
+								MessageText:    "BONUS_7D_WINDOW",
+								TrainingsCount: 0,
+								CupsAdded:      bonusCups,
+								IsBonus:        true,
+							}); saveBonusErr != nil {
+								b.logger.Errorf("Failed to save 7-day return bonus marker: %v", saveBonusErr)
+							}
+
+							chatTypeForBonus, typeErr := b.db.GetChatType(msg.Chat.ID)
+							if typeErr != nil {
+								chatTypeForBonus = "training"
+							}
+							bonusText := fmt.Sprintf("🎁 Бонус активности: в предыдущие 7 дней у тебя %d тренировок. +%d кубков 🏆", sessionCountInWindow, bonusCups)
+							if chatTypeForBonus == "writing" {
+								bonusText = fmt.Sprintf("🎁 Бонус активности: в предыдущие 7 дней у тебя %d писательских сессий. +%d кубков 🏆", sessionCountInWindow, bonusCups)
+							}
+							if _, sendErr := b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, bonusText)); sendErr != nil {
+								b.logger.Errorf("Failed to send 7-day return bonus message: %v", sendErr)
+							}
+						}
+					}
+				}
+			}
+		}
 	}
 
 	// Таймер уже перезапущен в начале функции для предотвращения race condition
@@ -3074,6 +3130,18 @@ func (b *Bot) generateAndSendMonthlySummary(month time.Time) {
 	}
 }
 
+// monthlyReportUser данные пользователя для месячного отчёта
+type monthlyReportUser struct {
+	UserID        int64
+	Username      string
+	TrainingCount int
+	HasSickLeave  bool
+	HasHealthy    bool
+	StreakDays    int
+	Calories      int
+	Cups          int
+}
+
 // generateMonthlySummaryForChat генерирует месячную сводку для конкретного чата
 func (b *Bot) generateMonthlySummaryForChat(chatID int64, month time.Time) {
 	// Получаем сообщения за месяц
@@ -3087,98 +3155,146 @@ func (b *Bot) generateMonthlySummaryForChat(chatID int64, month time.Time) {
 		return // Нет сообщений за месяц
 	}
 
-	// Группируем сообщения по пользователям
-	userMap := make(map[int64]*ai.UserTrainingData)
+	// Определяем тип чата
+	chatType, err := b.db.GetChatType(chatID)
+	if err != nil {
+		chatType = "training"
+	}
+
+	// Группируем и считаем по пользователям
+	userMap := make(map[int64]*monthlyReportUser)
 	for _, msg := range messages {
 		if userMap[msg.UserID] == nil {
-			// Получаем данные пользователя
 			userLog, err := b.db.GetMessageLog(msg.UserID, msg.ChatID)
 			if err != nil {
 				continue
 			}
-
 			cups, _ := b.db.GetUserCups(msg.UserID, msg.ChatID)
-			userMap[msg.UserID] = &ai.UserTrainingData{
-				UserID:       msg.UserID,
-				Username:     msg.Username,
-				HasTraining:  false,
-				HasSickLeave: false,
-				HasHealthy:   false,
-				StreakDays:   userLog.StreakDays,
-				Calories:     userLog.Calories,
-				Cups:         cups,
+			userMap[msg.UserID] = &monthlyReportUser{
+				UserID:        msg.UserID,
+				Username:      msg.Username,
+				TrainingCount: 0,
+				HasSickLeave:  false,
+				HasHealthy:    false,
+				StreakDays:    userLog.StreakDays,
+				Calories:      userLog.Calories,
+				Cups:          cups,
 			}
 		}
 
-		user := userMap[msg.UserID]
-		if msg.MessageType == "training_done" {
-			user.HasTraining = true
-			if user.TrainingMessage == "" {
-				user.TrainingMessage = msg.MessageText
-			}
-		} else if msg.MessageType == "sick_leave" {
-			user.HasSickLeave = true
-		} else if msg.MessageType == "healthy" {
-			user.HasHealthy = true
+		u := userMap[msg.UserID]
+		switch msg.MessageType {
+		case "training_done":
+			u.TrainingCount++
+		case "sick_leave":
+			u.HasSickLeave = true
+		case "healthy":
+			u.HasHealthy = true
 		}
 	}
 
-	// Преобразуем map в slice
-	var usersData []ai.UserTrainingData
-	for _, user := range userMap {
-		usersData = append(usersData, *user)
+	// Преобразуем в slice и сортируем по количеству тренировок (убыв.)
+	var usersData []*monthlyReportUser
+	for _, u := range userMap {
+		usersData = append(usersData, u)
+	}
+	for i := 0; i < len(usersData)-1; i++ {
+		for j := i + 1; j < len(usersData); j++ {
+			if usersData[j].TrainingCount > usersData[i].TrainingCount {
+				usersData[i], usersData[j] = usersData[j], usersData[i]
+			}
+		}
 	}
 
 	if len(usersData) == 0 {
 		return
 	}
 
-	// Формируем детерминированную (НЕ ИИ) сводку без выдуманных тренировок
+	// Название месяца на русском
+	monthNames := []string{"января", "февраля", "марта", "апреля", "мая", "июня",
+		"июля", "августа", "сентября", "октября", "ноября", "декабря"}
+	monthName := monthNames[month.Month()-1]
+	year := month.Year()
+
+	// Формируем отчёт в стиле Fat Leopard
 	var sb strings.Builder
 
+	sb.WriteString("📊 Отчёт Fat Leopard за ")
+	sb.WriteString(monthName)
+	sb.WriteString(fmt.Sprintf(" %d\n\n", year))
 	sb.WriteString("Привет, стая! 🦁\n\n")
-	sb.WriteString("Подводим итоги прошедшего месяца по фактическим данным:\n\n")
 
+	// Максимум в месяце
+	maxTrainings := 0
 	for _, u := range usersData {
-		username := u.Username
-		if username == "" {
-			username = fmt.Sprintf("User%d", u.UserID)
+		if u.TrainingCount > maxTrainings {
+			maxTrainings = u.TrainingCount
 		}
-
-		sb.WriteString(fmt.Sprintf("%s — серия: %d дней, калории: %d, кубки: %d", username, u.StreakDays, u.Calories, u.Cups))
-
-		// Краткие статусы без фантазий о тренировках
-		var flags []string
-		if u.HasTraining {
-			flags = append(flags, "отправлял(а) #training_done")
-		}
-		if u.HasSickLeave {
-			flags = append(flags, "был(а) на #sick_leave")
-		}
-		if u.HasHealthy {
-			flags = append(flags, "вернулся(лась) с #healthy")
-		}
-		if len(flags) > 0 {
-			sb.WriteString(" (")
-			sb.WriteString(strings.Join(flags, ", "))
-			sb.WriteString(")")
-		}
-
-		sb.WriteString(".\n")
+	}
+	workLabel := "тренировок"
+	if chatType == "writing" {
+		workLabel = "писательских сессий"
+	}
+	if maxTrainings > 0 {
+		sb.WriteString(fmt.Sprintf("Максимум в месяце: %d %s\n\n", maxTrainings, workLabel))
 	}
 
-	sb.WriteString("\nДержим курс и продолжаем в новом месяце 💪")
+	// Сводка по каждому: пользователь, сколько тренировок, серия на момент отчёта
+	for _, u := range usersData {
+		name := u.Username
+		if name == "" {
+			name = fmt.Sprintf("User%d", u.UserID)
+		}
+
+		sb.WriteString(fmt.Sprintf("• %s: %d %s", name, u.TrainingCount, workLabel))
+		sb.WriteString(fmt.Sprintf(", серия на момент отчёта: %d дн.", u.StreakDays))
+		if chatType == "writing" {
+			sb.WriteString(fmt.Sprintf(", %d %s, %d кубков", u.Calories, getWordForm(u.Calories), u.Cups))
+		} else {
+			sb.WriteString(fmt.Sprintf(", %d калорий, %d кубков", u.Calories, u.Cups))
+		}
+
+		var flags []string
+		if u.HasSickLeave {
+			flags = append(flags, "больничный")
+		}
+		if u.HasHealthy {
+			flags = append(flags, "выздоровел(а)")
+		}
+		if len(flags) > 0 {
+			sb.WriteString(" (" + strings.Join(flags, ", ") + ")")
+		}
+		sb.WriteString("\n")
+	}
+
+	// Заключение от Fat Leopard
+	sb.WriteString("\n")
+	anyTraining := false
+	for _, u := range usersData {
+		if u.TrainingCount > 0 {
+			anyTraining = true
+			break
+		}
+	}
+	if anyTraining {
+		if chatType == "writing" {
+			sb.WriteString("Я бы съел пирог. Вы — пишете. Продолжаем в том же духе! 💪🦁")
+		} else {
+			sb.WriteString("Я бы съел пиццу. Вы — тренировки. Продолжаем в том же духе! 💪🦁")
+		}
+	} else {
+		sb.WriteString("Новый месяц — новый шанс. Не дайте мне превратить вас в обед! 🦁💪")
+	}
 
 	summary := sb.String()
 
-	// Отправляем сводку в чат
 	reply := tgbotapi.NewMessage(chatID, summary)
-	b.logger.Infof("Sending monthly summary to chat %d", chatID)
+	b.logger.Infof("Sending monthly report to chat %d", chatID)
 	_, err = b.api.Send(reply)
 	if err != nil {
-		b.logger.Errorf("Failed to send monthly summary: %v", err)
+		b.logger.Errorf("Failed to send monthly report: %v", err)
 	} else {
-		b.logger.Infof("Successfully sent monthly summary to chat %d", chatID)
+		b.logger.Infof("Successfully sent monthly report to chat %d", chatID)
 	}
 }
 
@@ -4022,6 +4138,11 @@ func (b *Bot) handleCallbackQuery(callback *tgbotapi.CallbackQuery) {
 	data := callback.Data
 	msg := callback.Message
 
+	if strings.HasPrefix(data, "admin_") {
+		b.handleAdminCallbackQuery(callback)
+		return
+	}
+
 	switch data {
 	case "back_to_menu":
 		// Удаляем сообщение и возвращаемся в меню
@@ -4125,42 +4246,42 @@ func (b *Bot) getUnifiedTrainingPrompt(streakDays, totalCalories, totalCups int,
 
 	// Разные промпты для чатов писательства и тренировок
 	if chatType == "writing" {
-		// Промпты для чатов писательства - ТОЛЬКО про писательство, БЕЗ упоминаний спорта/тренировок
+		// Промпты для чатов писательства - ТОЛЬКО про писательство, ТОЛЬКО на этот отчёт
 		prompts = []string{
-			"Напиши одно связное сообщение (2-3 предложения) после отчёта #training_done: дружелюбно, как литературный наставник. Первое предложение — конкретный комментарий к писательской работе из сообщения (что пишешь, над чем работаешь), второе — короткое наблюдение или совет по писательству. НЕ упоминай тренировки, спорт или физическую активность. НЕ используй фразы типа 'помни', 'укрепление духа', 'сила воли'. НЕ повторяй цифры из сообщения. КРИТИЧЕСКИ ВАЖНО: используй ТОЛЬКО детали о писательской работе, которые указаны в сообщении пользователя. Используй контекст истории сообщений пользователя и других участников, если он предоставлен, чтобы понимать о чем идет речь в общении. Без Markdown.",
+			"Напиши одно связное сообщение (2-3 предложения) после отчёта #training_done: дружелюбно, как литературный наставник. Первое предложение — конкретный комментарий к писательской работе из сообщения (что пишешь, над чем работаешь), второе — короткое наблюдение или совет по писательству. НЕ упоминай тренировки, спорт или физическую активность. НЕ используй фразы типа 'помни', 'укрепление духа', 'сила воли'. НЕ повторяй цифры из сообщения. КРИТИЧЕСКИ ВАЖНО: отвечай ТОЛЬКО на этот отчёт. НЕ используй никакой другой контекст из чата, историю сообщений или сообщения других участников. Используй ТОЛЬКО детали из сообщения пользователя. Без Markdown.",
 
-			"Сделай одно цельное сообщение (2-3 предложения) после писательской сессии: первое — отметь конкретные детали писательской работы из сообщения (что пишешь, над чем работаешь, какие проблемы решаешь), второе — короткий практический совет или наблюдение по писательству. НЕ упоминай тренировки, спорт или физическую активность. Избегай общих фраз про 'дух', 'волю', 'помни'. Будь конкретным про писательскую работу, но не упоминай цифры. Используй контекст истории сообщений, если он предоставлен, чтобы понимать о чем идет речь. Без Markdown.",
+			"Сделай одно цельное сообщение (2-3 предложения) после писательской сессии: первое — отметь конкретные детали писательской работы из сообщения (что пишешь, над чем работаешь, какие проблемы решаешь), второе — короткий практический совет или наблюдение по писательству. НЕ упоминай тренировки, спорт или физическую активность. Избегай общих фраз про 'дух', 'волю', 'помни'. Будь конкретным про писательскую работу, но не упоминай цифры. КРИТИЧЕСКИ ВАЖНО: отвечай ТОЛЬКО на этот отчёт. НЕ смотри на другие сообщения в чате. Без Markdown.",
 
-			"Напиши одно связное сообщение (2-3 предложения) от лица литературного наставника Fat Leopard: первое — оценка писательской работы с упоминанием конкретных деталей из сообщения, второе — конкретное замечание или совет по писательству. НЕ упоминай тренировки, спорт или физическую активность. НЕ используй абстрактные фразы про 'дух', 'волю', 'помни'. Используй ТОЛЬКО детали о писательской работе из сообщения пользователя. Учитывай контекст истории общения, если он предоставлен. Без Markdown.",
+			"Напиши одно связное сообщение (2-3 предложения) от лица литературного наставника Fat Leopard: первое — оценка писательской работы с упоминанием конкретных деталей из сообщения, второе — конкретное замечание или совет по писательству. НЕ упоминай тренировки, спорт или физическую активность. НЕ используй абстрактные фразы про 'дух', 'волю', 'помни'. КРИТИЧЕСКИ ВАЖНО: отвечай ТОЛЬКО на этот отчёт. НЕ используй контекст других сообщений. Используй ТОЛЬКО детали из сообщения пользователя. Без Markdown.",
 
-			"Сделай одно цельное сообщение (2-3 предложения) после #training_done: первое — поддерживающий комментарий про писательскую работу из сообщения, второе — практический совет или наблюдение по писательству. НЕ упоминай тренировки, спорт или физическую активность. Избегай фраз 'помни', 'укрепление', 'дух', 'воля'. Не повторяй цифры, используй ТОЛЬКО детали о писательской работе из сообщения. Используй контекст истории сообщений для понимания общения. Без Markdown.",
+			"Сделай одно цельное сообщение (2-3 предложения) после #training_done: первое — поддерживающий комментарий про писательскую работу из сообщения, второе — практический совет или наблюдение по писательству. НЕ упоминай тренировки, спорт или физическую активность. Избегай фраз 'помни', 'укрепление', 'дух', 'воля'. Не повторяй цифры. КРИТИЧЕСКИ ВАЖНО: отвечай ТОЛЬКО на этот отчёт. НЕ смешивай с другими сообщениями чата. Без Markdown.",
 
-			"Напиши одно связное сообщение (2-3 предложения) в стиле литературного наставника: первое — конкретный комментарий к писательской работе из сообщения (что пишешь, какие сцены, персонажи, сюжет), второе — короткое практическое замечание по писательству. НЕ упоминай тренировки, спорт или физическую активность. НЕ используй общие фразы про 'дух', 'волю', 'помни'. Будь конкретным, но не упоминай цифры. Учитывай контекст общения, если он предоставлен. Без Markdown.",
+			"Напиши одно связное сообщение (2-3 предложения) в стиле литературного наставника: первое — конкретный комментарий к писательской работе из сообщения (что пишешь, какие сцены, персонажи, сюжет), второе — короткое практическое замечание по писательству. НЕ упоминай тренировки, спорт или физическую активность. НЕ используй общие фразы про 'дух', 'волю', 'помни'. Будь конкретным, но не упоминай цифры. КРИТИЧЕСКИ ВАЖНО: отвечай ТОЛЬКО на этот отчёт. Без Markdown.",
 
-			"Сделай одно цельное сообщение (2-3 предложения) после писательской сессии: первое — отметь детали писательской работы из сообщения, второе — короткий комментарий о процессе написания или развитии текста. НЕ упоминай тренировки, спорт или физическую активность. Избегай абстрактных фраз про 'дух', 'волю', 'помни'. Используй ТОЛЬКО детали о писательской работе из сообщения. Используй контекст истории для понимания о чем идет речь. Без Markdown.",
+			"Сделай одно цельное сообщение (2-3 предложения) после писательской сессии: первое — отметь детали писательской работы из сообщения, второе — короткий комментарий о процессе написания или развитии текста. НЕ упоминай тренировки, спорт или физическую активность. Избегай абстрактных фраз про 'дух', 'волю', 'помни'. КРИТИЧЕСКИ ВАЖНО: используй ТОЛЬКО этот отчёт. НЕ используй историю чата или сообщения других людей. Без Markdown.",
 
-			"Напиши одно связное сообщение (2-3 предложения): первое — конкретная оценка писательской работы из сообщения (что написано, над чем работаешь), второе — короткое замечание о процессе писательства. НЕ упоминай тренировки, спорт или физическую активность. НЕ используй фразы 'помни', 'укрепление духа', 'сила воли'. Будь конкретным про писательскую работу, не упоминай цифры. Учитывай контекст общения, если он предоставлен. Без Markdown.",
+			"Напиши одно связное сообщение (2-3 предложения): первое — конкретная оценка писательской работы из сообщения (что написано, над чем работаешь), второе — короткое замечание о процессе писательства. НЕ упоминай тренировки, спорт или физическую активность. НЕ используй фразы 'помни', 'укрепление духа', 'сила воли'. Будь конкретным про писательскую работу, не упоминай цифры. КРИТИЧЕСКИ ВАЖНО: отвечай ТОЛЬКО на этот отчёт. Без Markdown.",
 
-			"Сделай одно цельное сообщение (2-3 предложения) после #training_done: первое — комментарий к писательской работе, второе — короткое наблюдение о процессе писательства или развитии произведения. НЕ упоминай тренировки, спорт или физическую активность. Избегай общих фраз про 'дух', 'волю', 'помни'. Используй ТОЛЬКО детали о писательской работе из сообщения. Используй контекст истории сообщений для понимания общения. Без Markdown.",
+			"Сделай одно цельное сообщение (2-3 предложения) после #training_done: первое — комментарий к писательской работе, второе — короткое наблюдение о процессе писательства или развитии произведения. НЕ упоминай тренировки, спорт или физическую активность. Избегай общих фраз про 'дух', 'волю', 'помни'. КРИТИЧЕСКИ ВАЖНО: используй ТОЛЬКО этот отчёт. НЕ смотри на последние сообщения или других участников. Без Markdown.",
 		}
 	} else {
-		// Базовые стили единых промптов для тренировок (объединяют приписку и мудрость) - БЕЗ общих фраз про "помни", "дух", "волю"
+		// Базовые промпты для тренировок — живой тон, характер Fat Leopard, отвечай ТОЛЬКО на этот отчёт
 		prompts = []string{
-			"Напиши одно связное сообщение (2-3 предложения) после отчёта #training_done: дружелюбно, но строго, как тренер. Первое предложение — конкретный комментарий к упражнениям из сообщения, второе — короткое наблюдение или совет. НЕ используй фразы типа 'помни', 'укрепление духа', 'сила воли'. НЕ повторяй цифры из сообщения, не перечисляй правила. КРИТИЧЕСКИ ВАЖНО: используй ТОЛЬКО те упражнения и детали, которые указаны в сообщении пользователя. НЕ выдумывай детали, которых нет. Используй контекст истории сообщений пользователя и других участников, если он предоставлен, чтобы понимать о чем идет речь в общении. Без Markdown.",
+			"Ты Fat Leopard — строгий тренер, который сам любит поесть. Напиши 2-3 предложения после отчёта о тренировке: первое — конкретный комментарий к упражнениям из сообщения, второе — короткое замечание или совет. Можно лёгкий намёк, что ты «не съешь» того, кто тренируется. Используй ТОЛЬКО упражнения из сообщения. Не повторяй цифры. Без Markdown.",
 
-			"Сделай одно цельное сообщение (2-3 предложения) после тренировки: первое — отметь конкретные упражнения из сообщения, второе — короткий практический совет или наблюдение. Избегай общих фраз про 'дух', 'волю', 'помни'. Будь конкретным про упражнения, но не упоминай цифры. Используй контекст истории сообщений, если он предоставлен, чтобы понимать о чем идет речь. Без Markdown.",
+			"Ты Fat Leopard — ленивый, но справедливый. Ответь на отчёт о тренировке (2-3 предложения): первое — отметь упражнения, второе — короткий совет. Тон: немного завидуешь дисциплине, но признаёшь результат. Используй ТОЛЬКО этот отчёт. Без Markdown.",
 
-			"Напиши одно связное сообщение (2-3 предложения) от лица строгого, но справедливого тренера Fat Leopard: первое — оценка тренировки с упоминанием упражнений, второе — конкретное замечание или совет. НЕ используй абстрактные фразы про 'дух', 'волю', 'помни'. Используй ТОЛЬКО упражнения из сообщения пользователя. Учитывай контекст истории общения, если он предоставлен. Без Markdown.",
+			"Ответь как тренер после тренировки (2-3 предложения): первое — искренний комментарий к упражнениям из сообщения (без шаблонов), второе — один практический совет. Пиши живым языком. Используй ТОЛЬКО этот отчёт. Не повторяй цифры. Без Markdown.",
 
-			"Сделай одно цельное сообщение (2-3 предложения) после #training_done: первое — поддерживающий комментарий про конкретные упражнения, второе — практический совет или наблюдение. Избегай фраз 'помни', 'укрепление', 'дух', 'воля'. Не повторяй цифры, используй ТОЛЬКО упражнения из сообщения. Используй контекст истории сообщений для понимания общения. Без Markdown.",
+			"Ты Fat Leopard. Напиши 2-3 предложения после отчёта: первое — оценка тренировки с упоминанием упражнений, второе — конкретное замечание. Можно лёгкий юмор в духе «я бы уже спал, а ты ещё в деле». Используй ТОЛЬКО упражнения из сообщения. Без Markdown.",
 
-			"Напиши одно связное сообщение (2-3 предложения) в стиле наставника: первое — конкретный комментарий к упражнениям из сообщения, второе — короткое практическое замечание. НЕ используй общие фразы про 'дух', 'волю', 'помни'. Будь конкретным, но не упоминай цифры. Учитывай контекст общения, если он предоставлен. Без Markdown.",
+			"Ответь как наставник после тренировки (2-3 предложения): первое — что именно понравилось в отчёте, второе — один конкретный совет. Избегай общих фраз про 'дух', 'волю', 'помни'. Используй ТОЛЬКО этот отчёт. Без Markdown.",
 
-			"Сделай одно цельное сообщение (2-3 предложения) после тренировки: первое — отметь упражнения из сообщения, второе — короткий комментарий о технике или подходе. Избегай абстрактных фраз про 'дух', 'волю', 'помни'. Используй ТОЛЬКО упражнения из сообщения. Используй контекст истории для понимания о чем идет речь. Без Markdown.",
+			"Напиши 2-3 предложения после #training_done: первое — отметь конкретные упражнения, второе — короткое наблюдение о технике или подходе. Тон: поддерживающий, но с лёгкой строгостью. Используй ТОЛЬКО этот отчёт. Не повторяй цифры. Без Markdown.",
 
-			"Напиши одно связное сообщение (2-3 предложения): первое — конкретная оценка упражнений из сообщения, второе — короткое замечание о процессе тренировки. НЕ используй фразы 'помни', 'укрепление духа', 'сила воли'. Будь конкретным про упражнения, не упоминай цифры. Учитывай контекст общения, если он предоставлен. Без Markdown.",
+			"Fat Leopard одобряет. Напиши 2-3 предложения: первое — комментарий к упражнениям из сообщения, второе — короткое замечание. Тон: дружелюбно-строгий. Используй ТОЛЬКО этот отчёт. Без Markdown.",
 
-			"Сделай одно цельное сообщение (2-3 предложения) после #training_done: первое — комментарий к упражнениям, второе — короткое наблюдение о тренировке. Избегай общих фраз про 'дух', 'волю', 'помни'. Используй ТОЛЬКО упражнения из сообщения. Используй контекст истории сообщений для понимания общения. Без Markdown.",
+			"Ответь на отчёт о тренировке (2-3 предложения): первое — конкретная оценка упражнений, второе — практический совет. Будь конкретным, не используй абстрактные фразы. Используй ТОЛЬКО этот отчёт. Без Markdown.",
 		}
 	}
 
@@ -4189,11 +4310,26 @@ func (b *Bot) getUnifiedTrainingPrompt(streakDays, totalCalories, totalCups int,
 		}
 	}
 
+	// Вечер (17-22): конец дня, тренировка после работы
+	if hour >= 17 && hour < 22 {
+		if chatType == "writing" {
+			prompts = append(prompts, "Писательская сессия в конце дня — ты закрыл его правильно. Напиши 2-3 предложения: первое — отметь писательскую работу из сообщения, второе — короткое наблюдение. Используй ТОЛЬКО этот отчёт. Без Markdown.")
+		} else {
+			prompts = append(prompts,
+				"Тренировка в конце дня — ты закрыл его правильно. Напиши 2-3 предложения: первое — отметь упражнения из сообщения, второе — короткое наблюдение (например про восстановление или сон). Тон: поддерживающий, без пафоса. Используй ТОЛЬКО этот отчёт. Без Markdown.",
+				"Вечерняя тренировка — не все на это способны. Напиши 2-3 предложения: первое — комментарий к упражнениям, второе — лёгкий намёк, что завтра будет легче. Fat Leopard одобряет. Используй ТОЛЬКО этот отчёт. Без Markdown.",
+				"Конец дня, а он всё ещё тренируется. Напиши 2-3 предложения: первое — конкретный комментарий к отчёту, второе — короткий совет (восстановление, сон, завтра). Используй ТОЛЬКО этот отчёт. Без Markdown.")
+		}
+	}
+
+	// Поздний вечер / ночь (22-6)
 	if hour >= 22 || hour < 6 {
 		if chatType == "writing" {
 			prompts = append(prompts, "Сделай одно цельное сообщение (2-3 предложения): писательская сессия поздним вечером или ночью — это особое вдохновение! Первое — отметь это и писательскую работу, второе — короткий комментарий по писательству. НЕ упоминай тренировки, спорт или физическую активность. Избегай фраз 'помни', 'дух', 'воля'. Используй ТОЛЬКО детали о писательской работе из сообщения. Без Markdown.")
 		} else {
-			prompts = append(prompts, "Сделай одно цельное сообщение (2-3 предложения): тренировка поздним вечером или ночью — это особое упорство! Первое — отметь это и упражнения, второе — короткий комментарий. Избегай фраз 'помни', 'дух', 'воля'. Используй ТОЛЬКО упражнения из сообщения. Без Markdown.")
+			prompts = append(prompts,
+				"Тренировка в конце дня — ты не сдался. Напиши 2-3 предложения: первое — отметь упражнения, второе — короткий комментарий. Можно лёгкий юмор: Fat Leopard уже спал, а ты ещё в деле. Используй ТОЛЬКО этот отчёт. Без Markdown.",
+				"Поздняя тренировка — особое упорство. Напиши 2-3 предложения: первое — комментарий к упражнениям, второе — совет про сон и восстановление. Используй ТОЛЬКО этот отчёт. Без Markdown.")
 		}
 	}
 

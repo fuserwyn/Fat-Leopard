@@ -179,6 +179,48 @@ var Migrations = []Migration{
 			DROP TABLE IF EXISTS chat_types;
 		`,
 	},
+	{
+		Version:     9,
+		Description: "Create training_sessions table for per-session analytics",
+		UpSQL: `
+			CREATE TABLE IF NOT EXISTS training_sessions (
+				id BIGSERIAL PRIMARY KEY,
+				user_id BIGINT NOT NULL,
+				chat_id BIGINT NOT NULL,
+				session_date TEXT NOT NULL,
+				message_text TEXT DEFAULT '',
+				trainings_count INTEGER NOT NULL DEFAULT 1,
+				cups_added INTEGER NOT NULL DEFAULT 0,
+				created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'Europe/Moscow')
+			);
+
+			CREATE INDEX IF NOT EXISTS idx_training_sessions_user_chat_date
+				ON training_sessions (user_id, chat_id, session_date);
+			CREATE INDEX IF NOT EXISTS idx_training_sessions_chat_date
+				ON training_sessions (chat_id, session_date);
+		`,
+		DownSQL: `
+			DROP INDEX IF EXISTS idx_training_sessions_chat_date;
+			DROP INDEX IF EXISTS idx_training_sessions_user_chat_date;
+			DROP TABLE IF EXISTS training_sessions;
+		`,
+	},
+	{
+		Version:     10,
+		Description: "Add is_bonus field to training_sessions",
+		UpSQL: `
+			ALTER TABLE training_sessions
+			ADD COLUMN IF NOT EXISTS is_bonus BOOLEAN NOT NULL DEFAULT FALSE;
+
+			CREATE INDEX IF NOT EXISTS idx_training_sessions_bonus_date
+				ON training_sessions (user_id, chat_id, session_date, is_bonus);
+		`,
+		DownSQL: `
+			DROP INDEX IF EXISTS idx_training_sessions_bonus_date;
+			ALTER TABLE training_sessions
+			DROP COLUMN IF EXISTS is_bonus;
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции

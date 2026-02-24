@@ -51,12 +51,13 @@ type ChatMember struct {
 
 // TimerInfo представляет информацию о таймере
 type TimerInfo struct {
-	UserID         int64
-	ChatID         int64
-	Username       string
-	WarningTask    chan bool
-	RemovalTask    chan bool
-	TimerStartTime string
+	UserID              int64
+	ChatID              int64
+	Username            string
+	WarningTask         chan bool
+	CriticalWarningTask chan bool // Критическое предупреждение за 3 часа до удаления
+	RemovalTask         chan bool
+	TimerStartTime      string
 }
 
 // UserMessage представляет сообщение пользователя для RAG контекста
@@ -68,4 +69,17 @@ type UserMessage struct {
 	MessageText string    `json:"message_text" db:"message_text"`
 	MessageType string    `json:"message_type" db:"message_type"` // general, training_done, sick_leave, healthy
 	CreatedAt   time.Time `json:"created_at" db:"created_at"`
+}
+
+// TrainingSession представляет одну зафиксированную тренировочную/писательскую сессию.
+type TrainingSession struct {
+	ID            int64     `json:"id" db:"id"`
+	UserID        int64     `json:"user_id" db:"user_id"`
+	ChatID        int64     `json:"chat_id" db:"chat_id"`
+	SessionDate   string    `json:"session_date" db:"session_date"` // YYYY-MM-DD (MSK)
+	MessageText   string    `json:"message_text" db:"message_text"`
+	TrainingsCount int      `json:"trainings_count" db:"trainings_count"` // обычно 1
+	CupsAdded     int       `json:"cups_added" db:"cups_added"`
+	IsBonus       bool      `json:"is_bonus" db:"is_bonus"` // true для бонусной записи (+10)
+	CreatedAt     time.Time `json:"created_at" db:"created_at"`
 }
