@@ -1368,10 +1368,18 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 		b.logger.Infof("Sending forgotten #healthy warning to user %d (%s)", msg.From.ID, username)
 		b.api.Send(warningMessage)
 
-		messageLog.HasSickLeave = false
-		messageLog.HasHealthy = true
-		messageLog.SickLeaveStartTime = nil
-		if err := b.db.SaveMessageLog(messageLog); err != nil {
+		// ВАЖНО: перечитываем актуальную запись из БД, чтобы не перетереть свежие
+		// начисления кубков/калорий и обновления серий устаревшим messageLog.
+		latestLog, err := b.db.GetMessageLog(msg.From.ID, msg.Chat.ID)
+		if err != nil {
+			b.logger.Errorf("Failed to refresh message log before sick leave reset: %v", err)
+			latestLog = messageLog // fallback на старую запись, чтобы не блокировать флоу
+		}
+
+		latestLog.HasSickLeave = false
+		latestLog.HasHealthy = true
+		latestLog.SickLeaveStartTime = nil
+		if err := b.db.SaveMessageLog(latestLog); err != nil {
 			b.logger.Errorf("Failed to reset sick leave flags: %v", err)
 		}
 		b.logger.Infof("Reset sick leave flags and marked as healthy for user %d (%s) after training during sick leave", msg.From.ID, username)
