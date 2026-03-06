@@ -988,7 +988,7 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 	}
 
 	// Проверяем, есть ли achievement
-	hasAnyAchievement := weeklyAchievement || twoWeekAchievement || threeWeekAchievement || monthlyAchievement || fortyTwoDayAchievement || fiftyDayAchievement || sixtyDayAchievement || quarterlyAchievement || hundredDayAchievement
+	hasAnyAchievement := weeklyAchievement || twoWeekAchievement || threeWeekAchievement || monthlyAchievement || fortyTwoDayAchievement || fiftyDayAchievement || sixtyDayAchievement || quarterlyAchievement || hundredDayAchievement || oneHundredEightyDayAchievement || twoHundredDayAchievement || twoHundredFortyDayAchievement
 
 	b.logger.Infof("DEBUG: hasAnyAchievement=%t, caloriesToAdd=%d", hasAnyAchievement, caloriesToAdd)
 
