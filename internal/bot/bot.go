@@ -1489,9 +1489,26 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 								totalCupsAfterBonus = 0
 							}
 
-							bonusText := fmt.Sprintf("🎁 Бонус активности: в предыдущие 7 дней у тебя %d тренировок. +%d кубков 🏆\n🏆 Всего кубков: %d", sessionCountInWindow, bonusCups, totalCupsAfterBonus)
+							selectWordForm := func(count int, one, few, many string) string {
+								lastTwo := count % 100
+								if lastTwo >= 11 && lastTwo <= 14 {
+									return many
+								}
+								switch count % 10 {
+								case 1:
+									return one
+								case 2, 3, 4:
+									return few
+								default:
+									return many
+								}
+							}
+
+							trainingWord := selectWordForm(sessionCountInWindow, "тренировка", "тренировки", "тренировок")
+							bonusText := fmt.Sprintf("🎁 Бонус активности: в предыдущие 7 дней у тебя %d %s. +%d кубков 🏆\n🏆 Всего кубков: %d", sessionCountInWindow, trainingWord, bonusCups, totalCupsAfterBonus)
 							if chatTypeForBonus == "writing" {
-								bonusText = fmt.Sprintf("🎁 Бонус активности: в предыдущие 7 дней у тебя %d писательских сессий. +%d кубков 🏆\n🏆 Всего кубков: %d", sessionCountInWindow, bonusCups, totalCupsAfterBonus)
+								writingWord := selectWordForm(sessionCountInWindow, "писательская сессия", "писательские сессии", "писательских сессий")
+								bonusText = fmt.Sprintf("🎁 Бонус активности: в предыдущие 7 дней у тебя %d %s. +%d кубков 🏆\n🏆 Всего кубков: %d", sessionCountInWindow, writingWord, bonusCups, totalCupsAfterBonus)
 							}
 							if _, sendErr := b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, bonusText)); sendErr != nil {
 								b.logger.Errorf("Failed to send 7-day return bonus message: %v", sendErr)
