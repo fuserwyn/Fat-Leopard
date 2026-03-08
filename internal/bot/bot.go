@@ -1483,9 +1483,15 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 							if typeErr != nil {
 								chatTypeForBonus = "training"
 							}
-							bonusText := fmt.Sprintf("🎁 Бонус активности: в предыдущие 7 дней у тебя %d тренировок. +%d кубков 🏆", sessionCountInWindow, bonusCups)
+							totalCupsAfterBonus, cupsErr := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
+							if cupsErr != nil {
+								b.logger.Errorf("Failed to get total cups after 7-day return bonus: %v", cupsErr)
+								totalCupsAfterBonus = 0
+							}
+
+							bonusText := fmt.Sprintf("🎁 Бонус активности: в предыдущие 7 дней у тебя %d тренировок. +%d кубков 🏆\n🏆 Всего кубков: %d", sessionCountInWindow, bonusCups, totalCupsAfterBonus)
 							if chatTypeForBonus == "writing" {
-								bonusText = fmt.Sprintf("🎁 Бонус активности: в предыдущие 7 дней у тебя %d писательских сессий. +%d кубков 🏆", sessionCountInWindow, bonusCups)
+								bonusText = fmt.Sprintf("🎁 Бонус активности: в предыдущие 7 дней у тебя %d писательских сессий. +%d кубков 🏆\n🏆 Всего кубков: %d", sessionCountInWindow, bonusCups, totalCupsAfterBonus)
 							}
 							if _, sendErr := b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, bonusText)); sendErr != nil {
 								b.logger.Errorf("Failed to send 7-day return bonus message: %v", sendErr)
