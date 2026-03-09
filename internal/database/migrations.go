@@ -221,6 +221,18 @@ var Migrations = []Migration{
 			DROP COLUMN IF EXISTS is_bonus;
 		`,
 	},
+	{
+		Version:     11,
+		Description: "Add timezone_offset_from_moscow field to message_log",
+		UpSQL: `
+			ALTER TABLE message_log
+			ADD COLUMN IF NOT EXISTS timezone_offset_from_moscow INTEGER NOT NULL DEFAULT 0;
+		`,
+		DownSQL: `
+			ALTER TABLE message_log
+			DROP COLUMN IF EXISTS timezone_offset_from_moscow;
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции

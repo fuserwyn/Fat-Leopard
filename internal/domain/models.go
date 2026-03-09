@@ -26,6 +26,7 @@ type MessageLog struct {
 	SickTime              *string    `json:"sick_time" db:"sick_time"`
 	RestTimeTillDel       *string    `json:"rest_time_till_del" db:"rest_time_till_del"`
 	Gender                string     `json:"gender" db:"gender"` // "m" (male), "f" (female), or empty
+	TimezoneOffsetFromMoscow int     `json:"timezone_offset_from_moscow" db:"timezone_offset_from_moscow"` // смещение пользователя относительно МСК (часы)
 	SickApprovalPending   bool       `json:"sick_approval_pending" db:"sick_approval_pending"`
 	SickApprovalDeadline  *time.Time `json:"sick_approval_deadline" db:"sick_approval_deadline"`
 	SickApprovalMessageID *int64     `json:"sick_approval_message_id" db:"sick_approval_message_id"`

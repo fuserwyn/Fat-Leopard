@@ -119,6 +119,73 @@ func (b *Bot) Start(ctx context.Context) error {
 	}
 }
 
+func (b *Bot) getUserLocalNow(offsetFromMoscow int) time.Time {
+	return utils.GetMoscowTime().Add(time.Duration(offsetFromMoscow) * time.Hour)
+}
+
+func (b *Bot) getUserLocalDate(offsetFromMoscow int) string {
+	return b.getUserLocalNow(offsetFromMoscow).Format("2006-01-02")
+}
+
+func parseTimezoneOffsetFromCommand(text string) (int, error) {
+	lower := strings.ToLower(text)
+	idx := strings.Index(lower, "#timezone")
+	if idx == -1 {
+		return 0, fmt.Errorf("timezone command not found")
+	}
+
+	rest := strings.TrimSpace(text[idx+len("#timezone"):])
+	if rest == "" {
+		return 0, fmt.Errorf("empty timezone offset")
+	}
+
+	offsetStr := strings.Fields(rest)[0]
+	if !strings.HasPrefix(offsetStr, "+") && !strings.HasPrefix(offsetStr, "-") {
+		return 0, fmt.Errorf("offset must start with + or -")
+	}
+
+	offset, err := strconv.Atoi(offsetStr)
+	if err != nil {
+		return 0, fmt.Errorf("invalid timezone offset")
+	}
+	if offset < -12 || offset > 12 {
+		return 0, fmt.Errorf("offset out of allowed range")
+	}
+	return offset, nil
+}
+
+func (b *Bot) handleTimezoneCommand(msg *tgbotapi.Message, text string) {
+	offset, err := parseTimezoneOffsetFromCommand(text)
+	if err != nil {
+		usage := "⚠️ Неверный формат #timezone.\n\nИспользуй: #timezone +4 или #timezone -2\n(смещение относительно Москвы, диапазон: -12..+12)"
+		b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, usage))
+		return
+	}
+
+	log, err := b.db.GetMessageLog(msg.From.ID, msg.Chat.ID)
+	if err != nil {
+		b.logger.Errorf("Failed to get message log for timezone command: %v", err)
+		b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "❌ Не удалось сохранить часовой пояс, попробуй еще раз."))
+		return
+	}
+
+	log.TimezoneOffsetFromMoscow = offset
+	if err := b.db.SaveMessageLog(log); err != nil {
+		b.logger.Errorf("Failed to save timezone offset: %v", err)
+		b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "❌ Не удалось сохранить часовой пояс, попробуй еще раз."))
+		return
+	}
+
+	sign := "+"
+	if offset < 0 {
+		sign = ""
+	}
+	localNow := b.getUserLocalNow(offset)
+	reply := fmt.Sprintf("✅ Часовой пояс сохранен: МСК%s%d\n🕒 Твое локальное время: %s\n\nТеперь логика по времени будет считаться по твоему локальному часу.",
+		sign, offset, localNow.Format("02.01 15:04"))
+	b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, reply))
+}
+
 func (b *Bot) handleUpdate(update tgbotapi.Update) {
 	// Обрабатываем callback queries (нажатия на inline кнопки)
 	if update.CallbackQuery != nil {
@@ -420,7 +487,8 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) {
 	hasSickLeave := strings.Contains(strings.ToLower(text), "#sick_leave")
 	hasHealthy := strings.Contains(strings.ToLower(text), "#healthy")
 	hasChange := strings.Contains(strings.ToLower(text), "#change")
-	hasCommand := hasTrainingDone || hasWritingDone || hasSickLeave || hasHealthy || hasChange
+	hasTimeZone := strings.Contains(strings.ToLower(text), "#timezone")
+	hasCommand := hasTrainingDone || hasWritingDone || hasSickLeave || hasHealthy || hasChange || hasTimeZone
 
 	// Если есть команда, обрабатываем её и НЕ обрабатываем через ИИ
 	if hasCommand {
@@ -446,6 +514,8 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) {
 				messageType = "sick_leave"
 			} else if hasHealthy {
 				messageType = "healthy"
+			} else if hasTimeZone {
+				messageType = "timezone"
 			}
 
 			userMsg := &domain.UserMessage{
@@ -500,7 +570,9 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) {
 		}
 
 		// Обрабатываем хештеги
-		if hasTrainingDone {
+		if hasTimeZone {
+			b.handleTimezoneCommand(msg, text)
+		} else if hasTrainingDone {
 			b.handleTrainingDone(msg)
 		} else if hasSickLeave {
 			b.handleSickLeave(msg)
@@ -826,7 +898,7 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 
 	// Обновляем серию только если была добавлена новая тренировка
 	if caloriesToAdd > 0 {
-		today := utils.GetMoscowDate()
+		today := b.getUserLocalDate(messageLog.TimezoneOffsetFromMoscow)
 
 		// Обновляем streak_days для кубков
 		b.logger.Infof("DEBUG: Updating streak to %d with date %s", newStreakDays, today)
@@ -1076,7 +1148,7 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 				ctxBuilder.WriteString(fmt.Sprintf("Кубков всего: %d\n", currentCups))
 
 				// Добавляем контекст времени для разнообразия
-				now := utils.GetMoscowTime()
+				now := b.getUserLocalNow(messageLog.TimezoneOffsetFromMoscow)
 				hour := now.Hour()
 				weekday := now.Weekday()
 				weekdayNames := []string{"воскресенье", "понедельник", "вторник", "среда", "четверг", "пятница", "суббота"}
@@ -1112,7 +1184,7 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 				if chatType != "writing" && messageLog.LastTrainingDate != nil {
 					lastTrainingDate, err := time.Parse("2006-01-02", *messageLog.LastTrainingDate)
 					if err == nil {
-						today := utils.GetMoscowTime()
+						today := b.getUserLocalNow(messageLog.TimezoneOffsetFromMoscow)
 						todayDate := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, today.Location())
 						lastTrainingDateOnly := time.Date(lastTrainingDate.Year(), lastTrainingDate.Month(), lastTrainingDate.Day(), 0, 0, 0, 0, lastTrainingDate.Location())
 						daysSinceLastTraining := int(todayDate.Sub(lastTrainingDateOnly).Hours() / 24)
@@ -1404,7 +1476,8 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 
 	// Сохраняем сессию в отдельную таблицу для аналитики (начиная с 2026-03-01).
 	// Это позволяет отвечать на вопросы: "что делал", "сколько тренировок", "сколько кубков за день".
-	sessionDate := utils.GetMoscowDate()
+	userNow := b.getUserLocalNow(messageLog.TimezoneOffsetFromMoscow)
+	sessionDate := userNow.Format("2006-01-02")
 	if sessionDate >= "2026-03-01" {
 		cupsAfter, cupsErr := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
 		if cupsErr != nil {
@@ -1438,16 +1511,15 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 			// 3) бонус = floor(count/3) * 10;
 			// 4) в день серии 7/7 (weeklyAchievement) эта логика не применяется;
 			// 5) новое окно стартует с даты выдачи бонуса.
-			nowMSK := utils.GetMoscowTime()
-			yesterday := utils.GetMoscowDateFromTime(nowMSK.AddDate(0, 0, -1))
+			yesterday := userNow.AddDate(0, 0, -1).Format("2006-01-02")
 			returnAfterSkip := messageLog.LastTrainingDate != nil &&
 				*messageLog.LastTrainingDate != yesterday &&
 				*messageLog.LastTrainingDate != sessionDate
 
 			if returnAfterSkip && !weeklyAchievement {
 				// Базовое окно: предыдущие 7 дней (без текущего дня).
-				windowEndDate := utils.GetMoscowDateFromTime(nowMSK.AddDate(0, 0, -1))
-				windowStartDate := utils.GetMoscowDateFromTime(nowMSK.AddDate(0, 0, -7))
+				windowEndDate := userNow.AddDate(0, 0, -1).Format("2006-01-02")
+				windowStartDate := userNow.AddDate(0, 0, -7).Format("2006-01-02")
 
 				// Если бонус уже был, окно не может начинаться раньше даты последнего бонуса.
 				lastBonusDate, lastBonusErr := b.db.GetLastBonusSessionDate(msg.From.ID, msg.Chat.ID)

@@ -137,7 +137,7 @@ func (b *Bot) processTrainingDone(msg *tgbotapi.Message) {
 	}
 
 	if caloriesToAdd > 0 {
-		today := utils.GetMoscowDate()
+		today := b.getUserLocalDate(messageLog.TimezoneOffsetFromMoscow)
 
 		if err := b.db.UpdateStreak(msg.From.ID, msg.Chat.ID, newStreakDays, today); err != nil {
 			b.logger.Errorf("Failed to update streak: %v", err)
@@ -295,7 +295,8 @@ func (b *Bot) processTrainingDone(msg *tgbotapi.Message) {
 }
 
 func (b *Bot) calculateCalories(messageLog *domain.MessageLog) (int, int, int, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool) {
-	today := utils.GetMoscowDate()
+	localNow := b.getUserLocalNow(messageLog.TimezoneOffsetFromMoscow)
+	today := localNow.Format("2006-01-02")
 
 	if messageLog.LastTrainingDate != nil && *messageLog.LastTrainingDate == today {
 		return 0, messageLog.StreakDays, messageLog.CalorieStreakDays, false, false, false, false, false, false, false, false, false, false, false, false
@@ -303,8 +304,7 @@ func (b *Bot) calculateCalories(messageLog *domain.MessageLog) (int, int, int, b
 
 	newStreakDays := 1
 	if messageLog.LastTrainingDate != nil {
-		yesterday := utils.GetMoscowTime().AddDate(0, 0, -1)
-		yesterdayStr := utils.GetMoscowDateFromTime(yesterday)
+		yesterdayStr := localNow.AddDate(0, 0, -1).Format("2006-01-02")
 		if *messageLog.LastTrainingDate == yesterdayStr {
 			newStreakDays = messageLog.StreakDays + 1
 		} else {
@@ -316,8 +316,7 @@ func (b *Bot) calculateCalories(messageLog *domain.MessageLog) (int, int, int, b
 
 	newCalorieStreakDays := 1
 	if messageLog.LastTrainingDate != nil {
-		yesterday := utils.GetMoscowTime().AddDate(0, 0, -1)
-		yesterdayStr := utils.GetMoscowDateFromTime(yesterday)
+		yesterdayStr := localNow.AddDate(0, 0, -1).Format("2006-01-02")
 		if *messageLog.LastTrainingDate == yesterdayStr {
 			newCalorieStreakDays = messageLog.CalorieStreakDays + 1
 		} else {
