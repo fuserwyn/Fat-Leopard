@@ -140,8 +140,12 @@ func parseTimezoneOffsetFromCommand(text string) (int, error) {
 	}
 
 	offsetStr := strings.Fields(rest)[0]
+	// Разрешаем #timezone 0 как удобный сброс к МСК.
+	if offsetStr == "0" {
+		return 0, nil
+	}
 	if !strings.HasPrefix(offsetStr, "+") && !strings.HasPrefix(offsetStr, "-") {
-		return 0, fmt.Errorf("offset must start with + or -")
+		return 0, fmt.Errorf("offset must start with + or - (or be 0)")
 	}
 
 	offset, err := strconv.Atoi(offsetStr)
@@ -157,7 +161,7 @@ func parseTimezoneOffsetFromCommand(text string) (int, error) {
 func (b *Bot) handleTimezoneCommand(msg *tgbotapi.Message, text string) {
 	offset, err := parseTimezoneOffsetFromCommand(text)
 	if err != nil {
-		usage := "⚠️ Неверный формат #timezone.\n\nИспользуй: #timezone +4 или #timezone -2\n(смещение относительно Москвы, диапазон: -12..+12)"
+		usage := "⚠️ Неверный формат #timezone.\n\nИспользуй: #timezone +4, #timezone -2 или #timezone 0\n(смещение относительно Москвы, диапазон: -12..+12)"
 		b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, usage))
 		return
 	}
