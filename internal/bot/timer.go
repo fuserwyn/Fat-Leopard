@@ -11,6 +11,18 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
+// normalizeUserDisplayName убирает лишние ведущие '@' и оставляет одно упоминание для @username.
+func normalizeUserDisplayName(username string) string {
+	clean := strings.TrimLeft(username, "@")
+	if clean == "" {
+		return username
+	}
+	if strings.Contains(clean, " ") {
+		return clean
+	}
+	return "@" + clean
+}
+
 func (b *Bot) startTimer(userID, chatID int64, username string) {
 	// Предупреждение через 6 дней, удаление через 7 дней
 	b.startTimerWithDuration(userID, chatID, username, 7*24*time.Hour)
@@ -194,7 +206,8 @@ func (b *Bot) cancelTimer(userID int64) {
 
 func (b *Bot) sendWarning(userID, chatID int64, username string) {
 	// Базовый текст предупреждения
-	messageText := fmt.Sprintf("⚠️ Предупреждение!\n\n%s, ты не отправляешь отчет о тренировке уже 6 дней!\n\n⏰ У тебя остался 1 день до удаления из чата!\n\n🎯 Отправь #training_done прямо сейчас!", username)
+	who := normalizeUserDisplayName(username)
+	messageText := fmt.Sprintf("⚠️ Предупреждение!\n\n%s, ты не отправляешь отчет о тренировке уже 6 дней!\n\n⏰ У тебя остался 1 день до удаления из чата!\n\n🎯 Отправь #training_done прямо сейчас!", who)
 
 	// Добавляем короткую ИИ‑приписку к предупреждению
 	if b.aiClient != nil {
@@ -265,7 +278,8 @@ func (b *Bot) sendWarning(userID, chatID int64, username string) {
 
 func (b *Bot) sendCriticalWarning(userID, chatID int64, username string) {
 	// Критическое предупреждение за 3 часа до удаления — Леопард уже готовит
-	messageText := fmt.Sprintf("🚨 КРИТИЧЕСКОЕ ПРЕДУПРЕЖДЕНИЕ! 🚨\n\n%s, я уже готовлюсь к обеду! Расставляю тарелки, накрываю на стол... Осталось всего 3 ЧАСА до удаления из чата!\n\n⏰ Это твой последний шанс!\n\n🎯 Отправь #training_done ПРЯМО СЕЙЧАС — или станешь главным блюдом! 😬", username)
+	who := normalizeUserDisplayName(username)
+	messageText := fmt.Sprintf("🚨 КРИТИЧЕСКОЕ ПРЕДУПРЕЖДЕНИЕ! 🚨\n\n%s, я уже готовлюсь к обеду! Расставляю тарелки, накрываю на стол... Осталось всего 3 ЧАСА до удаления из чата!\n\n⏰ Это твой последний шанс!\n\n🎯 Отправь #training_done ПРЯМО СЕЙЧАС — или станешь главным блюдом! 😬", who)
 
 	// Добавляем короткую ИИ‑приписку в духе «Леопард уже ест»
 	if b.aiClient != nil {
@@ -363,13 +377,12 @@ func (b *Bot) removeUser(userID, chatID int64, username string) {
 	if err != nil {
 		b.logger.Errorf("Failed to remove user %d: %v", userID, err)
 		// Отправляем сообщение об ошибке
-		errorMsg := tgbotapi.NewMessage(chatID, fmt.Sprintf("❌ Не удалось удалить пользователя %s из чата", username))
+		errorMsg := tgbotapi.NewMessage(chatID, fmt.Sprintf("❌ Не удалось удалить пользователя %s из чата", normalizeUserDisplayName(username)))
 		b.api.Send(errorMsg)
 	} else {
-		// Отправляем сообщение об удалении
-		// `username` в БД обычно уже содержит ведущий '@' (если Telegram UserName задан),
-		// поэтому нельзя добавлять ещё один '@', иначе получится `@@username`.
-		message := fmt.Sprintf("🚫 Пользователь удален!\n\n%s был удален из чата за неактивность.\n\n🦁 Ням-ням, вкусненько!\n\n💪 Ты ведь не хочешь стать как я?\n\nТогда тренируйтесь и отправляйте отчеты!", username)
+		// Отправляем сообщение об удалении (одна строка про удаление — без дублирования заголовка и тела)
+		who := normalizeUserDisplayName(username)
+		message := fmt.Sprintf("🚫 %s удалён из чата за неактивность.\n\n🦁 Ням-ням, вкусненько!\n\n💪 Ты ведь не хочешь стать как я?\n\nТогда тренируйся и отправляй отчёты!", who)
 		msg := tgbotapi.NewMessage(chatID, message)
 		b.logger.Infof("Sending removal message for user %d (%s)", userID, username)
 		_, sendErr := b.api.Send(msg)
