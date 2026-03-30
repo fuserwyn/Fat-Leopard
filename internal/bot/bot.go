@@ -1510,20 +1510,15 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 			b.logger.Errorf("Failed to save training session: %v", err)
 		} else {
 			// Логика бонуса по вашему правилу:
-			// 1) бонус считается ТОЛЬКО в день возврата после пропуска;
-			// 2) считаем тренировки в предыдущие 7 дней (без текущего дня);
+			// 1) считаем тренировки/сессии в последние 7 календарных дней, включая сегодня;
 			// 3) бонус = floor(count/3) * 10;
 			// 4) в день серии 7/7 (weeklyAchievement) эта логика не применяется;
-			// 5) новое окно стартует с даты выдачи бонуса.
-			yesterday := userNow.AddDate(0, 0, -1).Format("2006-01-02")
-			returnAfterSkip := messageLog.LastTrainingDate != nil &&
-				*messageLog.LastTrainingDate != yesterday &&
-				*messageLog.LastTrainingDate != sessionDate
-
-			if returnAfterSkip && !weeklyAchievement {
-				// Базовое окно: предыдущие 7 дней (без текущего дня).
-				windowEndDate := userNow.AddDate(0, 0, -1).Format("2006-01-02")
-				windowStartDate := userNow.AddDate(0, 0, -7).Format("2006-01-02")
+			// 5) после выдачи бонуса окно не начинается раньше даты последнего бонуса
+			//    (чтобы одни и те же отчёты не оплачивались повторно при сдвиге окна).
+			if !weeklyAchievement {
+				// Скользящее окно: сегодня и ещё 6 дней назад (7 дней включительно).
+				windowEndDate := sessionDate
+				windowStartDate := userNow.AddDate(0, 0, -6).Format("2006-01-02")
 
 				// Если бонус уже был, окно не может начинаться раньше даты последнего бонуса.
 				lastBonusDate, lastBonusErr := b.db.GetLastBonusSessionDate(msg.From.ID, msg.Chat.ID)
@@ -1581,10 +1576,10 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 							}
 
 							trainingWord := selectWordForm(sessionCountInWindow, "тренировка", "тренировки", "тренировок")
-							bonusText := fmt.Sprintf("🎁 Бонус активности: в предыдущие 7 дней у тебя %d %s. +%d кубков 🏆\n🏆 Всего кубков: %d", sessionCountInWindow, trainingWord, bonusCups, totalCupsAfterBonus)
+							bonusText := fmt.Sprintf("🎁 Бонус активности: за последние 7 дней (включая сегодня) у тебя %d %s. +%d кубков 🏆\n🏆 Всего кубков: %d", sessionCountInWindow, trainingWord, bonusCups, totalCupsAfterBonus)
 							if chatTypeForBonus == "writing" {
 								writingWord := selectWordForm(sessionCountInWindow, "писательская сессия", "писательские сессии", "писательских сессий")
-								bonusText = fmt.Sprintf("🎁 Бонус активности: в предыдущие 7 дней у тебя %d %s. +%d кубков 🏆\n🏆 Всего кубков: %d", sessionCountInWindow, writingWord, bonusCups, totalCupsAfterBonus)
+								bonusText = fmt.Sprintf("🎁 Бонус активности: за последние 7 дней (включая сегодня) у тебя %d %s. +%d кубков 🏆\n🏆 Всего кубков: %d", sessionCountInWindow, writingWord, bonusCups, totalCupsAfterBonus)
 							}
 							if _, sendErr := b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, bonusText)); sendErr != nil {
 								b.logger.Errorf("Failed to send 7-day return bonus message: %v", sendErr)

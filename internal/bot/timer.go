@@ -367,7 +367,9 @@ func (b *Bot) removeUser(userID, chatID int64, username string) {
 		b.api.Send(errorMsg)
 	} else {
 		// Отправляем сообщение об удалении
-		message := fmt.Sprintf("🚫 Пользователь удален!\n\n@%s был удален из чата за неактивность.\n\n🦁 Ням-ням, вкусненько!\n\n💪 Ты ведь не хочешь стать как я?\n\nТогда тренируйтесь и отправляйте отчеты!", username)
+		// `username` в БД обычно уже содержит ведущий '@' (если Telegram UserName задан),
+		// поэтому нельзя добавлять ещё один '@', иначе получится `@@username`.
+		message := fmt.Sprintf("🚫 Пользователь удален!\n\n%s был удален из чата за неактивность.\n\n🦁 Ням-ням, вкусненько!\n\n💪 Ты ведь не хочешь стать как я?\n\nТогда тренируйтесь и отправляйте отчеты!", username)
 		msg := tgbotapi.NewMessage(chatID, message)
 		b.logger.Infof("Sending removal message for user %d (%s)", userID, username)
 		_, sendErr := b.api.Send(msg)
