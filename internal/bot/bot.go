@@ -1034,17 +1034,17 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 			}
 		}
 		if twoHundredDayAchievement {
-			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 420); err != nil {
+			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 4200); err != nil {
 				b.logger.Errorf("Failed to add 200-day cups: %v", err)
 			} else {
-				b.logger.Infof("Successfully added 420 cups for 200-day achievement")
+				b.logger.Infof("Successfully added 4200 cups for 200-day achievement")
 			}
 		}
 		if twoHundredFortyDayAchievement {
-			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 420); err != nil {
+			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 4200); err != nil {
 				b.logger.Errorf("Failed to add 240-day cups: %v", err)
 			} else {
-				b.logger.Infof("Successfully added 420 cups for 240-day achievement")
+				b.logger.Infof("Successfully added 4200 cups for 240-day achievement")
 			}
 		}
 	}
@@ -1068,323 +1068,322 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 
 	b.logger.Infof("DEBUG: hasAnyAchievement=%t, caloriesToAdd=%d", hasAnyAchievement, caloriesToAdd)
 
-	if !hasAnyAchievement {
-		if caloriesToAdd > 0 {
-			// Получаем общее количество калорий для отображения
-			totalCalories, err := b.db.GetUserCalories(msg.From.ID, msg.Chat.ID)
-			if err != nil {
-				b.logger.Errorf("Failed to get total calories for message: %v", err)
-				totalCalories = 0
-			}
+	// Обычное подтверждение + ИИ при любой новой тренировке (включая дни рубежей 7/14/… дней).
+	if caloriesToAdd > 0 {
+		// Получаем общее количество калорий для отображения
+		totalCalories, err := b.db.GetUserCalories(msg.From.ID, msg.Chat.ID)
+		if err != nil {
+			b.logger.Errorf("Failed to get total calories for message: %v", err)
+			totalCalories = 0
+		}
 
-			// Новая тренировка БЕЗ achievement - готовим базовый текст
-			// Адаптируем текст в зависимости от типа чата
-			var messageText string
-			if chatType == "writing" {
-				messageText = fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Ты пишешь дней подряд: %d\n📝 +%d %s\n📝 Всего %s: %d\n🏆 +1 кубок за писательскую сессию!\n🏆 Всего кубков: %d\n\n⏰ Таймер перезапускается на 7 дней", newStreakDays, caloriesToAdd, getWordForm(caloriesToAdd), getWordForm(totalCalories), totalCalories, currentCups)
-			} else {
-				messageText = fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Ты тренируешься дней подряд: %d\n🔥 +%d калорий\n🔥 Всего калорий: %d\n🏆 +1 кубок за тренировку!\n🏆 Всего кубков: %d\n\n⏰ Таймер перезапускается на 7 дней", newStreakDays, caloriesToAdd, totalCalories, currentCups)
-			}
-
-			// Дополняем короткой ИИ-припиской по текущему контексту
-			if b.aiClient != nil {
-				// Индикатор набора, чтобы показать «typing...» пока генерируется ответ
-				action := tgbotapi.NewChatAction(msg.Chat.ID, tgbotapi.ChatTyping)
-				b.api.Send(action)
-				stopTyping := make(chan struct{})
-				defer close(stopTyping)
-				go func() {
-					ticker := time.NewTicker(4 * time.Second)
-					defer ticker.Stop()
-					for {
-						select {
-						case <-ticker.C:
-							b.api.Send(action)
-						case <-stopTyping:
-							return
-						}
-					}
-				}()
-
-				// Формируем вопрос для единого AI-сообщения (объединяем приписку и мудрость в одно)
-				question := b.getUnifiedTrainingPrompt(newStreakDays, totalCalories, currentCups, wasOnSickLeave, chatType)
-				var ctxBuilder strings.Builder
-				ctxBuilder.WriteString("КРИТИЧЕСКИ ВАЖНО: Отвечай ТОЛЬКО на этот отчёт. НЕ используй историю чата, последние сообщения или сообщения других участников. Комментируй исключительно то, что написано в этом сообщении.\n\n")
-				ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
-				// Добавляем пол пользователя в контекст
-				genderNormalized := strings.TrimSpace(strings.ToLower(userGender))
-				if genderNormalized != "" {
-					var genderText string
-					if genderNormalized == "f" {
-						genderText = "женский"
-					} else if genderNormalized == "m" {
-						genderText = "мужской"
-					}
-					if genderText != "" {
-						ctxBuilder.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
-					}
-				}
-				// Добавляем текст сообщения пользователя
-				trainingText := msg.Text
-				if trainingText == "" && msg.Caption != "" {
-					trainingText = msg.Caption
-				}
-				if trainingText != "" {
-					// Убираем хэштег #training_done из текста для контекста
-					trainingTextClean := strings.ReplaceAll(trainingText, "#training_done", "")
-					trainingTextClean = strings.TrimSpace(trainingTextClean)
-					if trainingTextClean != "" {
-						if chatType == "writing" {
-							ctxBuilder.WriteString(fmt.Sprintf("Сообщение о писательской работе: %s\n", trainingTextClean))
-						} else {
-							ctxBuilder.WriteString(fmt.Sprintf("Сообщение о тренировке: %s\n", trainingTextClean))
-						}
-					}
-				}
-				ctxBuilder.WriteString(fmt.Sprintf("Серия: %d дней\n", newStreakDays))
-				if chatType == "writing" {
-					ctxBuilder.WriteString(fmt.Sprintf("Добавлено %s: %d\n", getWordForm(caloriesToAdd), caloriesToAdd))
-					ctxBuilder.WriteString(fmt.Sprintf("Текущие %s: %d\n", getWordForm(totalCalories), totalCalories))
-				} else {
-					ctxBuilder.WriteString(fmt.Sprintf("Добавлено калорий: %d\n", caloriesToAdd))
-					ctxBuilder.WriteString(fmt.Sprintf("Текущие калории: %d\n", totalCalories))
-				}
-				ctxBuilder.WriteString(fmt.Sprintf("Кубков всего: %d\n", currentCups))
-
-				// Добавляем контекст времени для разнообразия
-				now := b.getUserLocalNow(messageLog.TimezoneOffsetFromMoscow)
-				hour := now.Hour()
-				weekday := now.Weekday()
-				weekdayNames := []string{"воскресенье", "понедельник", "вторник", "среда", "четверг", "пятница", "суббота"}
-				if chatType == "writing" {
-					ctxBuilder.WriteString(fmt.Sprintf("Время писательской сессии: %s, %d:00\n", weekdayNames[weekday], hour))
-				} else {
-					ctxBuilder.WriteString(fmt.Sprintf("Время тренировки: %s, %d:00\n", weekdayNames[weekday], hour))
-				}
-
-				// Определяем время суток
-				var timeOfDay string
-				if hour >= 5 && hour < 12 {
-					timeOfDay = "утро"
-				} else if hour >= 12 && hour < 17 {
-					timeOfDay = "день"
-				} else if hour >= 17 && hour < 22 {
-					timeOfDay = "вечер"
-				} else {
-					timeOfDay = "ночь"
-				}
-				ctxBuilder.WriteString(fmt.Sprintf("Время суток: %s\n", timeOfDay))
-
-				if wasOnSickLeave {
-					if chatType == "writing" {
-						ctxBuilder.WriteString("Недавно был больничный, теперь снова за писательством.\n")
-					} else {
-						ctxBuilder.WriteString("Недавно был больничный, теперь снова в строю.\n")
-					}
-				}
-
-				// Вычисляем, сколько дней прошло с последней тренировки/писательской сессии
-				// ТОЛЬКО для чатов тренировок - не добавляем для писательства
-				if chatType != "writing" && messageLog.LastTrainingDate != nil {
-					lastTrainingDate, err := time.Parse("2006-01-02", *messageLog.LastTrainingDate)
-					if err == nil {
-						today := b.getUserLocalNow(messageLog.TimezoneOffsetFromMoscow)
-						todayDate := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, today.Location())
-						lastTrainingDateOnly := time.Date(lastTrainingDate.Year(), lastTrainingDate.Month(), lastTrainingDate.Day(), 0, 0, 0, 0, lastTrainingDate.Location())
-						daysSinceLastTraining := int(todayDate.Sub(lastTrainingDateOnly).Hours() / 24)
-						// Если прошло больше 5 дней с последней тренировки, добавляем шутку про обед
-						if daysSinceLastTraining > 5 {
-							ctxBuilder.WriteString(fmt.Sprintf("ВАЖНО: С последней тренировки прошло %d дней — это очень редко! Если будешь продолжать так редко заниматься, станешь обедом. Добавь легкий юмор про это в приписку.\n", daysSinceLastTraining))
-						}
-					}
-				}
-
-				// Добавляем информацию о приближении к достижениям для мотивации
-				if newStreakDays == 6 {
-					if chatType == "writing" {
-						ctxBuilder.WriteString("ВАЖНО: Завтра будет 7 дней подряд писательства — важный рубеж! Можешь мягко намекнуть на это.\n")
-					} else {
-						ctxBuilder.WriteString("ВАЖНО: Завтра будет 7 дней подряд — важный рубеж! Можешь мягко намекнуть на это.\n")
-					}
-				} else if newStreakDays == 13 {
-					if chatType == "writing" {
-						ctxBuilder.WriteString("ВАЖНО: Завтра будет 14 дней подряд писательства — отличный результат! Можешь мягко намекнуть на это.\n")
-					} else {
-						ctxBuilder.WriteString("ВАЖНО: Завтра будет 14 дней подряд — отличный результат! Можешь мягко намекнуть на это.\n")
-					}
-				} else if newStreakDays == 20 {
-					if chatType == "writing" {
-						ctxBuilder.WriteString("ВАЖНО: Завтра будет 21 день подряд писательства — впечатляющая серия! Можешь мягко намекнуть на это.\n")
-					} else {
-						ctxBuilder.WriteString("ВАЖНО: Завтра будет 21 день подряд — впечатляющая серия! Можешь мягко намекнуть на это.\n")
-					}
-				}
-
-				// КРИТИЧЕСКИ ВАЖНО: НЕ добавляем историю сообщений и контекст других участников.
-				// Ответ должен быть ТОЛЬКО на этот отчёт о тренировке/писательстве — без смешивания с другими сообщениями чата.
-
-				if aiResponse, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
-					aiResponse = strings.TrimSpace(strings.ReplaceAll(aiResponse, "**", ""))
-					if aiResponse != "" {
-						messageText = messageText + "\n\n" + aiResponse
-					}
-				} else {
-					b.logger.Warnf("AI response generation failed: %v", err)
-				}
-			}
-
-			// Добавляем фразу о продолжении тренировок/писательства в самом конце
-			if chatType == "writing" {
-				messageText = messageText + "\n\n🎯 Продолжай писать и не забывай отправлять #writing_done!"
-			} else {
-				messageText = messageText + "\n\n🎯 Продолжай тренироваться и не забывай отправлять #training_done!"
-			}
-
-			reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
-
-			b.logger.Infof("Sending training done message to chat %d", msg.Chat.ID)
-			_, err = b.api.Send(reply)
-			if err != nil {
-				b.logger.Errorf("Failed to send training done message: %v", err)
-			} else {
-				b.logger.Infof("Successfully sent training done message to chat %d", msg.Chat.ID)
-			}
+		// Новая тренировка БЕЗ achievement - готовим базовый текст
+		// Адаптируем текст в зависимости от типа чата
+		var messageText string
+		if chatType == "writing" {
+			messageText = fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Ты пишешь дней подряд: %d\n📝 +%d %s\n📝 Всего %s: %d\n🏆 +1 кубок за писательскую сессию!\n🏆 Всего кубков: %d\n\n⏰ Таймер перезапускается на 7 дней", newStreakDays, caloriesToAdd, getWordForm(caloriesToAdd), getWordForm(totalCalories), totalCalories, currentCups)
 		} else {
-			// Дополнительная тренировка в тот же день
-			// Начисляем 1 кубок за дополнительную тренировку
-			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 1); err != nil {
-				b.logger.Errorf("Failed to add cup for double training: %v", err)
-			} else {
-				b.logger.Infof("Successfully added 1 cup for double training")
+			messageText = fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Ты тренируешься дней подряд: %d\n🔥 +%d калорий\n🔥 Всего калорий: %d\n🏆 +1 кубок за тренировку!\n🏆 Всего кубков: %d\n\n⏰ Таймер перезапускается на 7 дней", newStreakDays, caloriesToAdd, totalCalories, currentCups)
+		}
+
+		// Дополняем короткой ИИ-припиской по текущему контексту
+		if b.aiClient != nil {
+			// Индикатор набора, чтобы показать «typing...» пока генерируется ответ
+			action := tgbotapi.NewChatAction(msg.Chat.ID, tgbotapi.ChatTyping)
+			b.api.Send(action)
+			stopTyping := make(chan struct{})
+			defer close(stopTyping)
+			go func() {
+				ticker := time.NewTicker(4 * time.Second)
+				defer ticker.Stop()
+				for {
+					select {
+					case <-ticker.C:
+						b.api.Send(action)
+					case <-stopTyping:
+						return
+					}
+				}
+			}()
+
+			// Формируем вопрос для единого AI-сообщения (объединяем приписку и мудрость в одно)
+			question := b.getUnifiedTrainingPrompt(newStreakDays, totalCalories, currentCups, wasOnSickLeave, chatType)
+			var ctxBuilder strings.Builder
+			ctxBuilder.WriteString("КРИТИЧЕСКИ ВАЖНО: Отвечай ТОЛЬКО на этот отчёт. НЕ используй историю чата, последние сообщения или сообщения других участников. Комментируй исключительно то, что написано в этом сообщении.\n\n")
+			ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
+			// Добавляем пол пользователя в контекст
+			genderNormalized := strings.TrimSpace(strings.ToLower(userGender))
+			if genderNormalized != "" {
+				var genderText string
+				if genderNormalized == "f" {
+					genderText = "женский"
+				} else if genderNormalized == "m" {
+					genderText = "мужской"
+				}
+				if genderText != "" {
+					ctxBuilder.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
+				}
 			}
-
-			// Получаем обновленное количество кубков
-			currentCups, err := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
-			if err != nil {
-				b.logger.Errorf("Failed to get user cups for double training message: %v", err)
-				currentCups = 0
+			// Добавляем текст сообщения пользователя
+			trainingText := msg.Text
+			if trainingText == "" && msg.Caption != "" {
+				trainingText = msg.Caption
 			}
-
-			// Адаптируем текст для дополнительной тренировки/писательской сессии
-			var messageText string
-			if chatType == "writing" {
-				messageText = fmt.Sprintf("🦁 Какой мотивированный леопард! Еще одна писательская сессия сегодня! 💪\n\n🔥 Твоя мотивация впечатляет\n🏆 +1 кубок за дополнительную писательскую сессию!\n🏆 Всего кубков: %d\n\n⏰ Таймер уже перезапущен на 7 дней\n\n🎯 Завтра снова отправляй #writing_done для продолжения серии!", currentCups)
-			} else {
-				messageText = fmt.Sprintf("🦁 Какой мотивированный леопард! Еще одна тренировка сегодня! 💪\n\n🔥 Твоя мотивация впечатляет\n🏆 +1 кубок за дополнительную тренировку!\n🏆 Всего кубков: %d\n\n⏰ Таймер уже перезапущен на 7 дней\n\n🎯 Завтра снова отправляй #training_done для продолжения серии!", currentCups)
-			}
-
-			// Короткая ИИ-приписка и здесь
-			if b.aiClient != nil {
-				action := tgbotapi.NewChatAction(msg.Chat.ID, tgbotapi.ChatTyping)
-				b.api.Send(action)
-				stopTyping := make(chan struct{})
-				defer close(stopTyping)
-				go func() {
-					ticker := time.NewTicker(4 * time.Second)
-					defer ticker.Stop()
-					for {
-						select {
-						case <-ticker.C:
-							b.api.Send(action)
-						case <-stopTyping:
-							return
-						}
-					}
-				}()
-
-				// Единое сообщение для дополнительной тренировки/писательской сессии (объединяем приписку и мудрость) - БЕЗ общих фраз
-				var doubleTrainingPrompts []string
-				if chatType == "writing" {
-					doubleTrainingPrompts = []string{
-						"Двойная писательская сессия за день — особое вдохновение! Напиши 2-3 предложения: первое — отметь упорство и писательскую работу, второе — короткое практическое замечание. Используй ТОЛЬКО этот отчёт. Без Markdown.",
-						"Вторая писательская сессия за день. Напиши 2-3 предложения: первое — похвали за энергию и отметь работу, второе — конкретное наблюдение. Используй ТОЛЬКО этот отчёт. Без Markdown.",
-					}
-				} else {
-					doubleTrainingPrompts = []string{
-						"Двойная тренировка за день — Fat Leopard впечатлён! Напиши 2-3 предложения: первое — отметь упорство и упражнения, второе — короткое замечание. Можно лёгкий юмор: «таких я не ем». Используй ТОЛЬКО этот отчёт. Без Markdown.",
-						"Вторая тренировка за день — не все на это способны. Напиши 2-3 предложения: первое — похвали за энергию и отметь упражнения, второе — короткий совет по восстановлению. Используй ТОЛЬКО этот отчёт. Без Markdown.",
-						"Двойная тренировка — особое упорство! Напиши 2-3 предложения: первое — отметь упражнения, второе — комментарий. Fat Leopard одобряет. Используй ТОЛЬКО этот отчёт. Без Markdown.",
-						"Ещё одна тренировка сегодня — энергия впечатляет. Напиши 2-3 предложения: первое — отметь упражнения, второе — практический совет. Используй ТОЛЬКО этот отчёт. Без Markdown.",
-					}
-				}
-				now := utils.GetMoscowTime()
-				question := doubleTrainingPrompts[now.Unix()%int64(len(doubleTrainingPrompts))]
-				var ctxBuilder strings.Builder
-				ctxBuilder.WriteString("КРИТИЧЕСКИ ВАЖНО: Отвечай ТОЛЬКО на этот отчёт. НЕ используй историю чата или сообщения других участников.\n\n")
-				ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
-				// Добавляем пол пользователя в контекст
-				genderNormalized := strings.TrimSpace(strings.ToLower(userGender))
-				if genderNormalized != "" {
-					var genderText string
-					if genderNormalized == "f" {
-						genderText = "женский"
-					} else if genderNormalized == "m" {
-						genderText = "мужской"
-					}
-					if genderText != "" {
-						ctxBuilder.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
-					}
-				}
-				// Добавляем текст сообщения пользователя
-				trainingTextDouble := msg.Text
-				if trainingTextDouble == "" && msg.Caption != "" {
-					trainingTextDouble = msg.Caption
-				}
-				if trainingTextDouble != "" {
-					// Убираем хэштеги #training_done и #writing_done из текста для контекста
-					trainingTextClean := strings.ReplaceAll(trainingTextDouble, "#training_done", "")
-					trainingTextClean = strings.ReplaceAll(trainingTextClean, "#writing_done", "")
-					trainingTextClean = strings.TrimSpace(trainingTextClean)
-					if trainingTextClean != "" {
-						if chatType == "writing" {
-							ctxBuilder.WriteString(fmt.Sprintf("Сообщение о писательской работе: %s\n", trainingTextClean))
-						} else {
-							ctxBuilder.WriteString(fmt.Sprintf("Сообщение о тренировке: %s\n", trainingTextClean))
-						}
-					}
-				}
-				if chatType == "writing" {
-					ctxBuilder.WriteString("Уже была писательская сессия сегодня, это повторная.\n")
-				} else {
-					ctxBuilder.WriteString("Уже была тренировка сегодня, это повторная.\n")
-				}
-				ctxBuilder.WriteString(fmt.Sprintf("Кубков всего: %d\n", currentCups))
-				if wasOnSickLeave {
+			if trainingText != "" {
+				// Убираем хэштег #training_done из текста для контекста
+				trainingTextClean := strings.ReplaceAll(trainingText, "#training_done", "")
+				trainingTextClean = strings.TrimSpace(trainingTextClean)
+				if trainingTextClean != "" {
 					if chatType == "writing" {
-						ctxBuilder.WriteString("Недавно был больничный, теперь снова за писательством.\n")
+						ctxBuilder.WriteString(fmt.Sprintf("Сообщение о писательской работе: %s\n", trainingTextClean))
 					} else {
-						ctxBuilder.WriteString("Недавно был больничный, теперь снова в строю.\n")
+						ctxBuilder.WriteString(fmt.Sprintf("Сообщение о тренировке: %s\n", trainingTextClean))
 					}
-				}
-
-				// КРИТИЧЕСКИ ВАЖНО: НЕ добавляем историю сообщений и контекст других участников.
-				// Ответ только на этот отчёт — без смешивания с другими сообщениями чата.
-
-				if aiResponse, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
-					aiResponse = strings.TrimSpace(strings.ReplaceAll(aiResponse, "**", ""))
-					if aiResponse != "" {
-						messageText = messageText + "\n\n" + aiResponse
-					}
-				} else {
-					b.logger.Warnf("AI response generation (double) failed: %v", err)
 				}
 			}
-
-			reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
-
-			b.logger.Infof("Sending already trained today message to chat %d", msg.Chat.ID)
-			_, err = b.api.Send(reply)
-			if err != nil {
-				b.logger.Errorf("Failed to send already trained today message: %v", err)
+			ctxBuilder.WriteString(fmt.Sprintf("Серия: %d дней\n", newStreakDays))
+			if chatType == "writing" {
+				ctxBuilder.WriteString(fmt.Sprintf("Добавлено %s: %d\n", getWordForm(caloriesToAdd), caloriesToAdd))
+				ctxBuilder.WriteString(fmt.Sprintf("Текущие %s: %d\n", getWordForm(totalCalories), totalCalories))
 			} else {
-				b.logger.Infof("Successfully sent already trained today message to chat %d", msg.Chat.ID)
+				ctxBuilder.WriteString(fmt.Sprintf("Добавлено калорий: %d\n", caloriesToAdd))
+				ctxBuilder.WriteString(fmt.Sprintf("Текущие калории: %d\n", totalCalories))
 			}
+			ctxBuilder.WriteString(fmt.Sprintf("Кубков всего: %d\n", currentCups))
+
+			// Добавляем контекст времени для разнообразия
+			now := b.getUserLocalNow(messageLog.TimezoneOffsetFromMoscow)
+			hour := now.Hour()
+			weekday := now.Weekday()
+			weekdayNames := []string{"воскресенье", "понедельник", "вторник", "среда", "четверг", "пятница", "суббота"}
+			if chatType == "writing" {
+				ctxBuilder.WriteString(fmt.Sprintf("Время писательской сессии: %s, %d:00\n", weekdayNames[weekday], hour))
+			} else {
+				ctxBuilder.WriteString(fmt.Sprintf("Время тренировки: %s, %d:00\n", weekdayNames[weekday], hour))
+			}
+
+			// Определяем время суток
+			var timeOfDay string
+			if hour >= 5 && hour < 12 {
+				timeOfDay = "утро"
+			} else if hour >= 12 && hour < 17 {
+				timeOfDay = "день"
+			} else if hour >= 17 && hour < 22 {
+				timeOfDay = "вечер"
+			} else {
+				timeOfDay = "ночь"
+			}
+			ctxBuilder.WriteString(fmt.Sprintf("Время суток: %s\n", timeOfDay))
+
+			if wasOnSickLeave {
+				if chatType == "writing" {
+					ctxBuilder.WriteString("Недавно был больничный, теперь снова за писательством.\n")
+				} else {
+					ctxBuilder.WriteString("Недавно был больничный, теперь снова в строю.\n")
+				}
+			}
+
+			// Вычисляем, сколько дней прошло с последней тренировки/писательской сессии
+			// ТОЛЬКО для чатов тренировок - не добавляем для писательства
+			if chatType != "writing" && messageLog.LastTrainingDate != nil {
+				lastTrainingDate, err := time.Parse("2006-01-02", *messageLog.LastTrainingDate)
+				if err == nil {
+					today := b.getUserLocalNow(messageLog.TimezoneOffsetFromMoscow)
+					todayDate := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, today.Location())
+					lastTrainingDateOnly := time.Date(lastTrainingDate.Year(), lastTrainingDate.Month(), lastTrainingDate.Day(), 0, 0, 0, 0, lastTrainingDate.Location())
+					daysSinceLastTraining := int(todayDate.Sub(lastTrainingDateOnly).Hours() / 24)
+					// Если прошло больше 5 дней с последней тренировки, добавляем шутку про обед
+					if daysSinceLastTraining > 5 {
+						ctxBuilder.WriteString(fmt.Sprintf("ВАЖНО: С последней тренировки прошло %d дней — это очень редко! Если будешь продолжать так редко заниматься, станешь обедом. Добавь легкий юмор про это в приписку.\n", daysSinceLastTraining))
+					}
+				}
+			}
+
+			// Добавляем информацию о приближении к достижениям для мотивации
+			if newStreakDays == 6 {
+				if chatType == "writing" {
+					ctxBuilder.WriteString("ВАЖНО: Завтра будет 7 дней подряд писательства — важный рубеж! Можешь мягко намекнуть на это.\n")
+				} else {
+					ctxBuilder.WriteString("ВАЖНО: Завтра будет 7 дней подряд — важный рубеж! Можешь мягко намекнуть на это.\n")
+				}
+			} else if newStreakDays == 13 {
+				if chatType == "writing" {
+					ctxBuilder.WriteString("ВАЖНО: Завтра будет 14 дней подряд писательства — отличный результат! Можешь мягко намекнуть на это.\n")
+				} else {
+					ctxBuilder.WriteString("ВАЖНО: Завтра будет 14 дней подряд — отличный результат! Можешь мягко намекнуть на это.\n")
+				}
+			} else if newStreakDays == 20 {
+				if chatType == "writing" {
+					ctxBuilder.WriteString("ВАЖНО: Завтра будет 21 день подряд писательства — впечатляющая серия! Можешь мягко намекнуть на это.\n")
+				} else {
+					ctxBuilder.WriteString("ВАЖНО: Завтра будет 21 день подряд — впечатляющая серия! Можешь мягко намекнуть на это.\n")
+				}
+			}
+
+			// КРИТИЧЕСКИ ВАЖНО: НЕ добавляем историю сообщений и контекст других участников.
+			// Ответ должен быть ТОЛЬКО на этот отчёт о тренировке/писательстве — без смешивания с другими сообщениями чата.
+
+			if aiResponse, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
+				aiResponse = strings.TrimSpace(strings.ReplaceAll(aiResponse, "**", ""))
+				if aiResponse != "" {
+					messageText = messageText + "\n\n" + aiResponse
+				}
+			} else {
+				b.logger.Warnf("AI response generation failed: %v", err)
+			}
+		}
+
+		// Добавляем фразу о продолжении тренировок/писательства в самом конце
+		if chatType == "writing" {
+			messageText = messageText + "\n\n🎯 Продолжай писать и не забывай отправлять #writing_done!"
+		} else {
+			messageText = messageText + "\n\n🎯 Продолжай тренироваться и не забывай отправлять #training_done!"
+		}
+
+		reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
+
+		b.logger.Infof("Sending training done message to chat %d", msg.Chat.ID)
+		_, err = b.api.Send(reply)
+		if err != nil {
+			b.logger.Errorf("Failed to send training done message: %v", err)
+		} else {
+			b.logger.Infof("Successfully sent training done message to chat %d", msg.Chat.ID)
+		}
+	} else if !hasAnyAchievement {
+		// Дополнительная тренировка в тот же день
+		// Начисляем 1 кубок за дополнительную тренировку
+		if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 1); err != nil {
+			b.logger.Errorf("Failed to add cup for double training: %v", err)
+		} else {
+			b.logger.Infof("Successfully added 1 cup for double training")
+		}
+
+		// Получаем обновленное количество кубков
+		currentCups, err := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
+		if err != nil {
+			b.logger.Errorf("Failed to get user cups for double training message: %v", err)
+			currentCups = 0
+		}
+
+		// Адаптируем текст для дополнительной тренировки/писательской сессии
+		var messageText string
+		if chatType == "writing" {
+			messageText = fmt.Sprintf("🦁 Какой мотивированный леопард! Еще одна писательская сессия сегодня! 💪\n\n🔥 Твоя мотивация впечатляет\n🏆 +1 кубок за дополнительную писательскую сессию!\n🏆 Всего кубков: %d\n\n⏰ Таймер уже перезапущен на 7 дней\n\n🎯 Завтра снова отправляй #writing_done для продолжения серии!", currentCups)
+		} else {
+			messageText = fmt.Sprintf("🦁 Какой мотивированный леопард! Еще одна тренировка сегодня! 💪\n\n🔥 Твоя мотивация впечатляет\n🏆 +1 кубок за дополнительную тренировку!\n🏆 Всего кубков: %d\n\n⏰ Таймер уже перезапущен на 7 дней\n\n🎯 Завтра снова отправляй #training_done для продолжения серии!", currentCups)
+		}
+
+		// Короткая ИИ-приписка и здесь
+		if b.aiClient != nil {
+			action := tgbotapi.NewChatAction(msg.Chat.ID, tgbotapi.ChatTyping)
+			b.api.Send(action)
+			stopTyping := make(chan struct{})
+			defer close(stopTyping)
+			go func() {
+				ticker := time.NewTicker(4 * time.Second)
+				defer ticker.Stop()
+				for {
+					select {
+					case <-ticker.C:
+						b.api.Send(action)
+					case <-stopTyping:
+						return
+					}
+				}
+			}()
+
+			// Единое сообщение для дополнительной тренировки/писательской сессии (объединяем приписку и мудрость) - БЕЗ общих фраз
+			var doubleTrainingPrompts []string
+			if chatType == "writing" {
+				doubleTrainingPrompts = []string{
+					"Двойная писательская сессия за день — особое вдохновение! Напиши 2-3 предложения: первое — отметь упорство и писательскую работу, второе — короткое практическое замечание. Используй ТОЛЬКО этот отчёт. Без Markdown.",
+					"Вторая писательская сессия за день. Напиши 2-3 предложения: первое — похвали за энергию и отметь работу, второе — конкретное наблюдение. Используй ТОЛЬКО этот отчёт. Без Markdown.",
+				}
+			} else {
+				doubleTrainingPrompts = []string{
+					"Двойная тренировка за день — Fat Leopard впечатлён! Напиши 2-3 предложения: первое — отметь упорство и упражнения, второе — короткое замечание. Можно лёгкий юмор: «таких я не ем». Используй ТОЛЬКО этот отчёт. Без Markdown.",
+					"Вторая тренировка за день — не все на это способны. Напиши 2-3 предложения: первое — похвали за энергию и отметь упражнения, второе — короткий совет по восстановлению. Используй ТОЛЬКО этот отчёт. Без Markdown.",
+					"Двойная тренировка — особое упорство! Напиши 2-3 предложения: первое — отметь упражнения, второе — комментарий. Fat Leopard одобряет. Используй ТОЛЬКО этот отчёт. Без Markdown.",
+					"Ещё одна тренировка сегодня — энергия впечатляет. Напиши 2-3 предложения: первое — отметь упражнения, второе — практический совет. Используй ТОЛЬКО этот отчёт. Без Markdown.",
+				}
+			}
+			now := utils.GetMoscowTime()
+			question := doubleTrainingPrompts[now.Unix()%int64(len(doubleTrainingPrompts))]
+			var ctxBuilder strings.Builder
+			ctxBuilder.WriteString("КРИТИЧЕСКИ ВАЖНО: Отвечай ТОЛЬКО на этот отчёт. НЕ используй историю чата или сообщения других участников.\n\n")
+			ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
+			// Добавляем пол пользователя в контекст
+			genderNormalized := strings.TrimSpace(strings.ToLower(userGender))
+			if genderNormalized != "" {
+				var genderText string
+				if genderNormalized == "f" {
+					genderText = "женский"
+				} else if genderNormalized == "m" {
+					genderText = "мужской"
+				}
+				if genderText != "" {
+					ctxBuilder.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
+				}
+			}
+			// Добавляем текст сообщения пользователя
+			trainingTextDouble := msg.Text
+			if trainingTextDouble == "" && msg.Caption != "" {
+				trainingTextDouble = msg.Caption
+			}
+			if trainingTextDouble != "" {
+				// Убираем хэштеги #training_done и #writing_done из текста для контекста
+				trainingTextClean := strings.ReplaceAll(trainingTextDouble, "#training_done", "")
+				trainingTextClean = strings.ReplaceAll(trainingTextClean, "#writing_done", "")
+				trainingTextClean = strings.TrimSpace(trainingTextClean)
+				if trainingTextClean != "" {
+					if chatType == "writing" {
+						ctxBuilder.WriteString(fmt.Sprintf("Сообщение о писательской работе: %s\n", trainingTextClean))
+					} else {
+						ctxBuilder.WriteString(fmt.Sprintf("Сообщение о тренировке: %s\n", trainingTextClean))
+					}
+				}
+			}
+			if chatType == "writing" {
+				ctxBuilder.WriteString("Уже была писательская сессия сегодня, это повторная.\n")
+			} else {
+				ctxBuilder.WriteString("Уже была тренировка сегодня, это повторная.\n")
+			}
+			ctxBuilder.WriteString(fmt.Sprintf("Кубков всего: %d\n", currentCups))
+			if wasOnSickLeave {
+				if chatType == "writing" {
+					ctxBuilder.WriteString("Недавно был больничный, теперь снова за писательством.\n")
+				} else {
+					ctxBuilder.WriteString("Недавно был больничный, теперь снова в строю.\n")
+				}
+			}
+
+			// КРИТИЧЕСКИ ВАЖНО: НЕ добавляем историю сообщений и контекст других участников.
+			// Ответ только на этот отчёт — без смешивания с другими сообщениями чата.
+
+			if aiResponse, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
+				aiResponse = strings.TrimSpace(strings.ReplaceAll(aiResponse, "**", ""))
+				if aiResponse != "" {
+					messageText = messageText + "\n\n" + aiResponse
+				}
+			} else {
+				b.logger.Warnf("AI response generation (double) failed: %v", err)
+			}
+		}
+
+		reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
+
+		b.logger.Infof("Sending already trained today message to chat %d", msg.Chat.ID)
+		_, err = b.api.Send(reply)
+		if err != nil {
+			b.logger.Errorf("Failed to send already trained today message: %v", err)
+		} else {
+			b.logger.Infof("Successfully sent already trained today message to chat %d", msg.Chat.ID)
 		}
 	}
 
-	// Отправляем сообщения об achievements (вместо обычного подтверждения)
+	// Дополняем поздравлениями о рубежах (после обычного отчёта, если он был)
 	if hasAnyAchievement {
-		b.logger.Infof("Sending achievement messages instead of regular confirmation")
+		b.logger.Infof("Sending achievement messages after regular confirmation")
 
 		// Получаем пол пользователя для правильных форм слов
 		messageLog, err := b.db.GetMessageLog(msg.From.ID, msg.Chat.ID)
@@ -1422,6 +1421,15 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 		}
 		if hundredDayAchievement {
 			b.sendHundredDayCupsReward(msg, username, newStreakDays, caloriesToAdd, userGender)
+		}
+		if oneHundredEightyDayAchievement {
+			b.sendOneHundredEightyDayCupsReward(msg, username, newStreakDays, caloriesToAdd, userGender)
+		}
+		if twoHundredDayAchievement {
+			b.sendTwoHundredDayCupsReward(msg, username, newStreakDays, caloriesToAdd, userGender)
+		}
+		if twoHundredFortyDayAchievement {
+			b.sendTwoHundredFortyDayCupsReward(msg, username, newStreakDays, caloriesToAdd, userGender)
 		}
 
 		// Проверяем супер-уровень после начисления кубков
@@ -2702,32 +2710,44 @@ func (b *Bot) calculateRemainingTime(messageLog *domain.MessageLog) time.Duratio
 	}
 
 	// Если был больничный и пользователь выздоровел (проверяем по наличию SickLeaveStartTime и SickLeaveEndTime)
+	// ВАЖНО: старые sick_* даты не трогаем в БД после новой тренировки — timer_start тогда УЖЕ после конца больничного.
+	// В этом случае «заморозка» неприменима: sickStart.Sub(timerStart) стал бы отрицательным и давал бы ложный огромный остаток.
 	if messageLog.SickLeaveStartTime != nil && messageLog.SickLeaveEndTime != nil && messageLog.HasHealthy {
-		b.logger.Infof("DEBUG: User recovered from sick leave, calculating remaining time")
-		sickLeaveStart, err := utils.ParseMoscowTime(*messageLog.SickLeaveStartTime)
-		if err != nil {
-			b.logger.Errorf("Failed to parse sick leave start time: %v", err)
+		sickLeaveEnd, errEnd := utils.ParseMoscowTime(*messageLog.SickLeaveEndTime)
+		if errEnd != nil {
+			b.logger.Errorf("Failed to parse sick leave end time: %v", errEnd)
 			return fullTimerDuration
 		}
+		if timerStart.After(sickLeaveEnd) {
+			b.logger.Infof("DEBUG: timer_start after sick leave end — new 7d window, using elapsed time from timer_start")
+			// fall through to ordinary case below
+		} else {
+			b.logger.Infof("DEBUG: User recovered from sick leave, calculating remaining time")
+			sickLeaveStart, err := utils.ParseMoscowTime(*messageLog.SickLeaveStartTime)
+			if err != nil {
+				b.logger.Errorf("Failed to parse sick leave start time: %v", err)
+				return fullTimerDuration
+			}
 
-		// Рассчитываем время, которое прошло до больничного
-		timeBeforeSickLeave := sickLeaveStart.Sub(timerStart)
-		b.logger.Infof("DEBUG: Timer start: %v, Sick start: %v, Time before sick: %v", timerStart, sickLeaveStart, timeBeforeSickLeave)
+			// Рассчитываем время, которое прошло до больничного
+			timeBeforeSickLeave := sickLeaveStart.Sub(timerStart)
+			b.logger.Infof("DEBUG: Timer start: %v, Sick start: %v, Time before sick: %v", timerStart, sickLeaveStart, timeBeforeSickLeave)
 
-		// Оставшееся время на момент начала больничного
-		remainingTimeAtSickStart := fullTimerDuration - timeBeforeSickLeave
-		b.logger.Infof("DEBUG: Full duration: %v, Remaining at sick start: %v", fullTimerDuration, remainingTimeAtSickStart)
+			// Оставшееся время на момент начала больничного
+			remainingTimeAtSickStart := fullTimerDuration - timeBeforeSickLeave
+			b.logger.Infof("DEBUG: Full duration: %v, Remaining at sick start: %v", fullTimerDuration, remainingTimeAtSickStart)
 
-		// Если время истекло до больничного, возвращаем 0
-		if remainingTimeAtSickStart <= 0 {
-			b.logger.Infof("DEBUG: Time expired before sick leave, returning 0")
-			return 0 // Время истекло
+			// Если время истекло до больничного, возвращаем 0
+			if remainingTimeAtSickStart <= 0 {
+				b.logger.Infof("DEBUG: Time expired before sick leave, returning 0")
+				return 0 // Время истекло
+			}
+
+			// После выздоровления возвращаем то же время, что было на момент больничного
+			// Время больничного не засчитывается в общий таймер
+			b.logger.Infof("User recovered from sick leave. Remaining time at sick start: %v", remainingTimeAtSickStart)
+			return remainingTimeAtSickStart
 		}
-
-		// После выздоровления возвращаем то же время, что было на момент больничного
-		// Время больничного не засчитывается в общий таймер
-		b.logger.Infof("User recovered from sick leave. Remaining time at sick start: %v", remainingTimeAtSickStart)
-		return remainingTimeAtSickStart
 	}
 
 	// Обычный случай - рассчитываем оставшееся время
@@ -3017,10 +3037,10 @@ func (b *Bot) auditProcessTrainingDone(um *domain.UserMessage) {
 			_ = b.db.AddCups(um.UserID, um.ChatID, 420)
 		}
 		if twoHundredDayAchievement {
-			_ = b.db.AddCups(um.UserID, um.ChatID, 420)
+			_ = b.db.AddCups(um.UserID, um.ChatID, 4200)
 		}
 		if twoHundredFortyDayAchievement {
-			_ = b.db.AddCups(um.UserID, um.ChatID, 420)
+			_ = b.db.AddCups(um.UserID, um.ChatID, 4200)
 		}
 
 		totalCalories, _ := b.db.GetUserCalories(um.UserID, um.ChatID)
@@ -3156,17 +3176,17 @@ func (b *Bot) generateMonthlySummaryForChat(chatID int64, month time.Time) {
 		return
 	}
 
-	// Название месяца на русском
-	monthNames := []string{"января", "февраля", "марта", "апреля", "мая", "июня",
-		"июля", "августа", "сентября", "октября", "ноября", "декабря"}
-	monthName := monthNames[month.Month()-1]
+	// Заголовок «за март 2026» — винительный падеж; родительный (марта) не ставим после «за» в такой конструкции.
+	monthNamesAccusative := []string{"январь", "февраль", "март", "апрель", "май", "июнь",
+		"июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"}
+	monthTitle := monthNamesAccusative[month.Month()-1]
 	year := month.Year()
 
 	// Формируем отчёт в стиле Fat Leopard
 	var sb strings.Builder
 
 	sb.WriteString("📊 Отчёт Fat Leopard за ")
-	sb.WriteString(monthName)
+	sb.WriteString(monthTitle)
 	sb.WriteString(fmt.Sprintf(" %d\n\n", year))
 	sb.WriteString("Привет, стая! 🦁\n\n")
 
@@ -3177,12 +3197,14 @@ func (b *Bot) generateMonthlySummaryForChat(chatID int64, month time.Time) {
 			maxTrainings = u.TrainingCount
 		}
 	}
-	workLabel := "тренировок"
-	if chatType == "writing" {
-		workLabel = "писательских сессий"
-	}
 	if maxTrainings > 0 {
-		sb.WriteString(fmt.Sprintf("Максимум в месяце: %d %s\n\n", maxTrainings, workLabel))
+		var maxLabel string
+		if chatType == "writing" {
+			maxLabel = writingSessionsWordForm(maxTrainings)
+		} else {
+			maxLabel = trainingsWordForm(maxTrainings)
+		}
+		sb.WriteString(fmt.Sprintf("Максимум в месяце: %d %s\n\n", maxTrainings, maxLabel))
 	}
 
 	// Сводка по каждому: пользователь, сколько тренировок, серия на момент отчёта
@@ -3192,12 +3214,18 @@ func (b *Bot) generateMonthlySummaryForChat(chatID int64, month time.Time) {
 			name = fmt.Sprintf("User%d", u.UserID)
 		}
 
-		sb.WriteString(fmt.Sprintf("• %s: %d %s", name, u.TrainingCount, workLabel))
+		var lineWorkLabel string
+		if chatType == "writing" {
+			lineWorkLabel = writingSessionsWordForm(u.TrainingCount)
+		} else {
+			lineWorkLabel = trainingsWordForm(u.TrainingCount)
+		}
+		sb.WriteString(fmt.Sprintf("• %s: %d %s", name, u.TrainingCount, lineWorkLabel))
 		sb.WriteString(fmt.Sprintf(", серия на момент отчёта: %d дн.", u.StreakDays))
 		if chatType == "writing" {
-			sb.WriteString(fmt.Sprintf(", %d %s, %d кубков", u.Calories, getWordForm(u.Calories), u.Cups))
+			sb.WriteString(fmt.Sprintf(", %d %s, %d %s", u.Calories, getWordForm(u.Calories), u.Cups, cupsWordForm(u.Cups)))
 		} else {
-			sb.WriteString(fmt.Sprintf(", %d калорий, %d кубков", u.Calories, u.Cups))
+			sb.WriteString(fmt.Sprintf(", %d калорий, %d %s", u.Calories, u.Cups, cupsWordForm(u.Cups)))
 		}
 
 		var flags []string

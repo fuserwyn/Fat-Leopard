@@ -216,13 +216,13 @@ func (b *Bot) processTrainingDone(msg *tgbotapi.Message) {
 		}
 
 		if twoHundredDayAchievement {
-			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 420); err != nil {
+			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 4200); err != nil {
 				b.logger.Errorf("Failed to add 200-day cups: %v", err)
 			}
 		}
 
 		if twoHundredFortyDayAchievement {
-			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 420); err != nil {
+			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 4200); err != nil {
 				b.logger.Errorf("Failed to add 240-day cups: %v", err)
 			}
 		}
@@ -466,6 +466,38 @@ func getWordForm(count int) string {
 	default:
 		return "слов"
 	}
+}
+
+// russianPlural — одна из форм (ед., неск. 2–4, много) для положительного целого count.
+func russianPlural(count int, one, few, many string) string {
+	if count < 0 {
+		count = -count
+	}
+	n := count % 100
+	if n >= 11 && n <= 14 {
+		return many
+	}
+	switch count % 10 {
+	case 1:
+		return one
+	case 2, 3, 4:
+		return few
+	default:
+		return many
+	}
+}
+
+func trainingsWordForm(count int) string {
+	return russianPlural(count, "тренировка", "тренировки", "тренировок")
+}
+
+// writingSessionsWordForm — «писательская сессия» / «писательские сессии» / «писательских сессий».
+func writingSessionsWordForm(count int) string {
+	return russianPlural(count, "писательская сессия", "писательские сессии", "писательских сессий")
+}
+
+func cupsWordForm(count int) string {
+	return russianPlural(count, "кубок", "кубка", "кубков")
 }
 
 func (b *Bot) sendWeeklyCupsReward(msg *tgbotapi.Message, username string, streakDays int, caloriesAdded int, userGender string) {
@@ -728,7 +760,7 @@ func (b *Bot) sendOneHundredEightyDayCupsReward(msg *tgbotapi.Message, username 
 func (b *Bot) sendTwoHundredDayCupsReward(msg *tgbotapi.Message, username string, streakDays int, caloriesAdded int, userGender string) {
 	totalCalories, _ := b.db.GetUserCalories(msg.From.ID, msg.Chat.ID)
 	totalCups, _ := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
-	rewardCups := 420
+	rewardCups := 4200
 	messageText := fmt.Sprintf(`🌸 БУКЕТ ИЗ КУБКОВ! 🌸
 
 %s, 200 дней подряд!
@@ -743,14 +775,14 @@ func (b *Bot) sendTwoHundredDayCupsReward(msg *tgbotapi.Message, username string
 🏆 +%d кубков (всего: %d)
 🦁 Fat Leopard дарит тебе этот букет — ты легенда!
 
-#two_hundred_days #bouquet_of_cups #420_cups`,
+#two_hundred_days #bouquet_of_cups #4200_cups`,
 		username, rewardCups, streakDays, caloriesAdded, totalCalories, rewardCups, totalCups)
 	reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
 	b.api.Send(reply)
 }
 
 func (b *Bot) sendTwoHundredFortyDayCupsReward(msg *tgbotapi.Message, username string, streakDays int, caloriesAdded int, userGender string) {
-	b.sendStreakReward(msg, username, streakDays, caloriesAdded, 420, "🏆 240 дней!", "🔥 240 дней серии — уровень титана!")
+	b.sendStreakReward(msg, username, streakDays, caloriesAdded, 4200, "🏆 240 дней!", "🔥 240 дней серии — уровень титана!")
 }
 
 func (b *Bot) sendSuperLevelMessage(msg *tgbotapi.Message, username string, totalCups int, userGender string) {

@@ -76,6 +76,31 @@ func TestCalculateRemainingTime(t *testing.T) {
 	assertDurationApprox(t, remainingTime, expectedTime)
 }
 
+// Регрессия: новый timer_start после выхода с больничного (#training_done), в БД всё ещё лежат старые sick_*.
+// Нельзя применять формулу «остаток на момент больничного» — иначе получается огромный ложный остаток и кик не срабатывает.
+func TestCalculateRemainingTime_NewTimerAfterSickUsesElapsed(t *testing.T) {
+	log := logger.New("info")
+	bot := &Bot{
+		logger: log,
+		config: &config.Config{OwnerID: 123},
+	}
+	sickStart := utils.FormatMoscowTime(utils.GetMoscowTime().Add(-120 * 24 * time.Hour))
+	sickEnd := utils.FormatMoscowTime(utils.GetMoscowTime().Add(-90 * 24 * time.Hour))
+	// Тренировка перезапустила таймер уже после больничного
+	timerStart := utils.FormatMoscowTime(utils.GetMoscowTime().Add(-30 * 24 * time.Hour))
+
+	ml := &domain.MessageLog{
+		TimerStartTime:     &timerStart,
+		SickLeaveStartTime: &sickStart,
+		SickLeaveEndTime:   &sickEnd,
+		HasHealthy:         true,
+	}
+	got := bot.calculateRemainingTime(ml)
+	if got > 0 {
+		t.Fatalf("expected expired (0 duration), got %v", got)
+	}
+}
+
 func TestFormatDurationToDays(t *testing.T) {
 	// Создаем тестовый бот
 	cfg := &config.Config{OwnerID: 123}
