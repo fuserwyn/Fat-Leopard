@@ -77,6 +77,14 @@ func New(cfg *config.Config, db *database.Database, log logger.Logger) (*Bot, er
 
 func (b *Bot) Start(ctx context.Context) error {
 	b.logger.Info("Starting bot...")
+	if b.config.PaywallEnabled {
+		if b.config.MonetizedChatID == 0 {
+			b.logger.Warn("PAYWALL_ENABLED=true but MONETIZED_CHAT_ID is not set")
+		}
+		if b.config.PaymentProviderToken == "" {
+			b.logger.Warn("PAYWALL_ENABLED=true but PAYMENT_PROVIDER_TOKEN is empty")
+		}
+	}
 
 	// Восстанавливаем таймеры из базы данных
 	if err := b.recoverTimersFromDatabase(); err != nil {
@@ -197,6 +205,16 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 		return
 	}
 
+	if update.PreCheckoutQuery != nil {
+		b.handlePaywallPreCheckout(update.PreCheckoutQuery)
+		return
+	}
+
+	if update.ChatJoinRequest != nil {
+		b.handlePaywallChatJoinRequest(update.ChatJoinRequest)
+		return
+	}
+
 	// Обрабатываем реакции на сообщения (смайлики)
 	// Примечание: telegram-bot-api v5.5.1 пока не поддерживает MessageReaction в Update
 	// Если библиотека обновится с поддержкой реакций, можно будет обработать здесь
@@ -216,6 +234,11 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 	}
 
 	msg := update.Message
+	if msg.SuccessfulPayment != nil {
+		b.handlePaywallSuccessfulPayment(msg)
+		return
+	}
+
 	b.logger.Infof("Received message from %d: %s", msg.From.ID, msg.Text)
 
 	// Админ-мастер перехватывает сообщения владельца в личке при активной сессии.
@@ -2075,6 +2098,12 @@ func (b *Bot) handleStart(msg *tgbotapi.Message) {
 • 🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆 100 дней подряд = 4200 КУБКОВ! 🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆
 
 🎯 **Начни прямо сейчас — отправь #training_done!**`
+	}
+
+	if msg.Chat.IsPrivate() {
+		if banner := b.paywallPrivateStartBanner(); banner != "" {
+			welcomeText = welcomeText + "\n\n" + banner
+		}
 	}
 
 	reply := tgbotapi.NewMessage(msg.Chat.ID, welcomeText)

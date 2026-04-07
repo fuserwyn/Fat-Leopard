@@ -1,6 +1,8 @@
-# Telegram Bot Token
+# Telegram Bot Token (основное имя переменной для Fat Leopard)
 # Получите токен у @BotFather в Telegram
-API_TOKEN=your_bot_token_here
+FAT_LEOPARD_API_TOKEN=your_bot_token_here
+# Если не задано, используется старое имя (совместимость):
+# API_TOKEN=your_bot_token_here
 
 # Owner ID (ваш Telegram ID)
 OWNER_ID=your_telegram_id_here

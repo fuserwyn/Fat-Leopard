@@ -233,6 +233,30 @@ var Migrations = []Migration{
 			DROP COLUMN IF EXISTS timezone_offset_from_moscow;
 		`,
 	},
+	{
+		Version:     12,
+		Description: "Paywall: access requests linked to Telegram invoice payload",
+		UpSQL: `
+			CREATE TABLE IF NOT EXISTS paywall_access_requests (
+				id BIGSERIAL PRIMARY KEY,
+				user_id BIGINT NOT NULL,
+				monetized_chat_id BIGINT NOT NULL,
+				status VARCHAR(32) NOT NULL DEFAULT 'pending',
+				created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'Europe/Moscow'),
+				completed_at TIMESTAMP WITH TIME ZONE,
+				telegram_payment_charge_id TEXT,
+				total_amount_minor INTEGER,
+				currency VARCHAR(10)
+			);
+			CREATE INDEX IF NOT EXISTS idx_paywall_requests_user_chat
+				ON paywall_access_requests (user_id, monetized_chat_id);
+			CREATE INDEX IF NOT EXISTS idx_paywall_requests_status
+				ON paywall_access_requests (status);
+		`,
+		DownSQL: `
+			DROP TABLE IF EXISTS paywall_access_requests;
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции
