@@ -60,8 +60,8 @@ func (b *Bot) paywallUnpaidInlineKeyboard() *tgbotapi.InlineKeyboardMarkup {
 	return &tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
 }
 
-// EnsurePaywallInvoiceSent создаёт pending-заявку при необходимости и шлёт invoice (кнопка «Оплатить»).
-func (b *Bot) EnsurePaywallInvoiceSent(userID int64) {
+// ensurePaywallInvoiceSent создаёт pending-заявку при необходимости и шлёт invoice (кнопка «Оплатить»).
+func (b *Bot) ensurePaywallInvoiceSent(userID int64) {
 	if !b.paywallActive() || userID == 0 || b.config.PaymentProviderToken == "" {
 		return
 	}

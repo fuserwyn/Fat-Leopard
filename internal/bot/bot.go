@@ -1977,6 +1977,8 @@ func (b *Bot) handleHelp(msg *tgbotapi.Message) {
 		reply.ReplyMarkup = b.paywallUnpaidInlineKeyboard()
 		if _, err := b.api.Send(reply); err != nil {
 			b.logger.Errorf("Failed to send paywall-only help: %v", err)
+		} else {
+			b.ensurePaywallInvoiceSent(msg.From.ID)
 		}
 		return
 	}
@@ -2112,6 +2114,8 @@ func (b *Bot) handleStart(msg *tgbotapi.Message) {
 		b.logger.Infof("Sending paywall-only /start to chat %d", msg.Chat.ID)
 		if _, err := b.api.Send(reply); err != nil {
 			b.logger.Errorf("Failed to send paywall /start: %v", err)
+		} else if msg.From != nil {
+			b.ensurePaywallInvoiceSent(msg.From.ID)
 		}
 		return
 	}
