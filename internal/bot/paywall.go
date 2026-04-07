@@ -33,19 +33,17 @@ func (b *Bot) paywallPrivateUnpaidUserText() string {
 	}
 	return `💳 Платный вход в закрытую группу
 
-Сначала оплати доступ через счёт в Telegram — полное приветствие и команды бота я пришлю после успешной оплаты.
+Сразу после этого сообщения придёт счёт с кнопкой «Оплатить» в Telegram.
 
-Как оплатить:
-1. Нажми /start в этом чате (если ещё не нажимал(а)), чтобы я мог писать тебе.
-2. Перейди по пригласительной ссылке на группу и подай заявку на вступление.
-3. Сюда придёт счёт на оплату — оплати в Telegram.
-4. После оплаты заявка в группу одобрится автоматически.` + priceRub + `
+Порядок такой:
+1. Оплати счёт здесь (можно до заявки в группу).
+2. Затем нажми кнопку ниже «Подать заявку» и подтверди вступление — если оплата уже прошла, заявку одобрю автоматически.
 
-Пока оплаты не было, в личке не показываю длинную справку — она пригодится, когда будешь в группе.
+Полное приветствие с командами бота пришлю после успешной оплаты.` + priceRub + `
 
-Если счёт не пришёл: проверь, что заявка подана, бот не заблокирован, и снова подай заявку при необходимости.
+Пока оплаты не было, длинную справку в личке не показываю — она пригодится в группе.
 
-👇 Снизу кнопки: переход в группу (после заявки придёт счёт с кнопкой оплаты в Telegram) и повторная отправка счёта, если заявка уже есть.`
+👇 Кнопки: ссылка в группу и повторная отправка счёта (если сообщение со счётом потерялось).`
 }
 
 // paywallUnpaidInlineKeyboard — ссылка на группу + повтор счёта (invoice сам по себе содержит кнопку «Оплатить»).
@@ -60,6 +58,31 @@ func (b *Bot) paywallUnpaidInlineKeyboard() *tgbotapi.InlineKeyboardMarkup {
 		tgbotapi.NewInlineKeyboardButtonData("💳 Выслать счёт снова", paywallCallbackResendInvoice),
 	))
 	return &tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
+}
+
+// EnsurePaywallInvoiceSent создаёт pending-заявку при необходимости и шлёт invoice (кнопка «Оплатить»).
+func (b *Bot) EnsurePaywallInvoiceSent(userID int64) {
+	if !b.paywallActive() || userID == 0 || b.config.PaymentProviderToken == "" {
+		return
+	}
+	pending, err := b.db.GetLatestPendingPaywallAccessRequest(userID, b.config.MonetizedChatID)
+	if err != nil {
+		b.logger.Errorf("paywall ensure invoice get pending: %v", err)
+		return
+	}
+	var reqID int64
+	if pending != nil {
+		reqID = pending.ID
+	} else {
+		reqID, err = b.db.InsertPaywallAccessRequest(userID, b.config.MonetizedChatID)
+		if err != nil {
+			b.logger.Errorf("paywall ensure invoice insert: %v", err)
+			return
+		}
+	}
+	if err := b.SendPaywallInvoice(userID, reqID); err != nil {
+		b.logger.Errorf("paywall ensure invoice send: %v", err)
+	}
 }
 
 // SendPaywallInvoice отправляет invoice в ЛС; payload pw_<reqID> должен совпадать с записью в БД.
@@ -99,16 +122,19 @@ func (b *Bot) handlePaywallResendInvoiceCallback(callback *tgbotapi.CallbackQuer
 		_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, "Ошибка. Попробуй позже или напиши администратору."))
 		return
 	}
-	if rec == nil {
-		hint := "Сначала подай заявку на вступление в группу."
-		if strings.TrimSpace(b.config.MonetizedChatInviteURL) == "" {
-			hint += " Попроси у администратора ссылку на группу."
+	reqID := int64(0)
+	if rec != nil {
+		reqID = rec.ID
+	} else {
+		reqID, err = b.db.InsertPaywallAccessRequest(callback.From.ID, b.config.MonetizedChatID)
+		if err != nil {
+			b.logger.Errorf("paywall resend insert: %v", err)
+			_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, "Не удалось выставить счёт. Попробуй /start."))
+			return
 		}
-		_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, hint))
-		return
 	}
 
-	if err := b.SendPaywallInvoice(callback.From.ID, rec.ID); err != nil {
+	if err := b.SendPaywallInvoice(callback.From.ID, reqID); err != nil {
 		b.logger.Errorf("paywall resend invoice: %v", err)
 		_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, "Не удалось отправить счёт. Проверь, что бот не в чёрном списке."))
 		return
@@ -184,7 +210,7 @@ func (b *Bot) handlePaywallPreCheckout(q *tgbotapi.PreCheckoutQuery) {
 	rec, err := b.db.GetPaywallAccessRequestByID(reqID)
 	if err != nil || rec == nil {
 		b.logger.Errorf("paywall pre_checkout load request: %v", err)
-		_, _ = b.api.Request(tgbotapi.PreCheckoutConfig{PreCheckoutQueryID: q.ID, OK: false, ErrorMessage: "Заявка не найдена. Подай заявку снова."})
+		_, _ = b.api.Request(tgbotapi.PreCheckoutConfig{PreCheckoutQueryID: q.ID, OK: false, ErrorMessage: "Заявка не найдена. Нажми /start снова."})
 		return
 	}
 	if rec.Status != "pending" {
@@ -235,8 +261,17 @@ func (b *Bot) handlePaywallSuccessfulPayment(msg *tgbotapi.Message) {
 	})
 	if err != nil {
 		b.logger.Errorf("paywall approve join request failed: %v", err)
-		pm := tgbotapi.NewMessage(msg.Chat.ID, "✅ Оплата прошла. Авто-одобрение заявки не вышло — напиши администратору, приложи этот чек.")
+		follow := "✅ Оплата принята.\n\nЕсли ты ещё не подал(а) заявку в группу — открой пригласительную ссылку и нажми «Запросить вступление». Заявка одобрится автоматически."
+		if u := strings.TrimSpace(b.config.MonetizedChatInviteURL); u != "" {
+			follow += "\n\nСсылка: " + u
+		} else {
+			follow += "\n\nПопроси ссылку у администратора."
+		}
+		pm := tgbotapi.NewMessage(msg.Chat.ID, follow)
 		b.api.Send(pm)
+		welcome := welcomeStartText(b.monetizedChatWelcomeType())
+		wmsg := tgbotapi.NewMessage(msg.Chat.ID, welcome)
+		b.api.Send(wmsg)
 		return
 	}
 	done := tgbotapi.NewMessage(msg.Chat.ID, "✅ Оплата принята, заявка в группу одобрена. Добро пожаловать!")
@@ -257,15 +292,46 @@ func (b *Bot) handlePaywallChatJoinRequest(j *tgbotapi.ChatJoinRequest) {
 	if j.Chat.ID != b.config.MonetizedChatID {
 		return
 	}
+	userID := j.From.ID
+	if userID == 0 {
+		return
+	}
+
+	paid, err := b.db.UserHasCompletedPaywallAccess(userID, b.config.MonetizedChatID)
+	if err != nil {
+		b.logger.Errorf("paywall join request paid check: %v", err)
+		return
+	}
+	if paid {
+		_, err := b.api.Request(tgbotapi.ApproveChatJoinRequestConfig{
+			ChatConfig: tgbotapi.ChatConfig{ChatID: b.config.MonetizedChatID},
+			UserID:     userID,
+		})
+		if err != nil {
+			b.logger.Errorf("paywall approve (already paid): %v", err)
+		}
+		return
+	}
+
 	if b.config.PaymentProviderToken == "" {
 		b.logger.Error("PAYWALL_ENABLED but PAYMENT_PROVIDER_TOKEN is empty")
 		return
 	}
-	userID := j.From.ID
-	reqID, err := b.db.InsertPaywallAccessRequest(userID, j.Chat.ID)
+
+	pending, err := b.db.GetLatestPendingPaywallAccessRequest(userID, b.config.MonetizedChatID)
 	if err != nil {
-		b.logger.Errorf("paywall insert request: %v", err)
+		b.logger.Errorf("paywall join request pending: %v", err)
 		return
+	}
+	var reqID int64
+	if pending != nil {
+		reqID = pending.ID
+	} else {
+		reqID, err = b.db.InsertPaywallAccessRequest(userID, j.Chat.ID)
+		if err != nil {
+			b.logger.Errorf("paywall insert request: %v", err)
+			return
+		}
 	}
 	if err := b.SendPaywallInvoice(userID, reqID); err != nil {
 		b.logger.Errorf("paywall send invoice: %v", err)
