@@ -344,6 +344,11 @@ func (b *Bot) handleNewChatMembers(msg *tgbotapi.Message) {
 			continue
 		}
 
+		if b.paywallShouldKickDirectJoinWithoutPayment(msg.Chat.ID, newMember.ID) {
+			b.paywallKickFromMonetizedChatAndExplain(newMember.ID)
+			continue
+		}
+
 		// Получаем никнейм пользователя
 		username := ""
 		if newMember.UserName != "" {

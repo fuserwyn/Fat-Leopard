@@ -187,6 +187,20 @@ func (d *Database) GetMessageLog(userID, chatID int64) (*domain.MessageLog, erro
 	return &msg, nil
 }
 
+// UserHasActiveMessageLogInChat — в message_log есть живая запись пользователя в этом чате (учитываем для paywall, если getChatMember недоступен).
+func (d *Database) UserHasActiveMessageLogInChat(userID, chatID int64) (bool, error) {
+	const q = `
+		SELECT EXISTS (
+			SELECT 1 FROM message_log
+			WHERE user_id = $1 AND chat_id = $2 AND is_deleted = FALSE
+		)`
+	var ok bool
+	if err := d.db.QueryRow(q, userID, chatID).Scan(&ok); err != nil {
+		return false, fmt.Errorf("exists message_log user/chat: %w", err)
+	}
+	return ok, nil
+}
+
 // GetUsersByChatID получает всех пользователей в чате
 func (d *Database) GetUsersByChatID(chatID int64) ([]*domain.MessageLog, error) {
 	query := `
