@@ -42,6 +42,14 @@ OPENROUTER_MODEL=deepseek/deepseek-r1-0528
 # Для ручного сканирования используйте команду /scan_history (только для владельца)
 SCAN_HISTORY_ON_START=false
 
+# Платный вход в группу (опционально)
+# PAYWALL_ENABLED=true
+# MONETIZED_CHAT_ID=-100xxxxxxxxxx
+# MONETIZED_CHAT_INVITE_URL=https://t.me/+AbCdEfGh...   # пригласительная ссылка из настроек группы (кнопка в личке)
+# PAYMENT_PROVIDER_TOKEN=...
+# PAYMENT_CURRENCY=RUB
+# PAYMENT_AMOUNT_MINOR_UNITS=10000
+
 # Инструкция:
 # 1. Скопируйте этот файл и переименуйте в .env
 # 2. Замените your_bot_token_here на ваш реальный токен бота

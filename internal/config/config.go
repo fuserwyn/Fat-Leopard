@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -21,6 +22,7 @@ type Config struct {
 	// в @BotFather подключён провайдер и выдан PAYMENT_PROVIDER_TOKEN; сумма и валюта сверяются в pre_checkout и successful_payment.
 	PaywallEnabled          bool
 	MonetizedChatID         int64  // ID группы (например -100...)
+	MonetizedChatInviteURL  string // https://t.me/+xxx или публичная t.me/joinchat/… — для кнопки «в группу»
 	PaymentProviderToken    string // токен провайдера из BotFather (не коммитить в git)
 	PaymentCurrency         string // ISO 4217, напр. RUB
 	PaymentAmountMinorUnits int    // минимальные единицы валюты (копейки для RUB)
@@ -67,6 +69,7 @@ func Load() (*Config, error) {
 
 		PaywallEnabled:          paywallEnabled,
 		MonetizedChatID:         monetizedChatID,
+		MonetizedChatInviteURL:  strings.TrimSpace(getEnv("MONETIZED_CHAT_INVITE_URL", "")),
 		PaymentProviderToken:    getEnv("PAYMENT_PROVIDER_TOKEN", ""),
 		PaymentCurrency:         currency,
 		PaymentAmountMinorUnits: amountMinor,

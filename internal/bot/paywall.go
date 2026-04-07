@@ -10,19 +10,144 @@ import (
 
 const paywallPayloadPrefix = "pw_"
 
+const paywallCallbackResendInvoice = "paywall_resend_invoice"
+
 // paywallActive — платный вход включён и задана целевая группа.
 func (b *Bot) paywallActive() bool {
 	return b.config.PaywallEnabled && b.config.MonetizedChatID != 0
 }
 
-func (b *Bot) paywallPrivateStartBanner() string {
+// paywallPrivateUnpaidUserText — только оплата и шаги (без полной справки бота).
+func (b *Bot) paywallPrivateUnpaidUserText() string {
+	priceRub := ""
+	if b.config.PaymentCurrency == "RUB" && b.config.PaymentAmountMinorUnits > 0 {
+		rub := b.config.PaymentAmountMinorUnits / 100
+		kop := b.config.PaymentAmountMinorUnits % 100
+		if kop == 0 {
+			priceRub = fmt.Sprintf(" Сумма: %d ₽.", rub)
+		} else {
+			priceRub = fmt.Sprintf(" Сумма: %d,%02d ₽.", rub, kop)
+		}
+	} else if b.config.PaymentAmountMinorUnits > 0 && b.config.PaymentCurrency != "" {
+		priceRub = fmt.Sprintf(" В счёте будет указано: %d мин. ед. валюты %s.", b.config.PaymentAmountMinorUnits, b.config.PaymentCurrency)
+	}
+	return `💳 Платный вход в закрытую группу
+
+Сначала оплати доступ через счёт в Telegram — полное приветствие и команды бота я пришлю после успешной оплаты.
+
+Как оплатить:
+1. Нажми /start в этом чате (если ещё не нажимал(а)), чтобы я мог писать тебе.
+2. Перейди по пригласительной ссылке на группу и подай заявку на вступление.
+3. Сюда придёт счёт на оплату — оплати в Telegram.
+4. После оплаты заявка в группу одобрится автоматически.` + priceRub + `
+
+Пока оплаты не было, в личке не показываю длинную справку — она пригодится, когда будешь в группе.
+
+Если счёт не пришёл: проверь, что заявка подана, бот не заблокирован, и снова подай заявку при необходимости.
+
+👇 Снизу кнопки: переход в группу (после заявки придёт счёт с кнопкой оплаты в Telegram) и повторная отправка счёта, если заявка уже есть.`
+}
+
+// paywallUnpaidInlineKeyboard — ссылка на группу + повтор счёта (invoice сам по себе содержит кнопку «Оплатить»).
+func (b *Bot) paywallUnpaidInlineKeyboard() *tgbotapi.InlineKeyboardMarkup {
+	var rows [][]tgbotapi.InlineKeyboardButton
+	if u := strings.TrimSpace(b.config.MonetizedChatInviteURL); u != "" {
+		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonURL("📥 Подать заявку в группу", u),
+		))
+	}
+	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+		tgbotapi.NewInlineKeyboardButtonData("💳 Выслать счёт снова", paywallCallbackResendInvoice),
+	))
+	return &tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
+}
+
+// SendPaywallInvoice отправляет invoice в ЛС; payload pw_<reqID> должен совпадать с записью в БД.
+func (b *Bot) SendPaywallInvoice(userID, reqID int64) error {
+	if b.config.PaymentProviderToken == "" {
+		return fmt.Errorf("payment provider token empty")
+	}
+	payload := fmt.Sprintf("%s%d", paywallPayloadPrefix, reqID)
+	prices := []tgbotapi.LabeledPrice{{Label: "Доступ", Amount: b.config.PaymentAmountMinorUnits}}
+	inv := tgbotapi.NewInvoice(
+		userID,
+		b.config.PaymentInvoiceTitle,
+		b.config.PaymentInvoiceDesc,
+		payload,
+		b.config.PaymentProviderToken,
+		"",
+		b.config.PaymentCurrency,
+		prices,
+	)
+	_, err := b.api.Send(inv)
+	return err
+}
+
+func (b *Bot) handlePaywallResendInvoiceCallback(callback *tgbotapi.CallbackQuery) {
+	if callback.From == nil {
+		_, _ = b.api.Request(tgbotapi.NewCallback(callback.ID, ""))
+		return
+	}
+	if !b.paywallActive() || b.config.PaymentProviderToken == "" {
+		_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, "Оплата сейчас недоступна. Напиши администратору."))
+		return
+	}
+
+	rec, err := b.db.GetLatestPendingPaywallAccessRequest(callback.From.ID, b.config.MonetizedChatID)
+	if err != nil {
+		b.logger.Errorf("paywall get pending: %v", err)
+		_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, "Ошибка. Попробуй позже или напиши администратору."))
+		return
+	}
+	if rec == nil {
+		hint := "Сначала подай заявку на вступление в группу."
+		if strings.TrimSpace(b.config.MonetizedChatInviteURL) == "" {
+			hint += " Попроси у администратора ссылку на группу."
+		}
+		_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, hint))
+		return
+	}
+
+	if err := b.SendPaywallInvoice(callback.From.ID, rec.ID); err != nil {
+		b.logger.Errorf("paywall resend invoice: %v", err)
+		_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, "Не удалось отправить счёт. Проверь, что бот не в чёрном списке."))
+		return
+	}
+
+	_, _ = b.api.Request(tgbotapi.NewCallback(callback.ID, "Счёт отправлен — в чате со мной открой сообщение со счётом и нажми «Оплатить»."))
+}
+
+func (b *Bot) paywallPrivatePaidFooter() string {
 	if !b.paywallActive() {
 		return ""
 	}
-	return `💳 Платный чат
-Подай заявку на вступление в группу по пригласительной ссылке. Бот пришлёт счёт в этот чат; после успешной оплаты заявка будет одобрена автоматически.
+	return `
 
-Нужны: бот — администратор группы с правом «одобрять заявки», в группе включены заявки на вступление, в @BotFather подключены платежи и задан PAYMENT_PROVIDER_TOKEN.`
+💳 Доступ к платной группе оплачен. Если вышел(а) из группы и нужен снова вход — подай заявку по ссылке, пришлю новый счёт.`
+}
+
+// paywallPrivateNeedsPayFirst — личка, paywall включён, не владелец, нет завершённой оплаты по MONETIZED_CHAT_ID.
+func (b *Bot) paywallPrivateNeedsPayFirst(userID int64) bool {
+	if !b.paywallActive() || userID == 0 {
+		return false
+	}
+	if b.config.OwnerID != 0 && userID == b.config.OwnerID {
+		return false
+	}
+	ok, err := b.db.UserHasCompletedPaywallAccess(userID, b.config.MonetizedChatID)
+	if err != nil {
+		b.logger.Errorf("paywall access check: %v", err)
+		return true
+	}
+	return !ok
+}
+
+func (b *Bot) monetizedChatWelcomeType() string {
+	t, err := b.db.GetChatType(b.config.MonetizedChatID)
+	if err != nil {
+		return "training"
+	}
+	return t
 }
 
 func parsePaywallPayload(payload string) (requestID int64, ok bool) {
@@ -115,7 +240,14 @@ func (b *Bot) handlePaywallSuccessfulPayment(msg *tgbotapi.Message) {
 		return
 	}
 	done := tgbotapi.NewMessage(msg.Chat.ID, "✅ Оплата принята, заявка в группу одобрена. Добро пожаловать!")
-	b.api.Send(done)
+	if _, err := b.api.Send(done); err != nil {
+		b.logger.Errorf("paywall send done msg: %v", err)
+	}
+	welcome := welcomeStartText(b.monetizedChatWelcomeType())
+	wmsg := tgbotapi.NewMessage(msg.Chat.ID, welcome)
+	if _, err := b.api.Send(wmsg); err != nil {
+		b.logger.Errorf("paywall send welcome after payment: %v", err)
+	}
 }
 
 func (b *Bot) handlePaywallChatJoinRequest(j *tgbotapi.ChatJoinRequest) {
@@ -135,19 +267,7 @@ func (b *Bot) handlePaywallChatJoinRequest(j *tgbotapi.ChatJoinRequest) {
 		b.logger.Errorf("paywall insert request: %v", err)
 		return
 	}
-	payload := fmt.Sprintf("%s%d", paywallPayloadPrefix, reqID)
-	prices := []tgbotapi.LabeledPrice{{Label: "Доступ", Amount: b.config.PaymentAmountMinorUnits}}
-	inv := tgbotapi.NewInvoice(
-		userID,
-		b.config.PaymentInvoiceTitle,
-		b.config.PaymentInvoiceDesc,
-		payload,
-		b.config.PaymentProviderToken,
-		"",
-		b.config.PaymentCurrency,
-		prices,
-	)
-	if _, err := b.api.Send(inv); err != nil {
+	if err := b.SendPaywallInvoice(userID, reqID); err != nil {
 		b.logger.Errorf("paywall send invoice: %v", err)
 	}
 }

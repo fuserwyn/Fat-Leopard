@@ -84,6 +84,9 @@ func (b *Bot) Start(ctx context.Context) error {
 		if b.config.PaymentProviderToken == "" {
 			b.logger.Warn("PAYWALL_ENABLED=true but PAYMENT_PROVIDER_TOKEN is empty")
 		}
+		if b.config.MonetizedChatID != 0 && strings.TrimSpace(b.config.MonetizedChatInviteURL) == "" {
+			b.logger.Warn("Paywall active: MONETIZED_CHAT_INVITE_URL is empty — кнопка «в группу» в личке не будет работать; добавь ссылку-приглашение из настроек группы")
+		}
 	}
 
 	// Восстанавливаем таймеры из базы данных
@@ -1891,7 +1894,93 @@ func (b *Bot) handleStartTimer(msg *tgbotapi.Message) {
 	}
 }
 
+func welcomeStartText(chatType string) string {
+	if chatType == "writing" {
+		return `🦁 **Добро пожаловать в LeoPoacherBot!** 🦁
+
+📝 **Этот бот поможет вам оставаться активным в писательстве и не стать жирным леопардом!**
+
+📋 **Основные команды:**
+• /start — Показать это приветствие
+• /help — Показать полную справку
+• /start_timer — Запустить таймеры (только для администраторов)
+
+📝 **Отчеты о писательской работе:**
+• #writing_done — Отправить отчет о писательской сессии
+
+🏥 **Больничный:**
+• #sick_leave — Взять больничный (приостанавливает таймер)
+• #healthy — Выздороветь (возобновляет таймер)
+
+🔄 **Обмен:**
+• #change — Обменять слова на кубки (100 слов = 42 кубка)
+
+⏰ **Как это работает:**
+• При добавлении бота в чат запускаются таймеры для всех участников
+• Каждый отчет с #writing_done перезапускает таймер на 7 дней
+• Через 6 дней без отчета — предупреждение
+• Через 7 дней без отчета — удаление из чата
+• 🏆 За каждую писательскую сессию = 1 КУБОК! 🏆
+• 🏆 7 дней подряд = 42 КУБКА! 🏆
+• 🏆🏆 14 дней подряд = 42 КУБКА! 🏆🏆
+• 🏆🏆🏆 21 день подряд = 42 КУБКА! 🏆🏆🏆
+• 🏆🏆🏆 30 дней подряд = 420 КУБКОВ! 🏆🏆🏆
+• 🏆🏆🏆🏆 42 дня подряд = 42 КУБКА! 🏆🏆🏆🏆
+• 🏆🏆🏆🏆🏆 50 дней подряд = 42 КУБКА! 🏆🏆🏆🏆🏆
+• 🏆🏆🏆🏆🏆🏆 60 дней подряд = 420 КУБКОВ! 🏆🏆🏆🏆🏆🏆
+• 🏆🏆🏆🏆🏆🏆🏆🏆 90 дней подряд = 420 КУБКОВ! 🏆🏆🏆🏆🏆🏆🏆🏆
+• 🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆 100 дней подряд = 4200 КУБКОВ! 🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆
+
+🎯 **Начни прямо сейчас — отправь #writing_done!**`
+	}
+	return `🦁 **Добро пожаловать в LeoPoacherBot!** 🦁
+
+💪 **Этот бот поможет вам оставаться в форме и не стать жирным леопардом!**
+
+📋 **Основные команды:**
+• /start — Показать это приветствие
+• /help — Показать полную справку
+• /start_timer — Запустить таймеры (только для администраторов)
+
+💪 **Отчеты о тренировке:**
+• #training_done — Отправить отчет о тренировке
+
+🏥 **Больничный:**
+• #sick_leave — Взять больничный (приостанавливает таймер)
+• #healthy — Выздороветь (возобновляет таймер)
+
+🔄 **Обмен:**
+• #change — Обменять калории на кубки (10 калорий = 1 кубок)
+
+⏰ **Как это работает:**
+• При добавлении бота в чат запускаются таймеры для всех участников
+• Каждый отчет с #training_done перезапускает таймер на 7 дней
+• Через 6 дней без отчета — предупреждение
+• Через 7 дней без отчета — удаление из чата
+• 🏆 За каждую тренировку = 1 КУБОК! 🏆
+• 🏆 7 дней подряд = 42 КУБКА! 🏆
+• 🏆🏆 14 дней подряд = 42 КУБКА! 🏆🏆
+• 🏆🏆🏆 21 день подряд = 42 КУБКА! 🏆🏆🏆
+• 🏆🏆🏆 30 дней подряд = 420 КУБКОВ! 🏆🏆🏆
+• 🏆🏆🏆🏆 42 дня подряд = 42 КУБКА! 🏆🏆🏆🏆
+• 🏆🏆🏆🏆🏆 50 дней подряд = 42 КУБКА! 🏆🏆🏆🏆🏆
+• 🏆🏆🏆🏆🏆🏆 60 дней подряд = 420 КУБКОВ! 🏆🏆🏆🏆🏆🏆
+• 🏆🏆🏆🏆🏆🏆🏆🏆 90 дней подряд = 420 КУБКОВ! 🏆🏆🏆🏆🏆🏆🏆🏆
+• 🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆 100 дней подряд = 4200 КУБКОВ! 🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆
+
+🎯 **Начни прямо сейчас — отправь #training_done!**`
+}
+
 func (b *Bot) handleHelp(msg *tgbotapi.Message) {
+	if msg.From != nil && msg.Chat.IsPrivate() && b.paywallActive() && b.paywallPrivateNeedsPayFirst(msg.From.ID) {
+		reply := tgbotapi.NewMessage(msg.Chat.ID, b.paywallPrivateUnpaidUserText())
+		reply.ReplyMarkup = b.paywallUnpaidInlineKeyboard()
+		if _, err := b.api.Send(reply); err != nil {
+			b.logger.Errorf("Failed to send paywall-only help: %v", err)
+		}
+		return
+	}
+
 	// Определяем тип чата для адаптации текста
 	chatType, err := b.db.GetChatType(msg.Chat.ID)
 	if err != nil {
@@ -2017,93 +2106,30 @@ func (b *Bot) handleHelp(msg *tgbotapi.Message) {
 }
 
 func (b *Bot) handleStart(msg *tgbotapi.Message) {
-	// Определяем тип чата для адаптации текста
-	chatType, err := b.db.GetChatType(msg.Chat.ID)
-	if err != nil {
-		chatType = "training" // По умолчанию
-	}
-
-	var welcomeText string
-	if chatType == "writing" {
-		welcomeText = `🦁 **Добро пожаловать в LeoPoacherBot!** 🦁
-
-📝 **Этот бот поможет вам оставаться активным в писательстве и не стать жирным леопардом!**
-
-📋 **Основные команды:**
-• /start — Показать это приветствие
-• /help — Показать полную справку
-• /start_timer — Запустить таймеры (только для администраторов)
-
-📝 **Отчеты о писательской работе:**
-• #writing_done — Отправить отчет о писательской сессии
-
-🏥 **Больничный:**
-• #sick_leave — Взять больничный (приостанавливает таймер)
-• #healthy — Выздороветь (возобновляет таймер)
-
-🔄 **Обмен:**
-• #change — Обменять слова на кубки (100 слов = 42 кубка)
-
-⏰ **Как это работает:**
-• При добавлении бота в чат запускаются таймеры для всех участников
-• Каждый отчет с #writing_done перезапускает таймер на 7 дней
-• Через 6 дней без отчета — предупреждение
-• Через 7 дней без отчета — удаление из чата
-• 🏆 За каждую писательскую сессию = 1 КУБОК! 🏆
-• 🏆 7 дней подряд = 42 КУБКА! 🏆
-• 🏆🏆 14 дней подряд = 42 КУБКА! 🏆🏆
-• 🏆🏆🏆 21 день подряд = 42 КУБКА! 🏆🏆🏆
-• 🏆🏆🏆 30 дней подряд = 420 КУБКОВ! 🏆🏆🏆
-• 🏆🏆🏆🏆 42 дня подряд = 42 КУБКА! 🏆🏆🏆🏆
-• 🏆🏆🏆🏆🏆 50 дней подряд = 42 КУБКА! 🏆🏆🏆🏆🏆
-• 🏆🏆🏆🏆🏆🏆 60 дней подряд = 420 КУБКОВ! 🏆🏆🏆🏆🏆🏆
-• 🏆🏆🏆🏆🏆🏆🏆🏆 90 дней подряд = 420 КУБКОВ! 🏆🏆🏆🏆🏆🏆🏆🏆
-• 🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆 100 дней подряд = 4200 КУБКОВ! 🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆
-
-🎯 **Начни прямо сейчас — отправь #writing_done!**`
-	} else {
-		welcomeText = `🦁 **Добро пожаловать в LeoPoacherBot!** 🦁
-
-💪 **Этот бот поможет вам оставаться в форме и не стать жирным леопардом!**
-
-📋 **Основные команды:**
-• /start — Показать это приветствие
-• /help — Показать полную справку
-• /start_timer — Запустить таймеры (только для администраторов)
-
-💪 **Отчеты о тренировке:**
-• #training_done — Отправить отчет о тренировке
-
-🏥 **Больничный:**
-• #sick_leave — Взять больничный (приостанавливает таймер)
-• #healthy — Выздороветь (возобновляет таймер)
-
-🔄 **Обмен:**
-• #change — Обменять калории на кубки (10 калорий = 1 кубок)
-
-⏰ **Как это работает:**
-• При добавлении бота в чат запускаются таймеры для всех участников
-• Каждый отчет с #training_done перезапускает таймер на 7 дней
-• Через 6 дней без отчета — предупреждение
-• Через 7 дней без отчета — удаление из чата
-• 🏆 За каждую тренировку = 1 КУБОК! 🏆
-• 🏆 7 дней подряд = 42 КУБКА! 🏆
-• 🏆🏆 14 дней подряд = 42 КУБКА! 🏆🏆
-• 🏆🏆🏆 21 день подряд = 42 КУБКА! 🏆🏆🏆
-• 🏆🏆🏆 30 дней подряд = 420 КУБКОВ! 🏆🏆🏆
-• 🏆🏆🏆🏆 42 дня подряд = 42 КУБКА! 🏆🏆🏆🏆
-• 🏆🏆🏆🏆🏆 50 дней подряд = 42 КУБКА! 🏆🏆🏆🏆🏆
-• 🏆🏆🏆🏆🏆🏆 60 дней подряд = 420 КУБКОВ! 🏆🏆🏆🏆🏆🏆
-• 🏆🏆🏆🏆🏆🏆🏆🏆 90 дней подряд = 420 КУБКОВ! 🏆🏆🏆🏆🏆🏆🏆🏆
-• 🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆 100 дней подряд = 4200 КУБКОВ! 🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆
-
-🎯 **Начни прямо сейчас — отправь #training_done!**`
-	}
-
-	if msg.Chat.IsPrivate() {
-		if banner := b.paywallPrivateStartBanner(); banner != "" {
-			welcomeText = welcomeText + "\n\n" + banner
+	if msg.From != nil && msg.Chat.IsPrivate() && b.paywallActive() && b.paywallPrivateNeedsPayFirst(msg.From.ID) {
+		reply := tgbotapi.NewMessage(msg.Chat.ID, b.paywallPrivateUnpaidUserText())
+		reply.ReplyMarkup = b.paywallUnpaidInlineKeyboard()
+		b.logger.Infof("Sending paywall-only /start to chat %d", msg.Chat.ID)
+		if _, err := b.api.Send(reply); err != nil {
+			b.logger.Errorf("Failed to send paywall /start: %v", err)
 		}
+		return
+	}
+
+	var chatType string
+	if msg.Chat.IsPrivate() && b.paywallActive() {
+		chatType = b.monetizedChatWelcomeType()
+	} else {
+		var err error
+		chatType, err = b.db.GetChatType(msg.Chat.ID)
+		if err != nil {
+			chatType = "training"
+		}
+	}
+
+	welcomeText := welcomeStartText(chatType)
+	if msg.Chat.IsPrivate() && b.paywallActive() && msg.From != nil && !b.paywallPrivateNeedsPayFirst(msg.From.ID) {
+		welcomeText += b.paywallPrivatePaidFooter()
 	}
 
 	reply := tgbotapi.NewMessage(msg.Chat.ID, welcomeText)
@@ -4092,6 +4118,9 @@ func (b *Bot) handleCallbackQuery(callback *tgbotapi.CallbackQuery) {
 	}
 
 	switch data {
+	case paywallCallbackResendInvoice:
+		b.handlePaywallResendInvoiceCallback(callback)
+		return
 	case "back_to_menu":
 		// Удаляем сообщение и возвращаемся в меню
 		deleteMsg := tgbotapi.NewDeleteMessage(msg.Chat.ID, msg.MessageID)

@@ -6,6 +6,7 @@ services:
     environment:
       - FAT_LEOPARD_API_TOKEN=${FAT_LEOPARD_API_TOKEN}
       - API_TOKEN=${API_TOKEN}
+      - MONETIZED_CHAT_INVITE_URL=${MONETIZED_CHAT_INVITE_URL}
       - OWNER_ID=${OWNER_ID}
       - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:password@postgres:5432/leo_bot_db?sslmode=disable}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
