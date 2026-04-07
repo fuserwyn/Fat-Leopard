@@ -152,12 +152,43 @@ func (b *Bot) paywallPrivatePaidFooter() string {
 💳 Доступ к платной группе оплачен. Если вышел(а) из группы и нужен снова вход — подай заявку по ссылке, пришлю новый счёт.`
 }
 
+// userIsActiveMemberOfMonetizedChat — пользователь уже в целевой группе (не нужно гонять в paywall по /start в личке).
+func (b *Bot) userIsActiveMemberOfMonetizedChat(userID int64) bool {
+	if !b.paywallActive() || userID == 0 {
+		return false
+	}
+	member, err := b.api.GetChatMember(tgbotapi.GetChatMemberConfig{
+		ChatConfigWithUser: tgbotapi.ChatConfigWithUser{
+			ChatID: b.config.MonetizedChatID,
+			UserID: userID,
+		},
+	})
+	if err != nil {
+		b.logger.Warnf("paywall getChatMember user=%d chat=%d: %v", userID, b.config.MonetizedChatID, err)
+		return false
+	}
+	if member.HasLeft() || member.WasKicked() {
+		return false
+	}
+	switch member.Status {
+	case "creator", "administrator", "member":
+		return true
+	case "restricted":
+		return member.IsMember
+	default:
+		return false
+	}
+}
+
 // paywallPrivateNeedsPayFirst — личка, paywall включён, не владелец, нет завершённой оплаты по MONETIZED_CHAT_ID.
 func (b *Bot) paywallPrivateNeedsPayFirst(userID int64) bool {
 	if !b.paywallActive() || userID == 0 {
 		return false
 	}
 	if b.config.OwnerID != 0 && userID == b.config.OwnerID {
+		return false
+	}
+	if b.userIsActiveMemberOfMonetizedChat(userID) {
 		return false
 	}
 	ok, err := b.db.UserHasCompletedPaywallAccess(userID, b.config.MonetizedChatID)
