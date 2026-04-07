@@ -18,42 +18,78 @@ var Migrations = []Migration{
 		Version:     1,
 		Description: "Update timestamp fields to use Moscow timezone",
 		UpSQL: `
-			-- Обновляем поля created_at и updated_at в message_log
-			ALTER TABLE message_log 
-			ALTER COLUMN created_at TYPE TIMESTAMP WITH TIME ZONE,
-			ALTER COLUMN updated_at TYPE TIMESTAMP WITH TIME ZONE;
-			
-			-- Обновляем поля created_at и updated_at в training_log
-			ALTER TABLE training_log 
-			ALTER COLUMN created_at TYPE TIMESTAMP WITH TIME ZONE,
-			ALTER COLUMN updated_at TYPE TIMESTAMP WITH TIME ZONE;
-			
-			-- Устанавливаем значения по умолчанию для новых записей
-			ALTER TABLE message_log 
+			DO $migrate1$
+			BEGIN
+				IF EXISTS (
+					SELECT 1 FROM information_schema.columns
+					WHERE table_schema = 'public' AND table_name = 'message_log'
+					  AND column_name = 'created_at' AND udt_name = 'timestamp') THEN
+					ALTER TABLE message_log ALTER COLUMN created_at TYPE TIMESTAMP WITH TIME ZONE;
+				END IF;
+				IF EXISTS (
+					SELECT 1 FROM information_schema.columns
+					WHERE table_schema = 'public' AND table_name = 'message_log'
+					  AND column_name = 'updated_at' AND udt_name = 'timestamp') THEN
+					ALTER TABLE message_log ALTER COLUMN updated_at TYPE TIMESTAMP WITH TIME ZONE;
+				END IF;
+				IF EXISTS (
+					SELECT 1 FROM information_schema.columns
+					WHERE table_schema = 'public' AND table_name = 'training_log'
+					  AND column_name = 'created_at' AND udt_name = 'timestamp') THEN
+					ALTER TABLE training_log ALTER COLUMN created_at TYPE TIMESTAMP WITH TIME ZONE;
+				END IF;
+				IF EXISTS (
+					SELECT 1 FROM information_schema.columns
+					WHERE table_schema = 'public' AND table_name = 'training_log'
+					  AND column_name = 'updated_at' AND udt_name = 'timestamp') THEN
+					ALTER TABLE training_log ALTER COLUMN updated_at TYPE TIMESTAMP WITH TIME ZONE;
+				END IF;
+			END
+			$migrate1$;
+
+			ALTER TABLE message_log
 			ALTER COLUMN created_at SET DEFAULT (NOW() AT TIME ZONE 'Europe/Moscow'),
 			ALTER COLUMN updated_at SET DEFAULT (NOW() AT TIME ZONE 'Europe/Moscow');
-			
-			ALTER TABLE training_log 
+
+			ALTER TABLE training_log
 			ALTER COLUMN created_at SET DEFAULT (NOW() AT TIME ZONE 'Europe/Moscow'),
 			ALTER COLUMN updated_at SET DEFAULT (NOW() AT TIME ZONE 'Europe/Moscow');
 		`,
 		DownSQL: `
-			-- Откатываем изменения для message_log
-			ALTER TABLE message_log 
-			ALTER COLUMN created_at TYPE TIMESTAMP,
-			ALTER COLUMN updated_at TYPE TIMESTAMP;
-			
-			-- Откатываем изменения для training_log
-			ALTER TABLE training_log 
-			ALTER COLUMN created_at TYPE TIMESTAMP,
-			ALTER COLUMN updated_at TYPE TIMESTAMP;
-			
-			-- Устанавливаем старые значения по умолчанию
-			ALTER TABLE message_log 
+			DO $migrate1down$
+			BEGIN
+				IF EXISTS (
+					SELECT 1 FROM information_schema.columns
+					WHERE table_schema = 'public' AND table_name = 'message_log'
+					  AND column_name = 'created_at' AND udt_name = 'timestamptz') THEN
+					ALTER TABLE message_log ALTER COLUMN created_at TYPE TIMESTAMP;
+				END IF;
+				IF EXISTS (
+					SELECT 1 FROM information_schema.columns
+					WHERE table_schema = 'public' AND table_name = 'message_log'
+					  AND column_name = 'updated_at' AND udt_name = 'timestamptz') THEN
+					ALTER TABLE message_log ALTER COLUMN updated_at TYPE TIMESTAMP;
+				END IF;
+				IF EXISTS (
+					SELECT 1 FROM information_schema.columns
+					WHERE table_schema = 'public' AND table_name = 'training_log'
+					  AND column_name = 'created_at' AND udt_name = 'timestamptz') THEN
+					ALTER TABLE training_log ALTER COLUMN created_at TYPE TIMESTAMP;
+				END IF;
+				IF EXISTS (
+					SELECT 1 FROM information_schema.columns
+					WHERE table_schema = 'public' AND table_name = 'training_log'
+					  AND column_name = 'updated_at' AND udt_name = 'timestamptz') THEN
+					ALTER TABLE training_log ALTER COLUMN updated_at TYPE TIMESTAMP;
+				END IF;
+			END
+			$migrate1down$;
+
+			ALTER TABLE message_log
 			ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP,
 			ALTER COLUMN updated_at SET DEFAULT CURRENT_TIMESTAMP;
-			
-			ALTER TABLE training_log 
+
+			ALTER TABLE training_log
 			ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP,
 			ALTER COLUMN updated_at SET DEFAULT CURRENT_TIMESTAMP;
 		`,
@@ -62,42 +98,36 @@ var Migrations = []Migration{
 		Version:     2,
 		Description: "Add cups_earned field to message_log table",
 		UpSQL: `
-			-- Добавляем поле cups_earned в таблицу message_log
 			ALTER TABLE message_log 
-			ADD COLUMN cups_earned INTEGER DEFAULT 0;
+			ADD COLUMN IF NOT EXISTS cups_earned INTEGER DEFAULT 0;
 		`,
 		DownSQL: `
-			-- Удаляем поле cups_earned из таблицы message_log
 			ALTER TABLE message_log 
-			DROP COLUMN cups_earned;
+			DROP COLUMN IF EXISTS cups_earned;
 		`,
 	},
 	{
 		Version:     3,
 		Description: "Add calorie_streak_days field to message_log table",
 		UpSQL: `
-			-- Добавляем поле calorie_streak_days в таблицу message_log
 			ALTER TABLE message_log 
-			ADD COLUMN calorie_streak_days INTEGER DEFAULT 0;
+			ADD COLUMN IF NOT EXISTS calorie_streak_days INTEGER DEFAULT 0;
 		`,
 		DownSQL: `
-			-- Удаляем поле calorie_streak_days из таблицы message_log
 			ALTER TABLE message_log 
-			DROP COLUMN calorie_streak_days;
+			DROP COLUMN IF EXISTS calorie_streak_days;
 		`,
 	},
 	{
 		Version:     4,
 		Description: "Add is_exempt_from_deletion field to message_log table",
 		UpSQL: `
-			-- Добавляем поле is_exempt_from_deletion в таблицу message_log
 			ALTER TABLE message_log 
-			ADD COLUMN is_exempt_from_deletion BOOLEAN DEFAULT FALSE;
+			ADD COLUMN IF NOT EXISTS is_exempt_from_deletion BOOLEAN DEFAULT FALSE;
 		`,
 		DownSQL: `
-			-- Удаляем поле is_exempt_from_deletion из таблицы message_log
 			ALTER TABLE message_log 
-			DROP COLUMN is_exempt_from_deletion;
+			DROP COLUMN IF EXISTS is_exempt_from_deletion;
 		`,
 	},
 	{
@@ -131,14 +161,12 @@ var Migrations = []Migration{
 		Version:     6,
 		Description: "Add gender field to message_log table",
 		UpSQL: `
-			-- Добавляем поле gender в таблицу message_log
 			ALTER TABLE message_log 
-			ADD COLUMN gender TEXT DEFAULT '';
+			ADD COLUMN IF NOT EXISTS gender TEXT DEFAULT '';
 		`,
 		DownSQL: `
-			-- Удаляем поле gender из таблицы message_log
 			ALTER TABLE message_log 
-			DROP COLUMN gender;
+			DROP COLUMN IF EXISTS gender;
 		`,
 	},
 	{
