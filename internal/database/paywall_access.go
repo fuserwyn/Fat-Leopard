@@ -14,6 +14,7 @@ type PaywallAccessRequest struct {
 	Status                   string
 	CreatedAt                time.Time
 	CompletedAt              sql.NullTime
+	AccessExpiresAt          sql.NullTime
 	TelegramPaymentChargeID  sql.NullString
 	TotalAmountMinor         sql.NullInt64
 	Currency                 sql.NullString
@@ -34,7 +35,7 @@ func (d *Database) InsertPaywallAccessRequest(userID, monetizedChatID int64) (in
 // GetLatestPendingPaywallAccessRequest — последняя неоплаченная заявка пользователя на этот чат (для повторной отправки счёта).
 func (d *Database) GetLatestPendingPaywallAccessRequest(userID, monetizedChatID int64) (*PaywallAccessRequest, error) {
 	const q = `
-		SELECT id, user_id, monetized_chat_id, status, created_at, completed_at,
+		SELECT id, user_id, monetized_chat_id, status, created_at, completed_at, access_expires_at,
 		       telegram_payment_charge_id, total_amount_minor, currency
 		FROM paywall_access_requests
 		WHERE user_id = $1 AND monetized_chat_id = $2 AND status = 'pending'
@@ -42,7 +43,7 @@ func (d *Database) GetLatestPendingPaywallAccessRequest(userID, monetizedChatID 
 		LIMIT 1`
 	var r PaywallAccessRequest
 	err := d.db.QueryRow(q, userID, monetizedChatID).Scan(
-		&r.ID, &r.UserID, &r.MonetizedChatID, &r.Status, &r.CreatedAt, &r.CompletedAt,
+		&r.ID, &r.UserID, &r.MonetizedChatID, &r.Status, &r.CreatedAt, &r.CompletedAt, &r.AccessExpiresAt,
 		&r.TelegramPaymentChargeID, &r.TotalAmountMinor, &r.Currency,
 	)
 	if err == sql.ErrNoRows {
@@ -56,12 +57,12 @@ func (d *Database) GetLatestPendingPaywallAccessRequest(userID, monetizedChatID 
 
 func (d *Database) GetPaywallAccessRequestByID(id int64) (*PaywallAccessRequest, error) {
 	const q = `
-		SELECT id, user_id, monetized_chat_id, status, created_at, completed_at,
+		SELECT id, user_id, monetized_chat_id, status, created_at, completed_at, access_expires_at,
 		       telegram_payment_charge_id, total_amount_minor, currency
 		FROM paywall_access_requests WHERE id = $1`
 	var r PaywallAccessRequest
 	err := d.db.QueryRow(q, id).Scan(
-		&r.ID, &r.UserID, &r.MonetizedChatID, &r.Status, &r.CreatedAt, &r.CompletedAt,
+		&r.ID, &r.UserID, &r.MonetizedChatID, &r.Status, &r.CreatedAt, &r.CompletedAt, &r.AccessExpiresAt,
 		&r.TelegramPaymentChargeID, &r.TotalAmountMinor, &r.Currency,
 	)
 	if err == sql.ErrNoRows {
@@ -73,16 +74,20 @@ func (d *Database) GetPaywallAccessRequestByID(id int64) (*PaywallAccessRequest,
 	return &r, nil
 }
 
-// UserHasCompletedPaywallAccess — была успешная оплата доступа к этой группе (любая завершённая заявка).
-func (d *Database) UserHasCompletedPaywallAccess(userID, monetizedChatID int64) (bool, error) {
+// UserHasActivePaywallAccess — есть активная (не истекшая) оплата доступа к этой группе.
+func (d *Database) UserHasActivePaywallAccess(userID, monetizedChatID int64) (bool, error) {
 	const q = `
 		SELECT EXISTS (
 			SELECT 1 FROM paywall_access_requests
-			WHERE user_id = $1 AND monetized_chat_id = $2 AND status = 'completed'
+			WHERE user_id = $1
+			  AND monetized_chat_id = $2
+			  AND status = 'completed'
+			  AND access_expires_at IS NOT NULL
+			  AND access_expires_at > NOW()
 		)`
 	var ok bool
 	if err := d.db.QueryRow(q, userID, monetizedChatID).Scan(&ok); err != nil {
-		return false, fmt.Errorf("paywall completed check: %w", err)
+		return false, fmt.Errorf("paywall active access check: %w", err)
 	}
 	return ok, nil
 }
@@ -92,6 +97,7 @@ func (d *Database) CompletePaywallAccessRequest(id int64, userID, monetizedChatI
 		UPDATE paywall_access_requests
 		SET status = 'completed',
 		    completed_at = NOW() AT TIME ZONE 'Europe/Moscow',
+		    access_expires_at = (NOW() AT TIME ZONE 'Europe/Moscow') + INTERVAL '30 days',
 		    telegram_payment_charge_id = $4,
 		    total_amount_minor = $5,
 		    currency = $6

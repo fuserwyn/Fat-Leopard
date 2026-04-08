@@ -40,7 +40,7 @@ func (b *Bot) paywallPrivateUnpaidUserText() string {
 1. Оплати счёт здесь (можно до заявки в группу).
 2. Затем нажми кнопку ниже «Подать заявку» и подтверди вступление — если оплата уже прошла, заявку одобрю автоматически.
 
-Полное приветствие с командами бота пришлю после успешной оплаты.` + priceRub + `
+Полное приветствие с командами бота пришлю после успешной оплаты. Доступ действует 30 дней.` + priceRub + `
 
 Пока оплаты не было, длинную справку в личке не показываю — она пригодится в группе.
 
@@ -153,42 +153,7 @@ func (b *Bot) paywallPrivatePaidFooter() string {
 💳 Доступ к платной группе оплачен. Если вышел(а) из группы и нужен снова вход — подай заявку по ссылке, пришлю новый счёт.`
 }
 
-// userIsActiveMemberOfMonetizedChat — уже в группе по Telegram API или по нашей БД (таймер/отчёты в этом чате).
-// getChatMember по чужому user_id в группе у Telegram часто требует, чтобы бот был админом; иначе смотрим message_log.
-func (b *Bot) userIsActiveMemberOfMonetizedChat(userID int64) bool {
-	if !b.paywallActive() || userID == 0 {
-		return false
-	}
-	member, err := b.api.GetChatMember(tgbotapi.GetChatMemberConfig{
-		ChatConfigWithUser: tgbotapi.ChatConfigWithUser{
-			ChatID: b.config.MonetizedChatID,
-			UserID: userID,
-		},
-	})
-	if err == nil {
-		if member.HasLeft() || member.WasKicked() {
-			return false
-		}
-		switch member.Status {
-		case "creator", "administrator", "member":
-			return true
-		case "restricted":
-			return member.IsMember
-		default:
-			return false
-		}
-	}
-	b.logger.Warnf("paywall getChatMember user=%d chat=%d failed: %v — проверяю message_log (сделай бота админом группы для надёжности)", userID, b.config.MonetizedChatID, err)
-
-	ok, errDB := b.db.UserHasActiveMessageLogInChat(userID, b.config.MonetizedChatID)
-	if errDB != nil {
-		b.logger.Errorf("paywall UserHasActiveMessageLogInChat: %v", errDB)
-		return false
-	}
-	return ok
-}
-
-// paywallPrivateNeedsPayFirst — личка, paywall включён, не владелец, нет завершённой оплаты по MONETIZED_CHAT_ID.
+// paywallPrivateNeedsPayFirst — личка, paywall включён, не владелец, нет активной (не истёкшей) оплаты.
 func (b *Bot) paywallPrivateNeedsPayFirst(userID int64) bool {
 	if !b.paywallActive() || userID == 0 {
 		return false
@@ -196,10 +161,7 @@ func (b *Bot) paywallPrivateNeedsPayFirst(userID int64) bool {
 	if b.config.OwnerID != 0 && userID == b.config.OwnerID {
 		return false
 	}
-	if b.userIsActiveMemberOfMonetizedChat(userID) {
-		return false
-	}
-	ok, err := b.db.UserHasCompletedPaywallAccess(userID, b.config.MonetizedChatID)
+	ok, err := b.db.UserHasActivePaywallAccess(userID, b.config.MonetizedChatID)
 	if err != nil {
 		b.logger.Errorf("paywall access check: %v", err)
 		return true
@@ -300,7 +262,7 @@ func (b *Bot) handlePaywallSuccessfulPayment(msg *tgbotapi.Message) {
 	})
 	if err != nil {
 		b.logger.Errorf("paywall approve join request failed: %v", err)
-		follow := "✅ Оплата принята.\n\nЕсли ты ещё не подал(а) заявку в группу — открой пригласительную ссылку и нажми «Запросить вступление». Заявка одобрится автоматически."
+		follow := "✅ Оплата принята, доступ открыт на 30 дней.\n\nЕсли ты ещё не подал(а) заявку в группу — открой пригласительную ссылку и нажми «Запросить вступление». Заявка одобрится автоматически."
 		if u := strings.TrimSpace(b.config.MonetizedChatInviteURL); u != "" {
 			follow += "\n\nСсылка: " + u
 		} else {
@@ -313,7 +275,7 @@ func (b *Bot) handlePaywallSuccessfulPayment(msg *tgbotapi.Message) {
 		b.api.Send(wmsg)
 		return
 	}
-	done := tgbotapi.NewMessage(msg.Chat.ID, "✅ Оплата принята, заявка в группу одобрена. Добро пожаловать!")
+	done := tgbotapi.NewMessage(msg.Chat.ID, "✅ Оплата принята, доступ к группе открыт на 30 дней, заявка одобрена. Добро пожаловать!")
 	if _, err := b.api.Send(done); err != nil {
 		b.logger.Errorf("paywall send done msg: %v", err)
 	}
@@ -338,16 +300,12 @@ func (b *Bot) paywallShouldKickDirectJoinWithoutPayment(chatID, userID int64) bo
 	if err == nil && (member.IsCreator() || member.IsAdministrator()) {
 		return false
 	}
-	paid, err := b.db.UserHasCompletedPaywallAccess(userID, chatID)
+	paid, err := b.db.UserHasActivePaywallAccess(userID, chatID)
 	if err != nil {
 		b.logger.Errorf("paywall direct join paid check: %v", err)
 		return false
 	}
 	if paid {
-		return false
-	}
-	// Уже ведём в этом чате до paywall — не выкидываем (старые участники).
-	if ok, errDB := b.db.UserHasActiveMessageLogInChat(userID, chatID); errDB == nil && ok {
 		return false
 	}
 	return true
@@ -377,6 +335,31 @@ func (b *Bot) paywallKickFromMonetizedChatAndExplain(userID int64) {
 	}
 }
 
+// enforcePaywallForMonetizedChatMessage — если пользователь пишет в платном чате без активной оплаты,
+// удаляем его из чата и отправляем инструкцию в ЛС.
+// Возвращает true, если дальнейшую обработку сообщения нужно прекратить.
+func (b *Bot) enforcePaywallForMonetizedChatMessage(msg *tgbotapi.Message) bool {
+	if msg == nil || msg.From == nil || msg.From.IsBot {
+		return false
+	}
+	if !b.paywallActive() || msg.Chat.ID != b.config.MonetizedChatID {
+		return false
+	}
+	if b.config.OwnerID != 0 && msg.From.ID == b.config.OwnerID {
+		return false
+	}
+	ok, err := b.db.UserHasActivePaywallAccess(msg.From.ID, b.config.MonetizedChatID)
+	if err != nil {
+		b.logger.Errorf("paywall message gate check: %v", err)
+		return false
+	}
+	if ok {
+		return false
+	}
+	b.paywallKickFromMonetizedChatAndExplain(msg.From.ID)
+	return true
+}
+
 func (b *Bot) handlePaywallChatJoinRequest(j *tgbotapi.ChatJoinRequest) {
 	if !b.paywallActive() {
 		return
@@ -389,7 +372,7 @@ func (b *Bot) handlePaywallChatJoinRequest(j *tgbotapi.ChatJoinRequest) {
 		return
 	}
 
-	paid, err := b.db.UserHasCompletedPaywallAccess(userID, b.config.MonetizedChatID)
+	paid, err := b.db.UserHasActivePaywallAccess(userID, b.config.MonetizedChatID)
 	if err != nil {
 		b.logger.Errorf("paywall join request paid check: %v", err)
 		return

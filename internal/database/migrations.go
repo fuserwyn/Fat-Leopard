@@ -285,6 +285,18 @@ var Migrations = []Migration{
 			DROP TABLE IF EXISTS paywall_access_requests;
 		`,
 	},
+	{
+		Version:     13,
+		Description: "Paywall: monthly access expiration",
+		UpSQL: `
+			ALTER TABLE paywall_access_requests
+			ADD COLUMN IF NOT EXISTS access_expires_at TIMESTAMP WITH TIME ZONE;
+		`,
+		DownSQL: `
+			ALTER TABLE paywall_access_requests
+			DROP COLUMN IF EXISTS access_expires_at;
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции

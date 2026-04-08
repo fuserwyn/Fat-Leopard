@@ -241,6 +241,9 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 		b.handlePaywallSuccessfulPayment(msg)
 		return
 	}
+	if b.enforcePaywallForMonetizedChatMessage(msg) {
+		return
+	}
 
 	b.logger.Infof("Received message from %d: %s", msg.From.ID, msg.Text)
 
