@@ -1,7 +1,8 @@
-# Корень монорепозитория — Railway подхватывает именно `Dockerfile`, иначе идёт Nixpacks.
+# По умолчанию — только бот (Go). HTTP-вебхук ЮKassa в этом образе НЕ обслуживается.
+# Нужен отдельный сервис Railway: RAILWAY_DOCKERFILE_PATH=Dockerfile.ms_payments (корень репо).
+# В личном кабинете ЮKassa URL должен совпадать с публичным URL именно сервиса ms_payments.
 #   docker build .
-# Для ms_payments из корня репо: docker build -f Dockerfile.ms_payments .
-# Или в Railway для сервиса вебхука: RAILWAY_DOCKERFILE_PATH=Dockerfile.ms_payments
+#   docker build -f Dockerfile.ms_payments .
 FROM golang:1.21
 
 WORKDIR /app

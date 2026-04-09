@@ -21,8 +21,8 @@ webhook_logger = logging.getLogger("app.webhook")
 async def lifespan(_: FastAPI):
     await init_database()
     logger.info(
-        "ЮKassa: URL уведомлений POST …/api/v1/webhook/payment (или старый …/webhook/payment). "
-        "HTTPS, публичный Railway. Пока сюда не приходит POST — paywall останется pending."
+        "ЮKassa: POST …/api/v1/webhook/payment на ЭТОТ сервис (ms_payments). "
+        "Открой в браузере GET / — должен быть JSON service=ms_payments; если не он — домен Railway ведёт на другой сервис."
     )
     yield
     await shutdown_database()
@@ -58,6 +58,16 @@ def create_app() -> FastAPI:
     @application.get("/health")
     async def health():
         return {"ok": True}
+
+    @application.get("/")
+    async def whoami():
+        """Проверка, что публичный URL Railway смотрит на ms_payments, а не на бота."""
+        return {
+            "service": "ms_payments",
+            "yookassa_webhook_post": "/api/v1/webhook/payment",
+            "legacy_webhook_post": "/webhook/payment",
+            "health": "/health",
+        }
 
     return application
 

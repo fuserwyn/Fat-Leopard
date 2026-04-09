@@ -10,4 +10,5 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# access-log: каждая строка HTTP в логах Railway (включая POST от ЮKassa)
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --access-log --log-level info"]
