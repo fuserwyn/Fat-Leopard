@@ -1,5 +1,0 @@
-# Монорепозиторий: корень репозитория = контекст сборки, Dockerfile в подпапке.
-# Для сервиса ms_payments в Railway создай второй сервис и укажи
-# Settings → Build → Dockerfile path: ms_payments/Dockerfile (Root Directory оставь пустым / корень репо).
-[build]
-builder = "DOCKERFILE dockerfilePath=ms_leo/Dockerfile"
