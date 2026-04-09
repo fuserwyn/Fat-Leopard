@@ -2,6 +2,7 @@ package bot
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -17,6 +18,33 @@ const paywallPayloadPrefix = "pw_"
 const paywallCallbackResendInvoice = "paywall_resend_invoice"
 
 const paywallInviteCacheTTL = 25 * time.Minute
+
+// paywallInvoiceSendDiag разбирает ответ Telegram на sendInvoice (для логов и подсказки пользователю).
+func paywallInvoiceSendDiag(err error) (logLine string, userHint string) {
+	if err == nil {
+		return "", ""
+	}
+	logLine = err.Error()
+	var tgErr *tgbotapi.Error
+	if !errors.As(err, &tgErr) {
+		return logLine, "Попробуй позже или напиши администратору — в логах бота будет детальная ошибка."
+	}
+	logLine = fmt.Sprintf("telegram error_code=%d: %s", tgErr.Code, tgErr.Message)
+	m := strings.ToLower(tgErr.Message)
+	switch {
+	case strings.Contains(m, "payment_provider_invalid"):
+		userHint = "Токен провайдера оплаты неверный или Payments не настроены в @BotFather (Bot Settings → Payments). Проверь PAYMENT_PROVIDER_TOKEN на сервере — он должен быть от того же режима (test/live), что и кабинет ЮKassa."
+	case strings.Contains(m, "currency_invalid"), strings.Contains(m, "currency_total_amount_invalid"):
+		userHint = "Провайдер не принимает валюту или сумму. Проверь PAYMENT_CURRENCY и PAYMENT_AMOUNT_MINOR_UNITS (для RUB — копейки, например 10000 = 100 ₽)."
+	case tgErr.Code == 403 || strings.Contains(m, "blocked"):
+		userHint = "Разблокируй бота: чат с ботом → ⋮ → Разблокировать."
+	case strings.Contains(m, "chat not found") || strings.Contains(m, "user is deactivated"):
+		userHint = "Сначала напиши боту любое слово в личке, затем снова /start."
+	default:
+		userHint = "Если нужна оплата только картой по ЮKassa без счёта в Telegram — администратору: убери PAYMENT_PROVIDER_TOKEN из окружения, тогда бот пришлёт ссылку на оплату."
+	}
+	return logLine, userHint
+}
 
 // paywallCreateInviteLink вызывает Telegram API; бот должен быть админом с правом приглашений.
 func (b *Bot) paywallCreateInviteLink(createsJoinRequest bool) (string, error) {
@@ -188,9 +216,10 @@ func (b *Bot) ensurePaywallInvoiceSent(userID int64) {
 	}
 	if b.config.PaywallUsesTelegramInvoice() {
 		if err := b.SendPaywallInvoice(userID, reqID); err != nil {
-			b.logger.Errorf("paywall ensure invoice send: %v", err)
-			b.paywallNotifyUser(userID,
-				"⚠️ Не удалось отправить счёт. Проверь, что бот не в чёрном списке, и нажми «Выслать счёт снова» под предыдущим сообщением или в инструкции ниже.")
+			logLine, hint := paywallInvoiceSendDiag(err)
+			b.logger.Errorf("paywall ensure invoice send: %s", logLine)
+			msg := "⚠️ Не удалось отправить счёт в Telegram.\n\n" + hint + "\n\nПосле исправления нажми «Выслать счёт снова»."
+			b.paywallNotifyUser(userID, msg)
 		}
 		return
 	}
@@ -290,8 +319,13 @@ func (b *Bot) handlePaywallResendInvoiceCallback(callback *tgbotapi.CallbackQuer
 
 	if b.config.PaywallUsesTelegramInvoice() {
 		if err := b.SendPaywallInvoice(callback.From.ID, reqID); err != nil {
-			b.logger.Errorf("paywall resend invoice: %v", err)
-			_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, "Не удалось отправить счёт. Проверь, что бот не в чёрном списке."))
+			logLine, hint := paywallInvoiceSendDiag(err)
+			b.logger.Errorf("paywall resend invoice: %s", logLine)
+			alert := "Не удалось отправить счёт.\n\n" + hint
+			if len(alert) > 190 {
+				alert = alert[:187] + "…"
+			}
+			_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, alert))
 			return
 		}
 		_, _ = b.api.Request(tgbotapi.NewCallback(callback.ID, "Счёт отправлен — открой сообщение со счётом и нажми «Оплатить»."))
@@ -571,7 +605,9 @@ func (b *Bot) handlePaywallChatJoinRequest(j *tgbotapi.ChatJoinRequest) {
 	}
 	if b.config.PaywallUsesTelegramInvoice() {
 		if err := b.SendPaywallInvoice(userID, reqID); err != nil {
-			b.logger.Errorf("paywall send invoice: %v", err)
+			logLine, hint := paywallInvoiceSendDiag(err)
+			b.logger.Errorf("paywall send invoice (join request): %s", logLine)
+			b.paywallNotifyUser(userID, "⚠️ Не удалось отправить счёт.\n\n"+hint)
 		}
 		return
 	}
