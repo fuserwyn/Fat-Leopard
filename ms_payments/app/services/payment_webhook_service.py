@@ -156,16 +156,67 @@ class PaymentWebhookService:
             await self._ledger.mark_main_db_synced(payment_id)
 
         approved = await self._telegram.approve_chat_join_request(chat_id, user_tid)
-        if approved:
-            await self._telegram.send_message(
-                user_tid,
-                "✅ Оплата через ЮKassa принята, доступ к группе открыт на 30 дней. Если заявка ещё висит — она должна одобриться автоматически.",
-            )
+        creates_jr = self._settings.paywall_invite_creates_join_request
+        invite = await self._telegram.create_chat_invite_link(
+            chat_id, creates_join_request=creates_jr
+        )
+
+        if creates_jr:
+            btn = "📩 Подать заявку в группу"
+            if invite:
+                if approved:
+                    text = (
+                        "✅ Оплата через ЮKassa принята, доступ к группе открыт на 30 дней.\n\n"
+                        "Если заявка на вступление уже была отправлена — она должна быть одобрена. "
+                        "Если ты ещё не в группе, нажми кнопку ниже и подай заявку: вступление одобрит автоматически."
+                    )
+                else:
+                    text = (
+                        "✅ Оплата принята, доступ к группе открыт на 30 дней.\n\n"
+                        "Нажми кнопку и подай заявку на вступление — одобрение произойдёт автоматически."
+                    )
+                await self._telegram.send_message(
+                    user_tid, text, button_text=btn, button_url=invite
+                )
+            elif approved:
+                await self._telegram.send_message(
+                    user_tid,
+                    "✅ Оплата через ЮKassa принята, доступ к группе открыт на 30 дней. Заявка на вступление одобрена.",
+                )
+            else:
+                await self._telegram.send_message(
+                    user_tid,
+                    "✅ Оплата принята, доступ записан. Подай заявку в группу снова "
+                    "(или открой пригласительную ссылку в боте) — вступление одобрит автоматически. "
+                    "Не удалось создать новую ссылку: проверь, что бот — админ группы с правом приглашений.",
+                )
         else:
-            await self._telegram.send_message(
-                user_tid,
-                "✅ Оплата принята, доступ записан. Подай заявку в группу ещё раз или открой пригласительную ссылку — бот одобрит вступление.",
-            )
+            btn = "📥 Войти в группу"
+            if invite:
+                if approved:
+                    text = (
+                        "✅ Оплата через ЮKassa принята, доступ к группе открыт на 30 дней.\n\n"
+                        "Если ты ещё не в чате — перейди по кнопке (ссылка рассчитана на одно вступление)."
+                    )
+                else:
+                    text = (
+                        "✅ Оплата принята, доступ к группе открыт на 30 дней.\n\n"
+                        "Нажми кнопку, чтобы зайти в группу. Ссылка одноразовая — не пересылай её."
+                    )
+                await self._telegram.send_message(
+                    user_tid, text, button_text=btn, button_url=invite
+                )
+            elif approved:
+                await self._telegram.send_message(
+                    user_tid,
+                    "✅ Оплата принята, доступ к группе открыт на 30 дней. Ты уже можешь быть в чате после одобрения заявки.",
+                )
+            else:
+                await self._telegram.send_message(
+                    user_tid,
+                    "✅ Оплата принята, доступ записан. Попроси у администратора ссылку на группу "
+                    "или открой старую из бота. Новую ссылку бот создать не смог — проверь права админа у бота.",
+                )
 
         logger.info("yookassa webhook: completed payment=%s req=%s user=%s", payment_id, req_id, user_tid)
         return WebhookOutcome(200, {"status": "success"})

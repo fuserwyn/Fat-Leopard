@@ -33,6 +33,13 @@ def _int(name: str, default: int = 0) -> int:
         return default
 
 
+def _bool_env(name: str, default: bool = True) -> bool:
+    raw = os.getenv(name, "").strip().lower()
+    if raw == "":
+        return default
+    return raw not in ("false", "0", "no")
+
+
 def _normalize_postgres_url(url: str) -> str:
     u = url.strip()
     if u.startswith("postgres://"):
@@ -61,6 +68,10 @@ class Settings:
     monetized_chat_id: int = _int("MONETIZED_CHAT_ID", 0)
     yookassa_shop_id: str = os.getenv("YOOKASSA_SHOP_ID", "").strip()
     yookassa_secret_key: str = os.getenv("YOOKASSA_SECRET_KEY", "").strip()
+    # Как в ms_leo: True = ссылка на заявку (member_limit в Telegram задать нельзя).
+    paywall_invite_creates_join_request: bool = _bool_env(
+        "MONETIZED_INVITE_CREATES_JOIN_REQUEST", True
+    )
 
 
 settings = Settings()

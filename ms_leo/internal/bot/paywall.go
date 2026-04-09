@@ -130,11 +130,11 @@ func (b *Bot) paywallPrivateUnpaidUserText() string {
 
 Порядок после настройки:
 1. Оплати.
-2. Нажми «Подать заявку в группу» ниже — после оплаты заявку обычно одобряю автоматически.` + priceRub + `
+2. После оплаты бот пришлёт кнопку для входа в группу автоматически.` + priceRub + `
 
 Доступ после оплаты — 30 дней. Полную справку бота пришлю, когда оплата пройдёт.
 
-👇 Кнопки: заявка в группу и повтор попытки отправки счёта (когда оплата будет включена).`
+👇 Кнопка ниже: повтор попытки отправки счёта (когда оплата будет включена).`
 	}
 
 	payLine := `📩 **Предыдущее сообщение** в этом чате — счёт в Telegram с кнопкой «Оплатить». Не видишь — нажми «Выслать счёт снова» ниже.
@@ -151,23 +151,18 @@ func (b *Bot) paywallPrivateUnpaidUserText() string {
 	return `💳 Платный вход в закрытую группу
 
 ` + payLine + `
-2. Затем нажми кнопку ниже «Подать заявку в группу» и подтверди вступление — если оплата уже прошла, заявку одобрю автоматически.
+2. Дождись подтверждения оплаты — после неё я сам пришлю кнопку входа в группу.
 
 Полное приветствие с командами бота пришлю после успешной оплаты. Доступ действует 30 дней.` + priceRub + `
 
 Пока оплаты не было, длинную справку в личке не показываю — она пригодится в группе.
 
-👇 Кнопки: ссылка в группу и повторная отправка счёта / ссылки.`
+👇 Кнопка: повторная отправка счёта / ссылки.`
 }
 
-// paywallUnpaidInlineKeyboard — ссылка на группу + повтор счёта (invoice сам по себе содержит кнопку «Оплатить»).
+// paywallUnpaidInlineKeyboard — только повтор счёта/ссылки до факта оплаты.
 func (b *Bot) paywallUnpaidInlineKeyboard() *tgbotapi.InlineKeyboardMarkup {
 	var rows [][]tgbotapi.InlineKeyboardButton
-	if u := b.paywallGroupInviteURL(); u != "" {
-		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonURL("📥 Подать заявку в группу", u),
-		))
-	}
 	resendLabel := "💳 Выслать счёт снова"
 	if !b.config.PaywallUsesTelegramInvoice() {
 		resendLabel = "💳 Ссылка на оплату снова"
@@ -451,26 +446,43 @@ func (b *Bot) handlePaywallSuccessfulPayment(msg *tgbotapi.Message) {
 		b.logger.Infof("paywall request %d already completed or not pending", reqID)
 	}
 
+	inviteURL := b.paywallGroupInviteURL()
+
 	_, err = b.api.Request(tgbotapi.ApproveChatJoinRequestConfig{
 		ChatConfig: tgbotapi.ChatConfig{ChatID: b.config.MonetizedChatID},
 		UserID:     msg.From.ID,
 	})
 	if err != nil {
 		b.logger.Errorf("paywall approve join request failed: %v", err)
-		follow := "✅ Оплата принята, доступ открыт на 30 дней.\n\nЕсли ты ещё не подал(а) заявку в группу — открой пригласительную ссылку и нажми «Запросить вступление». Заявка одобрится автоматически."
-		if u := b.paywallGroupInviteURL(); u != "" {
-			follow += "\n\nСсылка: " + u
-		} else {
-			follow += "\n\nПопроси ссылку у администратора."
-		}
+		follow := "✅ Оплата принята, доступ открыт на 30 дней.\n\nЕсли ты ещё не в группе — нажми кнопку ниже и отправь заявку на вступление."
 		pm := tgbotapi.NewMessage(msg.Chat.ID, follow)
+		if inviteURL != "" {
+			pm.ReplyMarkup = &tgbotapi.InlineKeyboardMarkup{
+				InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
+					tgbotapi.NewInlineKeyboardRow(
+						tgbotapi.NewInlineKeyboardButtonURL("📩 Войти в группу", inviteURL),
+					),
+				},
+			}
+		} else {
+			pm.Text += "\n\nНе удалось создать ссылку автоматически — попроси ссылку у администратора."
+		}
 		b.api.Send(pm)
 		welcome := welcomeStartText(b.monetizedChatWelcomeType())
 		wmsg := tgbotapi.NewMessage(msg.Chat.ID, welcome)
 		b.api.Send(wmsg)
 		return
 	}
-	done := tgbotapi.NewMessage(msg.Chat.ID, "✅ Оплата принята, доступ к группе открыт на 30 дней, заявка одобрена. Добро пожаловать!")
+	done := tgbotapi.NewMessage(msg.Chat.ID, "✅ Оплата принята, доступ к группе открыт на 30 дней. Если ты ещё не в группе — нажми кнопку ниже.")
+	if inviteURL != "" {
+		done.ReplyMarkup = &tgbotapi.InlineKeyboardMarkup{
+			InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
+				tgbotapi.NewInlineKeyboardRow(
+					tgbotapi.NewInlineKeyboardButtonURL("📩 Войти в группу", inviteURL),
+				),
+			},
+		}
+	}
 	if _, err := b.api.Send(done); err != nil {
 		b.logger.Errorf("paywall send done msg: %v", err)
 	}
