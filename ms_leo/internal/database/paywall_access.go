@@ -3,6 +3,7 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -90,6 +91,39 @@ func (d *Database) UserHasActivePaywallAccess(userID, monetizedChatID int64) (bo
 		return false, fmt.Errorf("paywall active access check: %w", err)
 	}
 	return ok, nil
+}
+
+// PaywallAccessDebugSnapshot — кратко последние заявки user+chat (для логов при отказе во входе).
+func (d *Database) PaywallAccessDebugSnapshot(userID, monetizedChatID int64) string {
+	const q = `
+		SELECT id, status,
+		       (access_expires_at IS NOT NULL AND access_expires_at > NOW()) AS access_valid
+		FROM paywall_access_requests
+		WHERE user_id = $1 AND monetized_chat_id = $2
+		ORDER BY id DESC
+		LIMIT 5`
+	rows, err := d.db.Query(q, userID, monetizedChatID)
+	if err != nil {
+		return fmt.Sprintf("err=%v", err)
+	}
+	defer rows.Close()
+	var parts []string
+	for rows.Next() {
+		var id int64
+		var status string
+		var accessValid bool
+		if err := rows.Scan(&id, &status, &accessValid); err != nil {
+			return fmt.Sprintf("scan_err=%v", err)
+		}
+		parts = append(parts, fmt.Sprintf("%d:%s(exp_ok=%v)", id, status, accessValid))
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Sprintf("rows_err=%v", err)
+	}
+	if len(parts) == 0 {
+		return "no_rows_for_user_chat"
+	}
+	return strings.Join(parts, ", ")
 }
 
 func (d *Database) CompletePaywallAccessRequest(id int64, userID, monetizedChatID int64, telegramChargeID string, amountMinor int, currency string) (bool, error) {

@@ -19,6 +19,32 @@ const paywallCallbackResendInvoice = "paywall_resend_invoice"
 
 const paywallInviteCacheTTL = 25 * time.Minute
 
+// Несколько попыток: вебхук ЮKassa может закрыть заявку в БД чуть позже события «вступил в группу».
+const paywallAccessRecheckAttempts = 5
+const paywallAccessRecheckDelay = 800 * time.Millisecond
+
+func (b *Bot) userHasActivePaywallAccessResilient(userID, chatID int64) (bool, error) {
+	var lastErr error
+	for i := 0; i < paywallAccessRecheckAttempts; i++ {
+		if i > 0 {
+			time.Sleep(paywallAccessRecheckDelay)
+		}
+		ok, err := b.db.UserHasActivePaywallAccess(userID, chatID)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		lastErr = nil
+		if ok {
+			return true, nil
+		}
+	}
+	if lastErr != nil {
+		return false, lastErr
+	}
+	return false, nil
+}
+
 // paywallInvoiceSendDiag разбирает ответ Telegram на sendInvoice (для логов и подсказки пользователю).
 func paywallInvoiceSendDiag(err error) (logLine string, userHint string) {
 	if err == nil {
@@ -539,7 +565,7 @@ func (b *Bot) paywallShouldKickDirectJoinWithoutPayment(chatID, userID int64) bo
 	if err == nil && (member.IsCreator() || member.IsAdministrator()) {
 		return false
 	}
-	paid, err := b.db.UserHasActivePaywallAccess(userID, chatID)
+	paid, err := b.userHasActivePaywallAccessResilient(userID, chatID)
 	if err != nil {
 		b.logger.Errorf("paywall direct join paid check: %v", err)
 		return false
@@ -547,6 +573,10 @@ func (b *Bot) paywallShouldKickDirectJoinWithoutPayment(chatID, userID int64) bo
 	if paid {
 		return false
 	}
+	b.logger.Warnf(
+		"paywall: kick direct join user=%d chat=%d — нет активной записи completed+access_expires; последние заявки: %s",
+		userID, chatID, b.db.PaywallAccessDebugSnapshot(userID, chatID),
+	)
 	return true
 }
 
@@ -587,7 +617,7 @@ func (b *Bot) enforcePaywallForMonetizedChatMessage(msg *tgbotapi.Message) bool 
 	if b.config.OwnerID != 0 && msg.From.ID == b.config.OwnerID {
 		return false
 	}
-	ok, err := b.db.UserHasActivePaywallAccess(msg.From.ID, b.config.MonetizedChatID)
+	ok, err := b.userHasActivePaywallAccessResilient(msg.From.ID, b.config.MonetizedChatID)
 	if err != nil {
 		b.logger.Errorf("paywall message gate check: %v", err)
 		return false
@@ -633,7 +663,7 @@ func (b *Bot) handlePaywallChatJoinRequest(j *tgbotapi.ChatJoinRequest) {
 		return
 	}
 
-	paid, err := b.db.UserHasActivePaywallAccess(userID, b.config.MonetizedChatID)
+	paid, err := b.userHasActivePaywallAccessResilient(userID, b.config.MonetizedChatID)
 	if err != nil {
 		b.logger.Errorf("paywall join request paid check: %v", err)
 		return
