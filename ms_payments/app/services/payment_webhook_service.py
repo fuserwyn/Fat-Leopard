@@ -86,6 +86,11 @@ class PaymentWebhookService:
             logger.error("MONETIZED_CHAT_ID is not set")
             raise HTTPException(status_code=500, detail="server misconfigured")
 
+        if not (self._settings.bot_token or "").strip():
+            logger.error(
+                "FAT_LEOPARD_API_TOKEN/API_TOKEN is empty: оплата в БД может пройти, но вход в Telegram не будет обработан"
+            )
+
         rec = await self._paywall.get_by_id(req_id)
         if not rec:
             return WebhookOutcome(404, {"status": "paywall request not found"})
@@ -156,12 +161,12 @@ class PaymentWebhookService:
             await self._ledger.mark_main_db_synced(payment_id)
 
         approved = await self._telegram.approve_chat_join_request(chat_id, user_tid)
-        creates_jr = self._settings.paywall_invite_creates_join_request
-        invite = await self._telegram.create_chat_invite_link(
-            chat_id, creates_join_request=creates_jr
+        primary_jr = self._settings.paywall_invite_creates_join_request
+        invite, used_jr = await self._telegram.create_chat_invite_link_best_effort(
+            chat_id, primary_creates_join_request=primary_jr
         )
 
-        if creates_jr:
+        if used_jr:
             btn = "📩 Подать заявку в группу"
             if invite:
                 if approved:

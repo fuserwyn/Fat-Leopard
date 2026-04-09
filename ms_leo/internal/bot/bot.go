@@ -2007,6 +2007,11 @@ func welcomeStartText(chatType string) string {
 func (b *Bot) handleHelp(msg *tgbotapi.Message) {
 	if msg.From != nil && msg.Chat.IsPrivate() && b.paywallActive() && b.paywallPrivateNeedsPayFirst(msg.From.ID) {
 		b.ensurePaywallInvoiceSent(msg.From.ID)
+		// Для ЮKassa ссылка с кнопкой «Оплатить» уже приходит отдельным сообщением.
+		// Не дублируем второй простынёй инструкций.
+		if b.config.PaywallPaymentReady() && !b.config.PaywallUsesTelegramInvoice() {
+			return
+		}
 		reply := tgbotapi.NewMessage(msg.Chat.ID, b.paywallPrivateUnpaidUserText())
 		reply.ReplyMarkup = b.paywallUnpaidInlineKeyboard()
 		if _, err := b.api.Send(reply); err != nil {
@@ -2142,6 +2147,11 @@ func (b *Bot) handleHelp(msg *tgbotapi.Message) {
 func (b *Bot) handleStart(msg *tgbotapi.Message) {
 	if msg.From != nil && msg.Chat.IsPrivate() && b.paywallActive() && b.paywallPrivateNeedsPayFirst(msg.From.ID) {
 		b.ensurePaywallInvoiceSent(msg.From.ID)
+		// Для ЮKassa ссылка с кнопкой «Оплатить» уже приходит отдельным сообщением.
+		// Не дублируем второй простынёй инструкций.
+		if b.config.PaywallPaymentReady() && !b.config.PaywallUsesTelegramInvoice() {
+			return
+		}
 		reply := tgbotapi.NewMessage(msg.Chat.ID, b.paywallPrivateUnpaidUserText())
 		reply.ReplyMarkup = b.paywallUnpaidInlineKeyboard()
 		b.logger.Infof("Sending paywall-only /start to chat %d", msg.Chat.ID)

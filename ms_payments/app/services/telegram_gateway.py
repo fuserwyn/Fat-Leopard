@@ -24,13 +24,13 @@ class TelegramGateway:
             r = await client.post(url, json=payload)
             return r.json()
 
-    async def create_chat_invite_link(
+    async def _create_chat_invite_link_once(
         self,
         chat_id: int,
         *,
         creates_join_request: bool,
     ) -> str | None:
-        """Дополнительная ссылка в группу. Без заявок — member_limit=1 (по сути одно приглашение)."""
+        """Один вызов createChatInviteLink. Без заявок — member_limit=1 (одно вступление по ссылке)."""
         if not self._token:
             logger.error("bot token empty, cannot create invite link")
             return None
@@ -47,6 +47,21 @@ class TelegramGateway:
         result = data.get("result") or {}
         link = str(result.get("invite_link") or "").strip()
         return link or None
+
+    async def create_chat_invite_link_best_effort(
+        self,
+        chat_id: int,
+        *,
+        primary_creates_join_request: bool,
+    ) -> tuple[str | None, bool]:
+        """Подбор рабочей ссылки: как в ms_leo — сначала MONETIZED_INVITE_CREATES_JOIN_REQUEST, затем наоборот."""
+        for creates_jr in (primary_creates_join_request, not primary_creates_join_request):
+            link = await self._create_chat_invite_link_once(
+                chat_id, creates_join_request=creates_jr
+            )
+            if link:
+                return link, creates_jr
+        return None, primary_creates_join_request
 
     async def approve_chat_join_request(self, chat_id: int, user_id: int) -> bool:
         if not self._token:

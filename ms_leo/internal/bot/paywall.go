@@ -98,6 +98,35 @@ func (b *Bot) paywallGroupInviteURL() string {
 	return ""
 }
 
+// paywallFreshGroupInviteURL — новая ссылка после оплаты (без использования кэша: иначе member_limit=1 уже «съедена» или ссылка устарела).
+func (b *Bot) paywallFreshGroupInviteURL() string {
+	if !b.paywallActive() || b.config.MonetizedChatID == 0 {
+		return ""
+	}
+	b.paywallInviteMu.Lock()
+	defer b.paywallInviteMu.Unlock()
+
+	b.paywallInviteFromAPI = false
+	b.paywallInviteURL = ""
+	b.paywallInviteCached = time.Time{}
+
+	primary := b.config.PaywallInviteCreatesJoinRequest
+	for _, createsJR := range []bool{primary, !primary} {
+		u, err := b.paywallCreateInviteLink(createsJR)
+		if err == nil && u != "" {
+			b.paywallInviteURL = u
+			b.paywallInviteCached = time.Now()
+			b.paywallInviteFromAPI = true
+			return u
+		}
+		b.logger.Warnf("paywall fresh createChatInviteLink (creates_join_request=%v): %v", createsJR, err)
+	}
+	if u := strings.TrimSpace(b.config.MonetizedChatInviteURL); u != "" {
+		return u
+	}
+	return ""
+}
+
 // paywallActive — платный вход включён и задана целевая группа.
 func (b *Bot) paywallActive() bool {
 	return b.config.PaywallEnabled && b.config.MonetizedChatID != 0
@@ -421,7 +450,10 @@ func (b *Bot) handlePaywallSuccessfulPayment(msg *tgbotapi.Message) {
 	}
 	sp := msg.SuccessfulPayment
 	if sp.Currency != b.config.PaymentCurrency || sp.TotalAmount != b.config.PaymentAmountMinorUnits {
-		b.logger.Errorf("paywall successful_payment mismatch: %s %d", sp.Currency, sp.TotalAmount)
+		b.logger.Errorf(
+			"paywall successful_payment mismatch: got %s %d, config wants %s %d — проверь PAYMENT_AMOUNT_RUB / PAYMENT_AMOUNT_MINOR_UNITS и перезапуск бота",
+			sp.Currency, sp.TotalAmount, b.config.PaymentCurrency, b.config.PaymentAmountMinorUnits,
+		)
 		return
 	}
 	reqID, ok := parsePaywallPayload(sp.InvoicePayload)
@@ -446,7 +478,7 @@ func (b *Bot) handlePaywallSuccessfulPayment(msg *tgbotapi.Message) {
 		b.logger.Infof("paywall request %d already completed or not pending", reqID)
 	}
 
-	inviteURL := b.paywallGroupInviteURL()
+	inviteURL := b.paywallFreshGroupInviteURL()
 
 	_, err = b.api.Request(tgbotapi.ApproveChatJoinRequestConfig{
 		ChatConfig: tgbotapi.ChatConfig{ChatID: b.config.MonetizedChatID},
