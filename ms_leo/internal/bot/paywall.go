@@ -35,7 +35,7 @@ func paywallInvoiceSendDiag(err error) (logLine string, userHint string) {
 	case strings.Contains(m, "payment_provider_invalid"):
 		userHint = "Токен провайдера оплаты неверный или Payments не настроены в @BotFather (Bot Settings → Payments). Проверь PAYMENT_PROVIDER_TOKEN на сервере — он должен быть от того же режима (test/live), что и кабинет ЮKassa."
 	case strings.Contains(m, "currency_invalid"), strings.Contains(m, "currency_total_amount_invalid"):
-		userHint = "Провайдер не принимает валюту или сумму. Проверь PAYMENT_CURRENCY и PAYMENT_AMOUNT_MINOR_UNITS (для RUB — копейки, например 10000 = 100 ₽)."
+		userHint = "Провайдер не принимает валюту или сумму. Проверь PAYMENT_CURRENCY и сумму (PAYMENT_AMOUNT_RUB в рублях или PAYMENT_AMOUNT_MINOR_UNITS в копейках)."
 	case tgErr.Code == 403 || strings.Contains(m, "blocked"):
 		userHint = "Разблокируй бота: чат с ботом → ⋮ → Разблокировать."
 	case strings.Contains(m, "chat not found") || strings.Contains(m, "user is deactivated"):
@@ -567,6 +567,18 @@ func (b *Bot) enforcePaywallForMonetizedChatMessage(msg *tgbotapi.Message) bool 
 	return true
 }
 
+func (b *Bot) paywallDeclineJoinRequest(userID int64) {
+	if userID == 0 || b.config.MonetizedChatID == 0 {
+		return
+	}
+	if _, err := b.api.Request(tgbotapi.DeclineChatJoinRequest{
+		ChatConfig: tgbotapi.ChatConfig{ChatID: b.config.MonetizedChatID},
+		UserID:     userID,
+	}); err != nil {
+		b.logger.Warnf("paywall decline join request user=%d: %v", userID, err)
+	}
+}
+
 func (b *Bot) handlePaywallChatJoinRequest(j *tgbotapi.ChatJoinRequest) {
 	if !b.paywallActive() {
 		return
@@ -576,6 +588,16 @@ func (b *Bot) handlePaywallChatJoinRequest(j *tgbotapi.ChatJoinRequest) {
 	}
 	userID := j.From.ID
 	if userID == 0 {
+		return
+	}
+
+	if b.config.OwnerID != 0 && userID == b.config.OwnerID {
+		if _, err := b.api.Request(tgbotapi.ApproveChatJoinRequestConfig{
+			ChatConfig: tgbotapi.ChatConfig{ChatID: b.config.MonetizedChatID},
+			UserID:     userID,
+		}); err != nil {
+			b.logger.Errorf("paywall approve owner join request: %v", err)
+		}
 		return
 	}
 
@@ -597,12 +619,15 @@ func (b *Bot) handlePaywallChatJoinRequest(j *tgbotapi.ChatJoinRequest) {
 
 	if !b.config.PaywallPaymentReady() {
 		b.logger.Error("PAYWALL_ENABLED but neither PAYMENT_PROVIDER_TOKEN nor YooKassa credentials are set")
+		b.paywallDeclineJoinRequest(userID)
+		b.paywallNotifyUser(userID, "⚠️ Вход в группу только после оплаты через бота, но оплата у бота не настроена. Напиши администратору.")
 		return
 	}
 
 	pending, err := b.db.GetLatestPendingPaywallAccessRequest(userID, b.config.MonetizedChatID)
 	if err != nil {
 		b.logger.Errorf("paywall join request pending: %v", err)
+		b.paywallDeclineJoinRequest(userID)
 		return
 	}
 	var reqID int64
@@ -612,6 +637,7 @@ func (b *Bot) handlePaywallChatJoinRequest(j *tgbotapi.ChatJoinRequest) {
 		reqID, err = b.db.InsertPaywallAccessRequest(userID, j.Chat.ID)
 		if err != nil {
 			b.logger.Errorf("paywall insert request: %v", err)
+			b.paywallDeclineJoinRequest(userID)
 			return
 		}
 	}
@@ -621,9 +647,11 @@ func (b *Bot) handlePaywallChatJoinRequest(j *tgbotapi.ChatJoinRequest) {
 			b.logger.Errorf("paywall send invoice (join request): %s", logLine)
 			b.paywallNotifyUser(userID, "⚠️ Не удалось отправить счёт.\n\n"+hint)
 		}
-		return
-	}
-	if err := b.SendYookassaPaymentLink(userID, reqID); err != nil {
+	} else if err := b.SendYookassaPaymentLink(userID, reqID); err != nil {
 		b.logger.Errorf("paywall send yookassa link: %v", err)
+		b.paywallNotifyUser(userID, "⚠️ Не удалось отправить ссылку на оплату. Напиши /start в боте.")
 	}
+	// Без записи об активной оплате в БД в группу не пускаем — отклоняем «висящую» заявку;
+	// после оплаты бот пришлёт ссылку / одобрит вступление.
+	b.paywallDeclineJoinRequest(userID)
 }

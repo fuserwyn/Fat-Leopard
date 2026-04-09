@@ -1,6 +1,7 @@
 package config
 
 import (
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -27,7 +28,7 @@ type Config struct {
 	PaywallInviteCreatesJoinRequest bool
 	PaymentProviderToken    string // токен провайдера из BotFather (не коммитить в git)
 	PaymentCurrency         string // ISO 4217, напр. RUB
-	PaymentAmountMinorUnits int    // минимальные единицы валюты (копейки для RUB)
+	PaymentAmountMinorUnits int // минимальные единицы валюты (копейки для RUB); из PAYMENT_AMOUNT_RUB или PAYMENT_AMOUNT_MINOR_UNITS
 	PaymentInvoiceTitle     string
 	PaymentInvoiceDesc      string
 
@@ -50,14 +51,11 @@ func Load() (*Config, error) {
 	}
 
 	monetizedChatID, _ := strconv.ParseInt(getEnv("MONETIZED_CHAT_ID", "0"), 10, 64)
-	amountMinor, _ := strconv.Atoi(getEnv("PAYMENT_AMOUNT_MINOR_UNITS", "10000")) // по умолчанию 100.00 RUB
-	if amountMinor <= 0 {
-		amountMinor = 10000
-	}
 	currency := getEnv("PAYMENT_CURRENCY", "RUB")
 	if currency == "" {
 		currency = "RUB"
 	}
+	amountMinor := paymentAmountMinorFromEnv(currency)
 	paywallEnabled := getEnv("PAYWALL_ENABLED", "false") == "true" || getEnv("PAYWALL_ENABLED", "false") == "1"
 
 	apiToken := getEnv("FAT_LEOPARD_API_TOKEN", "")
@@ -119,4 +117,27 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+// paymentAmountMinorFromEnv: PAYMENT_AMOUNT_RUB (только для RUB) перекрывает PAYMENT_AMOUNT_MINOR_UNITS.
+func paymentAmountMinorFromEnv(currency string) int {
+	cur := strings.TrimSpace(strings.ToUpper(currency))
+	if cur == "" {
+		cur = "RUB"
+	}
+	rubRaw := strings.TrimSpace(os.Getenv("PAYMENT_AMOUNT_RUB"))
+	if rubRaw != "" && cur == "RUB" {
+		s := strings.ReplaceAll(strings.ReplaceAll(rubRaw, ",", "."), " ", "")
+		if v, err := strconv.ParseFloat(s, 64); err == nil && v >= 0 {
+			minor := int(math.Round(v * 100))
+			if minor > 0 {
+				return minor
+			}
+		}
+	}
+	amountMinor, _ := strconv.Atoi(getEnv("PAYMENT_AMOUNT_MINOR_UNITS", "10000"))
+	if amountMinor <= 0 {
+		return 10000
+	}
+	return amountMinor
 }

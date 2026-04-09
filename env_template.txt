@@ -53,6 +53,8 @@ SCAN_HISTORY_ON_START=false
 # A) Оплата в Telegram: токен провайдера из @BotFather → счёт с кнопкой «Оплатить» в чате
 # PAYMENT_PROVIDER_TOKEN=...
 # PAYMENT_CURRENCY=RUB
+# PAYMENT_AMOUNT_RUB=100
+# (для RUB удобнее рубли; копейки можно так: 99.90. Если задано — перекрывает PAYMENT_AMOUNT_MINOR_UNITS)
 # PAYMENT_AMOUNT_MINOR_UNITS=10000
 #
 # B) Оплата картой ЮKassa: бот сам создаёт платёж и шлёт ссылку; нужен публичный вебхук (сервис ms_payments / docker-compose payment-webhook).
