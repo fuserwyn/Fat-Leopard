@@ -582,7 +582,9 @@ func (b *Bot) paywallShouldKickDirectJoinWithoutPayment(chatID, userID int64) bo
 
 func (b *Bot) paywallKickFromMonetizedChatAndExplain(userID int64) {
 	chatID := b.config.MonetizedChatID
-	// Ровно 30 секунд — минимум, чтобы не считалось «бан навсегда» по правилам Bot API.
+	// Вышибаем из группы через ограниченный ban (требование API), иначе клиент Telegram долго
+	// показывает «забанен админом». Сразу после — unban: пользователь не в чате, но не числится
+	// в чёрном списке и может снова зайти по ссылке после появления строки доступа в БД.
 	until := time.Now().Add(40 * time.Second).Unix()
 	if _, err := b.api.Request(tgbotapi.BanChatMemberConfig{
 		ChatMemberConfig: tgbotapi.ChatMemberConfig{ChatID: chatID, UserID: userID},
@@ -591,6 +593,12 @@ func (b *Bot) paywallKickFromMonetizedChatAndExplain(userID int64) {
 	}); err != nil {
 		b.logger.Errorf("paywall remove unpaid direct join user=%d: %v", userID, err)
 		return
+	}
+	if _, err := b.api.Request(tgbotapi.UnbanChatMemberConfig{
+		ChatMemberConfig: tgbotapi.ChatMemberConfig{ChatID: chatID, UserID: userID},
+		OnlyIfBanned:     false,
+	}); err != nil {
+		b.logger.Warnf("paywall unban after kick user=%d: %v", userID, err)
 	}
 	txt := `Вход в эту группу только после оплаты через бота.
 
@@ -625,6 +633,10 @@ func (b *Bot) enforcePaywallForMonetizedChatMessage(msg *tgbotapi.Message) bool 
 	if ok {
 		return false
 	}
+	b.logger.Warnf(
+		"paywall: kick on message user=%d chat=%d — нет активной записи completed+access_expires; заявки: %s",
+		msg.From.ID, msg.Chat.ID, b.db.PaywallAccessDebugSnapshot(msg.From.ID, b.config.MonetizedChatID),
+	)
 	b.paywallKickFromMonetizedChatAndExplain(msg.From.ID)
 	return true
 }

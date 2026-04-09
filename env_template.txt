@@ -63,7 +63,9 @@ SCAN_HISTORY_ON_START=false
 # YOOKASSA_WEBHOOK_VERIFY_BASIC_AUTH=false
 # true — только если в ЛК ЮKassa для URL уведомлений включена HTTP Basic (логин shopId, пароль secret_key)
 # YOOKASSA_RETURN_URL=https://t.me/YourBot  # куда вернуть пользователя после оплаты (https), по умолчанию можно MONETIZED_CHAT_INVITE_URL
-# В кабинете ЮKassa URL уведомлений: https://<ваш-домен>/webhook/payment (тот же ключи, что у payment-webhook; Basic Auth при желании)
+# В кабинете ЮKassa URL уведомлений (точный путь): https://<публичный-домен-ms_payments>/webhook/payment
+# Railway: сервис ms_payments должен быть с публичным URL/портом; в логах при каждой попытке ЮKassa появятся строки app.webhook HTTP POST /webhook/payment.
+# Если в логах только старт uvicorn и нет POST /webhook/payment — уведомления в кабинете не долетают (или путь не тот).
 #
 # ms_payments (Railway / payment-webhook):
 # DATABASE_URL — скопируй ТУ ЖЕ строку, что у бота (ms_leo). По ней вебхук обновляет paywall_access_requests;
