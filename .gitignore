@@ -71,5 +71,7 @@ go.sum
 # PostgreSQL data (if running locally)
 postgres_data/
 
-# Python (payment webhook)
-fastapi/.venv/ 
+# Python (payment microservice)
+ms_payments/.venv/
+__pycache__/
+*.py[cod] 

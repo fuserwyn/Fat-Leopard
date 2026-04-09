@@ -54,7 +54,7 @@ SCAN_HISTORY_ON_START=false
 # PAYMENT_CURRENCY=RUB
 # PAYMENT_AMOUNT_MINOR_UNITS=10000
 #
-# B) Оплата картой ЮKassa: бот сам создаёт платёж и шлёт ссылку; нужен публичный вебхук (сервис fastapi / docker-compose payment-webhook).
+# B) Оплата картой ЮKassa: бот сам создаёт платёж и шлёт ссылку; нужен публичный вебхук (сервис ms_payments / docker-compose payment-webhook).
 # YOOKASSA_SHOP_ID=...
 # YOOKASSA_SECRET_KEY=...
 # YOOKASSA_RETURN_URL=https://t.me/YourBot  # куда вернуть пользователя после оплаты (https), по умолчанию можно MONETIZED_CHAT_INVITE_URL
@@ -65,7 +65,7 @@ SCAN_HISTORY_ON_START=false
 # В docker-compose по умолчанию: postgresql://postgres:password@postgres:5432/leo_payments?sslmode=disable
 # PAYMENT_DATABASE_URL=postgresql://postgres:password@localhost:5432/leo_payments?sslmode=disable
 #
-# Payment webhook (FastAPI): повторы подключения к Postgres при старте (другой контейнер / Railway).
+# ms_payments: повторы подключения к Postgres при старте (другой контейнер / Railway).
 # DB_CONNECT_MAX_ATTEMPTS=30
 # DB_CONNECT_RETRY_DELAY_SEC=2
 
