@@ -37,6 +37,7 @@ type MessageLog struct {
 // TrainingLog представляет отчет о тренировке
 type TrainingLog struct {
 	UserID     int64     `json:"user_id" db:"user_id"`
+	ChatID     int64     `json:"chat_id" db:"chat_id"`
 	Username   string    `json:"username" db:"username"`
 	LastReport string    `json:"last_report" db:"last_report"`
 	CreatedAt  time.Time `json:"created_at" db:"created_at"`

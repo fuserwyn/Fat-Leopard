@@ -146,10 +146,12 @@ make docker-logs     # Просмотр логов
 - `sick_leave_start_time` - время начала больничного
 
 ### training_log
-- `user_id` - ID пользователя
-- `last_report` - время последнего отчета
-- `created_at` - время создания записи
-- `updated_at` - время обновления записи
+- Первичный ключ **`(user_id, chat_id)`** — отдельный «последний отчёт» на каждый чат; старые строки до миграции 15 имели `chat_id = 0`.
+- `last_report` — время последнего отчёта
+- `created_at` / `updated_at`
+
+### training_sessions
+- `session_date` — тип **DATE** (маппинг в коде по-прежнему строкой `YYYY-MM-DD`).
 
 ## 🦁 Fat Leopard
 

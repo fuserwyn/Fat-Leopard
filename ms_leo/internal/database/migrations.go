@@ -297,6 +297,37 @@ var Migrations = []Migration{
 			DROP COLUMN IF EXISTS access_expires_at;
 		`,
 	},
+	{
+		Version:     14,
+		Description: "training_sessions.session_date TEXT -> DATE (YYYY-MM-DD)",
+		UpSQL: `
+			ALTER TABLE training_sessions
+			ALTER COLUMN session_date TYPE DATE USING (
+				CASE
+					WHEN trim(session_date) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' THEN trim(session_date)::date
+					ELSE DATE '2000-01-01'
+				END
+			);
+		`,
+		DownSQL: `
+			ALTER TABLE training_sessions
+			ALTER COLUMN session_date TYPE TEXT USING session_date::text;
+		`,
+	},
+	{
+		Version:     15,
+		Description: "training_log: composite PK (user_id, chat_id); legacy rows chat_id=0",
+		UpSQL: `
+			ALTER TABLE training_log ADD COLUMN IF NOT EXISTS chat_id BIGINT NOT NULL DEFAULT 0;
+			ALTER TABLE training_log DROP CONSTRAINT IF EXISTS training_log_pkey;
+			ALTER TABLE training_log ADD PRIMARY KEY (user_id, chat_id);
+		`,
+		DownSQL: `
+			ALTER TABLE training_log DROP CONSTRAINT IF EXISTS training_log_pkey;
+			ALTER TABLE training_log DROP COLUMN IF EXISTS chat_id;
+			ALTER TABLE training_log ADD PRIMARY KEY (user_id);
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции

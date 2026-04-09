@@ -82,11 +82,13 @@ func (d *Database) CreateTables() error {
 			PRIMARY KEY (user_id, chat_id)
 		)`,
 		`CREATE TABLE IF NOT EXISTS training_log (
-			user_id BIGINT PRIMARY KEY,
+			user_id BIGINT NOT NULL,
+			chat_id BIGINT NOT NULL DEFAULT 0,
 			username TEXT DEFAULT '',
 			last_report TEXT NOT NULL,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (user_id, chat_id)
 		)`,
 	}
 
@@ -284,21 +286,20 @@ func (d *Database) GetUserIDByUsername(username string, chatID int64) (int64, er
 	return 0, fmt.Errorf("user not found")
 }
 
-// SaveTrainingLog сохраняет отчет о тренировке
+// SaveTrainingLog сохраняет последний отчёт о тренировке (по паре user_id + chat_id).
 func (d *Database) SaveTrainingLog(training *domain.TrainingLog) error {
 	query := `
-		INSERT INTO training_log (user_id, username, last_report, updated_at)
-		VALUES ($1, $2, $3, $4)
-		ON CONFLICT (user_id) 
-		DO UPDATE SET 
+		INSERT INTO training_log (user_id, chat_id, username, last_report, updated_at)
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (user_id, chat_id)
+		DO UPDATE SET
 			username = EXCLUDED.username,
 			last_report = EXCLUDED.last_report,
-			updated_at = $4
+			updated_at = $5
 	`
 
-	// Используем московское время
 	moscowTime := utils.FormatMoscowTime(utils.GetMoscowTime())
-	_, err := d.db.Exec(query, training.UserID, training.Username, training.LastReport, moscowTime)
+	_, err := d.db.Exec(query, training.UserID, training.ChatID, training.Username, training.LastReport, moscowTime)
 	return err
 }
 

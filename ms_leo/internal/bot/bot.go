@@ -764,6 +764,7 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 	// Сохраняем отчет о тренировке
 	trainingLog := &domain.TrainingLog{
 		UserID:     msg.From.ID,
+		ChatID:     msg.Chat.ID,
 		Username:   username,
 		LastReport: utils.FormatMoscowTime(utils.GetMoscowTime()),
 	}

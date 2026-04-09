@@ -26,6 +26,7 @@ func (b *Bot) processTrainingDone(msg *tgbotapi.Message) {
 
 	trainingLog := &domain.TrainingLog{
 		UserID:     msg.From.ID,
+		ChatID:     msg.Chat.ID,
 		Username:   username,
 		LastReport: utils.FormatMoscowTime(utils.GetMoscowTime()),
 	}
