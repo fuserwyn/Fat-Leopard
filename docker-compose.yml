@@ -11,12 +11,39 @@ services:
       - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:password@postgres:5432/leo_bot_db?sslmode=disable}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - LOG_LEVEL=info
+      - PAYWALL_ENABLED=${PAYWALL_ENABLED:-false}
+      - MONETIZED_CHAT_ID=${MONETIZED_CHAT_ID:-}
+      - PAYMENT_PROVIDER_TOKEN=${PAYMENT_PROVIDER_TOKEN:-}
+      - PAYMENT_CURRENCY=${PAYMENT_CURRENCY:-RUB}
+      - PAYMENT_AMOUNT_MINOR_UNITS=${PAYMENT_AMOUNT_MINOR_UNITS:-10000}
+      - PAYMENT_INVOICE_TITLE=${PAYMENT_INVOICE_TITLE:-Доступ в группу}
+      - PAYMENT_INVOICE_DESCRIPTION=${PAYMENT_INVOICE_DESCRIPTION:-Разовый доступ после оплаты заявка будет одобрена автоматически.}
+      - YOOKASSA_SHOP_ID=${YOOKASSA_SHOP_ID:-}
+      - YOOKASSA_SECRET_KEY=${YOOKASSA_SECRET_KEY:-}
+      - YOOKASSA_RETURN_URL=${YOOKASSA_RETURN_URL:-}
     depends_on:
       postgres:
         condition: service_healthy
     restart: unless-stopped
     ports:
       - "8080:8080"
+
+  # Вебхук YooKassa → завершение paywall в той же БД, что и Go-бот.
+  payment-webhook:
+    build: ./fastapi
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:password@postgres:5432/leo_bot_db?sslmode=disable}
+      - FAT_LEOPARD_API_TOKEN=${FAT_LEOPARD_API_TOKEN}
+      - API_TOKEN=${API_TOKEN}
+      - MONETIZED_CHAT_ID=${MONETIZED_CHAT_ID}
+      - YOOKASSA_SHOP_ID=${YOOKASSA_SHOP_ID:-}
+      - YOOKASSA_SECRET_KEY=${YOOKASSA_SECRET_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    ports:
+      - "8081:8000"
 
   postgres:
     image: postgres:15

@@ -46,9 +46,19 @@ SCAN_HISTORY_ON_START=false
 # PAYWALL_ENABLED=true
 # MONETIZED_CHAT_ID=-100xxxxxxxxxx
 # MONETIZED_CHAT_INVITE_URL=https://t.me/+AbCdEfGh...   # пригласительная ссылка из настроек группы (кнопка в личке)
+#
+# Способ оплаты для пользователей — выбери один (или Telegram, или ЮKassa):
+#
+# A) Оплата в Telegram: токен провайдера из @BotFather → счёт с кнопкой «Оплатить» в чате
 # PAYMENT_PROVIDER_TOKEN=...
 # PAYMENT_CURRENCY=RUB
 # PAYMENT_AMOUNT_MINOR_UNITS=10000
+#
+# B) Оплата картой ЮKassa: бот сам создаёт платёж и шлёт ссылку; нужен публичный вебхук (сервис fastapi / docker-compose payment-webhook).
+# YOOKASSA_SHOP_ID=...
+# YOOKASSA_SECRET_KEY=...
+# YOOKASSA_RETURN_URL=https://t.me/YourBot  # куда вернуть пользователя после оплаты (https), по умолчанию можно MONETIZED_CHAT_INVITE_URL
+# В кабинете ЮKassa URL уведомлений: https://<ваш-домен>/webhook/payment (тот же ключи, что у payment-webhook; Basic Auth при желании)
 
 # Инструкция:
 # 1. Скопируйте этот файл и переименуйте в .env

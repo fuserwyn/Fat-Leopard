@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"leo-bot/internal/yookassa"
+
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
@@ -32,19 +34,28 @@ func (b *Bot) paywallPrivateUnpaidUserText() string {
 	} else if b.config.PaymentAmountMinorUnits > 0 && b.config.PaymentCurrency != "" {
 		priceRub = fmt.Sprintf(" В счёте будет указано: %d мин. ед. валюты %s.", b.config.PaymentAmountMinorUnits, b.config.PaymentCurrency)
 	}
-	return `💳 Платный вход в закрытую группу
 
-Сразу после этого сообщения придёт счёт с кнопкой «Оплатить» в Telegram.
+	payLine := `Сразу после этого сообщения придёт счёт с кнопкой «Оплатить» в Telegram.
 
 Порядок такой:
-1. Оплати счёт здесь (можно до заявки в группу).
+1. Оплати счёт здесь (можно до заявки в группу).`
+	if !b.config.PaywallUsesTelegramInvoice() {
+		payLine = `Сразу после этого сообщения пришлю ссылку на оплату картой (ЮKassa).
+
+Порядок такой:
+1. Перейди по ссылке и оплати на сайте (можно до заявки в группу).`
+	}
+
+	return `💳 Платный вход в закрытую группу
+
+` + payLine + `
 2. Затем нажми кнопку ниже «Подать заявку» и подтверди вступление — если оплата уже прошла, заявку одобрю автоматически.
 
 Полное приветствие с командами бота пришлю после успешной оплаты. Доступ действует 30 дней.` + priceRub + `
 
 Пока оплаты не было, длинную справку в личке не показываю — она пригодится в группе.
 
-👇 Кнопки: ссылка в группу и повторная отправка счёта (если сообщение со счётом потерялось).`
+👇 Кнопки: ссылка в группу и повторная отправка оплаты.`
 }
 
 // paywallUnpaidInlineKeyboard — ссылка на группу + повтор счёта (invoice сам по себе содержит кнопку «Оплатить»).
@@ -55,15 +66,19 @@ func (b *Bot) paywallUnpaidInlineKeyboard() *tgbotapi.InlineKeyboardMarkup {
 			tgbotapi.NewInlineKeyboardButtonURL("📥 Подать заявку в группу", u),
 		))
 	}
+	resendLabel := "💳 Выслать счёт снова"
+	if !b.config.PaywallUsesTelegramInvoice() {
+		resendLabel = "💳 Ссылка на оплату снова"
+	}
 	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("💳 Выслать счёт снова", paywallCallbackResendInvoice),
+		tgbotapi.NewInlineKeyboardButtonData(resendLabel, paywallCallbackResendInvoice),
 	))
 	return &tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
 }
 
-// ensurePaywallInvoiceSent создаёт pending-заявку при необходимости и шлёт invoice (кнопка «Оплатить»).
+// ensurePaywallInvoiceSent создаёт pending-заявку при необходимости и шлёт счёт Telegram или ссылку ЮKassa.
 func (b *Bot) ensurePaywallInvoiceSent(userID int64) {
-	if !b.paywallActive() || userID == 0 || b.config.PaymentProviderToken == "" {
+	if !b.paywallActive() || userID == 0 || !b.config.PaywallPaymentReady() {
 		return
 	}
 	pending, err := b.db.GetLatestPendingPaywallAccessRequest(userID, b.config.MonetizedChatID)
@@ -81,8 +96,14 @@ func (b *Bot) ensurePaywallInvoiceSent(userID int64) {
 			return
 		}
 	}
-	if err := b.SendPaywallInvoice(userID, reqID); err != nil {
-		b.logger.Errorf("paywall ensure invoice send: %v", err)
+	if b.config.PaywallUsesTelegramInvoice() {
+		if err := b.SendPaywallInvoice(userID, reqID); err != nil {
+			b.logger.Errorf("paywall ensure invoice send: %v", err)
+		}
+		return
+	}
+	if err := b.SendYookassaPaymentLink(userID, reqID); err != nil {
+		b.logger.Errorf("paywall ensure yookassa link: %v", err)
 	}
 }
 
@@ -107,12 +128,50 @@ func (b *Bot) SendPaywallInvoice(userID, reqID int64) error {
 	return err
 }
 
+// SendYookassaPaymentLink создаёт платёж в ЮKassa и отправляет пользователю кнопку со ссылкой на оплату.
+func (b *Bot) SendYookassaPaymentLink(userID, reqID int64) error {
+	if b.config.YookassaShopID == "" || b.config.YookassaSecretKey == "" {
+		return fmt.Errorf("yookassa credentials empty")
+	}
+	returnURL := strings.TrimSpace(b.config.YookassaReturnURL)
+	if returnURL == "" {
+		returnURL = "https://t.me"
+	}
+	meta := map[string]string{
+		"user_telegram_id": fmt.Sprintf("%d", userID),
+		"invoice_payload":  fmt.Sprintf("%s%d", paywallPayloadPrefix, reqID),
+	}
+	_, confirmURL, err := yookassa.CreatePayment(
+		b.config.YookassaShopID,
+		b.config.YookassaSecretKey,
+		b.config.PaymentAmountMinorUnits,
+		b.config.PaymentCurrency,
+		b.config.PaymentInvoiceDesc,
+		returnURL,
+		meta,
+	)
+	if err != nil {
+		return err
+	}
+	text := `💳 Оплата доступа картой (ЮKassa).
+
+Нажми кнопку «Оплатить», заверши оплату на сайте. После успешного списания доступ откроется автоматически (до 1–2 минут) — затем подай заявку в группу или открой приглашение ещё раз.`
+	msg := tgbotapi.NewMessage(userID, text)
+	msg.ReplyMarkup = &tgbotapi.InlineKeyboardMarkup{
+		InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
+			tgbotapi.NewInlineKeyboardRow(tgbotapi.NewInlineKeyboardButtonURL("Оплатить", confirmURL)),
+		},
+	}
+	_, err = b.api.Send(msg)
+	return err
+}
+
 func (b *Bot) handlePaywallResendInvoiceCallback(callback *tgbotapi.CallbackQuery) {
 	if callback.From == nil {
 		_, _ = b.api.Request(tgbotapi.NewCallback(callback.ID, ""))
 		return
 	}
-	if !b.paywallActive() || b.config.PaymentProviderToken == "" {
+	if !b.paywallActive() || !b.config.PaywallPaymentReady() {
 		_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, "Оплата сейчас недоступна. Напиши администратору."))
 		return
 	}
@@ -135,13 +194,21 @@ func (b *Bot) handlePaywallResendInvoiceCallback(callback *tgbotapi.CallbackQuer
 		}
 	}
 
-	if err := b.SendPaywallInvoice(callback.From.ID, reqID); err != nil {
-		b.logger.Errorf("paywall resend invoice: %v", err)
-		_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, "Не удалось отправить счёт. Проверь, что бот не в чёрном списке."))
+	if b.config.PaywallUsesTelegramInvoice() {
+		if err := b.SendPaywallInvoice(callback.From.ID, reqID); err != nil {
+			b.logger.Errorf("paywall resend invoice: %v", err)
+			_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, "Не удалось отправить счёт. Проверь, что бот не в чёрном списке."))
+			return
+		}
+		_, _ = b.api.Request(tgbotapi.NewCallback(callback.ID, "Счёт отправлен — открой сообщение со счётом и нажми «Оплатить»."))
 		return
 	}
-
-	_, _ = b.api.Request(tgbotapi.NewCallback(callback.ID, "Счёт отправлен — в чате со мной открой сообщение со счётом и нажми «Оплатить»."))
+	if err := b.SendYookassaPaymentLink(callback.From.ID, reqID); err != nil {
+		b.logger.Errorf("paywall resend yookassa: %v", err)
+		_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, "Не удалось создать оплату. Попробуй позже или напиши администратору."))
+		return
+	}
+	_, _ = b.api.Request(tgbotapi.NewCallback(callback.ID, "Ссылка на оплату отправлена — открой новое сообщение и нажми «Оплатить»."))
 }
 
 func (b *Bot) paywallPrivatePaidFooter() string {
@@ -388,8 +455,8 @@ func (b *Bot) handlePaywallChatJoinRequest(j *tgbotapi.ChatJoinRequest) {
 		return
 	}
 
-	if b.config.PaymentProviderToken == "" {
-		b.logger.Error("PAYWALL_ENABLED but PAYMENT_PROVIDER_TOKEN is empty")
+	if !b.config.PaywallPaymentReady() {
+		b.logger.Error("PAYWALL_ENABLED but neither PAYMENT_PROVIDER_TOKEN nor YooKassa credentials are set")
 		return
 	}
 
@@ -408,7 +475,13 @@ func (b *Bot) handlePaywallChatJoinRequest(j *tgbotapi.ChatJoinRequest) {
 			return
 		}
 	}
-	if err := b.SendPaywallInvoice(userID, reqID); err != nil {
-		b.logger.Errorf("paywall send invoice: %v", err)
+	if b.config.PaywallUsesTelegramInvoice() {
+		if err := b.SendPaywallInvoice(userID, reqID); err != nil {
+			b.logger.Errorf("paywall send invoice: %v", err)
+		}
+		return
+	}
+	if err := b.SendYookassaPaymentLink(userID, reqID); err != nil {
+		b.logger.Errorf("paywall send yookassa link: %v", err)
 	}
 }

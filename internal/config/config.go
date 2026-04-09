@@ -28,6 +28,11 @@ type Config struct {
 	PaymentAmountMinorUnits int    // минимальные единицы валюты (копейки для RUB)
 	PaymentInvoiceTitle     string
 	PaymentInvoiceDesc      string
+
+	// ЮKassa (оплата по ссылке); вебхук обрабатывает сервис fastapi/payment-webhook.
+	YookassaShopID    string
+	YookassaSecretKey string
+	YookassaReturnURL string // redirect после оплаты, https (например приглашение в группу или t.me)
 }
 
 func Load() (*Config, error) {
@@ -58,6 +63,11 @@ func Load() (*Config, error) {
 		apiToken = getEnv("API_TOKEN", "")
 	}
 
+	ykReturn := strings.TrimSpace(getEnv("YOOKASSA_RETURN_URL", ""))
+	if ykReturn == "" {
+		ykReturn = strings.TrimSpace(getEnv("MONETIZED_CHAT_INVITE_URL", ""))
+	}
+
 	return &Config{
 		APIToken:           apiToken,
 		OwnerID:            ownerID,
@@ -75,7 +85,24 @@ func Load() (*Config, error) {
 		PaymentAmountMinorUnits: amountMinor,
 		PaymentInvoiceTitle:     getEnv("PAYMENT_INVOICE_TITLE", "Доступ в группу"),
 		PaymentInvoiceDesc:      getEnv("PAYMENT_INVOICE_DESCRIPTION", "Разовый доступ после оплаты заявка будет одобрена автоматически."),
+
+		YookassaShopID:    strings.TrimSpace(getEnv("YOOKASSA_SHOP_ID", "")),
+		YookassaSecretKey: strings.TrimSpace(getEnv("YOOKASSA_SECRET_KEY", "")),
+		YookassaReturnURL: ykReturn,
 	}, nil
+}
+
+// PaywallPaymentReady — можно выставить счёт: Telegram Payments или ЮKassa.
+func (c *Config) PaywallPaymentReady() bool {
+	if strings.TrimSpace(c.PaymentProviderToken) != "" {
+		return true
+	}
+	return c.YookassaShopID != "" && c.YookassaSecretKey != ""
+}
+
+// PaywallUsesTelegramInvoice — приоритетный способ: нативный счёт Telegram.
+func (c *Config) PaywallUsesTelegramInvoice() bool {
+	return strings.TrimSpace(c.PaymentProviderToken) != ""
 }
 
 func getEnv(key, defaultValue string) string {

@@ -69,4 +69,7 @@ vendor/
 go.sum
 
 # PostgreSQL data (if running locally)
-postgres_data/ 
+postgres_data/
+
+# Python (payment webhook)
+fastapi/.venv/ 

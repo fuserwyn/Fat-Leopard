@@ -81,11 +81,18 @@ func (b *Bot) Start(ctx context.Context) error {
 		if b.config.MonetizedChatID == 0 {
 			b.logger.Warn("PAYWALL_ENABLED=true but MONETIZED_CHAT_ID is not set")
 		}
-		if b.config.PaymentProviderToken == "" {
-			b.logger.Warn("PAYWALL_ENABLED=true but PAYMENT_PROVIDER_TOKEN is empty")
+		if !b.config.PaywallPaymentReady() {
+			b.logger.Warn("PAYWALL_ENABLED=true but payment is not configured: set PAYMENT_PROVIDER_TOKEN (Telegram) and/or YOOKASSA_SHOP_ID + YOOKASSA_SECRET_KEY (карта)")
 		}
 		if b.config.MonetizedChatID != 0 && strings.TrimSpace(b.config.MonetizedChatInviteURL) == "" {
 			b.logger.Warn("Paywall active: MONETIZED_CHAT_INVITE_URL is empty — кнопка «в группу» в личке не будет работать; добавь ссылку-приглашение из настроек группы")
+		}
+		if b.config.PaywallPaymentReady() {
+			if b.config.PaywallUsesTelegramInvoice() {
+				b.logger.Info("Paywall: оплата через Telegram Payments (если задан YOOKASSA_*, он не используется — убери PAYMENT_PROVIDER_TOKEN для ЮKassa)")
+			} else {
+				b.logger.Info("Paywall: оплата через ЮKassa (ссылка в ЛС); вебхук должен завершать платёж в той же БД")
+			}
 		}
 	}
 
