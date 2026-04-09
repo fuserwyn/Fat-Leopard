@@ -1,13 +1,12 @@
-# Сборка из корня монорепозитория:
-#   docker build -f ms_payments/Dockerfile .
+# Контекст сборки — эта папка (Railway Root Directory = ms_payments, или docker compose context: ./ms_payments).
 FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY ms_payments/requirements.txt .
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY ms_payments/ .
+COPY . .
 
 EXPOSE 8000
 

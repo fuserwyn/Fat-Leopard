@@ -1,16 +1,14 @@
-# Сборка из корня монорепозитория (контекст — родительская папка):
-#   docker build -f ms_leo/Dockerfile .
-# docker compose использует context: .. в корне репо.
+# Контекст сборки — эта папка (Railway Root Directory = ms_leo, или docker compose context: ./ms_leo).
 FROM golang:1.21
 
 WORKDIR /app
 
-COPY ms_leo/go.mod ./
-COPY ms_leo/go.sum* ./
+COPY go.mod ./
+COPY go.sum* ./
 
 RUN go mod download
 
-COPY ms_leo/ .
+COPY . .
 
 RUN go mod tidy
 
