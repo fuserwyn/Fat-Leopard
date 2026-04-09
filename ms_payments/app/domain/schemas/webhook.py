@@ -1,5 +1,7 @@
 """DTO входящего уведомления ЮKassa."""
 
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict
 
 # В уведомлении поле object — полный объект платежа ЮKassa (десятки полей, разные версии API).
@@ -12,4 +14,4 @@ class PaymentNotification(BaseModel):
 
     type: str = ""
     event: str
-    object: dict
+    object: dict[str, Any] | None = None

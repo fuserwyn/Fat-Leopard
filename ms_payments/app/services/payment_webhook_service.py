@@ -7,8 +7,6 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-from fastapi import HTTPException
-
 from app.core.config import Settings
 from app.domain.paywall import minor_units_from_yookassa_amount, parse_paywall_payload
 from app.domain.schemas.webhook import PaymentNotification
@@ -53,11 +51,17 @@ class PaymentWebhookService:
         obj = notification.object or {}
         payment_id = str(obj.get("id") or "").strip()
         if not payment_id:
-            raise HTTPException(status_code=400, detail="payment id missing")
+            return WebhookOutcome(400, {"status": "payment id missing"})
 
         meta = obj.get("metadata") or {}
         if not isinstance(meta, dict):
             meta = {}
+
+        logger.info(
+            "yookassa webhook: payment=%s metadata keys=%s",
+            payment_id,
+            sorted(meta.keys()),
+        )
 
         user_raw = _metadata_string(meta, "user_telegram_id", "user_telegramId")
         payload_str = _metadata_string(meta, "invoice_payload", "invoicePayload")
@@ -84,7 +88,7 @@ class PaymentWebhookService:
 
         if self._settings.monetized_chat_id == 0:
             logger.error("MONETIZED_CHAT_ID is not set")
-            raise HTTPException(status_code=500, detail="server misconfigured")
+            return WebhookOutcome(500, {"status": "server misconfigured"})
 
         if not (self._settings.bot_token or "").strip():
             logger.error(
