@@ -1563,12 +1563,21 @@ func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
 				windowEndDate := sessionDate
 				windowStartDate := userNow.AddDate(0, 0, -6).Format("2006-01-02")
 
-				// Если бонус уже был, окно не может начинаться раньше даты последнего бонуса.
+				// Если бонус уже был, новое окно начинается со следующего дня после бонуса,
+				// чтобы одни и те же сессии не участвовали в повторном начислении.
 				lastBonusDate, lastBonusErr := b.db.GetLastBonusSessionDate(msg.From.ID, msg.Chat.ID)
 				if lastBonusErr != nil {
 					b.logger.Errorf("Failed to get last bonus date: %v", lastBonusErr)
-				} else if lastBonusDate != nil && *lastBonusDate > windowStartDate {
-					windowStartDate = *lastBonusDate
+				} else if lastBonusDate != nil {
+					lastBonusDay, parseErr := time.Parse("2006-01-02", *lastBonusDate)
+					if parseErr != nil {
+						b.logger.Errorf("Failed to parse last bonus date %q: %v", *lastBonusDate, parseErr)
+					} else {
+						nextWindowStartDate := lastBonusDay.AddDate(0, 0, 1).Format("2006-01-02")
+						if nextWindowStartDate > windowStartDate {
+							windowStartDate = nextWindowStartDate
+						}
+					}
 				}
 
 				sessionCountInWindow, cntErr := b.db.CountTrainingSessionsInDateRange(msg.From.ID, msg.Chat.ID, windowStartDate, windowEndDate)
