@@ -2,7 +2,9 @@ version: '3.8'
 
 services:
   bot:
-    build: ./ms_leo
+    build:
+      context: .
+      dockerfile: ms_leo/Dockerfile
     environment:
       - FAT_LEOPARD_API_TOKEN=${FAT_LEOPARD_API_TOKEN}
       - API_TOKEN=${API_TOKEN}
@@ -30,7 +32,9 @@ services:
 
   # Вебхук YooKassa → завершение paywall в той же БД, что и Go-бот.
   payment-webhook:
-    build: ./ms_payments
+    build:
+      context: .
+      dockerfile: ms_payments/Dockerfile
     environment:
       - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:password@postgres:5432/leo_bot_db?sslmode=disable}
       - PAYMENT_DATABASE_URL=${PAYMENT_DATABASE_URL:-postgresql://postgres:password@postgres:5432/leo_payments?sslmode=disable}
