@@ -29,6 +29,10 @@ type Bot struct {
 	sickApprovalMutex    sync.Mutex
 	adminSessions        map[int64]*adminSession
 	adminSessionsMutex   sync.Mutex
+	paywallInviteMu      sync.Mutex
+	paywallInviteURL     string
+	paywallInviteCached  time.Time
+	paywallInviteFromAPI bool
 }
 
 var (
@@ -84,8 +88,12 @@ func (b *Bot) Start(ctx context.Context) error {
 		if !b.config.PaywallPaymentReady() {
 			b.logger.Warn("PAYWALL_ENABLED=true but payment is not configured: set PAYMENT_PROVIDER_TOKEN (Telegram) and/or YOOKASSA_SHOP_ID + YOOKASSA_SECRET_KEY (карта)")
 		}
-		if b.config.MonetizedChatID != 0 && strings.TrimSpace(b.config.MonetizedChatInviteURL) == "" {
-			b.logger.Warn("Paywall active: MONETIZED_CHAT_INVITE_URL is empty — кнопка «в группу» в личке не будет работать; добавь ссылку-приглашение из настроек группы")
+		if b.config.MonetizedChatID != 0 {
+			if strings.TrimSpace(b.config.MonetizedChatInviteURL) == "" {
+				b.logger.Info("Paywall: MONETIZED_CHAT_INVITE_URL пуст — ссылка «в группу» будет создаваться через createChatInviteLink (бот как админ с правом приглашений)")
+			} else {
+				b.logger.Info("Paywall: задана MONETIZED_CHAT_INVITE_URL — используется как запас, если API не создаст новую ссылку")
+			}
 		}
 		if b.config.PaywallPaymentReady() {
 			if b.config.PaywallUsesTelegramInvoice() {

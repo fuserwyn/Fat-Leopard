@@ -45,7 +45,8 @@ SCAN_HISTORY_ON_START=false
 # Платный вход в группу (опционально)
 # PAYWALL_ENABLED=true
 # MONETIZED_CHAT_ID=-100xxxxxxxxxx
-# MONETIZED_CHAT_INVITE_URL=https://t.me/+AbCdEfGh...   # пригласительная ссылка из настроек группы (кнопка в личке)
+# MONETIZED_CHAT_INVITE_URL=   # опционально: запасная ссылка, если createChatInviteLink недоступен (иначе ссылка создаётся ботом и не протухает)
+# MONETIZED_INVITE_CREATES_JOIN_REQUEST=true   # false — если в группе обычный вход без заявок (по умолчанию true = ссылка «на заявку»)
 #
 # Способ оплаты для пользователей — выбери один (или Telegram, или ЮKassa):
 #

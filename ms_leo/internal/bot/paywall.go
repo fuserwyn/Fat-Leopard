@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -14,6 +15,60 @@ import (
 const paywallPayloadPrefix = "pw_"
 
 const paywallCallbackResendInvoice = "paywall_resend_invoice"
+
+const paywallInviteCacheTTL = 25 * time.Minute
+
+// paywallCreateInviteLink вызывает Telegram API; бот должен быть админом с правом приглашений.
+func (b *Bot) paywallCreateInviteLink(createsJoinRequest bool) (string, error) {
+	cfg := tgbotapi.CreateChatInviteLinkConfig{
+		ChatConfig:         tgbotapi.ChatConfig{ChatID: b.config.MonetizedChatID},
+		CreatesJoinRequest: createsJoinRequest,
+	}
+	resp, err := b.api.Request(cfg)
+	if err != nil {
+		return "", err
+	}
+	var link tgbotapi.ChatInviteLink
+	if err := json.Unmarshal(resp.Result, &link); err != nil {
+		return "", err
+	}
+	if link.InviteLink == "" {
+		return "", fmt.Errorf("empty invite_link in API response")
+	}
+	return link.InviteLink, nil
+}
+
+// paywallGroupInviteURL — актуальная ссылка в группу: свежая через API (кэш) или MONETIZED_CHAT_INVITE_URL.
+// Статические t.me/+... часто протухают; API даёт новую дополнительную ссылку.
+func (b *Bot) paywallGroupInviteURL() string {
+	if !b.paywallActive() || b.config.MonetizedChatID == 0 {
+		return ""
+	}
+	b.paywallInviteMu.Lock()
+	defer b.paywallInviteMu.Unlock()
+
+	if b.paywallInviteFromAPI && b.paywallInviteURL != "" && time.Since(b.paywallInviteCached) < paywallInviteCacheTTL {
+		return b.paywallInviteURL
+	}
+	b.paywallInviteFromAPI = false
+	b.paywallInviteURL = ""
+
+	primary := b.config.PaywallInviteCreatesJoinRequest
+	for _, createsJR := range []bool{primary, !primary} {
+		u, err := b.paywallCreateInviteLink(createsJR)
+		if err == nil && u != "" {
+			b.paywallInviteURL = u
+			b.paywallInviteCached = time.Now()
+			b.paywallInviteFromAPI = true
+			return u
+		}
+		b.logger.Warnf("paywall createChatInviteLink (creates_join_request=%v): %v", createsJR, err)
+	}
+	if u := strings.TrimSpace(b.config.MonetizedChatInviteURL); u != "" {
+		return u
+	}
+	return ""
+}
 
 // paywallActive — платный вход включён и задана целевая группа.
 func (b *Bot) paywallActive() bool {
@@ -80,7 +135,7 @@ func (b *Bot) paywallPrivateUnpaidUserText() string {
 // paywallUnpaidInlineKeyboard — ссылка на группу + повтор счёта (invoice сам по себе содержит кнопку «Оплатить»).
 func (b *Bot) paywallUnpaidInlineKeyboard() *tgbotapi.InlineKeyboardMarkup {
 	var rows [][]tgbotapi.InlineKeyboardButton
-	if u := strings.TrimSpace(b.config.MonetizedChatInviteURL); u != "" {
+	if u := b.paywallGroupInviteURL(); u != "" {
 		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonURL("📥 Подать заявку в группу", u),
 		))
@@ -369,7 +424,7 @@ func (b *Bot) handlePaywallSuccessfulPayment(msg *tgbotapi.Message) {
 	if err != nil {
 		b.logger.Errorf("paywall approve join request failed: %v", err)
 		follow := "✅ Оплата принята, доступ открыт на 30 дней.\n\nЕсли ты ещё не подал(а) заявку в группу — открой пригласительную ссылку и нажми «Запросить вступление». Заявка одобрится автоматически."
-		if u := strings.TrimSpace(b.config.MonetizedChatInviteURL); u != "" {
+		if u := b.paywallGroupInviteURL(); u != "" {
 			follow += "\n\nСсылка: " + u
 		} else {
 			follow += "\n\nПопроси ссылку у администратора."
@@ -432,7 +487,7 @@ func (b *Bot) paywallKickFromMonetizedChatAndExplain(userID int64) {
 	txt := `Вход в эту группу только после оплаты через бота.
 
 Нажми /start в личке с ботом — пришлю счёт. После оплаты зайди по ссылке на группу снова (или подай заявку, если включены заявки).`
-	if u := strings.TrimSpace(b.config.MonetizedChatInviteURL); u != "" {
+	if u := b.paywallGroupInviteURL(); u != "" {
 		txt += "\n\nСсылка на группу: " + u
 	}
 	pm := tgbotapi.NewMessage(userID, txt)

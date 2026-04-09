@@ -22,7 +22,9 @@ type Config struct {
 	// в @BotFather подключён провайдер и выдан PAYMENT_PROVIDER_TOKEN; сумма и валюта сверяются в pre_checkout и successful_payment.
 	PaywallEnabled          bool
 	MonetizedChatID         int64  // ID группы (например -100...)
-	MonetizedChatInviteURL  string // https://t.me/+xxx или публичная t.me/joinchat/… — для кнопки «в группу»
+	MonetizedChatInviteURL  string // Запасная ссылка; лучше оставить пустой — бот создаст ссылку через API (нужны права админа в группе)
+	// По API createChatInviteLink: true = ссылка с заявкой на вступление (как «подать заявку»), false = обычное вступление.
+	PaywallInviteCreatesJoinRequest bool
 	PaymentProviderToken    string // токен провайдера из BotFather (не коммитить в git)
 	PaymentCurrency         string // ISO 4217, напр. RUB
 	PaymentAmountMinorUnits int    // минимальные единицы валюты (копейки для RUB)
@@ -68,6 +70,12 @@ func Load() (*Config, error) {
 		ykReturn = strings.TrimSpace(getEnv("MONETIZED_CHAT_INVITE_URL", ""))
 	}
 
+	inviteJoinReq := true
+	switch strings.ToLower(strings.TrimSpace(getEnv("MONETIZED_INVITE_CREATES_JOIN_REQUEST", "true"))) {
+	case "false", "0", "no":
+		inviteJoinReq = false
+	}
+
 	return &Config{
 		APIToken:           apiToken,
 		OwnerID:            ownerID,
@@ -77,9 +85,10 @@ func Load() (*Config, error) {
 		OpenRouterModel:    getEnv("OPENROUTER_MODEL", "deepseek/deepseek-chat"),
 		ScanHistoryOnStart: scanHistoryOnStart,
 
-		PaywallEnabled:          paywallEnabled,
-		MonetizedChatID:         monetizedChatID,
-		MonetizedChatInviteURL:  strings.TrimSpace(getEnv("MONETIZED_CHAT_INVITE_URL", "")),
+		PaywallEnabled:                  paywallEnabled,
+		MonetizedChatID:                 monetizedChatID,
+		MonetizedChatInviteURL:          strings.TrimSpace(getEnv("MONETIZED_CHAT_INVITE_URL", "")),
+		PaywallInviteCreatesJoinRequest: inviteJoinReq,
 		PaymentProviderToken:    getEnv("PAYMENT_PROVIDER_TOKEN", ""),
 		PaymentCurrency:         currency,
 		PaymentAmountMinorUnits: amountMinor,
