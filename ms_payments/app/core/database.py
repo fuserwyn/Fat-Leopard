@@ -86,6 +86,10 @@ async def init_database() -> None:
         label="main",
     )
     logger.info("Main database pool ready — %s", _dsn_hint(settings.database_url))
+    logger.info(
+        "ms_payments: доступ бота выставляется в этой БД (paywall_access_requests); "
+        "должен совпадать с DATABASE_URL у ms_leo."
+    )
 
     if settings.payment_database_url:
         ledger_pool = await _create_pool_with_retry(

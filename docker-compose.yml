@@ -31,7 +31,10 @@ services:
     ports:
       - "8080:8080"
 
-  # Вебхук YooKassa → завершение paywall в той же БД, что и Go-бот.
+  # Вебхук ЮKassa.
+  # DATABASE_URL — ОБЯЗАТЕЛЬНО та же строка подключения, что у сервиса bot: здесь же таблица
+  # paywall_access_requests; бот (ms_leo) читает оттуда доступ. Другая БД = бот не увидит оплату.
+  # PAYMENT_DATABASE_URL — опционально вторая БД только для леджера yookassa_payment_events (аудит).
   payment-webhook:
     build:
       context: ./ms_payments
@@ -45,6 +48,7 @@ services:
       - MONETIZED_INVITE_CREATES_JOIN_REQUEST=${MONETIZED_INVITE_CREATES_JOIN_REQUEST:-true}
       - YOOKASSA_SHOP_ID=${YOOKASSA_SHOP_ID:-}
       - YOOKASSA_SECRET_KEY=${YOOKASSA_SECRET_KEY:-}
+      - YOOKASSA_WEBHOOK_VERIFY_BASIC_AUTH=${YOOKASSA_WEBHOOK_VERIFY_BASIC_AUTH:-false}
     depends_on:
       postgres:
         condition: service_healthy

@@ -60,12 +60,16 @@ SCAN_HISTORY_ON_START=false
 # B) Оплата картой ЮKassa: бот сам создаёт платёж и шлёт ссылку; нужен публичный вебхук (сервис ms_payments / docker-compose payment-webhook).
 # YOOKASSA_SHOP_ID=...
 # YOOKASSA_SECRET_KEY=...
+# YOOKASSA_WEBHOOK_VERIFY_BASIC_AUTH=false
+# true — только если в ЛК ЮKassa для URL уведомлений включена HTTP Basic (логин shopId, пароль secret_key)
 # YOOKASSA_RETURN_URL=https://t.me/YourBot  # куда вернуть пользователя после оплаты (https), по умолчанию можно MONETIZED_CHAT_INVITE_URL
 # В кабинете ЮKassa URL уведомлений: https://<ваш-домен>/webhook/payment (тот же ключи, что у payment-webhook; Basic Auth при желании)
 #
-# Отдельная БД для учёта платежей ЮKassa (таблица yookassa_payment_events, связь с ботом по paywall_request_id = id из pw_<id>).
-# Если не задать — вебхук пишет только в основную DATABASE_URL (как раньше).
-# В docker-compose по умолчанию: postgresql://postgres:password@postgres:5432/leo_payments?sslmode=disable
+# ms_payments (Railway / payment-webhook):
+# DATABASE_URL — скопируй ТУ ЖЕ строку, что у бота (ms_leo). По ней вебхук обновляет paywall_access_requests;
+# иначе оплата в ЮKassa есть, а ms_leo не поймёт, что доступ куплен.
+# PAYMENT_DATABASE_URL — опционально: вторая БД только для таблицы yookassa_payment_events (история вебхуков).
+# На доступ в группу влияет только DATABASE_URL.
 # PAYMENT_DATABASE_URL=postgresql://postgres:password@localhost:5432/leo_payments?sslmode=disable
 #
 # ms_payments: повторы подключения к Postgres при старте (другой контейнер / Railway).

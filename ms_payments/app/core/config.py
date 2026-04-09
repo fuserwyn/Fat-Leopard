@@ -68,6 +68,12 @@ class Settings:
     monetized_chat_id: int = _int("MONETIZED_CHAT_ID", 0)
     yookassa_shop_id: str = os.getenv("YOOKASSA_SHOP_ID", "").strip()
     yookassa_secret_key: str = os.getenv("YOOKASSA_SECRET_KEY", "").strip()
+    # True: требовать Authorization: Basic (логин shopId, пароль secret_key) — как в ЛК ЮKassa при включённой HTTP Basic для уведомлений.
+    # False: не проверять (удобно, если в ЛК Basic не включён; на проде лучше включить Basic и оставить true).
+    # По умолчанию false: ЮKassa часто шлёт уведомления без Basic, хотя shop/secret заданы для API.
+    yookassa_webhook_verify_basic_auth: bool = _bool_env(
+        "YOOKASSA_WEBHOOK_VERIFY_BASIC_AUTH", False
+    )
     # Как в ms_leo: True = ссылка на заявку (member_limit в Telegram задать нельзя).
     paywall_invite_creates_join_request: bool = _bool_env(
         "MONETIZED_INVITE_CREATES_JOIN_REQUEST", True

@@ -152,10 +152,34 @@ class PaymentWebhookService:
             currency,
         )
         if not updated:
-            logger.info("yookassa webhook: complete raced payment=%s req=%s", payment_id, req_id)
+            row = await self._paywall.get_by_id(req_id)
+            st = row.get("status") if row else "missing"
+            if st == "completed":
+                logger.info(
+                    "yookassa webhook: повтор уведомления, заявка уже completed payment=%s req=%s",
+                    payment_id,
+                    req_id,
+                )
+            else:
+                logger.warning(
+                    "yookassa webhook: не удалось закрыть заявку (payment=%s req=%s user=%s), status=%s. "
+                    "Частые причины: другой DATABASE_URL у ms_payments и бота, неверный MONETIZED_CHAT_ID в вебхуке, "
+                    "или расхождение user_id в metadata ЮKassa.",
+                    payment_id,
+                    req_id,
+                    user_tid,
+                    st,
+                )
             if self._ledger:
                 await self._ledger.mark_main_db_synced(payment_id)
             return WebhookOutcome(200, {"status": "already processed"})
+
+        logger.info(
+            "yookassa webhook: в БД бота заявка закрыта — user=%s req=%s chat=%s, доступ ~30 дней (paywall_access_requests)",
+            user_tid,
+            req_id,
+            chat_id,
+        )
 
         if self._ledger:
             await self._ledger.mark_main_db_synced(payment_id)
@@ -223,5 +247,11 @@ class PaymentWebhookService:
                     "или открой старую из бота. Новую ссылку бот создать не смог — проверь права админа у бота.",
                 )
 
+        if not self._ledger:
+            logger.info(
+                "yookassa webhook: успех payment=%s — строка в yookassa_payment_events не писалась "
+                "(нет PAYMENT_DATABASE_URL, леджер отключён; оплата в основной БД: paywall_access_requests)",
+                payment_id,
+            )
         logger.info("yookassa webhook: completed payment=%s req=%s user=%s", payment_id, req_id, user_tid)
         return WebhookOutcome(200, {"status": "success"})

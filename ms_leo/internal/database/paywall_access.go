@@ -96,8 +96,8 @@ func (d *Database) CompletePaywallAccessRequest(id int64, userID, monetizedChatI
 	const q = `
 		UPDATE paywall_access_requests
 		SET status = 'completed',
-		    completed_at = NOW() AT TIME ZONE 'Europe/Moscow',
-		    access_expires_at = (NOW() AT TIME ZONE 'Europe/Moscow') + INTERVAL '30 days',
+		    completed_at = NOW(),
+		    access_expires_at = NOW() + INTERVAL '30 days',
 		    telegram_payment_charge_id = $4,
 		    total_amount_minor = $5,
 		    currency = $6
