@@ -1,24 +1,5 @@
-import logging
-from contextlib import asynccontextmanager
+"""Обратная совместимость: ``uvicorn main:app`` из каталога ``fastapi``."""
 
-from fastapi import FastAPI
+from app.main import app
 
-from db import shutdown_db
-from routers.payment import router as payment_router
-
-logging.basicConfig(level=logging.INFO)
-
-
-@asynccontextmanager
-async def lifespan(_: FastAPI):
-    yield
-    await shutdown_db()
-
-
-app = FastAPI(title="LeoPoacherBot payment webhook", lifespan=lifespan)
-app.include_router(payment_router)
-
-
-@app.get("/health")
-async def health():
-    return {"ok": True}
+__all__ = ["app"]

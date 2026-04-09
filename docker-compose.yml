@@ -33,6 +33,7 @@ services:
     build: ./fastapi
     environment:
       - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:password@postgres:5432/leo_bot_db?sslmode=disable}
+      - PAYMENT_DATABASE_URL=${PAYMENT_DATABASE_URL:-postgresql://postgres:password@postgres:5432/leo_payments?sslmode=disable}
       - FAT_LEOPARD_API_TOKEN=${FAT_LEOPARD_API_TOKEN}
       - API_TOKEN=${API_TOKEN}
       - MONETIZED_CHAT_ID=${MONETIZED_CHAT_ID}
@@ -53,6 +54,7 @@ services:
       - POSTGRES_PASSWORD=password
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
     ports:
       - "5432:5432"
     restart: unless-stopped
