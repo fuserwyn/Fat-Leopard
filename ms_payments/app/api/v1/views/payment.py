@@ -5,7 +5,7 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Body, Depends, Request
 from fastapi.responses import JSONResponse
 
 from app.api.dependencies import get_payment_webhook_service, get_yookassa_auth_service
@@ -17,11 +17,39 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["payment"])
 
+# Честный пример для Swagger; реальный object у ЮKassa больше полей — они просто игнорируются.
+_YOOKASSA_WEBHOOK_EXAMPLE = {
+    "type": "notification",
+    "event": "payment.succeeded",
+    "object": {
+        "id": "2d7f3e7a-000f-5000-9000-1baf0c000000",
+        "status": "succeeded",
+        "paid": True,
+        "amount": {"value": "100.00", "currency": "RUB"},
+        "description": "Доступ в группу",
+        "metadata": {
+            "user_telegram_id": "7738691355",
+            "invoice_payload": "pw_1",
+        },
+    },
+}
+
 
 @router.post("/webhook/payment")
 async def payment_webhook(
     request: Request,
-    notification: PaymentNotification,
+    notification: Annotated[
+        PaymentNotification,
+        Body(
+            openapi_examples={
+                "yookassa_payment_succeeded": {
+                    "summary": "ЮKassa: payment.succeeded",
+                    "description": "Реальный вебхук содержит больше полей в object — так и должно быть.",
+                    "value": _YOOKASSA_WEBHOOK_EXAMPLE,
+                }
+            }
+        ),
+    ],
     auth: Annotated[YooKassaAuthService, Depends(get_yookassa_auth_service)],
     service: Annotated[PaymentWebhookService, Depends(get_payment_webhook_service)],
 ):
