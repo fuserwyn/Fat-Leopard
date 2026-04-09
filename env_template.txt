@@ -60,6 +60,8 @@ SCAN_HISTORY_ON_START=false
 # B) Оплата картой ЮKassa: бот сам создаёт платёж и шлёт ссылку; нужен публичный вебхук (сервис ms_payments / docker-compose payment-webhook).
 # YOOKASSA_SHOP_ID=...
 # YOOKASSA_SECRET_KEY=...
+# Прямой URL вебхука для каждого платежа (API ЮKassa notification_url). Надёжнее, чем только ЛК:
+# YOOKASSA_NOTIFICATION_URL=https://<публичный-ms_payments>/api/v1/webhook/payment
 # YOOKASSA_WEBHOOK_VERIFY_BASIC_AUTH=false
 # true — только если в ЛК ЮKassa для URL уведомлений включена HTTP Basic (логин shopId, пароль secret_key)
 # YOOKASSA_RETURN_URL=https://t.me/YourBot  # куда вернуть пользователя после оплаты (https), по умолчанию можно MONETIZED_CHAT_INVITE_URL

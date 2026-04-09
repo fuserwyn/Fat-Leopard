@@ -100,6 +100,9 @@ func (b *Bot) Start(ctx context.Context) error {
 				b.logger.Info("Paywall: оплата через Telegram Payments (если задан YOOKASSA_*, он не используется — убери PAYMENT_PROVIDER_TOKEN для ЮKassa)")
 			} else {
 				b.logger.Info("Paywall: оплата через ЮKassa (ссылка в ЛС); вебхук должен завершать платёж в той же БД")
+				if strings.TrimSpace(b.config.YookassaNotificationURL) == "" {
+					b.logger.Warn("YOOKASSA_NOTIFICATION_URL пуст — уведомления идут только на URL из ЛК ЮKassa. Если вебхук не приходит, задай YOOKASSA_NOTIFICATION_URL=https://<ms_payments>/api/v1/webhook/payment")
+				}
 			}
 		}
 	}

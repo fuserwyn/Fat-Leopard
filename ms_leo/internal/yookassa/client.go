@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -23,9 +24,11 @@ type createPaymentReq struct {
 		Type      string `json:"type"`
 		ReturnURL string `json:"return_url"`
 	} `json:"confirmation"`
-	Capture     bool              `json:"capture"`
-	Description string            `json:"description"`
-	Metadata    map[string]string `json:"metadata"`
+	// См. https://yookassa.ru/developers/api#create_payment — для платежа можно задать URL уведомлений явно.
+	NotificationURL string            `json:"notification_url,omitempty"`
+	Capture         bool              `json:"capture"`
+	Description     string            `json:"description"`
+	Metadata        map[string]string `json:"metadata"`
 }
 
 type createPaymentResp struct {
@@ -56,7 +59,8 @@ func newIDempotenceKey() (string, error) {
 }
 
 // CreatePayment создаёт платёж с подтверждением redirect; в metadata должны быть строки для вебхука (user_telegram_id, invoice_payload).
-func CreatePayment(shopID, secretKey string, amountMinor int, currency, description, returnURL string, metadata map[string]string) (paymentID, confirmationURL string, err error) {
+// notificationURL — если не пустой, ЮKassa шлёт HTTP-уведомления для этого платежа на этот адрес (HTTPS), независимо от URL в ЛК.
+func CreatePayment(shopID, secretKey string, amountMinor int, currency, description, returnURL, notificationURL string, metadata map[string]string) (paymentID, confirmationURL string, err error) {
 	if shopID == "" || secretKey == "" {
 		return "", "", fmt.Errorf("yookassa shop_id or secret_key empty")
 	}
@@ -80,6 +84,9 @@ func CreatePayment(shopID, secretKey string, amountMinor int, currency, descript
 	body.Amount.Currency = currency
 	body.Confirmation.Type = "redirect"
 	body.Confirmation.ReturnURL = returnURL
+	if u := strings.TrimSpace(notificationURL); u != "" {
+		body.NotificationURL = u
+	}
 	body.Capture = true
 	body.Description = description
 	body.Metadata = metadata

@@ -321,6 +321,7 @@ func (b *Bot) SendYookassaPaymentLink(userID, reqID int64) error {
 		b.config.PaymentCurrency,
 		b.config.PaymentInvoiceDesc,
 		returnURL,
+		b.config.YookassaNotificationURL,
 		meta,
 	)
 	if err != nil {

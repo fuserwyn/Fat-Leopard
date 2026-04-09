@@ -33,9 +33,10 @@ type Config struct {
 	PaymentInvoiceDesc      string
 
 	// ЮKassa (оплата по ссылке); вебхук — отдельный сервис ms_payments (docker-compose payment-webhook).
-	YookassaShopID    string
-	YookassaSecretKey string
-	YookassaReturnURL string // redirect после оплаты, https (например приглашение в группу или t.me)
+	YookassaShopID           string
+	YookassaSecretKey        string
+	YookassaReturnURL        string // redirect после оплаты, https (например приглашение в группу или t.me)
+	YookassaNotificationURL  string // POST payment.succeeded на этот URL (лучше задать = публичный URL ms_payments …/api/v1/webhook/payment)
 }
 
 func Load() (*Config, error) {
@@ -93,9 +94,10 @@ func Load() (*Config, error) {
 		PaymentInvoiceTitle:     getEnv("PAYMENT_INVOICE_TITLE", "Доступ в группу"),
 		PaymentInvoiceDesc:      getEnv("PAYMENT_INVOICE_DESCRIPTION", "Разовый доступ после оплаты заявка будет одобрена автоматически."),
 
-		YookassaShopID:    strings.TrimSpace(getEnv("YOOKASSA_SHOP_ID", "")),
-		YookassaSecretKey: strings.TrimSpace(getEnv("YOOKASSA_SECRET_KEY", "")),
-		YookassaReturnURL: ykReturn,
+		YookassaShopID:          strings.TrimSpace(getEnv("YOOKASSA_SHOP_ID", "")),
+		YookassaSecretKey:       strings.TrimSpace(getEnv("YOOKASSA_SECRET_KEY", "")),
+		YookassaReturnURL:       ykReturn,
+		YookassaNotificationURL: strings.TrimSpace(getEnv("YOOKASSA_NOTIFICATION_URL", "")),
 	}, nil
 }
 

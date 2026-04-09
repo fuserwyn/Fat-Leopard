@@ -24,6 +24,7 @@ services:
       - YOOKASSA_SHOP_ID=${YOOKASSA_SHOP_ID:-}
       - YOOKASSA_SECRET_KEY=${YOOKASSA_SECRET_KEY:-}
       - YOOKASSA_RETURN_URL=${YOOKASSA_RETURN_URL:-}
+      - YOOKASSA_NOTIFICATION_URL=${YOOKASSA_NOTIFICATION_URL:-}
     depends_on:
       postgres:
         condition: service_healthy
