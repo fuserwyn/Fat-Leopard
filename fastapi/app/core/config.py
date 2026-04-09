@@ -13,6 +13,16 @@ def _token() -> str:
     return os.getenv("FAT_LEOPARD_API_TOKEN", "") or os.getenv("API_TOKEN", "")
 
 
+def _float_env(name: str, default: float) -> float:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        return float(raw.replace(",", "."))
+    except ValueError:
+        return default
+
+
 def _int(name: str, default: int = 0) -> int:
     raw = os.getenv(name, "")
     if raw == "":
@@ -23,16 +33,30 @@ def _int(name: str, default: int = 0) -> int:
         return default
 
 
+def _normalize_postgres_url(url: str) -> str:
+    u = url.strip()
+    if u.startswith("postgres://"):
+        u = "postgresql://" + u[len("postgres://") :]
+    return u
+
+
 class Settings:
     """Настройки, общие для всех слоёв."""
 
-    database_url: str = os.getenv(
-        "DATABASE_URL",
-        "postgresql://postgres:password@localhost:5432/leo_bot_db?sslmode=disable",
+    database_url: str = _normalize_postgres_url(
+        os.getenv(
+            "DATABASE_URL",
+            "postgresql://postgres:password@localhost:5432/leo_bot_db?sslmode=disable",
+        )
     )
     payment_database_url: str | None = (
-        v.strip() if (v := os.getenv("PAYMENT_DATABASE_URL", "").strip()) else None
+        _normalize_postgres_url(v)
+        if (v := os.getenv("PAYMENT_DATABASE_URL", "").strip())
+        else None
     )
+    # Повторы при старте (Docker/Railway: Postgres ещё не слушает или сеть не готова).
+    db_connect_max_attempts: int = max(1, _int("DB_CONNECT_MAX_ATTEMPTS", 30))
+    db_connect_retry_delay_sec: float = _float_env("DB_CONNECT_RETRY_DELAY_SEC", 2.0)
     bot_token: str = _token()
     monetized_chat_id: int = _int("MONETIZED_CHAT_ID", 0)
     yookassa_shop_id: str = os.getenv("YOOKASSA_SHOP_ID", "").strip()

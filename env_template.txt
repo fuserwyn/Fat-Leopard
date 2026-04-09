@@ -64,6 +64,10 @@ SCAN_HISTORY_ON_START=false
 # Если не задать — вебхук пишет только в основную DATABASE_URL (как раньше).
 # В docker-compose по умолчанию: postgresql://postgres:password@postgres:5432/leo_payments?sslmode=disable
 # PAYMENT_DATABASE_URL=postgresql://postgres:password@localhost:5432/leo_payments?sslmode=disable
+#
+# Payment webhook (FastAPI): повторы подключения к Postgres при старте (другой контейнер / Railway).
+# DB_CONNECT_MAX_ATTEMPTS=30
+# DB_CONNECT_RETRY_DELAY_SEC=2
 
 # Инструкция:
 # 1. Скопируйте этот файл и переименуйте в .env
