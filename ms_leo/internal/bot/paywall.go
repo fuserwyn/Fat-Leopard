@@ -21,6 +21,7 @@ func (b *Bot) paywallActive() bool {
 }
 
 // paywallPrivateUnpaidUserText — только оплата и шаги (без полной справки бота).
+// Счёт/ссылка должны уйти отдельным сообщением *до* этого текста (см. handleStart / help).
 func (b *Bot) paywallPrivateUnpaidUserText() string {
 	priceRub := ""
 	if b.config.PaymentCurrency == "RUB" && b.config.PaymentAmountMinorUnits > 0 {
@@ -35,27 +36,45 @@ func (b *Bot) paywallPrivateUnpaidUserText() string {
 		priceRub = fmt.Sprintf(" В счёте будет указано: %d мин. ед. валюты %s.", b.config.PaymentAmountMinorUnits, b.config.PaymentCurrency)
 	}
 
-	payLine := `Сразу после этого сообщения придёт счёт с кнопкой «Оплатить» в Telegram.
+	if !b.config.PaywallPaymentReady() {
+		return `💳 Платный вход в закрытую группу
 
-Порядок такой:
-1. Оплати счёт здесь (можно до заявки в группу).`
+⚠️ **Оплата не подключена** (нет ни PAYMENT_PROVIDER_TOKEN, ни пары YOOKASSA_SHOP_ID + YOOKASSA_SECRET_KEY). Напиши администратору — без этого счёт и ссылка не появятся.
+
+Когда настроят:
+• в Telegram придёт счёт с кнопкой «Оплатить», **или**
+• придёт ссылка на оплату ЮKassa.
+
+Порядок после настройки:
+1. Оплати.
+2. Нажми «Подать заявку в группу» ниже — после оплаты заявку обычно одобряю автоматически.` + priceRub + `
+
+Доступ после оплаты — 30 дней. Полную справку бота пришлю, когда оплата пройдёт.
+
+👇 Кнопки: заявка в группу и повтор попытки отправки счёта (когда оплата будет включена).`
+	}
+
+	payLine := `📩 **Предыдущее сообщение** в этом чате — счёт в Telegram с кнопкой «Оплатить». Не видишь — нажми «Выслать счёт снова» ниже.
+
+Порядок:
+1. Оплати счёт (можно до заявки в группу).`
 	if !b.config.PaywallUsesTelegramInvoice() {
-		payLine = `Сразу после этого сообщения пришлю ссылку на оплату картой (ЮKassa).
+		payLine = `📩 **Предыдущее сообщение** — ссылка на оплату картой (ЮKassa). Не видишь — нажми кнопку повторной отправки ниже.
 
-Порядок такой:
-1. Перейди по ссылке и оплати на сайте (можно до заявки в группу).`
+Порядок:
+1. Перейди по ссылке и оплати (можно до заявки в группу).`
 	}
 
 	return `💳 Платный вход в закрытую группу
 
 ` + payLine + `
-2. Затем нажми кнопку ниже «Подать заявку» и подтверди вступление — если оплата уже прошла, заявку одобрю автоматически.
+2. Затем нажми кнопку ниже «Подать заявку в группу» и подтверди вступление — если оплата уже прошла, заявку одобрю автоматически.
 
 Полное приветствие с командами бота пришлю после успешной оплаты. Доступ действует 30 дней.` + priceRub + `
 
 Пока оплаты не было, длинную справку в личке не показываю — она пригодится в группе.
 
-👇 Кнопки: ссылка в группу и повторная отправка оплаты.`
+👇 Кнопки: ссылка в группу и повторная отправка счёта / ссылки.`
 }
 
 // paywallUnpaidInlineKeyboard — ссылка на группу + повтор счёта (invoice сам по себе содержит кнопку «Оплатить»).
@@ -76,14 +95,29 @@ func (b *Bot) paywallUnpaidInlineKeyboard() *tgbotapi.InlineKeyboardMarkup {
 	return &tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
 }
 
+func (b *Bot) paywallNotifyUser(userID int64, text string) {
+	if userID == 0 {
+		return
+	}
+	if _, err := b.api.Send(tgbotapi.NewMessage(userID, text)); err != nil {
+		b.logger.Errorf("paywall user notify: %v", err)
+	}
+}
+
 // ensurePaywallInvoiceSent создаёт pending-заявку при необходимости и шлёт счёт Telegram или ссылку ЮKassa.
+// Вызывай до текста «Предыдущее сообщение — счёт», чтобы порядок в чате совпадал с подсказкой.
 func (b *Bot) ensurePaywallInvoiceSent(userID int64) {
-	if !b.paywallActive() || userID == 0 || !b.config.PaywallPaymentReady() {
+	if !b.paywallActive() || userID == 0 {
+		return
+	}
+	if !b.config.PaywallPaymentReady() {
+		// Текст с инструкцией придёт следующим сообщением (paywallPrivateUnpaidUserText).
 		return
 	}
 	pending, err := b.db.GetLatestPendingPaywallAccessRequest(userID, b.config.MonetizedChatID)
 	if err != nil {
 		b.logger.Errorf("paywall ensure invoice get pending: %v", err)
+		b.paywallNotifyUser(userID, "⚠️ Ошибка доступа к базе. Попробуй /start снова чуть позже или напиши администратору.")
 		return
 	}
 	var reqID int64
@@ -93,17 +127,22 @@ func (b *Bot) ensurePaywallInvoiceSent(userID int64) {
 		reqID, err = b.db.InsertPaywallAccessRequest(userID, b.config.MonetizedChatID)
 		if err != nil {
 			b.logger.Errorf("paywall ensure invoice insert: %v", err)
+			b.paywallNotifyUser(userID, "⚠️ Не удалось создать заявку на оплату. Попробуй /start снова.")
 			return
 		}
 	}
 	if b.config.PaywallUsesTelegramInvoice() {
 		if err := b.SendPaywallInvoice(userID, reqID); err != nil {
 			b.logger.Errorf("paywall ensure invoice send: %v", err)
+			b.paywallNotifyUser(userID,
+				"⚠️ Не удалось отправить счёт. Проверь, что бот не в чёрном списке, и нажми «Выслать счёт снова» под предыдущим сообщением или в инструкции ниже.")
 		}
 		return
 	}
 	if err := b.SendYookassaPaymentLink(userID, reqID); err != nil {
 		b.logger.Errorf("paywall ensure yookassa link: %v", err)
+		b.paywallNotifyUser(userID,
+			"⚠️ Не удалось создать ссылку ЮKassa. Проверь настройки у администратора или нажми кнопку повторной отправки ниже.")
 	}
 }
 
