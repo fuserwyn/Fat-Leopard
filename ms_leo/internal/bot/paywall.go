@@ -374,6 +374,9 @@ func (b *Bot) SendPaywallStarsInvoice(userID, reqID int64) error {
 		"XTR",
 		prices,
 	)
+	// Workaround for Telegram API validation: library may encode nil as null.
+	// Telegram expects an array for suggested_tip_amounts when field is present.
+	inv.SuggestedTipAmounts = []int{}
 	_, err := b.api.Send(inv)
 	return err
 }
@@ -396,6 +399,7 @@ func (b *Bot) SendPaywallProviderInvoice(userID, reqID int64) error {
 		b.config.PaymentCurrency,
 		prices,
 	)
+	inv.SuggestedTipAmounts = []int{}
 	_, err := b.api.Send(inv)
 	return err
 }
