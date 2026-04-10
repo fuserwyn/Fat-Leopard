@@ -61,13 +61,13 @@ func paywallInvoiceSendDiag(err error) (logLine string, userHint string) {
 	case strings.Contains(m, "payment_provider_invalid"):
 		userHint = "Токен провайдера оплаты неверный или Payments не настроены в @BotFather (Bot Settings → Payments). Проверь PAYMENT_PROVIDER_TOKEN на сервере — он должен быть от того же режима (test/live), что и кабинет ЮKassa."
 	case strings.Contains(m, "currency_invalid"), strings.Contains(m, "currency_total_amount_invalid"):
-		userHint = "Провайдер не принимает валюту или сумму. Проверь PAYMENT_CURRENCY и сумму (PAYMENT_AMOUNT_RUB в рублях или PAYMENT_AMOUNT_MINOR_UNITS в копейках)."
+		userHint = "Провайдер не принимает валюту или сумму. Проверь PAYMENT_CURRENCY и сумму: для RUB — PAYMENT_AMOUNT_RUB / копейки; для звёзд XTR — PAYMENT_AMOUNT_STARS или PAYMENT_AMOUNT_MINOR_UNITS (целые звёзды)."
 	case tgErr.Code == 403 || strings.Contains(m, "blocked"):
 		userHint = "Разблокируй бота: чат с ботом → ⋮ → Разблокировать."
 	case strings.Contains(m, "chat not found") || strings.Contains(m, "user is deactivated"):
 		userHint = "Сначала напиши боту любое слово в личке, затем снова /start."
 	default:
-		userHint = "Если нужна оплата только картой по ЮKassa без счёта в Telegram — администратору: убери PAYMENT_PROVIDER_TOKEN из окружения, тогда бот пришлёт ссылку на оплату."
+		userHint = "Если нужна оплата только картой по ЮKassa без счёта в Telegram — администратору: убери PAYMENT_PROVIDER_TOKEN и PAYMENT_CURRENCY=XTR, тогда бот пришлёт ссылку на оплату."
 	}
 	return logLine, userHint
 }
@@ -162,7 +162,9 @@ func (b *Bot) paywallActive() bool {
 // Счёт/ссылка должны уйти отдельным сообщением *до* этого текста (см. handleStart / help).
 func (b *Bot) paywallPrivateUnpaidUserText() string {
 	priceRub := ""
-	if b.config.PaymentCurrency == "RUB" && b.config.PaymentAmountMinorUnits > 0 {
+	if b.config.PaywallUsesStars() && b.config.PaymentAmountMinorUnits > 0 {
+		priceRub = fmt.Sprintf(" Сумма: %d ⭐ (Telegram Stars).", b.config.PaymentAmountMinorUnits)
+	} else if b.config.PaymentCurrency == "RUB" && b.config.PaymentAmountMinorUnits > 0 {
 		rub := b.config.PaymentAmountMinorUnits / 100
 		kop := b.config.PaymentAmountMinorUnits % 100
 		if kop == 0 {
@@ -177,10 +179,10 @@ func (b *Bot) paywallPrivateUnpaidUserText() string {
 	if !b.config.PaywallPaymentReady() {
 		return `💳 Платный вход в закрытую группу
 
-⚠️ **Оплата не подключена** (нет ни PAYMENT_PROVIDER_TOKEN, ни пары YOOKASSA_SHOP_ID + YOOKASSA_SECRET_KEY). Напиши администратору — без этого счёт и ссылка не появятся.
+⚠️ **Оплата не подключена** (нужно одно из: PAYMENT_CURRENCY=XTR + сумма звёзд, или PAYMENT_PROVIDER_TOKEN, или пара YOOKASSA_SHOP_ID + YOOKASSA_SECRET_KEY). Напиши администратору — без этого счёт и ссылка не появятся.
 
 Когда настроят:
-• в Telegram придёт счёт с кнопкой «Оплатить», **или**
+• в Telegram придёт счёт с кнопкой «Оплатить» (рубли/провайдер или звёзды XTR), **или**
 • придёт ссылка на оплату ЮKassa.
 
 Порядок после настройки:
@@ -196,6 +198,12 @@ func (b *Bot) paywallPrivateUnpaidUserText() string {
 
 Порядок:
 1. Оплати счёт (можно до заявки в группу).`
+	if b.config.PaywallUsesStars() {
+		payLine = `📩 **Предыдущее сообщение** — счёт на оплату **Telegram Stars** (звёзды зачисляются боту). Не видишь — нажми «Выслать счёт снова» ниже.
+
+Порядок:
+1. Оплати звёздами в Telegram (можно до заявки в группу).`
+	}
 	if !b.config.PaywallUsesTelegramInvoice() {
 		payLine = `📩 **Предыдущее сообщение** — ссылка на оплату картой (ЮKassa). Не видишь — нажми кнопку повторной отправки ниже.
 
@@ -247,6 +255,16 @@ func (b *Bot) ensurePaywallInvoiceSent(userID int64) {
 		// Текст с инструкцией придёт следующим сообщением (paywallPrivateUnpaidUserText).
 		return
 	}
+	if ok, err := b.db.UserHasActivePaywallAccess(userID, b.config.MonetizedChatID); err != nil {
+		b.logger.Errorf("paywall ensure invoice access check: %v", err)
+	} else if ok {
+		return
+	}
+	if !b.config.PaywallUsesTelegramInvoice() && b.config.YookassaShopID != "" {
+		if b.paywallTrySyncYookassaPayment(userID) {
+			return
+		}
+	}
 	pending, err := b.db.GetLatestPendingPaywallAccessRequest(userID, b.config.MonetizedChatID)
 	if err != nil {
 		b.logger.Errorf("paywall ensure invoice get pending: %v", err)
@@ -282,7 +300,10 @@ func (b *Bot) ensurePaywallInvoiceSent(userID int64) {
 
 // SendPaywallInvoice отправляет invoice в ЛС; payload pw_<reqID> должен совпадать с записью в БД.
 func (b *Bot) SendPaywallInvoice(userID, reqID int64) error {
-	if b.config.PaymentProviderToken == "" {
+	providerToken := b.config.PaymentProviderToken
+	if b.config.PaywallUsesStars() {
+		providerToken = ""
+	} else if strings.TrimSpace(providerToken) == "" {
 		return fmt.Errorf("payment provider token empty")
 	}
 	payload := fmt.Sprintf("%s%d", paywallPayloadPrefix, reqID)
@@ -292,7 +313,7 @@ func (b *Bot) SendPaywallInvoice(userID, reqID int64) error {
 		b.config.PaymentInvoiceTitle,
 		b.config.PaymentInvoiceDesc,
 		payload,
-		b.config.PaymentProviderToken,
+		providerToken,
 		"",
 		b.config.PaymentCurrency,
 		prices,
@@ -314,7 +335,7 @@ func (b *Bot) SendYookassaPaymentLink(userID, reqID int64) error {
 		"user_telegram_id": fmt.Sprintf("%d", userID),
 		"invoice_payload":  fmt.Sprintf("%s%d", paywallPayloadPrefix, reqID),
 	}
-	_, confirmURL, err := yookassa.CreatePayment(
+	paymentID, confirmURL, err := yookassa.CreatePayment(
 		b.config.YookassaShopID,
 		b.config.YookassaSecretKey,
 		b.config.PaymentAmountMinorUnits,
@@ -327,7 +348,12 @@ func (b *Bot) SendYookassaPaymentLink(userID, reqID int64) error {
 	if err != nil {
 		return err
 	}
+	if err := b.db.SetPaywallYookassaPaymentID(reqID, paymentID); err != nil {
+		b.logger.Warnf("paywall SetPaywallYookassaPaymentID: %v", err)
+	}
 	text := `💳 Оплата доступа картой (ЮKassa).
+
+Если оплатил(а), а доступ не открылся в течение пары минут — нажми /start: бот проверит платёж в ЮKassa напрямую (если вебхук не сработал).
 
 Нажми кнопку «Оплатить», заверши оплату на сайте. После успешного списания доступ откроется автоматически (до 1–2 минут) — затем подай заявку в группу или открой приглашение ещё раз.`
 	msg := tgbotapi.NewMessage(userID, text)
@@ -348,6 +374,12 @@ func (b *Bot) handlePaywallResendInvoiceCallback(callback *tgbotapi.CallbackQuer
 	if !b.paywallActive() || !b.config.PaywallPaymentReady() {
 		_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, "Оплата сейчас недоступна. Напиши администратору."))
 		return
+	}
+	if !b.config.PaywallUsesTelegramInvoice() && b.config.YookassaShopID != "" {
+		if b.paywallTrySyncYookassaPayment(callback.From.ID) {
+			_, _ = b.api.Request(tgbotapi.NewCallback(callback.ID, "Оплата уже учтена. Нажми /start для полного доступа."))
+			return
+		}
 	}
 
 	rec, err := b.db.GetLatestPendingPaywallAccessRequest(callback.From.ID, b.config.MonetizedChatID)
@@ -435,12 +467,94 @@ func parsePaywallPayload(payload string) (requestID int64, ok bool) {
 	return id, true
 }
 
+// paywallTrySyncYookassaPayment — если вебхук не дошёл, подтягиваем успешную оплату через GET /v3/payments/{id}.
+func (b *Bot) paywallTrySyncYookassaPayment(userID int64) bool {
+	if !b.paywallActive() || userID == 0 {
+		return false
+	}
+	if b.config.PaywallUsesTelegramInvoice() || b.config.YookassaShopID == "" || b.config.YookassaSecretKey == "" {
+		return false
+	}
+	pending, err := b.db.GetLatestPendingPaywallAccessRequest(userID, b.config.MonetizedChatID)
+	if err != nil {
+		b.logger.Errorf("paywall yookassa sync get pending: %v", err)
+		return false
+	}
+	if pending == nil {
+		return false
+	}
+	if !pending.YookassaPaymentID.Valid || strings.TrimSpace(pending.YookassaPaymentID.String) == "" {
+		b.logger.Warnf(
+			"paywall yookassa sync: заявка id=%d user=%d в pending, но yookassa_payment_id пуст — опрос API ЮKassa невозможен. "+
+				"Нужны миграция 16, деплой бота с сохранением payment id и новая ссылка на оплату (или рабочий вебхук ms_payments).",
+			pending.ID, userID,
+		)
+		return false
+	}
+	info, err := yookassa.GetPayment(b.config.YookassaShopID, b.config.YookassaSecretKey, pending.YookassaPaymentID.String)
+	if err != nil {
+		b.logger.Warnf("paywall yookassa sync GetPayment: %v", err)
+		return false
+	}
+	st := strings.ToLower(strings.TrimSpace(info.Status))
+	if st != "succeeded" || !info.Paid {
+		return false
+	}
+	meta := info.Metadata
+	userStr := strings.TrimSpace(meta["user_telegram_id"])
+	if userStr == "" {
+		userStr = strings.TrimSpace(meta["user_telegramId"])
+	}
+	payloadStr := strings.TrimSpace(meta["invoice_payload"])
+	if payloadStr == "" {
+		payloadStr = strings.TrimSpace(meta["invoicePayload"])
+	}
+	if userStr != fmt.Sprintf("%d", userID) {
+		b.logger.Warnf("paywall yookassa sync user mismatch meta=%q db_user=%d", userStr, userID)
+		return false
+	}
+	reqFromMeta, ok := parsePaywallPayload(payloadStr)
+	if !ok || reqFromMeta != pending.ID {
+		b.logger.Warnf("paywall yookassa sync payload mismatch meta=%q want id=%d", payloadStr, pending.ID)
+		return false
+	}
+	amountMinor := info.AmountMinor
+	cur := info.Currency
+	if amountMinor <= 0 || cur == "" {
+		amountMinor = b.config.PaymentAmountMinorUnits
+		cur = b.config.PaymentCurrency
+	}
+	if cur == "" {
+		cur = "RUB"
+	}
+	okDb, err := b.db.CompletePaywallAccessRequest(pending.ID, userID, b.config.MonetizedChatID, info.ID, amountMinor, cur)
+	if err != nil {
+		b.logger.Errorf("paywall yookassa sync complete: %v", err)
+		return false
+	}
+	if !okDb {
+		paid, err := b.db.UserHasActivePaywallAccess(userID, b.config.MonetizedChatID)
+		if err == nil && paid {
+			b.logger.Infof("paywall yookassa sync: заявка %d уже completed (вебхук)", pending.ID)
+		}
+		return false
+	}
+	b.logger.Infof("paywall yookassa sync: заявка %d закрыта по API ЮKassa (вебхук мог не сработать)", pending.ID)
+	b.paywallDeliverAccessAfterPayment(userID, userID)
+	return true
+}
+
 func (b *Bot) handlePaywallPreCheckout(q *tgbotapi.PreCheckoutQuery) {
 	if q.From == nil {
 		_, _ = b.api.Request(tgbotapi.PreCheckoutConfig{PreCheckoutQueryID: q.ID, OK: false, ErrorMessage: "Оплата недоступна."})
 		return
 	}
-	if !b.paywallActive() || b.config.PaymentProviderToken == "" {
+	telegramInvoice := b.config.PaywallUsesTelegramInvoice()
+	if !b.paywallActive() || !telegramInvoice {
+		_, _ = b.api.Request(tgbotapi.PreCheckoutConfig{PreCheckoutQueryID: q.ID, OK: false, ErrorMessage: "Оплата недоступна."})
+		return
+	}
+	if !b.config.PaywallUsesStars() && strings.TrimSpace(b.config.PaymentProviderToken) == "" {
 		_, _ = b.api.Request(tgbotapi.PreCheckoutConfig{PreCheckoutQueryID: q.ID, OK: false, ErrorMessage: "Оплата недоступна."})
 		return
 	}
@@ -471,6 +585,55 @@ func (b *Bot) handlePaywallPreCheckout(q *tgbotapi.PreCheckoutQuery) {
 	_, _ = b.api.Request(tgbotapi.PreCheckoutConfig{PreCheckoutQueryID: q.ID, OK: true})
 }
 
+// paywallDeliverAccessAfterPayment — приглашение в группу и приветствие после зачёта оплаты (Telegram Payments / ЮKassa / sync API).
+func (b *Bot) paywallDeliverAccessAfterPayment(chatID, userID int64) {
+	inviteURL := b.paywallFreshGroupInviteURL()
+
+	_, err := b.api.Request(tgbotapi.ApproveChatJoinRequestConfig{
+		ChatConfig: tgbotapi.ChatConfig{ChatID: b.config.MonetizedChatID},
+		UserID:     userID,
+	})
+	if err != nil {
+		b.logger.Errorf("paywall approve join request failed: %v", err)
+		follow := "✅ Оплата принята, доступ открыт на 30 дней.\n\nЕсли ты ещё не в группе — нажми кнопку ниже и отправь заявку на вступление."
+		pm := tgbotapi.NewMessage(chatID, follow)
+		if inviteURL != "" {
+			pm.ReplyMarkup = &tgbotapi.InlineKeyboardMarkup{
+				InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
+					tgbotapi.NewInlineKeyboardRow(
+						tgbotapi.NewInlineKeyboardButtonURL("📩 Войти в группу", inviteURL),
+					),
+				},
+			}
+		} else {
+			pm.Text += "\n\nНе удалось создать ссылку автоматически — попроси ссылку у администратора."
+		}
+		b.api.Send(pm)
+		welcome := welcomeStartText(b.monetizedChatWelcomeType())
+		wmsg := tgbotapi.NewMessage(chatID, welcome)
+		b.api.Send(wmsg)
+		return
+	}
+	done := tgbotapi.NewMessage(chatID, "✅ Оплата принята, доступ к группе открыт на 30 дней. Если ты ещё не в группе — нажми кнопку ниже.")
+	if inviteURL != "" {
+		done.ReplyMarkup = &tgbotapi.InlineKeyboardMarkup{
+			InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
+				tgbotapi.NewInlineKeyboardRow(
+					tgbotapi.NewInlineKeyboardButtonURL("📩 Войти в группу", inviteURL),
+				),
+			},
+		}
+	}
+	if _, err := b.api.Send(done); err != nil {
+		b.logger.Errorf("paywall send done msg: %v", err)
+	}
+	welcome := welcomeStartText(b.monetizedChatWelcomeType())
+	wmsg := tgbotapi.NewMessage(chatID, welcome)
+	if _, err := b.api.Send(wmsg); err != nil {
+		b.logger.Errorf("paywall send welcome after payment: %v", err)
+	}
+}
+
 func (b *Bot) handlePaywallSuccessfulPayment(msg *tgbotapi.Message) {
 	if !b.paywallActive() || msg.From == nil || msg.SuccessfulPayment == nil {
 		return
@@ -478,7 +641,7 @@ func (b *Bot) handlePaywallSuccessfulPayment(msg *tgbotapi.Message) {
 	sp := msg.SuccessfulPayment
 	if sp.Currency != b.config.PaymentCurrency || sp.TotalAmount != b.config.PaymentAmountMinorUnits {
 		b.logger.Errorf(
-			"paywall successful_payment mismatch: got %s %d, config wants %s %d — проверь PAYMENT_AMOUNT_RUB / PAYMENT_AMOUNT_MINOR_UNITS и перезапуск бота",
+			"paywall successful_payment mismatch: got %s %d, config wants %s %d — проверь сумму (PAYMENT_AMOUNT_RUB / PAYMENT_AMOUNT_STARS / PAYMENT_AMOUNT_MINOR_UNITS) и PAYMENT_CURRENCY, перезапуск бота",
 			sp.Currency, sp.TotalAmount, b.config.PaymentCurrency, b.config.PaymentAmountMinorUnits,
 		)
 		return
@@ -505,51 +668,7 @@ func (b *Bot) handlePaywallSuccessfulPayment(msg *tgbotapi.Message) {
 		b.logger.Infof("paywall request %d already completed or not pending", reqID)
 	}
 
-	inviteURL := b.paywallFreshGroupInviteURL()
-
-	_, err = b.api.Request(tgbotapi.ApproveChatJoinRequestConfig{
-		ChatConfig: tgbotapi.ChatConfig{ChatID: b.config.MonetizedChatID},
-		UserID:     msg.From.ID,
-	})
-	if err != nil {
-		b.logger.Errorf("paywall approve join request failed: %v", err)
-		follow := "✅ Оплата принята, доступ открыт на 30 дней.\n\nЕсли ты ещё не в группе — нажми кнопку ниже и отправь заявку на вступление."
-		pm := tgbotapi.NewMessage(msg.Chat.ID, follow)
-		if inviteURL != "" {
-			pm.ReplyMarkup = &tgbotapi.InlineKeyboardMarkup{
-				InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
-					tgbotapi.NewInlineKeyboardRow(
-						tgbotapi.NewInlineKeyboardButtonURL("📩 Войти в группу", inviteURL),
-					),
-				},
-			}
-		} else {
-			pm.Text += "\n\nНе удалось создать ссылку автоматически — попроси ссылку у администратора."
-		}
-		b.api.Send(pm)
-		welcome := welcomeStartText(b.monetizedChatWelcomeType())
-		wmsg := tgbotapi.NewMessage(msg.Chat.ID, welcome)
-		b.api.Send(wmsg)
-		return
-	}
-	done := tgbotapi.NewMessage(msg.Chat.ID, "✅ Оплата принята, доступ к группе открыт на 30 дней. Если ты ещё не в группе — нажми кнопку ниже.")
-	if inviteURL != "" {
-		done.ReplyMarkup = &tgbotapi.InlineKeyboardMarkup{
-			InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
-				tgbotapi.NewInlineKeyboardRow(
-					tgbotapi.NewInlineKeyboardButtonURL("📩 Войти в группу", inviteURL),
-				),
-			},
-		}
-	}
-	if _, err := b.api.Send(done); err != nil {
-		b.logger.Errorf("paywall send done msg: %v", err)
-	}
-	welcome := welcomeStartText(b.monetizedChatWelcomeType())
-	wmsg := tgbotapi.NewMessage(msg.Chat.ID, welcome)
-	if _, err := b.api.Send(wmsg); err != nil {
-		b.logger.Errorf("paywall send welcome after payment: %v", err)
-	}
+	b.paywallDeliverAccessAfterPayment(msg.Chat.ID, msg.From.ID)
 }
 
 // paywallShouldKickDirectJoinWithoutPayment — человек уже в группе (добавили вручную / публичный вход без заявки), а оплаты в БД нет.
@@ -693,7 +812,7 @@ func (b *Bot) handlePaywallChatJoinRequest(j *tgbotapi.ChatJoinRequest) {
 	}
 
 	if !b.config.PaywallPaymentReady() {
-		b.logger.Error("PAYWALL_ENABLED but neither PAYMENT_PROVIDER_TOKEN nor YooKassa credentials are set")
+		b.logger.Error("PAYWALL_ENABLED but payment not configured: XTR+amount, PAYMENT_PROVIDER_TOKEN, or YooKassa credentials")
 		b.paywallDeclineJoinRequest(userID)
 		b.paywallNotifyUser(userID, "⚠️ Вход в группу только после оплаты через бота, но оплата у бота не настроена. Напиши администратору.")
 		return

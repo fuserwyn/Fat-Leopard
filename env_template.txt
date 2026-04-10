@@ -57,11 +57,17 @@ SCAN_HISTORY_ON_START=false
 # (для RUB удобнее рубли; копейки можно так: 99.90. Если задано — перекрывает PAYMENT_AMOUNT_MINOR_UNITS)
 # PAYMENT_AMOUNT_MINOR_UNITS=10000
 #
+# A2) Оплата Telegram Stars (звёзды зачисляются боту; provider_token пустой, см. core.telegram.org/bots/payments-stars)
+# PAYMENT_CURRENCY=XTR
+# PAYMENT_AMOUNT_STARS=100
+# (или PAYMENT_AMOUNT_MINOR_UNITS — целое число звёзд; если оба пусты при XTR, по умолчанию 100)
+#
 # B) Оплата картой ЮKassa: бот сам создаёт платёж и шлёт ссылку; нужен публичный вебхук (сервис ms_payments / docker-compose payment-webhook).
 # YOOKASSA_SHOP_ID=...
 # YOOKASSA_SECRET_KEY=...
 # Прямой URL вебхука для каждого платежа (API ЮKassa notification_url). Надёжнее, чем только ЛК:
 # YOOKASSA_NOTIFICATION_URL=https://<публичный-ms_payments>/api/v1/webhook/payment
+# Если вебхук не доходит: после оплаты нажми /start — бот опрашивает GET /v3/payments/{id} (нужен yookassa_payment_id в БД, пишется при новой ссылке).
 # YOOKASSA_WEBHOOK_VERIFY_BASIC_AUTH=false
 # true — только если в ЛК ЮKassa для URL уведомлений включена HTTP Basic (логин shopId, пароль secret_key)
 # YOOKASSA_RETURN_URL=https://t.me/YourBot  # куда вернуть пользователя после оплаты (https), по умолчанию можно MONETIZED_CHAT_INVITE_URL

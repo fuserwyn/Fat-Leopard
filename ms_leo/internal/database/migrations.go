@@ -328,6 +328,18 @@ var Migrations = []Migration{
 			ALTER TABLE training_log ADD PRIMARY KEY (user_id);
 		`,
 	},
+	{
+		Version:     16,
+		Description: "Paywall: YooKassa payment id for API sync when webhook fails",
+		UpSQL: `
+			ALTER TABLE paywall_access_requests
+			ADD COLUMN IF NOT EXISTS yookassa_payment_id TEXT;
+		`,
+		DownSQL: `
+			ALTER TABLE paywall_access_requests
+			DROP COLUMN IF EXISTS yookassa_payment_id;
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции

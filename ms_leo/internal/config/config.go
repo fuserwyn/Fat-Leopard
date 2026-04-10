@@ -20,15 +20,16 @@ type Config struct {
 
 	// Платный доступ в группу (Telegram Payments + заявки на вступление).
 	// Принципы: бот — админ группы с правом одобрять заявки; группа с включёнными заявками;
-	// в @BotFather подключён провайдер и выдан PAYMENT_PROVIDER_TOKEN; сумма и валюта сверяются в pre_checkout и successful_payment.
+	// либо PAYMENT_PROVIDER_TOKEN (провайдер в @BotFather), либо PAYMENT_CURRENCY=XTR (Telegram Stars, provider_token пустой);
+	// сумма и валюта сверяются в pre_checkout и successful_payment.
 	PaywallEnabled          bool
 	MonetizedChatID         int64  // ID группы (например -100...)
 	MonetizedChatInviteURL  string // Запасная ссылка; лучше оставить пустой — бот создаст ссылку через API (нужны права админа в группе)
 	// По API createChatInviteLink: true = ссылка с заявкой на вступление (как «подать заявку»), false = обычное вступление.
 	PaywallInviteCreatesJoinRequest bool
 	PaymentProviderToken    string // токен провайдера из BotFather (не коммитить в git)
-	PaymentCurrency         string // ISO 4217, напр. RUB
-	PaymentAmountMinorUnits int // минимальные единицы валюты (копейки для RUB); из PAYMENT_AMOUNT_RUB или PAYMENT_AMOUNT_MINOR_UNITS
+	PaymentCurrency         string // RUB и др. ISO 4217, либо XTR (Telegram Stars: 1 единица = 1 звезда)
+	PaymentAmountMinorUnits int    // копейки для RUB; для XTR — число звёзд (см. PAYMENT_AMOUNT_STARS / PAYMENT_AMOUNT_MINOR_UNITS)
 	PaymentInvoiceTitle     string
 	PaymentInvoiceDesc      string
 
@@ -52,7 +53,7 @@ func Load() (*Config, error) {
 	}
 
 	monetizedChatID, _ := strconv.ParseInt(getEnv("MONETIZED_CHAT_ID", "0"), 10, 64)
-	currency := getEnv("PAYMENT_CURRENCY", "RUB")
+	currency := strings.ToUpper(strings.TrimSpace(getEnv("PAYMENT_CURRENCY", "RUB")))
 	if currency == "" {
 		currency = "RUB"
 	}
@@ -101,16 +102,27 @@ func Load() (*Config, error) {
 	}, nil
 }
 
-// PaywallPaymentReady — можно выставить счёт: Telegram Payments или ЮKassa.
+// PaywallUsesStars — цифровой товар в Telegram Stars (XTR), provider_token пустой, см. core.telegram.org/bots/payments-stars.
+func (c *Config) PaywallUsesStars() bool {
+	return c.PaymentCurrency == "XTR"
+}
+
+// PaywallPaymentReady — можно выставить счёт: Telegram (карта через провайдера, или Stars), либо ЮKassa.
 func (c *Config) PaywallPaymentReady() bool {
+	if c.PaywallUsesStars() && c.PaymentAmountMinorUnits > 0 {
+		return true
+	}
 	if strings.TrimSpace(c.PaymentProviderToken) != "" {
 		return true
 	}
 	return c.YookassaShopID != "" && c.YookassaSecretKey != ""
 }
 
-// PaywallUsesTelegramInvoice — приоритетный способ: нативный счёт Telegram.
+// PaywallUsesTelegramInvoice — счёт sendInvoice в Telegram (RUB и др. с токеном, или XTR без токена).
 func (c *Config) PaywallUsesTelegramInvoice() bool {
+	if c.PaywallUsesStars() {
+		return true
+	}
 	return strings.TrimSpace(c.PaymentProviderToken) != ""
 }
 
@@ -121,11 +133,24 @@ func getEnv(key, defaultValue string) string {
 	return defaultValue
 }
 
-// paymentAmountMinorFromEnv: PAYMENT_AMOUNT_RUB (только для RUB) перекрывает PAYMENT_AMOUNT_MINOR_UNITS.
+// paymentAmountMinorFromEnv: для RUB — PAYMENT_AMOUNT_RUB перекрывает копейки; для XTR — PAYMENT_AMOUNT_STARS или целое в PAYMENT_AMOUNT_MINOR_UNITS.
 func paymentAmountMinorFromEnv(currency string) int {
 	cur := strings.TrimSpace(strings.ToUpper(currency))
 	if cur == "" {
 		cur = "RUB"
+	}
+	if cur == "XTR" {
+		starsRaw := strings.TrimSpace(os.Getenv("PAYMENT_AMOUNT_STARS"))
+		if starsRaw != "" {
+			if v, err := strconv.Atoi(starsRaw); err == nil && v > 0 {
+				return v
+			}
+		}
+		n, _ := strconv.Atoi(strings.TrimSpace(os.Getenv("PAYMENT_AMOUNT_MINOR_UNITS")))
+		if n > 0 {
+			return n
+		}
+		return 100
 	}
 	rubRaw := strings.TrimSpace(os.Getenv("PAYMENT_AMOUNT_RUB"))
 	if rubRaw != "" && cur == "RUB" {

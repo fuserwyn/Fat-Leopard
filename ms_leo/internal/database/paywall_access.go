@@ -19,6 +19,7 @@ type PaywallAccessRequest struct {
 	TelegramPaymentChargeID  sql.NullString
 	TotalAmountMinor         sql.NullInt64
 	Currency                 sql.NullString
+	YookassaPaymentID        sql.NullString
 }
 
 func (d *Database) InsertPaywallAccessRequest(userID, monetizedChatID int64) (int64, error) {
@@ -37,7 +38,7 @@ func (d *Database) InsertPaywallAccessRequest(userID, monetizedChatID int64) (in
 func (d *Database) GetLatestPendingPaywallAccessRequest(userID, monetizedChatID int64) (*PaywallAccessRequest, error) {
 	const q = `
 		SELECT id, user_id, monetized_chat_id, status, created_at, completed_at, access_expires_at,
-		       telegram_payment_charge_id, total_amount_minor, currency
+		       telegram_payment_charge_id, total_amount_minor, currency, yookassa_payment_id
 		FROM paywall_access_requests
 		WHERE user_id = $1 AND monetized_chat_id = $2 AND status = 'pending'
 		ORDER BY id DESC
@@ -45,7 +46,7 @@ func (d *Database) GetLatestPendingPaywallAccessRequest(userID, monetizedChatID 
 	var r PaywallAccessRequest
 	err := d.db.QueryRow(q, userID, monetizedChatID).Scan(
 		&r.ID, &r.UserID, &r.MonetizedChatID, &r.Status, &r.CreatedAt, &r.CompletedAt, &r.AccessExpiresAt,
-		&r.TelegramPaymentChargeID, &r.TotalAmountMinor, &r.Currency,
+		&r.TelegramPaymentChargeID, &r.TotalAmountMinor, &r.Currency, &r.YookassaPaymentID,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -59,12 +60,12 @@ func (d *Database) GetLatestPendingPaywallAccessRequest(userID, monetizedChatID 
 func (d *Database) GetPaywallAccessRequestByID(id int64) (*PaywallAccessRequest, error) {
 	const q = `
 		SELECT id, user_id, monetized_chat_id, status, created_at, completed_at, access_expires_at,
-		       telegram_payment_charge_id, total_amount_minor, currency
+		       telegram_payment_charge_id, total_amount_minor, currency, yookassa_payment_id
 		FROM paywall_access_requests WHERE id = $1`
 	var r PaywallAccessRequest
 	err := d.db.QueryRow(q, id).Scan(
 		&r.ID, &r.UserID, &r.MonetizedChatID, &r.Status, &r.CreatedAt, &r.CompletedAt, &r.AccessExpiresAt,
-		&r.TelegramPaymentChargeID, &r.TotalAmountMinor, &r.Currency,
+		&r.TelegramPaymentChargeID, &r.TotalAmountMinor, &r.Currency, &r.YookassaPaymentID,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -124,6 +125,19 @@ func (d *Database) PaywallAccessDebugSnapshot(userID, monetizedChatID int64) str
 		return "no_rows_for_user_chat"
 	}
 	return strings.Join(parts, ", ")
+}
+
+// SetPaywallYookassaPaymentID — сохраняет id платежа ЮKassa для опроса API, если вебхук не дошёл.
+func (d *Database) SetPaywallYookassaPaymentID(reqID int64, yookassaPaymentID string) error {
+	const q = `
+		UPDATE paywall_access_requests
+		SET yookassa_payment_id = $2
+		WHERE id = $1 AND status = 'pending'`
+	_, err := d.db.Exec(q, reqID, yookassaPaymentID)
+	if err != nil {
+		return fmt.Errorf("set yookassa payment id: %w", err)
+	}
+	return nil
 }
 
 func (d *Database) CompletePaywallAccessRequest(id int64, userID, monetizedChatID int64, telegramChargeID string, amountMinor int, currency string) (bool, error) {
