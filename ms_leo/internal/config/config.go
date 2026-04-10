@@ -203,13 +203,20 @@ func paymentStarsAddonAmountFromEnv(starsEnabled bool) int {
 	return 0
 }
 
-// paymentAmountMinorFromEnv: для RUB — PAYMENT_AMOUNT_RUB перекрывает копейки; для XTR — PAYMENT_AMOUNT_STARS или целое в PAYMENT_AMOUNT_MINOR_UNITS.
+// paymentAmountMinorFromEnv: для RUB — PAYMENT_AMOUNT_RUB перекрывает копейки;
+// для XTR — PAYMENT_STARS_AMOUNT, затем PAYMENT_AMOUNT_STARS, затем PAYMENT_AMOUNT_MINOR_UNITS.
 func paymentAmountMinorFromEnv(currency string) int {
 	cur := strings.TrimSpace(strings.ToUpper(currency))
 	if cur == "" {
 		cur = "RUB"
 	}
 	if cur == "XTR" {
+		starsRawPrimary := strings.TrimSpace(os.Getenv("PAYMENT_STARS_AMOUNT"))
+		if starsRawPrimary != "" {
+			if v, err := strconv.Atoi(starsRawPrimary); err == nil && v > 0 {
+				return v
+			}
+		}
 		starsRaw := strings.TrimSpace(os.Getenv("PAYMENT_AMOUNT_STARS"))
 		if starsRaw != "" {
 			if v, err := strconv.Atoi(starsRaw); err == nil && v > 0 {
