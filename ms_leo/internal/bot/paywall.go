@@ -15,7 +15,10 @@ import (
 
 const paywallPayloadPrefix = "pw_"
 
-const paywallCallbackResendInvoice = "paywall_resend_invoice"
+const paywallCallbackResendInvoice = "paywall_resend_invoice" // совместимость со старыми сообщениями
+const paywallCallbackPayStars = "paywall_pay_stars"
+const paywallCallbackPayYookassa = "paywall_pay_yookassa"
+const paywallCallbackPayProvider = "paywall_pay_provider"
 
 const paywallInviteCacheTTL = 25 * time.Minute
 
@@ -45,31 +48,40 @@ func (b *Bot) userHasActivePaywallAccessResilient(userID, chatID int64) (bool, e
 	return false, nil
 }
 
-// paywallInvoiceSendDiag разбирает ответ Telegram на sendInvoice (для логов и подсказки пользователю).
-func paywallInvoiceSendDiag(err error) (logLine string, userHint string) {
+// paywallInvoiceErrLog — строка для логов (полная диагностика).
+func paywallInvoiceErrLog(err error) string {
 	if err == nil {
-		return "", ""
+		return ""
 	}
-	logLine = err.Error()
+	var tgErr *tgbotapi.Error
+	if errors.As(err, &tgErr) {
+		return fmt.Sprintf("telegram error_code=%d: %s", tgErr.Code, tgErr.Message)
+	}
+	return err.Error()
+}
+
+// paywallInvoiceShortHintForUser — коротко, без переменных окружения (детали только в логах).
+func paywallInvoiceShortHintForUser(err error) string {
+	if err == nil {
+		return ""
+	}
 	var tgErr *tgbotapi.Error
 	if !errors.As(err, &tgErr) {
-		return logLine, "Попробуй позже или напиши администратору — в логах бота будет детальная ошибка."
+		return "Попробуй ещё раз чуть позже или другой способ оплаты."
 	}
-	logLine = fmt.Sprintf("telegram error_code=%d: %s", tgErr.Code, tgErr.Message)
 	m := strings.ToLower(tgErr.Message)
 	switch {
 	case strings.Contains(m, "payment_provider_invalid"):
-		userHint = "Токен провайдера оплаты неверный или Payments не настроены в @BotFather (Bot Settings → Payments). Проверь PAYMENT_PROVIDER_TOKEN на сервере — он должен быть от того же режима (test/live), что и кабинет ЮKassa."
+		return "Счёт в Telegram сейчас недоступен. Попробуй другой способ кнопкой ниже."
 	case strings.Contains(m, "currency_invalid"), strings.Contains(m, "currency_total_amount_invalid"):
-		userHint = "Провайдер не принимает валюту или сумму. Проверь PAYMENT_CURRENCY и сумму: для RUB — PAYMENT_AMOUNT_RUB / копейки; для звёзд XTR — PAYMENT_AMOUNT_STARS или PAYMENT_AMOUNT_MINOR_UNITS (целые звёзды)."
+		return "Платёж не прошёл проверку. Нажми /start и запроси счёт снова."
 	case tgErr.Code == 403 || strings.Contains(m, "blocked"):
-		userHint = "Разблокируй бота: чат с ботом → ⋮ → Разблокировать."
+		return "Разблокируй бота: ⋮ в чате → Разблокировать."
 	case strings.Contains(m, "chat not found") || strings.Contains(m, "user is deactivated"):
-		userHint = "Сначала напиши боту любое слово в личке, затем снова /start."
+		return "Напиши боту любое сообщение в личке и снова нажми кнопку."
 	default:
-		userHint = "Если нужна оплата только картой по ЮKassa без счёта в Telegram — администратору: убери PAYMENT_PROVIDER_TOKEN и PAYMENT_CURRENCY=XTR, тогда бот пришлёт ссылку на оплату."
+		return "Не вышло отправить счёт. Попробуй другой способ оплаты или /start позже."
 	}
-	return logLine, userHint
 }
 
 // paywallCreateInviteLink вызывает Telegram API; бот должен быть админом с правом приглашений.
@@ -162,77 +174,67 @@ func (b *Bot) paywallActive() bool {
 // Счёт/ссылка должны уйти отдельным сообщением *до* этого текста (см. handleStart / help).
 func (b *Bot) paywallPrivateUnpaidUserText() string {
 	priceRub := ""
-	if b.config.PaywallUsesStars() && b.config.PaymentAmountMinorUnits > 0 {
-		priceRub = fmt.Sprintf(" Сумма: %d ⭐ (Telegram Stars).", b.config.PaymentAmountMinorUnits)
-	} else if b.config.PaymentCurrency == "RUB" && b.config.PaymentAmountMinorUnits > 0 {
-		rub := b.config.PaymentAmountMinorUnits / 100
-		kop := b.config.PaymentAmountMinorUnits % 100
-		if kop == 0 {
-			priceRub = fmt.Sprintf(" Сумма: %d ₽.", rub)
-		} else {
-			priceRub = fmt.Sprintf(" Сумма: %d,%02d ₽.", rub, kop)
+	if b.config.PaywallUsesStars() {
+		priceRub += fmt.Sprintf(" Звёзды Telegram: %d ⭐.", b.config.PaywallStarsInvoiceAmount())
+	}
+	if b.config.PaywallYookassaReady() || b.config.PaywallUsesTelegramProviderInvoice() {
+		if b.config.PaymentCurrency == "RUB" && b.config.PaymentAmountMinorUnits > 0 {
+			rub := b.config.PaymentAmountMinorUnits / 100
+			kop := b.config.PaymentAmountMinorUnits % 100
+			if kop == 0 {
+				priceRub += fmt.Sprintf(" Карта (Telegram/ЮKassa): %d ₽.", rub)
+			} else {
+				priceRub += fmt.Sprintf(" Карта (Telegram/ЮKassa): %d,%02d ₽.", rub, kop)
+			}
+		} else if b.config.PaymentAmountMinorUnits > 0 && b.config.PaymentCurrency != "" && b.config.PaymentCurrency != "XTR" {
+			priceRub += fmt.Sprintf(" Сумма для карты: %d мин. ед. %s.", b.config.PaymentAmountMinorUnits, b.config.PaymentCurrency)
 		}
-	} else if b.config.PaymentAmountMinorUnits > 0 && b.config.PaymentCurrency != "" {
-		priceRub = fmt.Sprintf(" В счёте будет указано: %d мин. ед. валюты %s.", b.config.PaymentAmountMinorUnits, b.config.PaymentCurrency)
 	}
 
 	if !b.config.PaywallPaymentReady() {
 		return `💳 Платный вход в закрытую группу
 
-⚠️ **Оплата не подключена** (нужно одно из: PAYMENT_CURRENCY=XTR + сумма звёзд, или PAYMENT_PROVIDER_TOKEN, или пара YOOKASSA_SHOP_ID + YOOKASSA_SECRET_KEY). Напиши администратору — без этого счёт и ссылка не появятся.
+⚠️ Оплата у бота ещё не настроена. Напиши администратору.
 
-Когда настроят:
-• в Telegram придёт счёт с кнопкой «Оплатить» (рубли/провайдер или звёзды XTR), **или**
-• придёт ссылка на оплату ЮKassa.
+Когда заработает — здесь появятся кнопки выбора способа оплаты.` + priceRub + `
 
-Порядок после настройки:
-1. Оплати.
-2. После оплаты бот пришлёт кнопку для входа в группу автоматически.` + priceRub + `
-
-Доступ после оплаты — 30 дней. Полную справку бота пришлю, когда оплата пройдёт.
-
-👇 Кнопка ниже: повтор попытки отправки счёта (когда оплата будет включена).`
-	}
-
-	payLine := `📩 **Предыдущее сообщение** в этом чате — счёт в Telegram с кнопкой «Оплатить». Не видишь — нажми «Выслать счёт снова» ниже.
-
-Порядок:
-1. Оплати счёт (можно до заявки в группу).`
-	if b.config.PaywallUsesStars() {
-		payLine = `📩 **Предыдущее сообщение** — счёт на оплату **Telegram Stars** (звёзды зачисляются боту). Не видишь — нажми «Выслать счёт снова» ниже.
-
-Порядок:
-1. Оплати звёздами в Telegram (можно до заявки в группу).`
-	}
-	if !b.config.PaywallUsesTelegramInvoice() {
-		payLine = `📩 **Предыдущее сообщение** — ссылка на оплату картой (ЮKassa). Не видишь — нажми кнопку повторной отправки ниже.
-
-Порядок:
-1. Перейди по ссылке и оплати (можно до заявки в группу).`
+Доступ после оплаты — 30 дней.`
 	}
 
 	return `💳 Платный вход в закрытую группу
 
-` + payLine + `
-2. Дождись подтверждения оплаты — после неё я сам пришлю кнопку входа в группу.
+Нажми кнопку нужного способа — пришлю счёт или ссылку на оплату. Достаточно **одного** успешного платежа.
 
-Полное приветствие с командами бота пришлю после успешной оплаты. Доступ действует 30 дней.` + priceRub + `
+После оплаты пришлю кнопку входа в группу. Полную справку бота — тоже после оплаты. Доступ 30 дней.` + priceRub + `
 
-Пока оплаты не было, длинную справку в личке не показываю — она пригодится в группе.
+Пока без оплаты длинную справку не показываю.
 
-👇 Кнопка: повторная отправка счёта / ссылки.`
+_Кнопки работают только в этом чате с ботом — пересланное сообщение их не показывает._
+
+👇 Выбери способ оплаты:`
 }
 
-// paywallUnpaidInlineKeyboard — только повтор счёта/ссылки до факта оплаты.
+// paywallUnpaidInlineKeyboard — отдельные кнопки под каждый способ оплаты.
 func (b *Bot) paywallUnpaidInlineKeyboard() *tgbotapi.InlineKeyboardMarkup {
 	var rows [][]tgbotapi.InlineKeyboardButton
-	resendLabel := "💳 Выслать счёт снова"
-	if !b.config.PaywallUsesTelegramInvoice() {
-		resendLabel = "💳 Ссылка на оплату снова"
+	if b.config.PaywallUsesStars() {
+		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("⭐ Счёт на звёзды", paywallCallbackPayStars),
+		))
 	}
-	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData(resendLabel, paywallCallbackResendInvoice),
-	))
+	if b.config.PaywallYookassaReady() {
+		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("💳 Оплатить картой (ЮKassa)", paywallCallbackPayYookassa),
+		))
+	}
+	if b.config.PaywallUsesTelegramProviderInvoice() {
+		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("💳 Счёт в Telegram (карта)", paywallCallbackPayProvider),
+		))
+	}
+	if len(rows) == 0 {
+		return nil
+	}
 	return &tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
 }
 
@@ -245,14 +247,12 @@ func (b *Bot) paywallNotifyUser(userID int64, text string) {
 	}
 }
 
-// ensurePaywallInvoiceSent создаёт pending-заявку при необходимости и шлёт счёт Telegram или ссылку ЮKassa.
-// Вызывай до текста «Предыдущее сообщение — счёт», чтобы порядок в чате совпадал с подсказкой.
+// ensurePaywallInvoiceSent создаёт pending-заявку и подтягивает оплату ЮKassa при /start; счета не шлёт — пользователь жмёт кнопки.
 func (b *Bot) ensurePaywallInvoiceSent(userID int64) {
 	if !b.paywallActive() || userID == 0 {
 		return
 	}
 	if !b.config.PaywallPaymentReady() {
-		// Текст с инструкцией придёт следующим сообщением (paywallPrivateUnpaidUserText).
 		return
 	}
 	if ok, err := b.db.UserHasActivePaywallAccess(userID, b.config.MonetizedChatID); err != nil {
@@ -260,7 +260,7 @@ func (b *Bot) ensurePaywallInvoiceSent(userID int64) {
 	} else if ok {
 		return
 	}
-	if !b.config.PaywallUsesTelegramInvoice() && b.config.YookassaShopID != "" {
+	if b.config.PaywallYookassaReady() {
 		if b.paywallTrySyncYookassaPayment(userID) {
 			return
 		}
@@ -268,44 +268,83 @@ func (b *Bot) ensurePaywallInvoiceSent(userID int64) {
 	pending, err := b.db.GetLatestPendingPaywallAccessRequest(userID, b.config.MonetizedChatID)
 	if err != nil {
 		b.logger.Errorf("paywall ensure invoice get pending: %v", err)
-		b.paywallNotifyUser(userID, "⚠️ Ошибка доступа к базе. Попробуй /start снова чуть позже или напиши администратору.")
+		b.paywallNotifyUser(userID, "⚠️ Временная ошибка. Попробуй /start чуть позже.")
 		return
 	}
-	var reqID int64
 	if pending != nil {
-		reqID = pending.ID
-	} else {
-		reqID, err = b.db.InsertPaywallAccessRequest(userID, b.config.MonetizedChatID)
-		if err != nil {
-			b.logger.Errorf("paywall ensure invoice insert: %v", err)
-			b.paywallNotifyUser(userID, "⚠️ Не удалось создать заявку на оплату. Попробуй /start снова.")
-			return
-		}
-	}
-	if b.config.PaywallUsesTelegramInvoice() {
-		if err := b.SendPaywallInvoice(userID, reqID); err != nil {
-			logLine, hint := paywallInvoiceSendDiag(err)
-			b.logger.Errorf("paywall ensure invoice send: %s", logLine)
-			msg := "⚠️ Не удалось отправить счёт в Telegram.\n\n" + hint + "\n\nПосле исправления нажми «Выслать счёт снова»."
-			b.paywallNotifyUser(userID, msg)
-		}
 		return
 	}
-	if err := b.SendYookassaPaymentLink(userID, reqID); err != nil {
-		b.logger.Errorf("paywall ensure yookassa link: %v", err)
-		b.paywallNotifyUser(userID,
-			"⚠️ Не удалось создать ссылку ЮKassa. Проверь настройки у администратора или нажми кнопку повторной отправки ниже.")
+	if _, err := b.db.InsertPaywallAccessRequest(userID, b.config.MonetizedChatID); err != nil {
+		b.logger.Errorf("paywall ensure invoice insert: %v", err)
+		b.paywallNotifyUser(userID, "⚠️ Не удалось начать оплату. Попробуй /start снова.")
 	}
 }
 
-// SendPaywallInvoice отправляет invoice в ЛС; payload pw_<reqID> должен совпадать с записью в БД.
-func (b *Bot) SendPaywallInvoice(userID, reqID int64) error {
-	providerToken := b.config.PaymentProviderToken
-	if b.config.PaywallUsesStars() {
-		providerToken = ""
-	} else if strings.TrimSpace(providerToken) == "" {
-		return fmt.Errorf("payment provider token empty")
+// paywallGetOrCreatePendingReqID — для callback: последняя pending-заявка или новая.
+func (b *Bot) paywallGetOrCreatePendingReqID(userID int64) (int64, error) {
+	rec, err := b.db.GetLatestPendingPaywallAccessRequest(userID, b.config.MonetizedChatID)
+	if err != nil {
+		return 0, err
 	}
+	if rec != nil {
+		return rec.ID, nil
+	}
+	return b.db.InsertPaywallAccessRequest(userID, b.config.MonetizedChatID)
+}
+
+// paywallSendPaymentOffers — всё сразу (старые кнопки «выслать снова»); ошибки пользователю короткие, детали в логах.
+func (b *Bot) paywallSendPaymentOffers(userID, reqID int64) {
+	if b.config.PaywallUsesStars() {
+		if err := b.SendPaywallStarsInvoice(userID, reqID); err != nil {
+			b.logger.Errorf("paywall stars invoice: %s", paywallInvoiceErrLog(err))
+			b.paywallNotifyUser(userID, "⚠️ "+paywallInvoiceShortHintForUser(err))
+		}
+	}
+	if b.config.PaywallUsesTelegramProviderInvoice() {
+		if err := b.SendPaywallProviderInvoice(userID, reqID); err != nil {
+			b.logger.Errorf("paywall provider invoice: %s", paywallInvoiceErrLog(err))
+			b.paywallNotifyUser(userID, "⚠️ "+paywallInvoiceShortHintForUser(err))
+		}
+	}
+	if b.config.PaywallYookassaReady() {
+		if err := b.SendYookassaPaymentLink(userID, reqID); err != nil {
+			b.logger.Errorf("paywall yookassa link: %v", err)
+			b.paywallNotifyUser(userID, "⚠️ Ссылка на оплату не создалась. Попробуй позже или другой способ.")
+		}
+	}
+}
+
+// SendPaywallStarsInvoice — XTR, provider_token пустой; payload pw_<reqID>.
+func (b *Bot) SendPaywallStarsInvoice(userID, reqID int64) error {
+	if !b.config.PaywallUsesStars() {
+		return fmt.Errorf("stars payment not configured")
+	}
+	amt := b.config.PaywallStarsInvoiceAmount()
+	if amt <= 0 {
+		return fmt.Errorf("stars amount invalid")
+	}
+	payload := fmt.Sprintf("%s%d", paywallPayloadPrefix, reqID)
+	prices := []tgbotapi.LabeledPrice{{Label: "Доступ", Amount: amt}}
+	inv := tgbotapi.NewInvoice(
+		userID,
+		b.config.PaymentInvoiceTitle,
+		b.config.PaymentInvoiceDesc,
+		payload,
+		"",
+		"",
+		"XTR",
+		prices,
+	)
+	_, err := b.api.Send(inv)
+	return err
+}
+
+// SendPaywallProviderInvoice — RUB/др. через PAYMENT_PROVIDER_TOKEN; payload pw_<reqID>.
+func (b *Bot) SendPaywallProviderInvoice(userID, reqID int64) error {
+	if !b.config.PaywallUsesTelegramProviderInvoice() {
+		return fmt.Errorf("telegram provider invoice not configured")
+	}
+	tok := strings.TrimSpace(b.config.PaymentProviderToken)
 	payload := fmt.Sprintf("%s%d", paywallPayloadPrefix, reqID)
 	prices := []tgbotapi.LabeledPrice{{Label: "Доступ", Amount: b.config.PaymentAmountMinorUnits}}
 	inv := tgbotapi.NewInvoice(
@@ -313,7 +352,7 @@ func (b *Bot) SendPaywallInvoice(userID, reqID int64) error {
 		b.config.PaymentInvoiceTitle,
 		b.config.PaymentInvoiceDesc,
 		payload,
-		providerToken,
+		tok,
 		"",
 		b.config.PaymentCurrency,
 		prices,
@@ -372,54 +411,115 @@ func (b *Bot) handlePaywallResendInvoiceCallback(callback *tgbotapi.CallbackQuer
 		return
 	}
 	if !b.paywallActive() || !b.config.PaywallPaymentReady() {
-		_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, "Оплата сейчас недоступна. Напиши администратору."))
+		_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, "Оплата сейчас недоступна."))
 		return
 	}
-	if !b.config.PaywallUsesTelegramInvoice() && b.config.YookassaShopID != "" {
+	if b.config.PaywallYookassaReady() {
 		if b.paywallTrySyncYookassaPayment(callback.From.ID) {
-			_, _ = b.api.Request(tgbotapi.NewCallback(callback.ID, "Оплата уже учтена. Нажми /start для полного доступа."))
+			_, _ = b.api.Request(tgbotapi.NewCallback(callback.ID, "Оплата уже учтена. Нажми /start."))
 			return
 		}
 	}
-
-	rec, err := b.db.GetLatestPendingPaywallAccessRequest(callback.From.ID, b.config.MonetizedChatID)
+	reqID, err := b.paywallGetOrCreatePendingReqID(callback.From.ID)
 	if err != nil {
-		b.logger.Errorf("paywall get pending: %v", err)
-		_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, "Ошибка. Попробуй позже или напиши администратору."))
+		b.logger.Errorf("paywall resend pending: %v", err)
+		_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, "Ошибка. Попробуй /start."))
 		return
 	}
-	reqID := int64(0)
-	if rec != nil {
-		reqID = rec.ID
-	} else {
-		reqID, err = b.db.InsertPaywallAccessRequest(callback.From.ID, b.config.MonetizedChatID)
-		if err != nil {
-			b.logger.Errorf("paywall resend insert: %v", err)
-			_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, "Не удалось выставить счёт. Попробуй /start."))
-			return
-		}
-	}
+	b.paywallSendPaymentOffers(callback.From.ID, reqID)
+	_, _ = b.api.Request(tgbotapi.NewCallback(callback.ID, "Проверь новые сообщения в чате."))
+}
 
-	if b.config.PaywallUsesTelegramInvoice() {
-		if err := b.SendPaywallInvoice(callback.From.ID, reqID); err != nil {
-			logLine, hint := paywallInvoiceSendDiag(err)
-			b.logger.Errorf("paywall resend invoice: %s", logLine)
-			alert := "Не удалось отправить счёт.\n\n" + hint
-			if len(alert) > 190 {
-				alert = alert[:187] + "…"
-			}
-			_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, alert))
-			return
+func (b *Bot) handlePaywallPayStarsCallback(callback *tgbotapi.CallbackQuery) {
+	if callback.From == nil {
+		_, _ = b.api.Request(tgbotapi.NewCallback(callback.ID, ""))
+		return
+	}
+	uid := callback.From.ID
+	if !b.paywallActive() || !b.config.PaywallPaymentReady() || !b.config.PaywallUsesStars() {
+		_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, "Счёт на звёзды сейчас недоступен."))
+		return
+	}
+	if b.config.PaywallYookassaReady() && b.paywallTrySyncYookassaPayment(uid) {
+		_, _ = b.api.Request(tgbotapi.NewCallback(callback.ID, "Оплата уже учтена. Нажми /start."))
+		return
+	}
+	reqID, err := b.paywallGetOrCreatePendingReqID(uid)
+	if err != nil {
+		b.logger.Errorf("paywall stars cb pending: %v", err)
+		_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, "Ошибка. Попробуй /start."))
+		return
+	}
+	if err := b.SendPaywallStarsInvoice(uid, reqID); err != nil {
+		b.logger.Errorf("paywall stars invoice: %s", paywallInvoiceErrLog(err))
+		h := paywallInvoiceShortHintForUser(err)
+		if len(h) > 180 {
+			h = h[:177] + "…"
 		}
-		_, _ = b.api.Request(tgbotapi.NewCallback(callback.ID, "Счёт отправлен — открой сообщение со счётом и нажми «Оплатить»."))
+		_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, h))
 		return
 	}
-	if err := b.SendYookassaPaymentLink(callback.From.ID, reqID); err != nil {
-		b.logger.Errorf("paywall resend yookassa: %v", err)
-		_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, "Не удалось создать оплату. Попробуй позже или напиши администратору."))
+	_, _ = b.api.Request(tgbotapi.NewCallback(callback.ID, "Счёт на звёзды отправлен — открой его выше и нажми «Оплатить»."))
+}
+
+func (b *Bot) handlePaywallPayYookassaCallback(callback *tgbotapi.CallbackQuery) {
+	if callback.From == nil {
+		_, _ = b.api.Request(tgbotapi.NewCallback(callback.ID, ""))
 		return
 	}
-	_, _ = b.api.Request(tgbotapi.NewCallback(callback.ID, "Ссылка на оплату отправлена — открой новое сообщение и нажми «Оплатить»."))
+	uid := callback.From.ID
+	if !b.paywallActive() || !b.config.PaywallPaymentReady() || !b.config.PaywallYookassaReady() {
+		_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, "Оплата картой сейчас недоступна."))
+		return
+	}
+	if b.paywallTrySyncYookassaPayment(uid) {
+		_, _ = b.api.Request(tgbotapi.NewCallback(callback.ID, "Оплата уже учтена. Нажми /start."))
+		return
+	}
+	reqID, err := b.paywallGetOrCreatePendingReqID(uid)
+	if err != nil {
+		b.logger.Errorf("paywall yk cb pending: %v", err)
+		_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, "Ошибка. Попробуй /start."))
+		return
+	}
+	if err := b.SendYookassaPaymentLink(uid, reqID); err != nil {
+		b.logger.Errorf("paywall yookassa link: %v", err)
+		_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, "Ссылка не создалась. Попробуй позже."))
+		return
+	}
+	_, _ = b.api.Request(tgbotapi.NewCallback(callback.ID, "Ссылка на оплату отправлена — открой сообщение ниже."))
+}
+
+func (b *Bot) handlePaywallPayProviderCallback(callback *tgbotapi.CallbackQuery) {
+	if callback.From == nil {
+		_, _ = b.api.Request(tgbotapi.NewCallback(callback.ID, ""))
+		return
+	}
+	uid := callback.From.ID
+	if !b.paywallActive() || !b.config.PaywallPaymentReady() || !b.config.PaywallUsesTelegramProviderInvoice() {
+		_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, "Счёт провайдера сейчас недоступен."))
+		return
+	}
+	if b.config.PaywallYookassaReady() && b.paywallTrySyncYookassaPayment(uid) {
+		_, _ = b.api.Request(tgbotapi.NewCallback(callback.ID, "Оплата уже учтена. Нажми /start."))
+		return
+	}
+	reqID, err := b.paywallGetOrCreatePendingReqID(uid)
+	if err != nil {
+		b.logger.Errorf("paywall provider cb pending: %v", err)
+		_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, "Ошибка. Попробуй /start."))
+		return
+	}
+	if err := b.SendPaywallProviderInvoice(uid, reqID); err != nil {
+		b.logger.Errorf("paywall provider invoice: %s", paywallInvoiceErrLog(err))
+		h := paywallInvoiceShortHintForUser(err)
+		if len(h) > 180 {
+			h = h[:177] + "…"
+		}
+		_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, h))
+		return
+	}
+	_, _ = b.api.Request(tgbotapi.NewCallback(callback.ID, "Счёт отправлен — открой его выше и нажми «Оплатить»."))
 }
 
 func (b *Bot) paywallPrivatePaidFooter() string {
@@ -472,7 +572,7 @@ func (b *Bot) paywallTrySyncYookassaPayment(userID int64) bool {
 	if !b.paywallActive() || userID == 0 {
 		return false
 	}
-	if b.config.PaywallUsesTelegramInvoice() || b.config.YookassaShopID == "" || b.config.YookassaSecretKey == "" {
+	if !b.config.PaywallYookassaReady() {
 		return false
 	}
 	pending, err := b.db.GetLatestPendingPaywallAccessRequest(userID, b.config.MonetizedChatID)
@@ -554,14 +654,27 @@ func (b *Bot) handlePaywallPreCheckout(q *tgbotapi.PreCheckoutQuery) {
 		_, _ = b.api.Request(tgbotapi.PreCheckoutConfig{PreCheckoutQueryID: q.ID, OK: false, ErrorMessage: "Оплата недоступна."})
 		return
 	}
-	if !b.config.PaywallUsesStars() && strings.TrimSpace(b.config.PaymentProviderToken) == "" {
-		_, _ = b.api.Request(tgbotapi.PreCheckoutConfig{PreCheckoutQueryID: q.ID, OK: false, ErrorMessage: "Оплата недоступна."})
-		return
-	}
-	if q.Currency != b.config.PaymentCurrency || q.TotalAmount != b.config.PaymentAmountMinorUnits {
-		b.logger.Warnf("paywall pre_checkout amount mismatch: got %s %d want %s %d", q.Currency, q.TotalAmount, b.config.PaymentCurrency, b.config.PaymentAmountMinorUnits)
-		_, _ = b.api.Request(tgbotapi.PreCheckoutConfig{PreCheckoutQueryID: q.ID, OK: false, ErrorMessage: "Неверная сумма. Обнови заявку и попробуй снова."})
-		return
+	switch q.Currency {
+	case "XTR":
+		if !b.config.PaywallUsesStars() || q.TotalAmount != b.config.PaywallStarsInvoiceAmount() {
+			b.logger.Warnf("paywall pre_checkout stars mismatch: got %s %d want XTR %d", q.Currency, q.TotalAmount, b.config.PaywallStarsInvoiceAmount())
+			_, _ = b.api.Request(tgbotapi.PreCheckoutConfig{PreCheckoutQueryID: q.ID, OK: false, ErrorMessage: "Неверная сумма (звёзды). Обнови заявку /start."})
+			return
+		}
+	default:
+		if !b.config.PaywallUsesTelegramProviderInvoice() {
+			_, _ = b.api.Request(tgbotapi.PreCheckoutConfig{PreCheckoutQueryID: q.ID, OK: false, ErrorMessage: "Оплата недоступна."})
+			return
+		}
+		if strings.TrimSpace(b.config.PaymentProviderToken) == "" {
+			_, _ = b.api.Request(tgbotapi.PreCheckoutConfig{PreCheckoutQueryID: q.ID, OK: false, ErrorMessage: "Оплата недоступна."})
+			return
+		}
+		if q.Currency != b.config.PaymentCurrency || q.TotalAmount != b.config.PaymentAmountMinorUnits {
+			b.logger.Warnf("paywall pre_checkout amount mismatch: got %s %d want %s %d", q.Currency, q.TotalAmount, b.config.PaymentCurrency, b.config.PaymentAmountMinorUnits)
+			_, _ = b.api.Request(tgbotapi.PreCheckoutConfig{PreCheckoutQueryID: q.ID, OK: false, ErrorMessage: "Неверная сумма. Обнови заявку и попробуй снова."})
+			return
+		}
 	}
 	reqID, ok := parsePaywallPayload(q.InvoicePayload)
 	if !ok {
@@ -639,12 +752,23 @@ func (b *Bot) handlePaywallSuccessfulPayment(msg *tgbotapi.Message) {
 		return
 	}
 	sp := msg.SuccessfulPayment
-	if sp.Currency != b.config.PaymentCurrency || sp.TotalAmount != b.config.PaymentAmountMinorUnits {
-		b.logger.Errorf(
-			"paywall successful_payment mismatch: got %s %d, config wants %s %d — проверь сумму (PAYMENT_AMOUNT_RUB / PAYMENT_AMOUNT_STARS / PAYMENT_AMOUNT_MINOR_UNITS) и PAYMENT_CURRENCY, перезапуск бота",
-			sp.Currency, sp.TotalAmount, b.config.PaymentCurrency, b.config.PaymentAmountMinorUnits,
-		)
-		return
+	switch sp.Currency {
+	case "XTR":
+		if !b.config.PaywallUsesStars() || sp.TotalAmount != b.config.PaywallStarsInvoiceAmount() {
+			b.logger.Errorf(
+				"paywall successful_payment stars mismatch: got %d, want %d — PAYMENT_STARS_AMOUNT / XTR",
+				sp.TotalAmount, b.config.PaywallStarsInvoiceAmount(),
+			)
+			return
+		}
+	default:
+		if !b.config.PaywallUsesTelegramProviderInvoice() || sp.Currency != b.config.PaymentCurrency || sp.TotalAmount != b.config.PaymentAmountMinorUnits {
+			b.logger.Errorf(
+				"paywall successful_payment mismatch: got %s %d, config wants %s %d — провайдер / PAYMENT_AMOUNT_*",
+				sp.Currency, sp.TotalAmount, b.config.PaymentCurrency, b.config.PaymentAmountMinorUnits,
+			)
+			return
+		}
 	}
 	reqID, ok := parsePaywallPayload(sp.InvoicePayload)
 	if !ok {
@@ -812,39 +936,18 @@ func (b *Bot) handlePaywallChatJoinRequest(j *tgbotapi.ChatJoinRequest) {
 	}
 
 	if !b.config.PaywallPaymentReady() {
-		b.logger.Error("PAYWALL_ENABLED but payment not configured: XTR+amount, PAYMENT_PROVIDER_TOKEN, or YooKassa credentials")
+		b.logger.Error("PAYWALL_ENABLED but payment not configured: PAYMENT_STARS_ENABLED, XTR, PAYMENT_PROVIDER_TOKEN, or YooKassa+RUB")
 		b.paywallDeclineJoinRequest(userID)
 		b.paywallNotifyUser(userID, "⚠️ Вход в группу только после оплаты через бота, но оплата у бота не настроена. Напиши администратору.")
 		return
 	}
 
-	pending, err := b.db.GetLatestPendingPaywallAccessRequest(userID, b.config.MonetizedChatID)
-	if err != nil {
+	if _, err := b.paywallGetOrCreatePendingReqID(userID); err != nil {
 		b.logger.Errorf("paywall join request pending: %v", err)
 		b.paywallDeclineJoinRequest(userID)
 		return
 	}
-	var reqID int64
-	if pending != nil {
-		reqID = pending.ID
-	} else {
-		reqID, err = b.db.InsertPaywallAccessRequest(userID, j.Chat.ID)
-		if err != nil {
-			b.logger.Errorf("paywall insert request: %v", err)
-			b.paywallDeclineJoinRequest(userID)
-			return
-		}
-	}
-	if b.config.PaywallUsesTelegramInvoice() {
-		if err := b.SendPaywallInvoice(userID, reqID); err != nil {
-			logLine, hint := paywallInvoiceSendDiag(err)
-			b.logger.Errorf("paywall send invoice (join request): %s", logLine)
-			b.paywallNotifyUser(userID, "⚠️ Не удалось отправить счёт.\n\n"+hint)
-		}
-	} else if err := b.SendYookassaPaymentLink(userID, reqID); err != nil {
-		b.logger.Errorf("paywall send yookassa link: %v", err)
-		b.paywallNotifyUser(userID, "⚠️ Не удалось отправить ссылку на оплату. Напиши /start в боте.")
-	}
+	b.paywallNotifyUser(userID, "Вход в группу после оплаты. Открой этого бота в личке, нажми /start и выбери способ: звёзды или карта (ЮKassa).")
 	// Без записи об активной оплате в БД в группу не пускаем — отклоняем «висящую» заявку;
 	// после оплаты бот пришлёт ссылку / одобрит вступление.
 	b.paywallDeclineJoinRequest(userID)

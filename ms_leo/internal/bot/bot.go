@@ -86,7 +86,7 @@ func (b *Bot) Start(ctx context.Context) error {
 			b.logger.Warn("PAYWALL_ENABLED=true but MONETIZED_CHAT_ID is not set")
 		}
 		if !b.config.PaywallPaymentReady() {
-			b.logger.Warn("PAYWALL_ENABLED=true but payment is not configured: PAYMENT_CURRENCY=XTR + PAYMENT_AMOUNT_STARS (или MINOR_UNITS), и/или PAYMENT_PROVIDER_TOKEN, и/или YOOKASSA_SHOP_ID + YOOKASSA_SECRET_KEY")
+			b.logger.Warn("PAYWALL_ENABLED=true but payment is not configured: PAYMENT_STARS_ENABLED + сумма, или PAYMENT_CURRENCY=XTR, или PAYMENT_PROVIDER_TOKEN, или YOOKASSA_* с RUB/суммой")
 		}
 		if b.config.MonetizedChatID != 0 {
 			if strings.TrimSpace(b.config.MonetizedChatInviteURL) == "" {
@@ -96,14 +96,14 @@ func (b *Bot) Start(ctx context.Context) error {
 			}
 		}
 		if b.config.PaywallPaymentReady() {
-			if b.config.PaywallUsesTelegramInvoice() {
-				if b.config.PaywallUsesStars() {
-					b.logger.Info("Paywall: оплата Telegram Stars (XTR), звёзды зачисляются боту; PAYMENT_PROVIDER_TOKEN не нужен (если задан YOOKASSA_*, для счёта в Telegram он не используется)")
-				} else {
-					b.logger.Info("Paywall: оплата через Telegram Payments (если задан YOOKASSA_*, он не используется — убери PAYMENT_PROVIDER_TOKEN для ЮKassa)")
-				}
-			} else {
-				b.logger.Info("Paywall: оплата через ЮKassa (ссылка в ЛС); вебхук должен завершать платёж в той же БД")
+			if b.config.PaywallUsesStars() {
+				b.logger.Infof("Paywall: Telegram Stars (%d ⭐), provider_token пустой", b.config.PaywallStarsInvoiceAmount())
+			}
+			if b.config.PaywallUsesTelegramProviderInvoice() {
+				b.logger.Info("Paywall: счёт в Telegram через PAYMENT_PROVIDER_TOKEN (карта провайдера)")
+			}
+			if b.config.PaywallYookassaReady() {
+				b.logger.Info("Paywall: ЮKassa — ссылка в ЛС; вебхук в ту же БД")
 				if strings.TrimSpace(b.config.YookassaNotificationURL) == "" {
 					b.logger.Warn("YOOKASSA_NOTIFICATION_URL пуст — уведомления идут только на URL из ЛК ЮKassa. Если вебхук не приходит, задай YOOKASSA_NOTIFICATION_URL=https://<ms_payments>/api/v1/webhook/payment")
 				}
@@ -2017,11 +2017,6 @@ func (b *Bot) handleHelp(msg *tgbotapi.Message) {
 		if !b.paywallPrivateNeedsPayFirst(msg.From.ID) {
 			return
 		}
-		// Для ЮKassa ссылка с кнопкой «Оплатить» уже приходит отдельным сообщением.
-		// Не дублируем второй простынёй инструкций.
-		if b.config.PaywallPaymentReady() && !b.config.PaywallUsesTelegramInvoice() {
-			return
-		}
 		reply := tgbotapi.NewMessage(msg.Chat.ID, b.paywallPrivateUnpaidUserText())
 		reply.ReplyMarkup = b.paywallUnpaidInlineKeyboard()
 		if _, err := b.api.Send(reply); err != nil {
@@ -2158,11 +2153,6 @@ func (b *Bot) handleStart(msg *tgbotapi.Message) {
 	if msg.From != nil && msg.Chat.IsPrivate() && b.paywallActive() && b.paywallPrivateNeedsPayFirst(msg.From.ID) {
 		b.ensurePaywallInvoiceSent(msg.From.ID)
 		if !b.paywallPrivateNeedsPayFirst(msg.From.ID) {
-			return
-		}
-		// Для ЮKassa ссылка с кнопкой «Оплатить» уже приходит отдельным сообщением.
-		// Не дублируем второй простынёй инструкций.
-		if b.config.PaywallPaymentReady() && !b.config.PaywallUsesTelegramInvoice() {
 			return
 		}
 		reply := tgbotapi.NewMessage(msg.Chat.ID, b.paywallPrivateUnpaidUserText())
@@ -4178,6 +4168,15 @@ func (b *Bot) handleCallbackQuery(callback *tgbotapi.CallbackQuery) {
 	switch data {
 	case paywallCallbackResendInvoice:
 		b.handlePaywallResendInvoiceCallback(callback)
+		return
+	case paywallCallbackPayStars:
+		b.handlePaywallPayStarsCallback(callback)
+		return
+	case paywallCallbackPayYookassa:
+		b.handlePaywallPayYookassaCallback(callback)
+		return
+	case paywallCallbackPayProvider:
+		b.handlePaywallPayProviderCallback(callback)
 		return
 	case "back_to_menu":
 		// Удаляем сообщение и возвращаемся в меню

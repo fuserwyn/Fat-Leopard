@@ -73,5 +73,6 @@ postgres_data/
 
 # Python (payment microservice)
 ms_payments/.venv/
+ms_payments/.pytest_cache/
 __pycache__/
 *.py[cod] 

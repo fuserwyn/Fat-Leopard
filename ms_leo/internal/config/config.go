@@ -20,8 +20,8 @@ type Config struct {
 
 	// Платный доступ в группу (Telegram Payments + заявки на вступление).
 	// Принципы: бот — админ группы с правом одобрять заявки; группа с включёнными заявками;
-	// либо PAYMENT_PROVIDER_TOKEN (провайдер в @BotFather), либо PAYMENT_CURRENCY=XTR (Telegram Stars, provider_token пустой);
-	// сумма и валюта сверяются в pre_checkout и successful_payment.
+	// PAYMENT_PROVIDER_TOKEN (карта в Telegram), опционально PAYMENT_STARS_ENABLED + сумма звёзд (дополнительно к RUB/ЮKassa),
+	// либо только PAYMENT_CURRENCY=XTR (устаревший режим «только звёзды»).
 	PaywallEnabled          bool
 	MonetizedChatID         int64  // ID группы (например -100...)
 	MonetizedChatInviteURL  string // Запасная ссылка; лучше оставить пустой — бот создаст ссылку через API (нужны права админа в группе)
@@ -32,6 +32,9 @@ type Config struct {
 	PaymentAmountMinorUnits int    // копейки для RUB; для XTR — число звёзд (см. PAYMENT_AMOUNT_STARS / PAYMENT_AMOUNT_MINOR_UNITS)
 	PaymentInvoiceTitle     string
 	PaymentInvoiceDesc      string
+	// Доп. счёт Telegram Stars при PAYMENT_CURRENCY≠XTR (например RUB + ЮKassa и параллельно звёзды).
+	PaymentStarsEnabled bool
+	PaymentStarsAmount  int
 
 	// ЮKassa (оплата по ссылке); вебхук — отдельный сервис ms_payments (docker-compose payment-webhook).
 	YookassaShopID           string
@@ -76,6 +79,9 @@ func Load() (*Config, error) {
 		inviteJoinReq = false
 	}
 
+	starsAddonEnabled := parseEnvBool(getEnv("PAYMENT_STARS_ENABLED", "false"))
+	starsAddonAmount := paymentStarsAddonAmountFromEnv(starsAddonEnabled)
+
 	return &Config{
 		APIToken:           apiToken,
 		OwnerID:            ownerID,
@@ -94,6 +100,8 @@ func Load() (*Config, error) {
 		PaymentAmountMinorUnits: amountMinor,
 		PaymentInvoiceTitle:     getEnv("PAYMENT_INVOICE_TITLE", "Доступ в группу"),
 		PaymentInvoiceDesc:      getEnv("PAYMENT_INVOICE_DESCRIPTION", "Разовый доступ после оплаты заявка будет одобрена автоматически."),
+		PaymentStarsEnabled:     starsAddonEnabled,
+		PaymentStarsAmount:      starsAddonAmount,
 
 		YookassaShopID:          strings.TrimSpace(getEnv("YOOKASSA_SHOP_ID", "")),
 		YookassaSecretKey:       strings.TrimSpace(getEnv("YOOKASSA_SECRET_KEY", "")),
@@ -102,28 +110,58 @@ func Load() (*Config, error) {
 	}, nil
 }
 
-// PaywallUsesStars — цифровой товар в Telegram Stars (XTR), provider_token пустой, см. core.telegram.org/bots/payments-stars.
+// PaywallUsesStars — счёт в Telegram Stars (XTR): режим PAYMENT_CURRENCY=XTR или доп. PAYMENT_STARS_ENABLED.
 func (c *Config) PaywallUsesStars() bool {
-	return c.PaymentCurrency == "XTR"
+	if c.PaymentCurrency == "XTR" && c.PaymentAmountMinorUnits > 0 {
+		return true
+	}
+	return c.PaymentStarsEnabled && c.PaymentStarsAmount > 0
 }
 
-// PaywallPaymentReady — можно выставить счёт: Telegram (карта через провайдера, или Stars), либо ЮKassa.
+// PaywallStarsInvoiceAmount — число звёзд в sendInvoice для XTR.
+func (c *Config) PaywallStarsInvoiceAmount() int {
+	if c.PaymentCurrency == "XTR" {
+		return c.PaymentAmountMinorUnits
+	}
+	if c.PaymentStarsEnabled {
+		return c.PaymentStarsAmount
+	}
+	return 0
+}
+
+// PaywallUsesTelegramProviderInvoice — sendInvoice с PAYMENT_PROVIDER_TOKEN (не XTR-only режим).
+func (c *Config) PaywallUsesTelegramProviderInvoice() bool {
+	if c.PaymentCurrency == "XTR" {
+		return false
+	}
+	return strings.TrimSpace(c.PaymentProviderToken) != ""
+}
+
+// PaywallYookassaReady — ЮKassa по сумме в PAYMENT_CURRENCY / PAYMENT_AMOUNT_* (не совмещается с режимом только XTR).
+func (c *Config) PaywallYookassaReady() bool {
+	if c.YookassaShopID == "" || c.YookassaSecretKey == "" {
+		return false
+	}
+	if c.PaymentCurrency == "XTR" {
+		return false
+	}
+	return c.PaymentAmountMinorUnits > 0
+}
+
+// PaywallPaymentReady — хотя бы один способ: звёзды, провайдер Telegram, ЮKassa.
 func (c *Config) PaywallPaymentReady() bool {
-	if c.PaywallUsesStars() && c.PaymentAmountMinorUnits > 0 {
-		return true
-	}
-	if strings.TrimSpace(c.PaymentProviderToken) != "" {
-		return true
-	}
-	return c.YookassaShopID != "" && c.YookassaSecretKey != ""
-}
-
-// PaywallUsesTelegramInvoice — счёт sendInvoice в Telegram (RUB и др. с токеном, или XTR без токена).
-func (c *Config) PaywallUsesTelegramInvoice() bool {
 	if c.PaywallUsesStars() {
 		return true
 	}
-	return strings.TrimSpace(c.PaymentProviderToken) != ""
+	if c.PaywallUsesTelegramProviderInvoice() {
+		return true
+	}
+	return c.PaywallYookassaReady()
+}
+
+// PaywallUsesTelegramInvoice — любой sendInvoice (звёзды и/или провайдер).
+func (c *Config) PaywallUsesTelegramInvoice() bool {
+	return c.PaywallUsesStars() || c.PaywallUsesTelegramProviderInvoice()
 }
 
 func getEnv(key, defaultValue string) string {
@@ -131,6 +169,35 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+func parseEnvBool(s string) bool {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "true", "1", "yes":
+		return true
+	default:
+		return false
+	}
+}
+
+// paymentStarsAddonAmountFromEnv: PAYMENT_STARS_AMOUNT или PAYMENT_AMOUNT_STARS (только если флаг включён).
+func paymentStarsAddonAmountFromEnv(starsEnabled bool) int {
+	if !starsEnabled {
+		return 0
+	}
+	raw := strings.TrimSpace(os.Getenv("PAYMENT_STARS_AMOUNT"))
+	if raw != "" {
+		if v, err := strconv.Atoi(raw); err == nil && v > 0 {
+			return v
+		}
+	}
+	raw2 := strings.TrimSpace(os.Getenv("PAYMENT_AMOUNT_STARS"))
+	if raw2 != "" {
+		if v, err := strconv.Atoi(raw2); err == nil && v > 0 {
+			return v
+		}
+	}
+	return 0
 }
 
 // paymentAmountMinorFromEnv: для RUB — PAYMENT_AMOUNT_RUB перекрывает копейки; для XTR — PAYMENT_AMOUNT_STARS или целое в PAYMENT_AMOUNT_MINOR_UNITS.

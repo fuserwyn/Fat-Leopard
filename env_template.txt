@@ -48,23 +48,29 @@ SCAN_HISTORY_ON_START=false
 # MONETIZED_CHAT_INVITE_URL=   # опционально: запасная ссылка, если createChatInviteLink недоступен (иначе ссылка создаётся ботом и не протухает)
 # MONETIZED_INVITE_CREATES_JOIN_REQUEST=true   # false — если в группе обычный вход без заявок (по умолчанию true = ссылка «на заявку»)
 #
-# Способ оплаты для пользователей — выбери один (или Telegram, или ЮKassa):
+# Способы оплаты (можно комбинировать): пользователю хватит оплатить ОДНИМ из включённых.
 #
-# A) Оплата в Telegram: токен провайдера из @BotFather → счёт с кнопкой «Оплатить» в чате
-# PAYMENT_PROVIDER_TOKEN=...
+# A) ЮKassa (карта, ссылка в ЛС) — задай RUB/сумму и ключи:
 # PAYMENT_CURRENCY=RUB
 # PAYMENT_AMOUNT_RUB=100
-# (для RUB удобнее рубли; копейки можно так: 99.90. Если задано — перекрывает PAYMENT_AMOUNT_MINOR_UNITS)
 # PAYMENT_AMOUNT_MINOR_UNITS=10000
-#
-# A2) Оплата Telegram Stars (звёзды зачисляются боту; provider_token пустой, см. core.telegram.org/bots/payments-stars)
-# PAYMENT_CURRENCY=XTR
-# PAYMENT_AMOUNT_STARS=100
-# (или PAYMENT_AMOUNT_MINOR_UNITS — целое число звёзд; если оба пусты при XTR, по умолчанию 100)
-#
-# B) Оплата картой ЮKassa: бот сам создаёт платёж и шлёт ссылку; нужен публичный вебхук (сервис ms_payments / docker-compose payment-webhook).
 # YOOKASSA_SHOP_ID=...
 # YOOKASSA_SECRET_KEY=...
+#
+# B) Дополнительно Telegram Stars параллельно с RUB+ЮKassa (не ставь PAYMENT_CURRENCY=XTR — он только «только звёзды»):
+# PAYMENT_STARS_ENABLED=true
+# PAYMENT_STARS_AMOUNT=100
+# (если PAYMENT_STARS_AMOUNT пусто — можно PAYMENT_AMOUNT_STARS при включённом флаге)
+#
+# C) Оплата в Telegram картой через провайдера @BotFather (отдельно или вместе со звёздами/ЮKassa):
+# PAYMENT_PROVIDER_TOKEN=...
+# PAYMENT_CURRENCY=RUB
+#
+# D) Только звёзды (устаревший одиночный режим, без ЮKassa в этой валюте):
+# PAYMENT_CURRENCY=XTR
+# PAYMENT_AMOUNT_STARS=100
+#
+# E) Вебхук ЮKassa (ms_payments): бот создаёт платёж и шлёт ссылку; для автозачёта нужен POST на сервис вебхука.
 # Прямой URL вебхука для каждого платежа (API ЮKassa notification_url). Надёжнее, чем только ЛК:
 # YOOKASSA_NOTIFICATION_URL=https://<публичный-ms_payments>/api/v1/webhook/payment
 # Если вебхук не доходит: после оплаты нажми /start — бот опрашивает GET /v3/payments/{id} (нужен yookassa_payment_id в БД, пишется при новой ссылке).
