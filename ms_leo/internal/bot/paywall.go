@@ -75,12 +75,14 @@ func paywallInvoiceShortHintForUser(err error) string {
 		return "Счёт в Telegram сейчас недоступен. Попробуй другой способ кнопкой ниже."
 	case strings.Contains(m, "currency_invalid"), strings.Contains(m, "currency_total_amount_invalid"):
 		return "Платёж не прошёл проверку. Нажми /start и запроси счёт снова."
+	case strings.Contains(m, "invoice_payload_invalid"), strings.Contains(m, "invoice_invalid"):
+		return "Счёт отклонён Telegram. Обнови приложение или попробуй оплату картой (вторая кнопка)."
 	case tgErr.Code == 403 || strings.Contains(m, "blocked"):
 		return "Разблокируй бота: ⋮ в чате → Разблокировать."
 	case strings.Contains(m, "chat not found") || strings.Contains(m, "user is deactivated"):
 		return "Напиши боту любое сообщение в личке и снова нажми кнопку."
 	default:
-		return "Не вышло отправить счёт. Попробуй другой способ оплаты или /start позже."
+		return "Не вышло отправить счёт. Попробуй оплату картой (вторая кнопка) или /start позже."
 	}
 }
 
@@ -177,18 +179,31 @@ func (b *Bot) paywallPrivateUnpaidUserText() string {
 	if b.config.PaywallUsesStars() {
 		priceRub += fmt.Sprintf(" Звёзды Telegram: %d ⭐.", b.config.PaywallStarsInvoiceAmount())
 	}
-	if b.config.PaywallYookassaReady() || b.config.PaywallUsesTelegramProviderInvoice() {
-		if b.config.PaymentCurrency == "RUB" && b.config.PaymentAmountMinorUnits > 0 {
-			rub := b.config.PaymentAmountMinorUnits / 100
-			kop := b.config.PaymentAmountMinorUnits % 100
+	if b.config.PaywallYookassaReady() {
+		yk := b.config.YookassaAmountMinor
+		yc := b.config.YookassaCurrency
+		if yc == "RUB" && yk > 0 {
+			rub := yk / 100
+			kop := yk % 100
 			if kop == 0 {
-				priceRub += fmt.Sprintf(" Карта (Telegram/ЮKassa): %d ₽.", rub)
+				priceRub += fmt.Sprintf(" Карта (ЮKassa): %d ₽.", rub)
 			} else {
-				priceRub += fmt.Sprintf(" Карта (Telegram/ЮKassa): %d,%02d ₽.", rub, kop)
+				priceRub += fmt.Sprintf(" Карта (ЮKassa): %d,%02d ₽.", rub, kop)
 			}
-		} else if b.config.PaymentAmountMinorUnits > 0 && b.config.PaymentCurrency != "" && b.config.PaymentCurrency != "XTR" {
-			priceRub += fmt.Sprintf(" Сумма для карты: %d мин. ед. %s.", b.config.PaymentAmountMinorUnits, b.config.PaymentCurrency)
+		} else if yk > 0 && yc != "" {
+			priceRub += fmt.Sprintf(" Карта (ЮKassa): %d мин. ед. %s.", yk, yc)
 		}
+	}
+	if b.config.PaywallUsesTelegramProviderInvoice() && b.config.PaymentCurrency == "RUB" && b.config.PaymentAmountMinorUnits > 0 {
+		rub := b.config.PaymentAmountMinorUnits / 100
+		kop := b.config.PaymentAmountMinorUnits % 100
+		if kop == 0 {
+			priceRub += fmt.Sprintf(" Карта (Telegram): %d ₽.", rub)
+		} else {
+			priceRub += fmt.Sprintf(" Карта (Telegram): %d,%02d ₽.", rub, kop)
+		}
+	} else if b.config.PaywallUsesTelegramProviderInvoice() && b.config.PaymentAmountMinorUnits > 0 && b.config.PaymentCurrency != "" && b.config.PaymentCurrency != "XTR" {
+		priceRub += fmt.Sprintf(" Карта (Telegram): %d мин. ед. %s.", b.config.PaymentAmountMinorUnits, b.config.PaymentCurrency)
 	}
 
 	if !b.config.PaywallPaymentReady() {
@@ -224,7 +239,7 @@ func (b *Bot) paywallUnpaidInlineKeyboard() *tgbotapi.InlineKeyboardMarkup {
 	}
 	if b.config.PaywallYookassaReady() {
 		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("💳 Оплатить картой (ЮKassa)", paywallCallbackPayYookassa),
+			tgbotapi.NewInlineKeyboardButtonData("💳 Карта — ссылка ЮKassa", paywallCallbackPayYookassa),
 		))
 	}
 	if b.config.PaywallUsesTelegramProviderInvoice() {
@@ -315,6 +330,30 @@ func (b *Bot) paywallSendPaymentOffers(userID, reqID int64) {
 }
 
 // SendPaywallStarsInvoice — XTR, provider_token пустой; payload pw_<reqID>.
+func paywallInvoiceClipTitle(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return "Доступ"
+	}
+	r := []rune(s)
+	if len(r) > 32 {
+		return string(r[:32])
+	}
+	return s
+}
+
+func paywallInvoiceClipDescription(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return "Оплата доступа"
+	}
+	r := []rune(s)
+	if len(r) > 255 {
+		return string(r[:255])
+	}
+	return s
+}
+
 func (b *Bot) SendPaywallStarsInvoice(userID, reqID int64) error {
 	if !b.config.PaywallUsesStars() {
 		return fmt.Errorf("stars payment not configured")
@@ -327,8 +366,8 @@ func (b *Bot) SendPaywallStarsInvoice(userID, reqID int64) error {
 	prices := []tgbotapi.LabeledPrice{{Label: "Доступ", Amount: amt}}
 	inv := tgbotapi.NewInvoice(
 		userID,
-		b.config.PaymentInvoiceTitle,
-		b.config.PaymentInvoiceDesc,
+		paywallInvoiceClipTitle(b.config.PaymentInvoiceTitle),
+		paywallInvoiceClipDescription(b.config.PaymentInvoiceDesc),
 		payload,
 		"",
 		"",
@@ -349,8 +388,8 @@ func (b *Bot) SendPaywallProviderInvoice(userID, reqID int64) error {
 	prices := []tgbotapi.LabeledPrice{{Label: "Доступ", Amount: b.config.PaymentAmountMinorUnits}}
 	inv := tgbotapi.NewInvoice(
 		userID,
-		b.config.PaymentInvoiceTitle,
-		b.config.PaymentInvoiceDesc,
+		paywallInvoiceClipTitle(b.config.PaymentInvoiceTitle),
+		paywallInvoiceClipDescription(b.config.PaymentInvoiceDesc),
 		payload,
 		tok,
 		"",
@@ -377,8 +416,8 @@ func (b *Bot) SendYookassaPaymentLink(userID, reqID int64) error {
 	paymentID, confirmURL, err := yookassa.CreatePayment(
 		b.config.YookassaShopID,
 		b.config.YookassaSecretKey,
-		b.config.PaymentAmountMinorUnits,
-		b.config.PaymentCurrency,
+		b.config.YookassaAmountMinor,
+		b.config.YookassaCurrency,
 		b.config.PaymentInvoiceDesc,
 		returnURL,
 		b.config.YookassaNotificationURL,
@@ -621,8 +660,8 @@ func (b *Bot) paywallTrySyncYookassaPayment(userID int64) bool {
 	amountMinor := info.AmountMinor
 	cur := info.Currency
 	if amountMinor <= 0 || cur == "" {
-		amountMinor = b.config.PaymentAmountMinorUnits
-		cur = b.config.PaymentCurrency
+		amountMinor = b.config.YookassaAmountMinor
+		cur = b.config.YookassaCurrency
 	}
 	if cur == "" {
 		cur = "RUB"

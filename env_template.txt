@@ -57,7 +57,7 @@ SCAN_HISTORY_ON_START=false
 # YOOKASSA_SHOP_ID=...
 # YOOKASSA_SECRET_KEY=...
 #
-# B) Дополнительно Telegram Stars параллельно с RUB+ЮKassa (не ставь PAYMENT_CURRENCY=XTR — он только «только звёзды»):
+# B) Дополнительно Telegram Stars при PAYMENT_CURRENCY=RUB + ЮKassa (рекомендуемый «два способа» без XTR):
 # PAYMENT_STARS_ENABLED=true
 # PAYMENT_STARS_AMOUNT=100
 # (если PAYMENT_STARS_AMOUNT пусто — можно PAYMENT_AMOUNT_STARS при включённом флаге)
@@ -66,9 +66,12 @@ SCAN_HISTORY_ON_START=false
 # PAYMENT_PROVIDER_TOKEN=...
 # PAYMENT_CURRENCY=RUB
 #
-# D) Только звёзды (устаревший одиночный режим, без ЮKassa в этой валюте):
+# D) Звёзды (XTR) и одновременно ЮKassa в рублях — задай сумму карты отдельно (основная PAYMENT_CURRENCY=XTR не задаёт рубли для ЮKassa):
 # PAYMENT_CURRENCY=XTR
 # PAYMENT_AMOUNT_STARS=100
+# PAYMENT_AMOUNT_RUB=100
+# (или PAYMENT_YOOKASSA_AMOUNT_RUB / PAYMENT_YOOKASSA_AMOUNT_MINOR_UNITS — только для ЮKassa)
+# + YOOKASSA_SHOP_ID / YOOKASSA_SECRET_KEY — тогда в боте две кнопки: звёзды и ссылка ЮKassa.
 #
 # E) Вебхук ЮKassa (ms_payments): бот создаёт платёж и шлёт ссылку; для автозачёта нужен POST на сервис вебхука.
 # Прямой URL вебхука для каждого платежа (API ЮKassa notification_url). Надёжнее, чем только ЛК:

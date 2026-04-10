@@ -129,7 +129,7 @@ func TestConfig_PaywallPaymentReady(t *testing.T) {
 		{"xtr amount", Config{PaymentCurrency: "XTR", PaymentAmountMinorUnits: 1}, true},
 		{"xtr zero amount", Config{PaymentCurrency: "XTR", PaymentAmountMinorUnits: 0}, false},
 		{"token", Config{PaymentCurrency: "RUB", PaymentProviderToken: "tok"}, true},
-		{"yookassa", Config{PaymentCurrency: "RUB", PaymentAmountMinorUnits: 100, YookassaShopID: "s", YookassaSecretKey: "k"}, true},
+		{"yookassa", Config{PaymentCurrency: "RUB", PaymentAmountMinorUnits: 100, YookassaShopID: "s", YookassaSecretKey: "k", YookassaAmountMinor: 100, YookassaCurrency: "RUB"}, true},
 		{"stars addon", Config{PaymentCurrency: "RUB", PaymentStarsEnabled: true, PaymentStarsAmount: 10}, true},
 		{"nothing", Config{}, false},
 	}
@@ -159,6 +159,16 @@ func TestConfig_PaywallUsesTelegramInvoice(t *testing.T) {
 				t.Fatalf("PaywallUsesTelegramInvoice() = %v, want %v", g, tc.want)
 			}
 		})
+	}
+}
+
+func TestYookassaAmountWithXTR(t *testing.T) {
+	t.Setenv("PAYMENT_YOOKASSA_AMOUNT_RUB", "")
+	t.Setenv("PAYMENT_AMOUNT_RUB", "250")
+	t.Setenv("PAYMENT_YOOKASSA_AMOUNT_MINOR_UNITS", "")
+	minor, cur := yookassaAmountAndCurrencyFromEnv("XTR", 100)
+	if minor != 25000 || cur != "RUB" {
+		t.Fatalf("got %d %s want 25000 RUB", minor, cur)
 	}
 }
 

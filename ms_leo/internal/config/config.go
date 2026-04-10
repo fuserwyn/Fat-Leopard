@@ -37,10 +37,13 @@ type Config struct {
 	PaymentStarsAmount  int
 
 	// ЮKassa (оплата по ссылке); вебхук — отдельный сервис ms_payments (docker-compose payment-webhook).
-	YookassaShopID           string
-	YookassaSecretKey        string
-	YookassaReturnURL        string // redirect после оплаты, https (например приглашение в группу или t.me)
-	YookassaNotificationURL  string // POST payment.succeeded на этот URL (лучше задать = публичный URL ms_payments …/api/v1/webhook/payment)
+	YookassaShopID          string
+	YookassaSecretKey       string
+	YookassaReturnURL       string // redirect после оплаты, https (например приглашение в группу или t.me)
+	YookassaNotificationURL string // POST payment.succeeded на этот URL (лучше задать = публичный URL ms_payments …/api/v1/webhook/payment)
+	// Сумма/валюта для CreatePayment (при PAYMENT_CURRENCY=XTR — в рублях из PAYMENT_AMOUNT_RUB / PAYMENT_YOOKASSA_*).
+	YookassaAmountMinor int
+	YookassaCurrency    string
 }
 
 func Load() (*Config, error) {
@@ -81,6 +84,7 @@ func Load() (*Config, error) {
 
 	starsAddonEnabled := parseEnvBool(getEnv("PAYMENT_STARS_ENABLED", "false"))
 	starsAddonAmount := paymentStarsAddonAmountFromEnv(starsAddonEnabled)
+	ykMinor, ykCur := yookassaAmountAndCurrencyFromEnv(currency, amountMinor)
 
 	return &Config{
 		APIToken:           apiToken,
@@ -107,6 +111,8 @@ func Load() (*Config, error) {
 		YookassaSecretKey:       strings.TrimSpace(getEnv("YOOKASSA_SECRET_KEY", "")),
 		YookassaReturnURL:       ykReturn,
 		YookassaNotificationURL: strings.TrimSpace(getEnv("YOOKASSA_NOTIFICATION_URL", "")),
+		YookassaAmountMinor:     ykMinor,
+		YookassaCurrency:        ykCur,
 	}, nil
 }
 
@@ -137,15 +143,12 @@ func (c *Config) PaywallUsesTelegramProviderInvoice() bool {
 	return strings.TrimSpace(c.PaymentProviderToken) != ""
 }
 
-// PaywallYookassaReady — ЮKassa по сумме в PAYMENT_CURRENCY / PAYMENT_AMOUNT_* (не совмещается с режимом только XTR).
+// PaywallYookassaReady — ЮKassa: заданы ключи и положительная сумма (для XTR — в рублях, см. PAYMENT_AMOUNT_RUB / PAYMENT_YOOKASSA_*).
 func (c *Config) PaywallYookassaReady() bool {
 	if c.YookassaShopID == "" || c.YookassaSecretKey == "" {
 		return false
 	}
-	if c.PaymentCurrency == "XTR" {
-		return false
-	}
-	return c.PaymentAmountMinorUnits > 0
+	return c.YookassaAmountMinor > 0 && c.YookassaCurrency != ""
 }
 
 // PaywallPaymentReady — хотя бы один способ: звёзды, провайдер Telegram, ЮKassa.
@@ -234,4 +237,35 @@ func paymentAmountMinorFromEnv(currency string) int {
 		return 10000
 	}
 	return amountMinor
+}
+
+// yookassaAmountAndCurrencyFromEnv: для RUB/USD и т.д. — как основной платёж; для XTR — только рублевая сумма (звёзды в другом поле).
+func yookassaAmountAndCurrencyFromEnv(paymentCurrency string, paymentAmountMinor int) (minor int, currency string) {
+	cur := strings.TrimSpace(strings.ToUpper(paymentCurrency))
+	if cur != "XTR" {
+		if paymentAmountMinor <= 0 {
+			return 0, ""
+		}
+		if cur == "" {
+			cur = "RUB"
+		}
+		return paymentAmountMinor, cur
+	}
+	// XTR + ЮKassa в RUB
+	if raw := strings.TrimSpace(os.Getenv("PAYMENT_YOOKASSA_AMOUNT_RUB")); raw != "" {
+		s := strings.ReplaceAll(strings.ReplaceAll(raw, ",", "."), " ", "")
+		if v, err := strconv.ParseFloat(s, 64); err == nil && v > 0 {
+			return int(math.Round(v * 100)), "RUB"
+		}
+	}
+	if raw := strings.TrimSpace(os.Getenv("PAYMENT_AMOUNT_RUB")); raw != "" {
+		s := strings.ReplaceAll(strings.ReplaceAll(raw, ",", "."), " ", "")
+		if v, err := strconv.ParseFloat(s, 64); err == nil && v > 0 {
+			return int(math.Round(v * 100)), "RUB"
+		}
+	}
+	if n, _ := strconv.Atoi(strings.TrimSpace(os.Getenv("PAYMENT_YOOKASSA_AMOUNT_MINOR_UNITS"))); n > 0 {
+		return n, "RUB"
+	}
+	return 0, ""
 }
