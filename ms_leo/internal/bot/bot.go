@@ -61,7 +61,7 @@ func New(cfg *config.Config, db *database.Database, log logger.Logger) (*Bot, er
 	// Создаем клиент OpenRouter для ИИ
 	var aiClient *ai.OpenRouterClient
 	if cfg.OpenRouterAPIKey != "" {
-		aiClient = ai.NewOpenRouterClient(cfg.OpenRouterAPIKey, cfg.OpenRouterModel, log)
+		aiClient = ai.NewOpenRouterClient(cfg.OpenRouterAPIKey, cfg.OpenRouterModel, cfg.Prompts, log)
 		log.Infof("OpenRouter AI client initialized with model: %s", cfg.OpenRouterModel)
 	} else {
 		log.Warn("OpenRouter API key not provided, AI features will be disabled")
@@ -3887,9 +3887,9 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 	}
 
 	if chatType == "writing" {
-		finalQuestion += "\n\nВАЖНО: Это чат для писательства. Ты мудрый литературный наставник Fat Leopard. Используй весь контекст переписки из этого чата для понимания темы и сюжета. Отвечай в контексте писательства, поддерживай обсуждение литературных тем, помогай с развитием сюжета, персонажей и стиля. Не переходи на темы тренировок, если об этом явно не спрашивают."
+		finalQuestion += "\n\n" + b.config.Prompts.WritingChatSuffix
 	} else {
-		finalQuestion += "\n\nОТВЕЧАЙ СТРОГО ПО СУТИ ВОПРОСА ПОЛЬЗОВАТЕЛЯ. СНАЧАЛА ДАЙ ПОЛНЫЙ, ПОДРОБНЫЙ ОТВЕТ ПО ВОПРОСУ. ЕСЛИ ВОПРОС НЕ ПРО ТРЕНИРОВКИ ИЛИ БОЛЬНИЧНЫЙ, НЕ ПЕРЕХОДИ К ЭТИМ ТЕМАМ БЕЗ ЯВНОГО ЗАПРОСА И НЕ ВЫПОЛНЯЙ НЕПРОСИМЫЕ ПРЕДУПРЕЖДЕНИЯ. ЛЮБЫЕ МОТИВИРУЮЩИЕ ДОПОЛНЕНИЯ МОЖНО ДАВАТЬ ТОЛЬКО В КОНЦЕ И ТОЛЬКО ЕСЛИ ОНИ ПОДЧЕРКИВАЮТ СУТЬ ОТВЕТА."
+		finalQuestion += "\n\n" + b.config.Prompts.TrainingChatSuffix
 	}
 
 	answer, err := b.aiClient.AnswerUserQuestion(finalQuestion, contextText.String())

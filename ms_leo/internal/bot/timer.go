@@ -255,7 +255,7 @@ func (b *Bot) sendWarning(userID, chatID int64, username string) {
 			ctxBuilder.WriteString(fmt.Sprintf("Кубков всего: %d\n", cups))
 		}
 
-		question := "Сделай очень короткую (1–2 предложения) приписку к предупреждению: строго, но дружелюбно, мотивируй не лениться и напомни, что я 'ем' только ленивых. Добавь легкий юмор про то, что если не будет тренироваться, станет обедом. Не повторяй цифры и факты из текста. Без Markdown."
+		question := b.config.Prompts.WarningTimerQuestion
 		if addendum, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
 			addendum = strings.TrimSpace(strings.ReplaceAll(addendum, "**", ""))
 			if addendum != "" {
@@ -319,7 +319,7 @@ func (b *Bot) sendCriticalWarning(userID, chatID int64, username string) {
 			ctxBuilder.WriteString("Осталось 3 часа до удаления. Леопард уже готовит, расставляет тарелки.\n")
 		}
 
-		question := "Сделай очень короткую (1 предложение) приписку к КРИТИЧЕСКОМУ предупреждению: я Fat Leopard, уже готовлюсь к обеду, расставляю тарелки, скоро буду есть. Строго и с юмором — пользователь станет обедом через 3 часа, если не отправит #training_done. Срочно! Без Markdown."
+		question := b.config.Prompts.CriticalTimerQuestion
 		if addendum, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
 			addendum = strings.TrimSpace(strings.ReplaceAll(addendum, "**", ""))
 			if addendum != "" {

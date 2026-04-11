@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/joho/godotenv"
+
+	"leo-bot/internal/prompts"
 )
 
 type Config struct {
@@ -22,16 +24,16 @@ type Config struct {
 	// Принципы: бот — админ группы с правом одобрять заявки; группа с включёнными заявками;
 	// PAYMENT_PROVIDER_TOKEN (карта в Telegram), опционально PAYMENT_STARS_ENABLED + сумма звёзд (дополнительно к RUB/ЮKassa),
 	// либо только PAYMENT_CURRENCY=XTR (устаревший режим «только звёзды»).
-	PaywallEnabled          bool
-	MonetizedChatID         int64  // ID группы (например -100...)
-	MonetizedChatInviteURL  string // Запасная ссылка; лучше оставить пустой — бот создаст ссылку через API (нужны права админа в группе)
+	PaywallEnabled         bool
+	MonetizedChatID        int64  // ID группы (например -100...)
+	MonetizedChatInviteURL string // Запасная ссылка; лучше оставить пустой — бот создаст ссылку через API (нужны права админа в группе)
 	// По API createChatInviteLink: true = ссылка с заявкой на вступление (как «подать заявку»), false = обычное вступление.
 	PaywallInviteCreatesJoinRequest bool
-	PaymentProviderToken    string // токен провайдера из BotFather (не коммитить в git)
-	PaymentCurrency         string // RUB и др. ISO 4217, либо XTR (Telegram Stars: 1 единица = 1 звезда)
-	PaymentAmountMinorUnits int    // копейки для RUB; для XTR — число звёзд (см. PAYMENT_AMOUNT_STARS / PAYMENT_AMOUNT_MINOR_UNITS)
-	PaymentInvoiceTitle     string
-	PaymentInvoiceDesc      string
+	PaymentProviderToken            string // токен провайдера из BotFather (не коммитить в git)
+	PaymentCurrency                 string // RUB и др. ISO 4217, либо XTR (Telegram Stars: 1 единица = 1 звезда)
+	PaymentAmountMinorUnits         int    // копейки для RUB; для XTR — число звёзд (см. PAYMENT_AMOUNT_STARS / PAYMENT_AMOUNT_MINOR_UNITS)
+	PaymentInvoiceTitle             string
+	PaymentInvoiceDesc              string
 	// Доп. счёт Telegram Stars при PAYMENT_CURRENCY≠XTR (например RUB + ЮKassa и параллельно звёзды).
 	PaymentStarsEnabled bool
 	PaymentStarsAmount  int
@@ -44,6 +46,9 @@ type Config struct {
 	// Сумма/валюта для CreatePayment (при PAYMENT_CURRENCY=XTR — в рублях из PAYMENT_AMOUNT_RUB / PAYMENT_YOOKASSA_*).
 	YookassaAmountMinor int
 	YookassaCurrency    string
+
+	// Prompts — промпты Fat Leopard (встроенные по умолчанию; переопределение через PROMPT_* в .env).
+	Prompts prompts.Bundle
 }
 
 func Load() (*Config, error) {
@@ -94,18 +99,19 @@ func Load() (*Config, error) {
 		OpenRouterAPIKey:   getEnv("OPENROUTER_API_KEY", ""),
 		OpenRouterModel:    getEnv("OPENROUTER_MODEL", "deepseek/deepseek-chat"),
 		ScanHistoryOnStart: scanHistoryOnStart,
+		Prompts:            prompts.BundleFromEnv(),
 
 		PaywallEnabled:                  paywallEnabled,
 		MonetizedChatID:                 monetizedChatID,
 		MonetizedChatInviteURL:          strings.TrimSpace(getEnv("MONETIZED_CHAT_INVITE_URL", "")),
 		PaywallInviteCreatesJoinRequest: inviteJoinReq,
-		PaymentProviderToken:    getEnv("PAYMENT_PROVIDER_TOKEN", ""),
-		PaymentCurrency:         currency,
-		PaymentAmountMinorUnits: amountMinor,
-		PaymentInvoiceTitle:     getEnv("PAYMENT_INVOICE_TITLE", "Доступ в группу"),
-		PaymentInvoiceDesc:      getEnv("PAYMENT_INVOICE_DESCRIPTION", "Разовый доступ после оплаты заявка будет одобрена автоматически."),
-		PaymentStarsEnabled:     starsAddonEnabled,
-		PaymentStarsAmount:      starsAddonAmount,
+		PaymentProviderToken:            getEnv("PAYMENT_PROVIDER_TOKEN", ""),
+		PaymentCurrency:                 currency,
+		PaymentAmountMinorUnits:         amountMinor,
+		PaymentInvoiceTitle:             getEnv("PAYMENT_INVOICE_TITLE", "Доступ в группу"),
+		PaymentInvoiceDesc:              getEnv("PAYMENT_INVOICE_DESCRIPTION", "Разовый доступ после оплаты заявка будет одобрена автоматически."),
+		PaymentStarsEnabled:             starsAddonEnabled,
+		PaymentStarsAmount:              starsAddonAmount,
 
 		YookassaShopID:          strings.TrimSpace(getEnv("YOOKASSA_SHOP_ID", "")),
 		YookassaSecretKey:       strings.TrimSpace(getEnv("YOOKASSA_SECRET_KEY", "")),

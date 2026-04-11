@@ -36,6 +36,22 @@ OPENROUTER_API_KEY=your_openrouter_api_key_here
 # Список моделей: https://openrouter.ai/models
 OPENROUTER_MODEL=deepseek/deepseek-r1-0528
 
+# --- Промпты Fat Leopard (опционально) ---
+# По умолчанию используются встроенные тексты из ms_leo/internal/prompts/data/*.txt
+# Чтобы переопределить, задайте переменную (многострочное значение: используйте \n в одной строке).
+#
+# PROMPT_DAILY_SUMMARY=
+# PROMPT_MONTHLY_SUMMARY=
+# PROMPT_ANSWER_USER_QUESTION=
+# PROMPT_DAILY_WISDOM_WRITING=
+# PROMPT_DAILY_WISDOM_TRAINING=
+# PROMPT_DAILY_WISDOM_LANG_RULE=
+# PROMPT_DAILY_WISDOM_USER_TEMPLATE=   # два плейсхолдера %s: дата, тема дня
+# PROMPT_WRITING_CHAT_SUFFIX=
+# PROMPT_TRAINING_CHAT_SUFFIX=
+# PROMPT_WARNING_TIMER_QUESTION=      # ИИ-приписка к предупреждению (6 дней без отчёта)
+# PROMPT_CRITICAL_TIMER_QUESTION=     # ИИ-приписка к критическому предупреждению (3 часа до удаления)
+
 # Сканирование истории при старте (true/false, по умолчанию false)
 # Если true - бот попытается просканировать доступную историю сообщений при первом запуске (если БД пустая)
 # Если false - сканирование не запускается, новые сообщения будут сохраняться автоматически
