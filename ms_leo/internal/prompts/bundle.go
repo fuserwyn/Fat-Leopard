@@ -14,8 +14,10 @@ type Bundle struct {
 	DailyWisdomTraining string
 	DailyWisdomLangRule     string
 	DailyWisdomUserTemplate string
-	TrainingChatSuffix string
-	CriticalTimerQuestion   string
+	TrainingChatSuffix      string
+	// WritingChatSuffix — то же назначение, что TrainingChatSuffix (алиас для совместимости; см. PROMPT_WRITING_CHAT_SUFFIX).
+	WritingChatSuffix     string
+	CriticalTimerQuestion string
 	WarningTimerQuestion    string // предупреждение за 6 дней без отчёта
 }
 
@@ -56,6 +58,7 @@ func DefaultBundle() Bundle {
 		DailyWisdomLangRule:     embeddedDailyWisdomLangRule,
 		DailyWisdomUserTemplate: embeddedDailyWisdomUserTemplate,
 		TrainingChatSuffix:      embeddedTrainingChatSuffix,
+		WritingChatSuffix:       embeddedTrainingChatSuffix,
 		CriticalTimerQuestion:   embeddedCriticalTimerQuestion,
 		WarningTimerQuestion:    embeddedWarningTimerQuestion,
 	}
@@ -84,6 +87,11 @@ func BundleFromEnv() Bundle {
 	}
 	if v := envPrompt("PROMPT_TRAINING_CHAT_SUFFIX"); v != "" {
 		b.TrainingChatSuffix = v
+	}
+	if v := envPrompt("PROMPT_WRITING_CHAT_SUFFIX"); v != "" {
+		b.WritingChatSuffix = v
+	} else {
+		b.WritingChatSuffix = b.TrainingChatSuffix
 	}
 	if v := envPrompt("PROMPT_CRITICAL_TIMER_QUESTION"); v != "" {
 		b.CriticalTimerQuestion = v

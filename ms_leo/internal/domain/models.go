@@ -80,7 +80,7 @@ type UserMessage struct {
 	CreatedAt   time.Time `json:"created_at" db:"created_at"`
 }
 
-// TrainingSession представляет одну зафиксированную тренировочную/писательскую сессию.
+// TrainingSession представляет одну зафиксированную тренировочную сессию.
 type TrainingSession struct {
 	ID            int64     `json:"id" db:"id"`
 	UserID        int64     `json:"user_id" db:"user_id"`

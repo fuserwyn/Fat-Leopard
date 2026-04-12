@@ -492,11 +492,6 @@ func trainingsWordForm(count int) string {
 	return russianPlural(count, "тренировка", "тренировки", "тренировок")
 }
 
-// writingSessionsWordForm — «писательская сессия» / «писательские сессии» / «писательских сессий».
-func writingSessionsWordForm(count int) string {
-	return russianPlural(count, "писательская сессия", "писательские сессии", "писательских сессий")
-}
-
 func cupsWordForm(count int) string {
 	return russianPlural(count, "кубок", "кубка", "кубков")
 }
@@ -787,41 +782,9 @@ func (b *Bot) sendTwoHundredFortyDayCupsReward(msg *tgbotapi.Message, username s
 }
 
 func (b *Bot) sendSuperLevelMessage(msg *tgbotapi.Message, username string, totalCups int, userGender string) {
-	// Определяем тип чата для адаптации текста
-	chatType, err := b.db.GetChatType(msg.Chat.ID)
-	if err != nil {
-		chatType = "training" // По умолчанию
-	}
-
 	forms := b.getGenderForms(userGender)
 
-	var messageText string
-	if chatType == "writing" {
-		messageText = fmt.Sprintf(`🌟⚡️ СУПЕР-УРОВЕНЬ ДОСТИГНУТ! ⚡️🌟
-
-%s, ты %s %d кубков! 
-
-🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆
-🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆
-🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆
-🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆
-🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆
-
-🎊 ВСЕ ОЖИДАНИЯ ПРЕВЗОЙДЕНЫ! 🎊
-
-🦁 Fat Leopard в полном восторге! 
-💪 Ты не просто %s - ты СУПЕР-%s!
-🔥 Твоя сила и мощь безграничны!
-⭐️ Ты вдохновляешь всю стаю!
-👑 Мотивация не верит, что такое бывает!
-🌟 Ты сияешь ярче всех!
-
-🎯 Продолжай писать, супер-леопард!
-
-#super_level #%d_cups #writing_master`,
-			username, forms.Accumulated, totalCups, forms.Champion, strings.ToUpper(forms.Champion), totalCups)
-	} else {
-		messageText = fmt.Sprintf(`🌟⚡️ СУПЕР-УРОВЕНЬ ДОСТИГНУТ! ⚡️🌟
+	messageText := fmt.Sprintf(`🌟⚡️ СУПЕР-УРОВЕНЬ ДОСТИГНУТ! ⚡️🌟
 
 %s, ты %s %d кубков! 
 
@@ -843,8 +806,7 @@ func (b *Bot) sendSuperLevelMessage(msg *tgbotapi.Message, username string, tota
 🎯 Продолжай в том же духе, супер-леопард!
 
 #super_level #%d_cups #motivation_king`,
-			username, forms.Accumulated, totalCups, forms.Champion, strings.ToUpper(forms.Champion), totalCups)
-	}
+		username, forms.Accumulated, totalCups, forms.Champion, strings.ToUpper(forms.Champion), totalCups)
 
 	reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
 	if _, err := b.api.Send(reply); err != nil {

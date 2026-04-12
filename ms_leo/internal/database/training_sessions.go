@@ -6,7 +6,7 @@ import (
 	"leo-bot/internal/utils"
 )
 
-// SaveTrainingSession сохраняет запись о конкретной тренировочной/писательской сессии.
+// SaveTrainingSession сохраняет запись о конкретной тренировочной сессии.
 func (d *Database) SaveTrainingSession(session *domain.TrainingSession) error {
 	query := `
 		INSERT INTO training_sessions (

@@ -691,6 +691,11 @@ func (d *Database) GetChatContext(chatID int64, excludeUserID int64, limit int) 
 	return users, nil
 }
 
+// GetChatWritingContext — устаревшее имя: контекст чата для режима «writing» совпадает с общим контекстом (тип чата унифицирован с training).
+func (d *Database) GetChatWritingContext(chatID int64, excludeUserID int64, limit int) ([]*domain.MessageLog, error) {
+	return d.GetChatContext(chatID, excludeUserID, limit)
+}
+
 // GetChatType получает тип чата; по умолчанию "training". Устаревшее значение writing нормализуется в training.
 func (d *Database) GetChatType(chatID int64) (string, error) {
 	query := `SELECT chat_type FROM chat_types WHERE chat_id = $1`

@@ -11,7 +11,7 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-// handleLeopardMoneyTrainingDone — отчёт #training_done / #writing_done по модели Leopard Money (XP, ачивки, таймер 8 дней).
+// handleLeopardMoneyTrainingDone — отчёт #training_done по модели Leopard Money (XP, ачивки, таймер 8 дней).
 func (b *Bot) handleLeopardMoneyTrainingDone(msg *tgbotapi.Message) {
 	username := ""
 	if msg.From.UserName != "" {
@@ -66,22 +66,6 @@ func (b *Bot) handleLeopardMoneyTrainingDone(msg *tgbotapi.Message) {
 	text := msg.Text
 	if text == "" && msg.Caption != "" {
 		text = msg.Caption
-	}
-	currentType, err := b.db.GetChatType(msg.Chat.ID)
-	if err != nil {
-		currentType = "training"
-	}
-	if currentType != "writing" && b.shouldDetectChatTypeAsWriting(text, msg.Chat.ID) {
-		if err := b.db.SetChatType(msg.Chat.ID, "writing"); err != nil {
-			b.logger.Warnf("Failed to auto-set chat type to writing: %v", err)
-		} else {
-			notification := tgbotapi.NewMessage(msg.Chat.ID, `🦁 Fat Leopard обнаружил контекст писательства в ваших сообщениях!
-
-✅ Тип чата автоматически переключен на "писательство"
-
-📝 Используйте #writing_done для отчетов о писательской работе!`)
-			b.api.Send(notification)
-		}
 	}
 
 	localNow := b.getUserLocalNow(messageLog.TimezoneOffsetFromMoscow)
@@ -151,9 +135,6 @@ func (b *Bot) handleLeopardMoneyTrainingDone(msg *tgbotapi.Message) {
 	}
 
 	tag := "#training_done"
-	if currentType, err := b.db.GetChatType(msg.Chat.ID); err == nil && currentType == "writing" {
-		tag = "#writing_done"
-	}
 
 	session := &domain.TrainingSession{
 		UserID:         msg.From.ID,
@@ -169,17 +150,8 @@ func (b *Bot) handleLeopardMoneyTrainingDone(msg *tgbotapi.Message) {
 	}
 
 	wasOnSickLeave := messageLog.HasSickLeave && !messageLog.HasHealthy
-	chatType := currentType
-	if ct, err := b.db.GetChatType(msg.Chat.ID); err == nil {
-		chatType = ct
-	}
 
-	var messageText string
-	if chatType == "writing" {
-		messageText = fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Серия: %d дн.\n⚡ +%d XP (всего XP: %d)\n🏆 Ачивок: %d/%d\n\n⏰ Таймер неактивности: %d дней (день 8 — удаление)\n\n🎯 Отчёт с %s", newStreak, xpAdd, totalXP, ach, leopardmoney.MaxAchievements, leopardmoney.InactiveRemovalDays, tag)
-	} else {
-		messageText = fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Серия: %d дн.\n⚡ +%d XP (всего XP: %d)\n🏆 Ачивок: %d/%d\n\n⏰ Таймер неактивности: %d дней (день 8 — удаление)\n\n🎯 Отчёт с %s", newStreak, xpAdd, totalXP, ach, leopardmoney.MaxAchievements, leopardmoney.InactiveRemovalDays, tag)
-	}
+	messageText := fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Серия: %d дн.\n⚡ +%d XP (всего XP: %d)\n🏆 Ачивок: %d/%d\n\n⏰ Таймер неактивности: %d дней (день 8 — удаление)\n\n🎯 Отчёт с %s", newStreak, xpAdd, totalXP, ach, leopardmoney.MaxAchievements, leopardmoney.InactiveRemovalDays, tag)
 
 	reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
 	if _, err := b.api.Send(reply); err != nil {
@@ -187,7 +159,7 @@ func (b *Bot) handleLeopardMoneyTrainingDone(msg *tgbotapi.Message) {
 	}
 
 	if b.aiClient != nil && xpAdd > 0 {
-		question := b.getUnifiedTrainingPrompt(newStreak, totalXP, ach, wasOnSickLeave, chatType)
+		question := b.getUnifiedTrainingPrompt(newStreak, totalXP, ach, wasOnSickLeave)
 		var ctxBuilder strings.Builder
 		ctxBuilder.WriteString("КРИТИЧЕСКИ ВАЖНО: Отвечай ТОЛЬКО на этот отчёт.\n\n")
 		ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))

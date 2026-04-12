@@ -187,7 +187,7 @@ var Migrations = []Migration{
 	},
 	{
 		Version:     8,
-		Description: "Create chat_types table for storing chat type (training/writing)",
+		Description: "Create chat_types table for storing chat type (training; legacy writing normalized to training)",
 		UpSQL: `
 			-- Создаем таблицу для хранения типов чатов
 			CREATE TABLE IF NOT EXISTS chat_types (
