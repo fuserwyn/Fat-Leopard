@@ -590,14 +590,6 @@ func (b *Bot) paywallPrivateNeedsPayFirst(userID int64) bool {
 	return !ok
 }
 
-func (b *Bot) monetizedChatWelcomeType() string {
-	t, err := b.db.GetChatType(b.config.MonetizedChatID)
-	if err != nil {
-		return "training"
-	}
-	return t
-}
-
 func parsePaywallPayload(payload string) (requestID int64, ok bool) {
 	payload = strings.TrimSpace(payload)
 	if !strings.HasPrefix(payload, paywallPayloadPrefix) {
@@ -765,7 +757,7 @@ func (b *Bot) paywallDeliverAccessAfterPayment(chatID, userID int64) {
 			pm.Text += "\n\nНе удалось создать ссылку автоматически — попроси ссылку у администратора."
 		}
 		b.api.Send(pm)
-		welcome := welcomeStartText(b.monetizedChatWelcomeType())
+		welcome := welcomeStartText()
 		wmsg := tgbotapi.NewMessage(chatID, welcome)
 		b.api.Send(wmsg)
 		return
@@ -783,7 +775,7 @@ func (b *Bot) paywallDeliverAccessAfterPayment(chatID, userID int64) {
 	if _, err := b.api.Send(done); err != nil {
 		b.logger.Errorf("paywall send done msg: %v", err)
 	}
-	welcome := welcomeStartText(b.monetizedChatWelcomeType())
+	welcome := welcomeStartText()
 	wmsg := tgbotapi.NewMessage(chatID, welcome)
 	if _, err := b.api.Send(wmsg); err != nil {
 		b.logger.Errorf("paywall send welcome after payment: %v", err)

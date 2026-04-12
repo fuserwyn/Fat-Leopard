@@ -208,100 +208,31 @@ func (c *OpenRouterClient) AnswerUserQuestion(question string, userContext strin
 	return c.Chat(messages, "")
 }
 
-// GenerateDailyWisdom генерирует короткую «мудрость дня» о силе духа и спорте/писательстве
-func (c *OpenRouterClient) GenerateDailyWisdom(chatType string) (string, error) {
-	var systemPrompt string
-	if chatType == "writing" {
-		systemPrompt = c.promptsBundle.DailyWisdomWriting
-	} else {
-		systemPrompt = c.promptsBundle.DailyWisdomTraining
-	}
+// GenerateDailyWisdom генерирует короткую «мудрость дня» о тренировках и дисциплине
+func (c *OpenRouterClient) GenerateDailyWisdom() (string, error) {
+	systemPrompt := c.promptsBundle.DailyWisdomTraining
 
 	systemPrompt += "\n\n" + c.promptsBundle.DailyWisdomLangRule
 
 	// Добавляем ежедневное семя (дата + тема дня), чтобы повысить вариативность
 	today := time.Now().Format("2006-01-02")
 	weekday := time.Now().Weekday()
-	var theme string
-	if chatType == "writing" {
-		// Используем день месяца для ротации тем
-		dayOfMonth := time.Now().Day()
-		switch weekday {
-		case time.Monday:
-			themes := []string{
-				"работа с персонажами и их внутренним миром",
-				"создание живых и запоминающихся героев",
-				"развитие характера персонажа через действия",
-				"мотивация и цели персонажей",
-			}
-			theme = themes[dayOfMonth%len(themes)]
-		case time.Tuesday:
-			themes := []string{
-				"дисциплина и регулярность в писательстве",
-				"преодоление писательского блока",
-				"работа с вдохновением и рутиной",
-				"формирование писательской привычки",
-			}
-			theme = themes[dayOfMonth%len(themes)]
-		case time.Wednesday:
-			themes := []string{
-				"диалоги и живая речь персонажей",
-				"работа с описаниями и атмосферой",
-				"построение напряженности в тексте",
-				"работа с ритмом и темпом повествования",
-			}
-			theme = themes[dayOfMonth%len(themes)]
-		case time.Thursday:
-			themes := []string{
-				"редактирование и шлифовка текста",
-				"работа с первым черновиком",
-				"удаление лишнего и улучшение текста",
-				"критический взгляд на собственное творчество",
-			}
-			theme = themes[dayOfMonth%len(themes)]
-		case time.Friday:
-			themes := []string{
-				"сюжет и структура повествования",
-				"работа с конфликтом и напряжением",
-				"построение кульминации и развязки",
-				"баланс между действием и размышлениями",
-			}
-			theme = themes[dayOfMonth%len(themes)]
-		case time.Saturday:
-			themes := []string{
-				"работа с жанром и стилем",
-				"поиск своего уникального голоса",
-				"эксперименты с формой и содержанием",
-				"развитие писательского мастерства",
-			}
-			theme = themes[dayOfMonth%len(themes)]
-		case time.Sunday:
-			themes := []string{
-				"стиль и голос автора",
-				"работа с метафорами и образами",
-				"поиск баланса между простотой и глубиной",
-				"размышления о природе творчества",
-			}
-			theme = themes[dayOfMonth%len(themes)]
-		}
-	} else {
-		theme = "дисциплина"
-		switch weekday {
-		case time.Monday:
-			theme = "старт и дисциплина"
-		case time.Tuesday:
-			theme = "выносливость"
-		case time.Wednesday:
-			theme = "равновесие и техника"
-		case time.Thursday:
-			theme = "терпение и прогресс"
-		case time.Friday:
-			theme = "радость движения без спешки"
-		case time.Saturday:
-			theme = "осознанность и восстановление"
-		case time.Sunday:
-			theme = "тихая сила духа"
-		}
+	theme := "дисциплина"
+	switch weekday {
+	case time.Monday:
+		theme = "старт и дисциплина"
+	case time.Tuesday:
+		theme = "выносливость"
+	case time.Wednesday:
+		theme = "равновесие и техника"
+	case time.Thursday:
+		theme = "терпение и прогресс"
+	case time.Friday:
+		theme = "радость движения без спешки"
+	case time.Saturday:
+		theme = "осознанность и восстановление"
+	case time.Sunday:
+		theme = "тихая сила духа"
 	}
 
 	userPrompt := fmt.Sprintf(c.promptsBundle.DailyWisdomUserTemplate, today, theme)

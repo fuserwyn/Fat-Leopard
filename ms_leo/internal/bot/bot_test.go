@@ -36,10 +36,10 @@ func TestCalculateRemainingTime(t *testing.T) {
 		config: cfg,
 	}
 
-	// Тест 1: Нет данных о времени
+	// Тест 1: Нет данных о времени — полное окно Leopard Money (8 дней до удаления)
 	messageLog := &domain.MessageLog{}
 	remainingTime := bot.calculateRemainingTime(messageLog)
-	expectedTime := 7 * 24 * time.Hour
+	expectedTime := 8 * 24 * time.Hour
 
 	assertDurationApprox(t, remainingTime, expectedTime)
 
@@ -50,10 +50,13 @@ func TestCalculateRemainingTime(t *testing.T) {
 	messageLogWithTime := &domain.MessageLog{
 		TimerStartTime:     &timerStart,
 		SickLeaveStartTime: &sickLeaveStart,
+		HasSickLeave:       true,
+		HasHealthy:         false,
 	}
 
 	remainingTime = bot.calculateRemainingTime(messageLogWithTime)
-	expectedTime = 5 * 24 * time.Hour // 7 - 2 = 5 дней
+	// 8 дн. − 1 дн. (от timer_start до sick_start) = 7 дн.
+	expectedTime = 7 * 24 * time.Hour
 	assertDurationApprox(t, remainingTime, expectedTime)
 
 	// Тест 3: Больничный сценарий - тренировка 11.09, больничный 13.09, выход 19.09
@@ -71,8 +74,8 @@ func TestCalculateRemainingTime(t *testing.T) {
 
 	remainingTime = bot.calculateRemainingTime(messageLogSickLeave)
 
-	// Ожидаемое время: 7 дней - 2 дня (с 11.09 до 13.09) = 5 дней
-	expectedTime = 5 * 24 * time.Hour
+	// 8 дн. − 2 дн. (от timer_start до sick_start) = 6 дн.
+	expectedTime = 6 * 24 * time.Hour
 	assertDurationApprox(t, remainingTime, expectedTime)
 }
 
@@ -229,9 +232,9 @@ func TestSickLeaveRecoveryScenario(t *testing.T) {
 		HasHealthy:         false, // На больничном
 	}
 
-	// Проверяем время на больничном
+	// Проверяем время на больничном (8 дн. − 2 дн. до больничного = 6 дн.)
 	remainingTimeOnSick := bot.calculateRemainingTime(messageLogSickLeave)
-	expectedTimeOnSick := 5 * 24 * time.Hour // 7 - 2 = 5 дней
+	expectedTimeOnSick := 6 * 24 * time.Hour
 
 	if remainingTimeOnSick != expectedTimeOnSick {
 		t.Errorf("On sick leave: Expected %v, got %v", expectedTimeOnSick, remainingTimeOnSick)
@@ -244,13 +247,13 @@ func TestSickLeaveRecoveryScenario(t *testing.T) {
 
 	// Проверяем время после выздоровления
 	remainingTimeAfterRecovery := bot.calculateRemainingTime(messageLogSickLeave)
-	expectedTimeAfterRecovery := 5 * 24 * time.Hour // Должно остаться то же время
+	expectedTimeAfterRecovery := 6 * 24 * time.Hour // Должно остаться то же время
 
 	assertDurationApprox(t, remainingTimeAfterRecovery, expectedTimeAfterRecovery)
 
 	// Проверяем форматирование времени
 	formattedTime := bot.formatDurationToDays(remainingTimeAfterRecovery)
-	expectedFormatted := "5 дн."
+	expectedFormatted := "6 дн."
 
 	if formattedTime != expectedFormatted {
 		t.Errorf("Formatted time: Expected %s, got %s", expectedFormatted, formattedTime)

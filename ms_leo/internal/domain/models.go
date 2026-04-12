@@ -30,6 +30,12 @@ type MessageLog struct {
 	SickApprovalPending   bool       `json:"sick_approval_pending" db:"sick_approval_pending"`
 	SickApprovalDeadline  *time.Time `json:"sick_approval_deadline" db:"sick_approval_deadline"`
 	SickApprovalMessageID *int64     `json:"sick_approval_message_id" db:"sick_approval_message_id"`
+	// Leopard Money Model: XP хранится в calories; achievement_count 0–4; заморозка дневного ±XP.
+	AchievementCount           int        `json:"achievement_count" db:"achievement_count"`
+	XpFreezeUntil               *time.Time `json:"xp_freeze_until" db:"xp_freeze_until"`
+	LastDailyXPMskDate          *string    `json:"last_daily_xp_msk_date" db:"last_daily_xp_msk_date"` // YYYY-MM-DD — обработан последний «вчера»
+	LeopardStarterBonusApplied  bool       `json:"leopard_starter_bonus_applied" db:"leopard_starter_bonus_applied"`
+	LastAchievementStreakLevel int       `json:"last_achievement_streak_level" db:"last_achievement_streak_level"` // 0,7,14,21,28 — последний уровень, за который выдали ачивку
 	CreatedAt             time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt             time.Time  `json:"updated_at" db:"updated_at"`
 }
@@ -51,15 +57,16 @@ type ChatMember struct {
 	Status   string `json:"status"`
 }
 
-// TimerInfo представляет информацию о таймере
+// TimerInfo представляет информацию о таймере (день 5–6 предупреждения, день 7 обнуление XP, день 8 удаление).
 type TimerInfo struct {
-	UserID              int64
-	ChatID              int64
-	Username            string
-	WarningTask         chan bool
-	CriticalWarningTask chan bool // Критическое предупреждение за 3 часа до удаления
-	RemovalTask         chan bool
-	TimerStartTime      string
+	UserID         int64
+	ChatID         int64
+	Username       string
+	Day5WarningTask chan bool
+	Day6WarningTask chan bool
+	Day7ZeroXPTask  chan bool
+	RemovalTask     chan bool
+	TimerStartTime  string
 }
 
 // UserMessage представляет сообщение пользователя для RAG контекста

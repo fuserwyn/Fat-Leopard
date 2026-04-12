@@ -11,12 +11,10 @@ type Bundle struct {
 	DailySummary            string
 	MonthlySummary          string
 	AnswerUserQuestion      string
-	DailyWisdomWriting      string
-	DailyWisdomTraining     string
+	DailyWisdomTraining string
 	DailyWisdomLangRule     string
 	DailyWisdomUserTemplate string
-	WritingChatSuffix       string
-	TrainingChatSuffix      string
+	TrainingChatSuffix string
 	CriticalTimerQuestion   string
 	WarningTimerQuestion    string // предупреждение за 6 дней без отчёта
 }
@@ -30,9 +28,6 @@ var embeddedMonthlySummary string
 //go:embed data/answer_user_question.txt
 var embeddedAnswerUserQuestion string
 
-//go:embed data/daily_wisdom_writing.txt
-var embeddedDailyWisdomWriting string
-
 //go:embed data/daily_wisdom_training.txt
 var embeddedDailyWisdomTraining string
 
@@ -41,9 +36,6 @@ var embeddedDailyWisdomLangRule string
 
 //go:embed data/daily_wisdom_user_template.txt
 var embeddedDailyWisdomUserTemplate string
-
-//go:embed data/writing_chat_suffix.txt
-var embeddedWritingChatSuffix string
 
 //go:embed data/training_chat_suffix.txt
 var embeddedTrainingChatSuffix string
@@ -60,11 +52,9 @@ func DefaultBundle() Bundle {
 		DailySummary:            embeddedDailySummary,
 		MonthlySummary:          embeddedMonthlySummary,
 		AnswerUserQuestion:      embeddedAnswerUserQuestion,
-		DailyWisdomWriting:      embeddedDailyWisdomWriting,
 		DailyWisdomTraining:     embeddedDailyWisdomTraining,
 		DailyWisdomLangRule:     embeddedDailyWisdomLangRule,
 		DailyWisdomUserTemplate: embeddedDailyWisdomUserTemplate,
-		WritingChatSuffix:       embeddedWritingChatSuffix,
 		TrainingChatSuffix:      embeddedTrainingChatSuffix,
 		CriticalTimerQuestion:   embeddedCriticalTimerQuestion,
 		WarningTimerQuestion:    embeddedWarningTimerQuestion,
@@ -83,9 +73,6 @@ func BundleFromEnv() Bundle {
 	if v := envPrompt("PROMPT_ANSWER_USER_QUESTION"); v != "" {
 		b.AnswerUserQuestion = v
 	}
-	if v := envPrompt("PROMPT_DAILY_WISDOM_WRITING"); v != "" {
-		b.DailyWisdomWriting = v
-	}
 	if v := envPrompt("PROMPT_DAILY_WISDOM_TRAINING"); v != "" {
 		b.DailyWisdomTraining = v
 	}
@@ -94,9 +81,6 @@ func BundleFromEnv() Bundle {
 	}
 	if v := envPrompt("PROMPT_DAILY_WISDOM_USER_TEMPLATE"); v != "" {
 		b.DailyWisdomUserTemplate = v
-	}
-	if v := envPrompt("PROMPT_WRITING_CHAT_SUFFIX"); v != "" {
-		b.WritingChatSuffix = v
 	}
 	if v := envPrompt("PROMPT_TRAINING_CHAT_SUFFIX"); v != "" {
 		b.TrainingChatSuffix = v

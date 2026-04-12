@@ -109,8 +109,8 @@ func (d *Database) CreateTables() error {
 // SaveMessageLog сохраняет информацию о сообщении
 func (d *Database) SaveMessageLog(msg *domain.MessageLog) error {
 	query := `
-		INSERT INTO message_log (user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion, timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, gender, timezone_offset_from_moscow, sick_approval_pending, sick_approval_deadline, sick_approval_message_id, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
+		INSERT INTO message_log (user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion, timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, gender, timezone_offset_from_moscow, sick_approval_pending, sick_approval_deadline, sick_approval_message_id, achievement_count, xp_freeze_until, last_daily_xp_msk_date, leopard_starter_bonus_applied, last_achievement_streak_level, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30)
 		ON CONFLICT (user_id, chat_id) 
 		DO UPDATE SET 
 			username = EXCLUDED.username,
@@ -135,7 +135,12 @@ func (d *Database) SaveMessageLog(msg *domain.MessageLog) error {
 			sick_approval_pending = EXCLUDED.sick_approval_pending,
 			sick_approval_deadline = EXCLUDED.sick_approval_deadline,
 			sick_approval_message_id = EXCLUDED.sick_approval_message_id,
-			updated_at = $25
+			achievement_count = EXCLUDED.achievement_count,
+			xp_freeze_until = EXCLUDED.xp_freeze_until,
+			last_daily_xp_msk_date = EXCLUDED.last_daily_xp_msk_date,
+			leopard_starter_bonus_applied = EXCLUDED.leopard_starter_bonus_applied,
+			last_achievement_streak_level = EXCLUDED.last_achievement_streak_level,
+			updated_at = $30
 	`
 
 	// Используем московское время
@@ -148,7 +153,9 @@ func (d *Database) SaveMessageLog(msg *domain.MessageLog) error {
 	result, err := d.db.Exec(query,
 		msg.UserID, msg.Username, msg.ChatID, msg.Calories, msg.StreakDays, msg.CalorieStreakDays, msg.CupsEarned, msg.LastTrainingDate, msg.LastMessage, msg.HasTrainingDone,
 		msg.HasSickLeave, msg.HasHealthy, msg.IsDeleted, msg.IsExemptFromDeletion, msg.TimerStartTime, msg.SickLeaveStartTime, msg.SickLeaveEndTime, msg.SickTime, msg.RestTimeTillDel, msg.Gender, msg.TimezoneOffsetFromMoscow,
-		msg.SickApprovalPending, msg.SickApprovalDeadline, msg.SickApprovalMessageID, moscowTime)
+		msg.SickApprovalPending, msg.SickApprovalDeadline, msg.SickApprovalMessageID,
+		msg.AchievementCount, msg.XpFreezeUntil, msg.LastDailyXPMskDate, msg.LeopardStarterBonusApplied, msg.LastAchievementStreakLevel,
+		moscowTime)
 
 	if err != nil {
 		fmt.Printf("DEBUG: Save error: %v\n", err)
@@ -166,7 +173,8 @@ func (d *Database) SaveMessageLog(msg *domain.MessageLog) error {
 func (d *Database) GetMessageLog(userID, chatID int64) (*domain.MessageLog, error) {
 	query := `
 		SELECT user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion,
-		       timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, gender, timezone_offset_from_moscow, sick_approval_pending, sick_approval_deadline, sick_approval_message_id, created_at, updated_at
+		       timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, gender, timezone_offset_from_moscow, sick_approval_pending, sick_approval_deadline, sick_approval_message_id,
+		       achievement_count, xp_freeze_until, last_daily_xp_msk_date, leopard_starter_bonus_applied, last_achievement_streak_level, created_at, updated_at
 		FROM message_log 
 		WHERE user_id = $1 AND chat_id = $2 AND is_deleted = FALSE
 		ORDER BY updated_at DESC
@@ -174,10 +182,16 @@ func (d *Database) GetMessageLog(userID, chatID int64) (*domain.MessageLog, erro
 	`
 
 	var msg domain.MessageLog
+	var lastDaily sql.NullString
 	err := d.db.QueryRow(query, userID, chatID).Scan(
 		&msg.UserID, &msg.Username, &msg.ChatID, &msg.Calories, &msg.StreakDays, &msg.CalorieStreakDays, &msg.CupsEarned, &msg.LastTrainingDate, &msg.LastMessage, &msg.HasTrainingDone,
 		&msg.HasSickLeave, &msg.HasHealthy, &msg.IsDeleted, &msg.IsExemptFromDeletion, &msg.TimerStartTime, &msg.SickLeaveStartTime, &msg.SickLeaveEndTime, &msg.SickTime, &msg.RestTimeTillDel, &msg.Gender, &msg.TimezoneOffsetFromMoscow,
-		&msg.SickApprovalPending, &msg.SickApprovalDeadline, &msg.SickApprovalMessageID, &msg.CreatedAt, &msg.UpdatedAt)
+		&msg.SickApprovalPending, &msg.SickApprovalDeadline, &msg.SickApprovalMessageID,
+		&msg.AchievementCount, &msg.XpFreezeUntil, &lastDaily, &msg.LeopardStarterBonusApplied, &msg.LastAchievementStreakLevel, &msg.CreatedAt, &msg.UpdatedAt)
+	if lastDaily.Valid {
+		s := lastDaily.String
+		msg.LastDailyXPMskDate = &s
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -207,7 +221,8 @@ func (d *Database) UserHasActiveMessageLogInChat(userID, chatID int64) (bool, er
 func (d *Database) GetUsersByChatID(chatID int64) ([]*domain.MessageLog, error) {
 	query := `
 		SELECT user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion,
-		       timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, gender, timezone_offset_from_moscow, sick_approval_pending, sick_approval_deadline, sick_approval_message_id, created_at, updated_at
+		       timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, gender, timezone_offset_from_moscow, sick_approval_pending, sick_approval_deadline, sick_approval_message_id,
+		       achievement_count, xp_freeze_until, last_daily_xp_msk_date, leopard_starter_bonus_applied, last_achievement_streak_level, created_at, updated_at
 		FROM message_log 
 		WHERE chat_id = $1 AND is_deleted = FALSE
 		ORDER BY calories DESC, last_message DESC
@@ -222,10 +237,16 @@ func (d *Database) GetUsersByChatID(chatID int64) ([]*domain.MessageLog, error) 
 	var users []*domain.MessageLog
 	for rows.Next() {
 		var msg domain.MessageLog
+		var lastDaily2 sql.NullString
 		err := rows.Scan(
 			&msg.UserID, &msg.Username, &msg.ChatID, &msg.Calories, &msg.StreakDays, &msg.CalorieStreakDays, &msg.CupsEarned, &msg.LastTrainingDate, &msg.LastMessage, &msg.HasTrainingDone,
 			&msg.HasSickLeave, &msg.HasHealthy, &msg.IsDeleted, &msg.IsExemptFromDeletion, &msg.TimerStartTime, &msg.SickLeaveStartTime, &msg.SickLeaveEndTime, &msg.SickTime, &msg.RestTimeTillDel, &msg.Gender, &msg.TimezoneOffsetFromMoscow,
-			&msg.SickApprovalPending, &msg.SickApprovalDeadline, &msg.SickApprovalMessageID, &msg.CreatedAt, &msg.UpdatedAt)
+			&msg.SickApprovalPending, &msg.SickApprovalDeadline, &msg.SickApprovalMessageID,
+			&msg.AchievementCount, &msg.XpFreezeUntil, &lastDaily2, &msg.LeopardStarterBonusApplied, &msg.LastAchievementStreakLevel, &msg.CreatedAt, &msg.UpdatedAt)
+		if lastDaily2.Valid {
+			s := lastDaily2.String
+			msg.LastDailyXPMskDate = &s
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -670,7 +691,7 @@ func (d *Database) GetChatContext(chatID int64, excludeUserID int64, limit int) 
 	return users, nil
 }
 
-// GetChatType получает тип чата (training/writing), по умолчанию возвращает "training"
+// GetChatType получает тип чата; по умолчанию "training". Устаревшее значение writing нормализуется в training.
 func (d *Database) GetChatType(chatID int64) (string, error) {
 	query := `SELECT chat_type FROM chat_types WHERE chat_id = $1`
 	var chatType string
@@ -679,13 +700,19 @@ func (d *Database) GetChatType(chatID int64) (string, error) {
 		// Если запись не найдена, возвращаем тип по умолчанию
 		return "training", nil
 	}
+	if chatType == "writing" {
+		return "training", nil
+	}
 	return chatType, nil
 }
 
-// SetChatType устанавливает тип чата (training/writing)
+// SetChatType устанавливает тип чата (только training)
 func (d *Database) SetChatType(chatID int64, chatType string) error {
-	if chatType != "training" && chatType != "writing" {
-		return fmt.Errorf("invalid chat type: %s (must be 'training' or 'writing')", chatType)
+	if chatType == "writing" {
+		chatType = "training"
+	}
+	if chatType != "training" {
+		return fmt.Errorf("invalid chat type: %s (must be 'training')", chatType)
 	}
 
 	query := `
@@ -697,74 +724,4 @@ func (d *Database) SetChatType(chatID int64, chatType string) error {
 
 	_, err := d.db.Exec(query, chatID, chatType)
 	return err
-}
-
-// GetChatWritingContext получает полный контекст переписки для чата писательства
-// Возвращает последние сообщения из user_messages (до limit сообщений)
-func (d *Database) GetChatWritingContext(chatID int64, excludeUserID int64, limit int) ([]*domain.UserMessage, error) {
-	query := `
-		SELECT id, user_id, chat_id, username, message_text, message_type, created_at
-		FROM user_messages
-		WHERE chat_id = $1 AND user_id != $2
-		ORDER BY created_at DESC
-		LIMIT $3
-	`
-
-	rows, err := d.db.Query(query, chatID, excludeUserID, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var messages []*domain.UserMessage
-	for rows.Next() {
-		var msg domain.UserMessage
-		err := rows.Scan(&msg.ID, &msg.UserID, &msg.ChatID, &msg.Username, &msg.MessageText, &msg.MessageType, &msg.CreatedAt)
-		if err != nil {
-			continue
-		}
-		messages = append(messages, &msg)
-	}
-
-	// Разворачиваем список для хронологического порядка (от старых к новым)
-	for i, j := 0, len(messages)-1; i < j; i, j = i+1, j-1 {
-		messages[i], messages[j] = messages[j], messages[i]
-	}
-
-	return messages, nil
-}
-
-// GetUserWritingMessages получает последние сообщения пользователя для чата писательства
-// Возвращает последние сообщения из user_messages (до limit сообщений)
-func (d *Database) GetUserWritingMessages(userID, chatID int64, limit int) ([]*domain.UserMessage, error) {
-	query := `
-		SELECT id, user_id, chat_id, username, message_text, message_type, created_at
-		FROM user_messages
-		WHERE user_id = $1 AND chat_id = $2
-		ORDER BY created_at DESC
-		LIMIT $3
-	`
-
-	rows, err := d.db.Query(query, userID, chatID, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var messages []*domain.UserMessage
-	for rows.Next() {
-		var msg domain.UserMessage
-		err := rows.Scan(&msg.ID, &msg.UserID, &msg.ChatID, &msg.Username, &msg.MessageText, &msg.MessageType, &msg.CreatedAt)
-		if err != nil {
-			continue
-		}
-		messages = append(messages, &msg)
-	}
-
-	// Разворачиваем список для хронологического порядка (от старых к новым)
-	for i, j := 0, len(messages)-1; i < j; i, j = i+1, j-1 {
-		messages[i], messages[j] = messages[j], messages[i]
-	}
-
-	return messages, nil
 }

@@ -12,6 +12,7 @@ import (
 	"leo-bot/internal/config"
 	"leo-bot/internal/database"
 	"leo-bot/internal/domain"
+	"leo-bot/internal/game/leopardmoney"
 	"leo-bot/internal/logger"
 	"leo-bot/internal/utils"
 
@@ -416,57 +417,7 @@ func (b *Bot) sendWelcomeMessage(chatID int64, username string, userID int64) {
 		b.logger.Infof("Successfully saved new user %s (ID: %d) to database with timer start time", username, userID)
 	}
 
-	// Определяем тип чата для адаптации текста
-	chatType, err := b.db.GetChatType(chatID)
-	if err != nil {
-		chatType = "training" // По умолчанию
-	}
-
-	// Создаем приветственное сообщение с упоминанием пользователя
-	var welcomeText string
-	if chatType == "writing" {
-		welcomeText = fmt.Sprintf(`%s, добро пожаловать в стаю писателей! 🦁
-
-Я ваш хладнокровный литературный наставник, который следит за писательством всегда, я все вижу и не оставляю в стае тех, кто не пишет больше 7 дней!
-
-📝 Отчеты о писательской работе:
-• #writing_done — Отправить отчет о писательской сессии
-
-🏥 Больничный:
-• #sick_leave — Взять больничный (приостанавливает таймер)
-• #healthy — Выздороветь (возобновляет таймер)
-
-🔄 Обмен:
-• #change — Обменять слова на кубки (100 слов = 42 кубка)
-
-⏰ Как я слежу за писательством:
-• Таймер уже запущен! У тебя есть 7 дней на первую писательскую сессию
-• При получении #writing_done таймер перезапускается на 7 дней
-• Через 6 дней без #writing_done - предупреждение
-• Через 7 дней без #writing_done - удаление из чата
-
-🏆 Награды за писательские сессии:
-• 🏆 За каждую писательскую сессию = 1 КУБОК! 🏆
-• 🏆 7 дней подряд = 42 КУБКА! 🏆
-• 🏆🏆 14 дней подряд = 42 КУБКА! 🏆🏆
-• 🏆🏆🏆 21 день подряд = 42 КУБКА! 🏆🏆🏆
-• 🏆🏆🏆 30 дней подряд = 420 КУБКОВ! 🏆🏆🏆
-• 🏆🏆🏆🏆 42 дня подряд = 42 КУБКА! 🏆🏆🏆🏆
-• 🏆🏆🏆🏆🏆 50 дней подряд = 42 КУБКА! 🏆🏆🏆🏆🏆
-• 🏆🏆🏆🏆🏆🏆 60 дней подряд = 420 КУБКОВ! 🏆🏆🏆🏆🏆🏆
-• 🏆🏆🏆🏆🏆🏆🏆🏆 90 дней подряд = 420 КУБКОВ! 🏆🏆🏆🏆🏆🏆🏆🏆
-• 🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆 100 дней подряд = 4200 КУБКОВ! 🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆
-
-📋 Правила:
-• Отчётом считается любое сообщение с тегом #writing_done
-• Если заболели — отправь #sick_leave
-• После выздоровления — отправь #healthy
-• Через 6 дней без отчёта — предупреждение
-• Через 7 дней без отчёта — удаление из чата
-
-🎯 Начни прямо сейчас — отправь #writing_done!`, username)
-	} else {
-		welcomeText = fmt.Sprintf(`%s, добро пожаловать в стаю! 🦁
+	welcomeText := fmt.Sprintf(`%s, добро пожаловать в стаю! 🦁
 
 Я ваш хладнокровный тренер, который следит за тренировками всегда, я все вижу и не оставляю в стае тех, кто не занимается больше 7 дней!
 
@@ -506,7 +457,6 @@ func (b *Bot) sendWelcomeMessage(chatID int64, username string, userID int64) {
 • Через 7 дней без отчёта — удаление из чата
 
 🎯 Начни прямо сейчас — отправь #training_done!`, username)
-	}
 
 	// Отправляем сообщение
 	reply := tgbotapi.NewMessage(chatID, welcomeText)
@@ -532,23 +482,14 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) {
 
 	b.tryHandleSickApprovalReply(msg, text)
 
-	// КРИТИЧЕСКИ ВАЖНО: Сначала проверяем хештеги команд (#training_done, #writing_done, #sick_leave, и т.д.)
+	// КРИТИЧЕСКИ ВАЖНО: Сначала проверяем хештеги команд (#training_done, #sick_leave, и т.д.)
 	// Команды имеют приоритет над ИИ-обработкой
-	// Проверяем тип чата для определения правильного хештега
-	chatTypeForCommand, err := b.db.GetChatType(msg.Chat.ID)
-	if err != nil {
-		chatTypeForCommand = "training" // По умолчанию
-	}
-
 	hasTrainingDone := strings.Contains(strings.ToLower(text), "#training_done")
-	hasWritingDone := strings.Contains(strings.ToLower(text), "#writing_done")
-	// Для чатов писательства принимаем оба хештега для совместимости, но приоритет у #writing_done
-	hasTrainingDone = hasTrainingDone || (hasWritingDone && chatTypeForCommand == "writing")
 	hasSickLeave := strings.Contains(strings.ToLower(text), "#sick_leave")
 	hasHealthy := strings.Contains(strings.ToLower(text), "#healthy")
 	hasChange := strings.Contains(strings.ToLower(text), "#change")
 	hasTimeZone := strings.Contains(strings.ToLower(text), "#timezone")
-	hasCommand := hasTrainingDone || hasWritingDone || hasSickLeave || hasHealthy || hasChange || hasTimeZone
+	hasCommand := hasTrainingDone || hasSickLeave || hasHealthy || hasChange || hasTimeZone
 
 	// Если есть команда, обрабатываем её и НЕ обрабатываем через ИИ
 	if hasCommand {
@@ -568,8 +509,8 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) {
 		// Сохраняем сообщение в БД для RAG контекста
 		if text != "" {
 			messageType := "general"
-			if hasTrainingDone || hasWritingDone {
-				messageType = "training_done" // Используем единый тип для обоих хештегов
+			if hasTrainingDone {
+				messageType = "training_done"
 			} else if hasSickLeave {
 				messageType = "sick_leave"
 			} else if hasHealthy {
@@ -759,915 +700,9 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) {
 }
 
 func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
-	// Получаем никнейм пользователя
-	username := ""
-	if msg.From.UserName != "" {
-		username = "@" + msg.From.UserName
-	} else if msg.From.FirstName != "" {
-		username = msg.From.FirstName
-		if msg.From.LastName != "" {
-			username += " " + msg.From.LastName
-		}
-	} else {
-		username = fmt.Sprintf("User%d", msg.From.ID)
-	}
-
-	// КРИТИЧЕСКИ ВАЖНО: Перезапускаем таймер СРАЗУ, чтобы отменить старый таймер
-	// и предотвратить удаление пользователя, если таймер уже сработал
-	b.startTimer(msg.From.ID, msg.Chat.ID, username)
-
-	// Сохраняем отчет о тренировке
-	trainingLog := &domain.TrainingLog{
-		UserID:     msg.From.ID,
-		ChatID:     msg.Chat.ID,
-		Username:   username,
-		LastReport: utils.FormatMoscowTime(utils.GetMoscowTime()),
-	}
-
-	if err := b.db.SaveTrainingLog(trainingLog); err != nil {
-		b.logger.Errorf("Failed to save training log: %v", err)
-	}
-
-	// Получаем текущие данные пользователя
-	messageLog, err := b.db.GetMessageLog(msg.From.ID, msg.Chat.ID)
-	if err != nil {
-		b.logger.Errorf("Failed to get message log: %v", err)
-		return
-	}
-
-	// Фиксируем кубки до начислений, чтобы сохранить точный cups_added в training_sessions.
-	cupsBefore, err := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
-	if err != nil {
-		b.logger.Warnf("Failed to get initial cups before training session save: %v", err)
-		cupsBefore = 0
-	}
-
-	if messageLog.SickApprovalPending {
-		b.cancelSickApprovalWatcher(msg.From.ID)
-		messageLog.SickApprovalPending = false
-		messageLog.SickApprovalDeadline = nil
-		messageLog.SickApprovalMessageID = nil
-		if err := b.db.SaveMessageLog(messageLog); err != nil {
-			b.logger.Errorf("Failed to clear sick approval flags after training: %v", err)
-		}
-	}
-
-	// Определяем пол пользователя из БД или по имени
-	userGender := strings.TrimSpace(strings.ToLower(messageLog.Gender))
-	if userGender == "" {
-		// Если пол не указан в БД, пытаемся определить по имени
-		userGender = b.detectGenderFromName(msg.From.FirstName)
-		if userGender != "" {
-			// Сохраняем определенный пол в БД
-			if err := b.updateUserGender(msg.From.ID, msg.Chat.ID, userGender); err != nil {
-				b.logger.Warnf("Failed to update user gender: %v", err)
-			}
-		}
-	}
-
-	// Автоматически определяем тип чата на основе содержимого сообщения
-	text := msg.Text
-	if text == "" && msg.Caption != "" {
-		text = msg.Caption
-	}
-
-	// Проверяем текущий тип чата перед проверкой содержимого
-	currentType, err := b.db.GetChatType(msg.Chat.ID)
-	if err != nil {
-		currentType = "training" // По умолчанию
-	}
-
-	// Автоматически переключаем тип чата только если еще не "writing"
-	if currentType != "writing" && b.shouldDetectChatTypeAsWriting(text, msg.Chat.ID) {
-		// Автоматически устанавливаем тип чата как "writing", если в сообщении есть контекст писательства
-		if err := b.db.SetChatType(msg.Chat.ID, "writing"); err != nil {
-			b.logger.Warnf("Failed to auto-set chat type to writing: %v", err)
-		} else {
-			b.logger.Infof("Auto-detected chat type as 'writing' for chat %d based on message content", msg.Chat.ID)
-			// Уведомляем участников чата об автоматическом переключении типа (только один раз при переключении)
-			notification := tgbotapi.NewMessage(msg.Chat.ID, `🦁 Fat Leopard обнаружил контекст писательства в ваших сообщениях!
-
-✅ Тип чата автоматически переключен на "писательство"
-
-Теперь я буду вести отдельный контекст для лучшего понимания вашего литературного творчества.
-
-📝 Я готов помочь с развитием сюжета, персонажей и стиля!
-
-💡 Теперь используйте #writing_done вместо #training_done для отчетов о писательской работе!`)
-			b.api.Send(notification)
-		}
-	}
-
-	// Рассчитываем калории и серию
-	caloriesToAdd, newStreakDays, newCalorieStreakDays, weeklyAchievement, twoWeekAchievement, threeWeekAchievement, monthlyAchievement, fortyTwoDayAchievement, fiftyDayAchievement, sixtyDayAchievement, quarterlyAchievement, hundredDayAchievement, oneHundredEightyDayAchievement, twoHundredDayAchievement, twoHundredFortyDayAchievement := b.calculateCalories(messageLog)
-
-	// ДЕБАГ: Логируем результат расчета
-	b.logger.Infof("DEBUG handleTrainingDone: caloriesToAdd=%d, newStreakDays=%d, newCalorieStreakDays=%d, weeklyAchievement=%t, twoWeekAchievement=%t, threeWeekAchievement=%t, monthlyAchievement=%t, fortyTwoDayAchievement=%t, fiftyDayAchievement=%t, sixtyDayAchievement=%t, quarterlyAchievement=%t, hundredDayAchievement=%t, oneHundredEightyDayAchievement=%t, twoHundredDayAchievement=%t, twoHundredFortyDayAchievement=%t",
-		caloriesToAdd, newStreakDays, newCalorieStreakDays, weeklyAchievement, twoWeekAchievement, threeWeekAchievement, monthlyAchievement, fortyTwoDayAchievement, fiftyDayAchievement, sixtyDayAchievement, quarterlyAchievement, hundredDayAchievement, oneHundredEightyDayAchievement, twoHundredDayAchievement, twoHundredFortyDayAchievement)
-
-	// Начисляем калории
-	if err := b.db.AddCalories(msg.From.ID, msg.Chat.ID, caloriesToAdd); err != nil {
-		b.logger.Errorf("Failed to add calories: %v", err)
-	} else {
-		b.logger.Infof("DEBUG: Successfully added %d calories", caloriesToAdd)
-	}
-
-	// Проверяем, достиг ли пользователь 100 калорий/слов для обмена
-	if caloriesToAdd > 0 {
-		// Получаем обновленное количество калорий/слов
-		updatedCalories, err := b.db.GetUserCalories(msg.From.ID, msg.Chat.ID)
-		if err != nil {
-			b.logger.Errorf("Failed to get updated calories: %v", err)
-		} else if updatedCalories >= 100 && updatedCalories-caloriesToAdd < 100 {
-			// Определяем тип чата для адаптации текста
-			chatTypeForExchange, err := b.db.GetChatType(msg.Chat.ID)
-			if err != nil {
-				chatTypeForExchange = "training" // По умолчанию
-			}
-			// Пользователь только что достиг 100 калорий/слов
-			var messageText string
-			if chatTypeForExchange == "writing" {
-				messageText = fmt.Sprintf("🎉 Поздравляю! 🎉\n\n%s, достигнуто %d %s!\n\n🔄 Теперь можешь совершить обмен!\n💡 Напиши #change для обмена 100 %s на 42 кубка!", username, updatedCalories, getWordForm(updatedCalories), getWordForm(100))
-			} else {
-				messageText = fmt.Sprintf("🎉 Поздравляю! 🎉\n\n%s, достигнуто %d калорий!\n\n🔄 Теперь можешь совершить обмен!\n💡 Напиши #change для обмена 100 калорий на 42 кубка!", username, updatedCalories)
-			}
-
-			// Короткая ИИ‑приписка про обмен
-			if b.aiClient != nil {
-				action := tgbotapi.NewChatAction(msg.Chat.ID, tgbotapi.ChatTyping)
-				b.api.Send(action)
-				stopTyping := make(chan struct{})
-				defer close(stopTyping)
-				go func() {
-					ticker := time.NewTicker(4 * time.Second)
-					defer ticker.Stop()
-					for {
-						select {
-						case <-ticker.C:
-							b.api.Send(action)
-						case <-stopTyping:
-							return
-						}
-					}
-				}()
-
-				totalCups, _ := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
-				var q string
-				if chatTypeForExchange == "writing" {
-					q = "Сделай короткую приписку (1–2 предложения): дружелюбно и по делу предложи обмен через #change. Обязательно поясни, что после обмена СЛОВА обнулятся и начнут накапливаться заново; обмен имеет смысл, если ожидается перерыв в писательстве. Укажи, что серия и кубки продолжаются как обычно. КРИТИЧЕСКИ ВАЖНО: используй ТОЛЬКО слово 'слова', НЕ упоминай 'калории', 'тренировки' или 'спорт'. Не повторяй цифры из текста, без Markdown."
-				} else {
-					q = "Сделай короткую приписку (1–2 предложения): дружелюбно и по делу предложи обмен через #change. Обязательно поясни, что после обмена калории обнулятся и начнут накапливаться заново; обмен имеет смысл, если ожидается перерыв в тренировках. Укажи, что серия и кубки продолжаются как обычно. Не повторяй цифры из текста, без Markdown."
-				}
-				var ctxBuilder strings.Builder
-				ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
-				// Добавляем пол пользователя в контекст
-				genderNormalized := strings.TrimSpace(strings.ToLower(userGender))
-				if genderNormalized != "" {
-					var genderText string
-					if genderNormalized == "f" {
-						genderText = "женский"
-					} else if genderNormalized == "m" {
-						genderText = "мужской"
-					}
-					if genderText != "" {
-						ctxBuilder.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
-					}
-				}
-				ctxBuilder.WriteString(fmt.Sprintf("Текущие калории: %d\n", updatedCalories))
-				ctxBuilder.WriteString(fmt.Sprintf("Текущие кубки: %d\n", totalCups))
-				if add, err := b.aiClient.AnswerUserQuestion(q, ctxBuilder.String()); err == nil {
-					add = strings.TrimSpace(strings.ReplaceAll(add, "**", ""))
-					if add != "" {
-						messageText = messageText + "\n\n" + add
-					}
-				} else {
-					b.logger.Warnf("AI addendum generation (exchange) failed: %v", err)
-				}
-			}
-
-			exchangeMessage := tgbotapi.NewMessage(msg.Chat.ID, messageText)
-
-			b.logger.Infof("Sending 100 calories achievement message to chat %d", msg.Chat.ID)
-			_, err = b.api.Send(exchangeMessage)
-			if err != nil {
-				b.logger.Errorf("Failed to send 100 calories achievement message: %v", err)
-			} else {
-				b.logger.Infof("Successfully sent 100 calories achievement message to chat %d", msg.Chat.ID)
-			}
-		}
-	}
-
-	// Обновляем серию только если была добавлена новая тренировка
-	if caloriesToAdd > 0 {
-		today := b.getUserLocalDate(messageLog.TimezoneOffsetFromMoscow)
-
-		// Обновляем streak_days для кубков
-		b.logger.Infof("DEBUG: Updating streak to %d with date %s", newStreakDays, today)
-		if err := b.db.UpdateStreak(msg.From.ID, msg.Chat.ID, newStreakDays, today); err != nil {
-			b.logger.Errorf("Failed to update streak: %v", err)
-		} else {
-			b.logger.Infof("DEBUG: Successfully updated streak to %d", newStreakDays)
-		}
-
-		// Обновляем серию дней для калорий
-		b.logger.Infof("DEBUG: Updating calorie streak to %d with date %s", newCalorieStreakDays, today)
-		if err := b.db.UpdateCalorieStreakWithDate(msg.From.ID, msg.Chat.ID, newCalorieStreakDays, today); err != nil {
-			b.logger.Errorf("Failed to update calorie streak: %v", err)
-		} else {
-			b.logger.Infof("DEBUG: Successfully updated calorie streak to %d", newCalorieStreakDays)
-		}
-	} else {
-		b.logger.Infof("DEBUG: Skipping streak update (caloriesToAdd = 0)")
-	}
-
-	// Проверяем, был ли пользователь на больничном
-	wasOnSickLeave := messageLog.HasSickLeave && !messageLog.HasHealthy
-
-	// Начисляем кубки только если была добавлена новая тренировка
-	if caloriesToAdd > 0 {
-		// Начисляем 1 кубок за каждую тренировку
-		if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 1); err != nil {
-			b.logger.Errorf("Failed to add daily cup: %v", err)
-		} else {
-			b.logger.Infof("Successfully added 1 cup for daily training")
-		}
-
-		// Начисляем дополнительные кубки за achievements (но НЕ отправляем сообщения пока)
-		if weeklyAchievement {
-			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 42); err != nil {
-				b.logger.Errorf("Failed to add weekly cups: %v", err)
-			} else {
-				b.logger.Infof("Successfully added 42 cups for weekly achievement")
-			}
-		}
-
-		if twoWeekAchievement {
-			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 42); err != nil {
-				b.logger.Errorf("Failed to add two-week cups: %v", err)
-			} else {
-				b.logger.Infof("Successfully added 42 cups for two-week achievement")
-			}
-		}
-
-		if threeWeekAchievement {
-			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 42); err != nil {
-				b.logger.Errorf("Failed to add three-week cups: %v", err)
-			} else {
-				b.logger.Infof("Successfully added 42 cups for three-week achievement")
-			}
-		}
-
-		if monthlyAchievement {
-			// Проверяем кубки до начисления
-			cupsBefore, _ := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
-			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 420); err != nil {
-				b.logger.Errorf("Failed to add monthly cups: %v", err)
-			} else {
-				b.logger.Infof("Successfully added 420 cups for monthly achievement")
-				// Проверяем, достиг ли пользователь 420 кубков и является ли 3-м
-				if cupsBefore < 420 {
-					b.checkMerchGiveawayCompletion(msg, msg.Chat.ID)
-				}
-			}
-		}
-
-		if fortyTwoDayAchievement {
-			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 42); err != nil {
-				b.logger.Errorf("Failed to add 42-day cups: %v", err)
-			} else {
-				b.logger.Infof("Successfully added 42 cups for 42-day achievement")
-			}
-		}
-
-		if fiftyDayAchievement {
-			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 42); err != nil {
-				b.logger.Errorf("Failed to add 50-day cups: %v", err)
-			} else {
-				b.logger.Infof("Successfully added 42 cups for 50-day achievement")
-			}
-		}
-
-		if sixtyDayAchievement {
-			// Проверяем кубки до начисления
-			cupsBefore, _ := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
-			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 420); err != nil {
-				b.logger.Errorf("Failed to add 60-day cups: %v", err)
-			} else {
-				b.logger.Infof("Successfully added 420 cups for 60-day achievement")
-				// Проверяем, достиг ли пользователь 420 кубков и является ли 3-м
-				if cupsBefore < 420 {
-					b.checkMerchGiveawayCompletion(msg, msg.Chat.ID)
-				}
-			}
-		}
-
-		if quarterlyAchievement {
-			// Проверяем кубки до начисления
-			cupsBefore, _ := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
-			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 420); err != nil {
-				b.logger.Errorf("Failed to add quarterly cups: %v", err)
-			} else {
-				b.logger.Infof("Successfully added 420 cups for quarterly achievement")
-				// Проверяем, достиг ли пользователь 420 кубков и является ли 3-м
-				if cupsBefore < 420 {
-					b.checkMerchGiveawayCompletion(msg, msg.Chat.ID)
-				}
-			}
-		}
-
-		if hundredDayAchievement {
-			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 4200); err != nil {
-				b.logger.Errorf("Failed to add 100-day cups: %v", err)
-			} else {
-				b.logger.Infof("Successfully added 4200 cups for 100-day achievement")
-			}
-		}
-
-		if oneHundredEightyDayAchievement {
-			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 420); err != nil {
-				b.logger.Errorf("Failed to add 180-day cups: %v", err)
-			} else {
-				b.logger.Infof("Successfully added 420 cups for 180-day achievement")
-			}
-		}
-		if twoHundredDayAchievement {
-			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 4200); err != nil {
-				b.logger.Errorf("Failed to add 200-day cups: %v", err)
-			} else {
-				b.logger.Infof("Successfully added 4200 cups for 200-day achievement")
-			}
-		}
-		if twoHundredFortyDayAchievement {
-			if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 4200); err != nil {
-				b.logger.Errorf("Failed to add 240-day cups: %v", err)
-			} else {
-				b.logger.Infof("Successfully added 4200 cups for 240-day achievement")
-			}
-		}
-	}
-
-	// ВСЕГДА отправляем ответ при получении #training_done
-	// Получаем текущее количество кубков пользователя
-	currentCups, err := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
-	if err != nil {
-		b.logger.Errorf("Failed to get user cups for confirmation message: %v", err)
-		currentCups = 0
-	}
-
-	// Определяем тип чата для адаптации текста
-	chatType, err := b.db.GetChatType(msg.Chat.ID)
-	if err != nil {
-		chatType = "training" // По умолчанию
-	}
-
-	// Проверяем, есть ли achievement
-	hasAnyAchievement := weeklyAchievement || twoWeekAchievement || threeWeekAchievement || monthlyAchievement || fortyTwoDayAchievement || fiftyDayAchievement || sixtyDayAchievement || quarterlyAchievement || hundredDayAchievement || oneHundredEightyDayAchievement || twoHundredDayAchievement || twoHundredFortyDayAchievement
-
-	b.logger.Infof("DEBUG: hasAnyAchievement=%t, caloriesToAdd=%d", hasAnyAchievement, caloriesToAdd)
-
-	// Обычное подтверждение + ИИ при любой новой тренировке (включая дни рубежей 7/14/… дней).
-	if caloriesToAdd > 0 {
-		// Получаем общее количество калорий для отображения
-		totalCalories, err := b.db.GetUserCalories(msg.From.ID, msg.Chat.ID)
-		if err != nil {
-			b.logger.Errorf("Failed to get total calories for message: %v", err)
-			totalCalories = 0
-		}
-
-		// Новая тренировка БЕЗ achievement - готовим базовый текст
-		// Адаптируем текст в зависимости от типа чата
-		var messageText string
-		if chatType == "writing" {
-			messageText = fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Ты пишешь дней подряд: %d\n📝 +%d %s\n📝 Всего %s: %d\n🏆 +1 кубок за писательскую сессию!\n🏆 Всего кубков: %d\n\n⏰ Таймер перезапускается на 7 дней", newStreakDays, caloriesToAdd, getWordForm(caloriesToAdd), getWordForm(totalCalories), totalCalories, currentCups)
-		} else {
-			messageText = fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Ты тренируешься дней подряд: %d\n🔥 +%d калорий\n🔥 Всего калорий: %d\n🏆 +1 кубок за тренировку!\n🏆 Всего кубков: %d\n\n⏰ Таймер перезапускается на 7 дней", newStreakDays, caloriesToAdd, totalCalories, currentCups)
-		}
-
-		// Дополняем короткой ИИ-припиской по текущему контексту
-		if b.aiClient != nil {
-			// Индикатор набора, чтобы показать «typing...» пока генерируется ответ
-			action := tgbotapi.NewChatAction(msg.Chat.ID, tgbotapi.ChatTyping)
-			b.api.Send(action)
-			stopTyping := make(chan struct{})
-			defer close(stopTyping)
-			go func() {
-				ticker := time.NewTicker(4 * time.Second)
-				defer ticker.Stop()
-				for {
-					select {
-					case <-ticker.C:
-						b.api.Send(action)
-					case <-stopTyping:
-						return
-					}
-				}
-			}()
-
-			// Формируем вопрос для единого AI-сообщения (объединяем приписку и мудрость в одно)
-			question := b.getUnifiedTrainingPrompt(newStreakDays, totalCalories, currentCups, wasOnSickLeave, chatType)
-			var ctxBuilder strings.Builder
-			ctxBuilder.WriteString("КРИТИЧЕСКИ ВАЖНО: Отвечай ТОЛЬКО на этот отчёт. НЕ используй историю чата, последние сообщения или сообщения других участников. Комментируй исключительно то, что написано в этом сообщении.\n\n")
-			ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
-			// Добавляем пол пользователя в контекст
-			genderNormalized := strings.TrimSpace(strings.ToLower(userGender))
-			if genderNormalized != "" {
-				var genderText string
-				if genderNormalized == "f" {
-					genderText = "женский"
-				} else if genderNormalized == "m" {
-					genderText = "мужской"
-				}
-				if genderText != "" {
-					ctxBuilder.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
-				}
-			}
-			// Добавляем текст сообщения пользователя
-			trainingText := msg.Text
-			if trainingText == "" && msg.Caption != "" {
-				trainingText = msg.Caption
-			}
-			if trainingText != "" {
-				// Убираем хэштег #training_done из текста для контекста
-				trainingTextClean := strings.ReplaceAll(trainingText, "#training_done", "")
-				trainingTextClean = strings.TrimSpace(trainingTextClean)
-				if trainingTextClean != "" {
-					if chatType == "writing" {
-						ctxBuilder.WriteString(fmt.Sprintf("Сообщение о писательской работе: %s\n", trainingTextClean))
-					} else {
-						ctxBuilder.WriteString(fmt.Sprintf("Сообщение о тренировке: %s\n", trainingTextClean))
-					}
-				}
-			}
-			ctxBuilder.WriteString(fmt.Sprintf("Серия: %d дней\n", newStreakDays))
-			if chatType == "writing" {
-				ctxBuilder.WriteString(fmt.Sprintf("Добавлено %s: %d\n", getWordForm(caloriesToAdd), caloriesToAdd))
-				ctxBuilder.WriteString(fmt.Sprintf("Текущие %s: %d\n", getWordForm(totalCalories), totalCalories))
-			} else {
-				ctxBuilder.WriteString(fmt.Sprintf("Добавлено калорий: %d\n", caloriesToAdd))
-				ctxBuilder.WriteString(fmt.Sprintf("Текущие калории: %d\n", totalCalories))
-			}
-			ctxBuilder.WriteString(fmt.Sprintf("Кубков всего: %d\n", currentCups))
-
-			// Добавляем контекст времени для разнообразия
-			now := b.getUserLocalNow(messageLog.TimezoneOffsetFromMoscow)
-			hour := now.Hour()
-			weekday := now.Weekday()
-			weekdayNames := []string{"воскресенье", "понедельник", "вторник", "среда", "четверг", "пятница", "суббота"}
-			if chatType == "writing" {
-				ctxBuilder.WriteString(fmt.Sprintf("Время писательской сессии: %s, %d:00\n", weekdayNames[weekday], hour))
-			} else {
-				ctxBuilder.WriteString(fmt.Sprintf("Время тренировки: %s, %d:00\n", weekdayNames[weekday], hour))
-			}
-
-			// Определяем время суток
-			var timeOfDay string
-			if hour >= 5 && hour < 12 {
-				timeOfDay = "утро"
-			} else if hour >= 12 && hour < 17 {
-				timeOfDay = "день"
-			} else if hour >= 17 && hour < 22 {
-				timeOfDay = "вечер"
-			} else {
-				timeOfDay = "ночь"
-			}
-			ctxBuilder.WriteString(fmt.Sprintf("Время суток: %s\n", timeOfDay))
-
-			if wasOnSickLeave {
-				if chatType == "writing" {
-					ctxBuilder.WriteString("Недавно был больничный, теперь снова за писательством.\n")
-				} else {
-					ctxBuilder.WriteString("Недавно был больничный, теперь снова в строю.\n")
-				}
-			}
-
-			// Вычисляем, сколько дней прошло с последней тренировки/писательской сессии
-			// ТОЛЬКО для чатов тренировок - не добавляем для писательства
-			if chatType != "writing" && messageLog.LastTrainingDate != nil {
-				lastTrainingDate, err := time.Parse("2006-01-02", *messageLog.LastTrainingDate)
-				if err == nil {
-					today := b.getUserLocalNow(messageLog.TimezoneOffsetFromMoscow)
-					todayDate := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, today.Location())
-					lastTrainingDateOnly := time.Date(lastTrainingDate.Year(), lastTrainingDate.Month(), lastTrainingDate.Day(), 0, 0, 0, 0, lastTrainingDate.Location())
-					daysSinceLastTraining := int(todayDate.Sub(lastTrainingDateOnly).Hours() / 24)
-					// Если прошло больше 5 дней с последней тренировки, добавляем шутку про обед
-					if daysSinceLastTraining > 5 {
-						ctxBuilder.WriteString(fmt.Sprintf("ВАЖНО: С последней тренировки прошло %d дней — это очень редко! Если будешь продолжать так редко заниматься, станешь обедом. Добавь легкий юмор про это в приписку.\n", daysSinceLastTraining))
-					}
-				}
-			}
-
-			// Добавляем информацию о приближении к достижениям для мотивации
-			if newStreakDays == 6 {
-				if chatType == "writing" {
-					ctxBuilder.WriteString("ВАЖНО: Завтра будет 7 дней подряд писательства — важный рубеж! Можешь мягко намекнуть на это.\n")
-				} else {
-					ctxBuilder.WriteString("ВАЖНО: Завтра будет 7 дней подряд — важный рубеж! Можешь мягко намекнуть на это.\n")
-				}
-			} else if newStreakDays == 13 {
-				if chatType == "writing" {
-					ctxBuilder.WriteString("ВАЖНО: Завтра будет 14 дней подряд писательства — отличный результат! Можешь мягко намекнуть на это.\n")
-				} else {
-					ctxBuilder.WriteString("ВАЖНО: Завтра будет 14 дней подряд — отличный результат! Можешь мягко намекнуть на это.\n")
-				}
-			} else if newStreakDays == 20 {
-				if chatType == "writing" {
-					ctxBuilder.WriteString("ВАЖНО: Завтра будет 21 день подряд писательства — впечатляющая серия! Можешь мягко намекнуть на это.\n")
-				} else {
-					ctxBuilder.WriteString("ВАЖНО: Завтра будет 21 день подряд — впечатляющая серия! Можешь мягко намекнуть на это.\n")
-				}
-			}
-
-			// КРИТИЧЕСКИ ВАЖНО: НЕ добавляем историю сообщений и контекст других участников.
-			// Ответ должен быть ТОЛЬКО на этот отчёт о тренировке/писательстве — без смешивания с другими сообщениями чата.
-
-			if aiResponse, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
-				aiResponse = strings.TrimSpace(strings.ReplaceAll(aiResponse, "**", ""))
-				if aiResponse != "" {
-					messageText = messageText + "\n\n" + aiResponse
-				}
-			} else {
-				b.logger.Warnf("AI response generation failed: %v", err)
-			}
-		}
-
-		// Добавляем фразу о продолжении тренировок/писательства в самом конце
-		if chatType == "writing" {
-			messageText = messageText + "\n\n🎯 Продолжай писать и не забывай отправлять #writing_done!"
-		} else {
-			messageText = messageText + "\n\n🎯 Продолжай тренироваться и не забывай отправлять #training_done!"
-		}
-
-		reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
-
-		b.logger.Infof("Sending training done message to chat %d", msg.Chat.ID)
-		_, err = b.api.Send(reply)
-		if err != nil {
-			b.logger.Errorf("Failed to send training done message: %v", err)
-		} else {
-			b.logger.Infof("Successfully sent training done message to chat %d", msg.Chat.ID)
-		}
-	} else if !hasAnyAchievement {
-		// Дополнительная тренировка в тот же день
-		// Начисляем 1 кубок за дополнительную тренировку
-		if err := b.db.AddCups(msg.From.ID, msg.Chat.ID, 1); err != nil {
-			b.logger.Errorf("Failed to add cup for double training: %v", err)
-		} else {
-			b.logger.Infof("Successfully added 1 cup for double training")
-		}
-
-		// Получаем обновленное количество кубков
-		currentCups, err := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
-		if err != nil {
-			b.logger.Errorf("Failed to get user cups for double training message: %v", err)
-			currentCups = 0
-		}
-
-		// Адаптируем текст для дополнительной тренировки/писательской сессии
-		var messageText string
-		if chatType == "writing" {
-			messageText = fmt.Sprintf("🦁 Какой мотивированный леопард! Еще одна писательская сессия сегодня! 💪\n\n🔥 Твоя мотивация впечатляет\n🏆 +1 кубок за дополнительную писательскую сессию!\n🏆 Всего кубков: %d\n\n⏰ Таймер уже перезапущен на 7 дней\n\n🎯 Завтра снова отправляй #writing_done для продолжения серии!", currentCups)
-		} else {
-			messageText = fmt.Sprintf("🦁 Какой мотивированный леопард! Еще одна тренировка сегодня! 💪\n\n🔥 Твоя мотивация впечатляет\n🏆 +1 кубок за дополнительную тренировку!\n🏆 Всего кубков: %d\n\n⏰ Таймер уже перезапущен на 7 дней\n\n🎯 Завтра снова отправляй #training_done для продолжения серии!", currentCups)
-		}
-
-		// Короткая ИИ-приписка и здесь
-		if b.aiClient != nil {
-			action := tgbotapi.NewChatAction(msg.Chat.ID, tgbotapi.ChatTyping)
-			b.api.Send(action)
-			stopTyping := make(chan struct{})
-			defer close(stopTyping)
-			go func() {
-				ticker := time.NewTicker(4 * time.Second)
-				defer ticker.Stop()
-				for {
-					select {
-					case <-ticker.C:
-						b.api.Send(action)
-					case <-stopTyping:
-						return
-					}
-				}
-			}()
-
-			// Единое сообщение для дополнительной тренировки/писательской сессии (объединяем приписку и мудрость) - БЕЗ общих фраз
-			var doubleTrainingPrompts []string
-			if chatType == "writing" {
-				doubleTrainingPrompts = []string{
-					"Двойная писательская сессия за день — особое вдохновение! Напиши 2-3 предложения: первое — отметь упорство и писательскую работу, второе — короткое практическое замечание. Используй ТОЛЬКО этот отчёт. Без Markdown.",
-					"Вторая писательская сессия за день. Напиши 2-3 предложения: первое — похвали за энергию и отметь работу, второе — конкретное наблюдение. Используй ТОЛЬКО этот отчёт. Без Markdown.",
-				}
-			} else {
-				doubleTrainingPrompts = []string{
-					"Двойная тренировка за день — Fat Leopard впечатлён! Напиши 2-3 предложения: первое — отметь упорство и упражнения, второе — короткое замечание. Можно лёгкий юмор: «таких я не ем». Используй ТОЛЬКО этот отчёт. Без Markdown.",
-					"Вторая тренировка за день — не все на это способны. Напиши 2-3 предложения: первое — похвали за энергию и отметь упражнения, второе — короткий совет по восстановлению. Используй ТОЛЬКО этот отчёт. Без Markdown.",
-					"Двойная тренировка — особое упорство! Напиши 2-3 предложения: первое — отметь упражнения, второе — комментарий. Fat Leopard одобряет. Используй ТОЛЬКО этот отчёт. Без Markdown.",
-					"Ещё одна тренировка сегодня — энергия впечатляет. Напиши 2-3 предложения: первое — отметь упражнения, второе — практический совет. Используй ТОЛЬКО этот отчёт. Без Markdown.",
-				}
-			}
-			now := utils.GetMoscowTime()
-			question := doubleTrainingPrompts[now.Unix()%int64(len(doubleTrainingPrompts))]
-			var ctxBuilder strings.Builder
-			ctxBuilder.WriteString("КРИТИЧЕСКИ ВАЖНО: Отвечай ТОЛЬКО на этот отчёт. НЕ используй историю чата или сообщения других участников.\n\n")
-			ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
-			// Добавляем пол пользователя в контекст
-			genderNormalized := strings.TrimSpace(strings.ToLower(userGender))
-			if genderNormalized != "" {
-				var genderText string
-				if genderNormalized == "f" {
-					genderText = "женский"
-				} else if genderNormalized == "m" {
-					genderText = "мужской"
-				}
-				if genderText != "" {
-					ctxBuilder.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
-				}
-			}
-			// Добавляем текст сообщения пользователя
-			trainingTextDouble := msg.Text
-			if trainingTextDouble == "" && msg.Caption != "" {
-				trainingTextDouble = msg.Caption
-			}
-			if trainingTextDouble != "" {
-				// Убираем хэштеги #training_done и #writing_done из текста для контекста
-				trainingTextClean := strings.ReplaceAll(trainingTextDouble, "#training_done", "")
-				trainingTextClean = strings.ReplaceAll(trainingTextClean, "#writing_done", "")
-				trainingTextClean = strings.TrimSpace(trainingTextClean)
-				if trainingTextClean != "" {
-					if chatType == "writing" {
-						ctxBuilder.WriteString(fmt.Sprintf("Сообщение о писательской работе: %s\n", trainingTextClean))
-					} else {
-						ctxBuilder.WriteString(fmt.Sprintf("Сообщение о тренировке: %s\n", trainingTextClean))
-					}
-				}
-			}
-			if chatType == "writing" {
-				ctxBuilder.WriteString("Уже была писательская сессия сегодня, это повторная.\n")
-			} else {
-				ctxBuilder.WriteString("Уже была тренировка сегодня, это повторная.\n")
-			}
-			ctxBuilder.WriteString(fmt.Sprintf("Кубков всего: %d\n", currentCups))
-			if wasOnSickLeave {
-				if chatType == "writing" {
-					ctxBuilder.WriteString("Недавно был больничный, теперь снова за писательством.\n")
-				} else {
-					ctxBuilder.WriteString("Недавно был больничный, теперь снова в строю.\n")
-				}
-			}
-
-			// КРИТИЧЕСКИ ВАЖНО: НЕ добавляем историю сообщений и контекст других участников.
-			// Ответ только на этот отчёт — без смешивания с другими сообщениями чата.
-
-			if aiResponse, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
-				aiResponse = strings.TrimSpace(strings.ReplaceAll(aiResponse, "**", ""))
-				if aiResponse != "" {
-					messageText = messageText + "\n\n" + aiResponse
-				}
-			} else {
-				b.logger.Warnf("AI response generation (double) failed: %v", err)
-			}
-		}
-
-		reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
-
-		b.logger.Infof("Sending already trained today message to chat %d", msg.Chat.ID)
-		_, err = b.api.Send(reply)
-		if err != nil {
-			b.logger.Errorf("Failed to send already trained today message: %v", err)
-		} else {
-			b.logger.Infof("Successfully sent already trained today message to chat %d", msg.Chat.ID)
-		}
-	}
-
-	// Дополняем поздравлениями о рубежах (после обычного отчёта, если он был)
-	if hasAnyAchievement {
-		b.logger.Infof("Sending achievement messages after regular confirmation")
-
-		// Получаем пол пользователя для правильных форм слов
-		messageLog, err := b.db.GetMessageLog(msg.From.ID, msg.Chat.ID)
-		userGender := ""
-		if err == nil {
-			userGender = strings.TrimSpace(strings.ToLower(messageLog.Gender))
-			if userGender == "" {
-				userGender = b.detectGenderFromName(msg.From.FirstName)
-			}
-		}
-
-		if weeklyAchievement {
-			b.sendWeeklyCupsReward(msg, username, newStreakDays, caloriesToAdd, userGender)
-		}
-		if twoWeekAchievement {
-			b.sendTwoWeekCupsReward(msg, username, newStreakDays, caloriesToAdd, userGender)
-		}
-		if threeWeekAchievement {
-			b.sendThreeWeekCupsReward(msg, username, newStreakDays, caloriesToAdd, userGender)
-		}
-		if monthlyAchievement {
-			b.sendMonthlyCupsReward(msg, username, newStreakDays, caloriesToAdd, userGender)
-		}
-		if fortyTwoDayAchievement {
-			b.sendFortyTwoDayCupsReward(msg, username, newStreakDays, caloriesToAdd, userGender)
-		}
-		if fiftyDayAchievement {
-			b.sendFiftyDayCupsReward(msg, username, newStreakDays, caloriesToAdd, userGender)
-		}
-		if sixtyDayAchievement {
-			b.sendSixtyDayCupsReward(msg, username, newStreakDays, caloriesToAdd, userGender)
-		}
-		if quarterlyAchievement {
-			b.sendQuarterlyCupsReward(msg, username, newStreakDays, caloriesToAdd, userGender)
-		}
-		if hundredDayAchievement {
-			b.sendHundredDayCupsReward(msg, username, newStreakDays, caloriesToAdd, userGender)
-		}
-		if oneHundredEightyDayAchievement {
-			b.sendOneHundredEightyDayCupsReward(msg, username, newStreakDays, caloriesToAdd, userGender)
-		}
-		if twoHundredDayAchievement {
-			b.sendTwoHundredDayCupsReward(msg, username, newStreakDays, caloriesToAdd, userGender)
-		}
-		if twoHundredFortyDayAchievement {
-			b.sendTwoHundredFortyDayCupsReward(msg, username, newStreakDays, caloriesToAdd, userGender)
-		}
-
-		// Проверяем супер-уровень после начисления кубков
-		totalCups, err := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
-		if err != nil {
-			b.logger.Errorf("Failed to get user cups for super level check: %v", err)
-		} else if totalCups >= 420 {
-			// Проверяем, является ли этот пользователь 3-м с 420+ кубками
-			usersWith420Cups, err := b.db.CountUsersWithCups(msg.Chat.ID, 420)
-			if err != nil {
-				b.logger.Errorf("Failed to count users with 420+ cups: %v", err)
-			} else if usersWith420Cups == 3 {
-				// 3-й участник достиг 420 кубков - розыгрыш завершен
-				merchMessage := tgbotapi.NewMessage(msg.Chat.ID, `🎉🎊 РОЗЫГРЫШ ЗАВЕРШЕН! 🎊🎉
-				
-Третий участник достиг 420 кубков! 
-				
-🏆 Розыгрыш футболки Fat Leopard официально закрыт!
-				
-Поздравляем всех участников, которые набрали 420+ кубков! 🦁💪`)
-				if _, err := b.api.Send(merchMessage); err != nil {
-					b.logger.Errorf("Failed to send merch giveaway completion message: %v", err)
-				}
-			}
-
-			// Отправляем сообщение о супер-уровне (если еще не достигли 10000)
-			if totalCups < 10000 {
-				b.sendSuperLevelMessage(msg, username, totalCups, userGender)
-			}
-		}
-	}
-
-	// Если пользователь был на больничном, сбрасываем флаги больничного и помечаем как здорового
-	if wasOnSickLeave {
-		// Отправляем предупреждение о забытом #healthy
-		warningMessage := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("⚠️ Внимание, %s!\n\nне забывай отправлять #healthy перед тренировкой!\n\n✅ Я автоматически засчитал выздоровление, но в следующий раз не забывай отправлять #healthy перед #training_done", username))
-		b.logger.Infof("Sending forgotten #healthy warning to user %d (%s)", msg.From.ID, username)
-		b.api.Send(warningMessage)
-
-		// ВАЖНО: перечитываем актуальную запись из БД, чтобы не перетереть свежие
-		// начисления кубков/калорий и обновления серий устаревшим messageLog.
-		latestLog, err := b.db.GetMessageLog(msg.From.ID, msg.Chat.ID)
-		if err != nil {
-			b.logger.Errorf("Failed to refresh message log before sick leave reset: %v", err)
-			latestLog = messageLog // fallback на старую запись, чтобы не блокировать флоу
-		}
-
-		latestLog.HasSickLeave = false
-		latestLog.HasHealthy = true
-		latestLog.SickLeaveStartTime = nil
-		if err := b.db.SaveMessageLog(latestLog); err != nil {
-			b.logger.Errorf("Failed to reset sick leave flags: %v", err)
-		}
-		b.logger.Infof("Reset sick leave flags and marked as healthy for user %d (%s) after training during sick leave", msg.From.ID, username)
-	}
-
-	// Сохраняем сессию в отдельную таблицу для аналитики (начиная с 2026-03-01).
-	// Это позволяет отвечать на вопросы: "что делал", "сколько тренировок", "сколько кубков за день".
-	userNow := b.getUserLocalNow(messageLog.TimezoneOffsetFromMoscow)
-	sessionDate := userNow.Format("2006-01-02")
-	if sessionDate >= "2026-03-01" {
-		cupsAfter, cupsErr := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
-		if cupsErr != nil {
-			b.logger.Warnf("Failed to get cups after training session save: %v", cupsErr)
-			cupsAfter = cupsBefore
-		}
-		cupsAdded := cupsAfter - cupsBefore
-		if cupsAdded < 0 {
-			cupsAdded = 0
-		}
-
-		sessionText := text
-		sessionText = strings.ReplaceAll(sessionText, "#training_done", "")
-		sessionText = strings.ReplaceAll(sessionText, "#writing_done", "")
-		sessionText = strings.TrimSpace(sessionText)
-
-		if err := b.db.SaveTrainingSession(&domain.TrainingSession{
-			UserID:         msg.From.ID,
-			ChatID:         msg.Chat.ID,
-			SessionDate:    sessionDate,
-			MessageText:    sessionText,
-			TrainingsCount: 1,
-			CupsAdded:      cupsAdded,
-			IsBonus:        false,
-		}); err != nil {
-			b.logger.Errorf("Failed to save training session: %v", err)
-		} else {
-			// Логика бонуса по вашему правилу:
-			// 1) считаем тренировки/сессии в последние 7 календарных дней, включая сегодня;
-			// 3) бонус = floor(count/3) * 10;
-			// 4) в день серии 7/7 (weeklyAchievement) эта логика не применяется;
-			// 5) при текущей серии > 7 дней бонус не начисляется (имеет смысл после сброса серии, 1–7 дней);
-			// 6) после выдачи бонуса окно не начинается раньше даты последнего бонуса
-			//    (чтобы одни и те же отчёты не оплачивались повторно при сдвиге окна).
-			if !weeklyAchievement && newStreakDays <= 7 {
-				// Скользящее окно: сегодня и ещё 6 дней назад (7 дней включительно).
-				windowEndDate := sessionDate
-				windowStartDate := userNow.AddDate(0, 0, -6).Format("2006-01-02")
-
-				// Если бонус уже был, новое окно начинается со следующего дня после бонуса,
-				// чтобы одни и те же сессии не участвовали в повторном начислении.
-				lastBonusDate, lastBonusErr := b.db.GetLastBonusSessionDate(msg.From.ID, msg.Chat.ID)
-				if lastBonusErr != nil {
-					b.logger.Errorf("Failed to get last bonus date: %v", lastBonusErr)
-				} else if lastBonusDate != nil {
-					lastBonusDay, parseErr := time.Parse("2006-01-02", *lastBonusDate)
-					if parseErr != nil {
-						b.logger.Errorf("Failed to parse last bonus date %q: %v", *lastBonusDate, parseErr)
-					} else {
-						nextWindowStartDate := lastBonusDay.AddDate(0, 0, 1).Format("2006-01-02")
-						if nextWindowStartDate > windowStartDate {
-							windowStartDate = nextWindowStartDate
-						}
-					}
-				}
-
-				sessionCountInWindow, cntErr := b.db.CountTrainingSessionsInDateRange(msg.From.ID, msg.Chat.ID, windowStartDate, windowEndDate)
-				if cntErr != nil {
-					b.logger.Errorf("Failed to count training sessions for 7-day return bonus: %v", cntErr)
-				} else {
-					bonusCups := (sessionCountInWindow / 3) * 10
-					if bonusCups > 0 {
-						if addErr := b.db.AddCups(msg.From.ID, msg.Chat.ID, bonusCups); addErr != nil {
-							b.logger.Errorf("Failed to add 7-day return bonus cups: %v", addErr)
-						} else {
-							// Маркер бонуса: фиксируем дату старта следующего окна.
-							if saveBonusErr := b.db.SaveTrainingSession(&domain.TrainingSession{
-								UserID:         msg.From.ID,
-								ChatID:         msg.Chat.ID,
-								SessionDate:    sessionDate,
-								MessageText:    "BONUS_7D_WINDOW",
-								TrainingsCount: 0,
-								CupsAdded:      bonusCups,
-								IsBonus:        true,
-							}); saveBonusErr != nil {
-								b.logger.Errorf("Failed to save 7-day return bonus marker: %v", saveBonusErr)
-							}
-
-							chatTypeForBonus, typeErr := b.db.GetChatType(msg.Chat.ID)
-							if typeErr != nil {
-								chatTypeForBonus = "training"
-							}
-							totalCupsAfterBonus, cupsErr := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
-							if cupsErr != nil {
-								b.logger.Errorf("Failed to get total cups after 7-day return bonus: %v", cupsErr)
-								totalCupsAfterBonus = 0
-							}
-
-							selectWordForm := func(count int, one, few, many string) string {
-								lastTwo := count % 100
-								if lastTwo >= 11 && lastTwo <= 14 {
-									return many
-								}
-								switch count % 10 {
-								case 1:
-									return one
-								case 2, 3, 4:
-									return few
-								default:
-									return many
-								}
-							}
-
-							trainingWord := selectWordForm(sessionCountInWindow, "тренировка", "тренировки", "тренировок")
-							bonusText := fmt.Sprintf("🎁 Бонус активности: за последние 7 дней (включая сегодня) у тебя %d %s. +%d кубков 🏆\n🏆 Всего кубков: %d", sessionCountInWindow, trainingWord, bonusCups, totalCupsAfterBonus)
-							if chatTypeForBonus == "writing" {
-								writingWord := selectWordForm(sessionCountInWindow, "писательская сессия", "писательские сессии", "писательских сессий")
-								bonusText = fmt.Sprintf("🎁 Бонус активности: за последние 7 дней (включая сегодня) у тебя %d %s. +%d кубков 🏆\n🏆 Всего кубков: %d", sessionCountInWindow, writingWord, bonusCups, totalCupsAfterBonus)
-							}
-							if _, sendErr := b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, bonusText)); sendErr != nil {
-								b.logger.Errorf("Failed to send 7-day return bonus message: %v", sendErr)
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
-	// Таймер уже перезапущен в начале функции для предотвращения race condition
+	b.handleLeopardMoneyTrainingDone(msg)
 }
+
 
 func (b *Bot) evaluateSickLeaveHeuristics(text string) (approved bool, hasNegative bool) {
 	if text == "" {
@@ -1765,12 +800,6 @@ func (b *Bot) evaluateSickLeaveJustification(text string, messageLog *domain.Mes
 }
 
 func (b *Bot) handleChange(msg *tgbotapi.Message) {
-	// Определяем тип чата для адаптации текста
-	chatType, err := b.db.GetChatType(msg.Chat.ID)
-	if err != nil {
-		chatType = "training" // По умолчанию
-	}
-
 	// Получаем никнейм пользователя
 	username := ""
 	if msg.From.UserName != "" {
@@ -1807,32 +836,14 @@ func (b *Bot) handleChange(msg *tgbotapi.Message) {
 	exchangesCanMake := currentCalories / exchangeRate
 
 	if exchangesCanMake == 0 {
-		// Недостаточно калорий/слов для обмена
-		var replyText string
-		if chatType == "writing" {
-			replyText = fmt.Sprintf("💪 %s, у тебя %d %s\n\n🔄 Для обмена нужно минимум %d %s\n🏆 За %d %s можно получить %d кубков\n\n⏰ Пока рано! Еще попиши!\n\n🎯 Продолжай писать и накапливай слова!", username, currentCalories, getWordForm(currentCalories), exchangeRate, getWordForm(exchangeRate), exchangeRate, getWordForm(exchangeRate), cupsPerExchange)
-		} else {
-			replyText = fmt.Sprintf("💪 %s, у тебя %d калорий\n\n🔄 Для обмена нужно минимум %d калорий\n🏆 За %d калорий можно получить %d кубков\n\n⏰ Пока рано! Еще потренируйся!\n\n🎯 Продолжай тренироваться и накапливай калории!", username, currentCalories, exchangeRate, exchangeRate, cupsPerExchange)
-		}
+		replyText := fmt.Sprintf("💪 %s, у тебя %d калорий\n\n🔄 Для обмена нужно минимум %d калорий\n🏆 За %d калорий можно получить %d кубков\n\n⏰ Пока рано! Еще потренируйся!\n\n🎯 Продолжай тренироваться и накапливай калории!", username, currentCalories, exchangeRate, exchangeRate, cupsPerExchange)
 		reply := tgbotapi.NewMessage(msg.Chat.ID, replyText)
-		if chatType == "writing" {
-			b.logger.Infof("Sending insufficient words message to chat %d", msg.Chat.ID)
-		} else {
-			b.logger.Infof("Sending insufficient calories message to chat %d", msg.Chat.ID)
-		}
+		b.logger.Infof("Sending insufficient calories message to chat %d", msg.Chat.ID)
 		_, err = b.api.Send(reply)
 		if err != nil {
-			if chatType == "writing" {
-				b.logger.Errorf("Failed to send insufficient words message: %v", err)
-			} else {
-				b.logger.Errorf("Failed to send insufficient calories message: %v", err)
-			}
+			b.logger.Errorf("Failed to send insufficient calories message: %v", err)
 		} else {
-			if chatType == "writing" {
-				b.logger.Infof("Successfully sent insufficient words message to chat %d", msg.Chat.ID)
-			} else {
-				b.logger.Infof("Successfully sent insufficient calories message to chat %d", msg.Chat.ID)
-			}
+			b.logger.Infof("Successfully sent insufficient calories message to chat %d", msg.Chat.ID)
 		}
 		return
 	}
@@ -1841,16 +852,9 @@ func (b *Bot) handleChange(msg *tgbotapi.Message) {
 	caloriesToSpend := exchangesCanMake * exchangeRate
 	cupsToAdd := exchangesCanMake * cupsPerExchange
 
-	// Списываем калории/слова
-	var spendErrorMsg string
-	if chatType == "writing" {
-		spendErrorMsg = "❌ Ошибка при списании слов"
-	} else {
-		spendErrorMsg = "❌ Ошибка при списании калорий"
-	}
 	if err := b.db.AddCalories(msg.From.ID, msg.Chat.ID, -caloriesToSpend); err != nil {
 		b.logger.Errorf("Failed to spend calories/words: %v", err)
-		reply := tgbotapi.NewMessage(msg.Chat.ID, spendErrorMsg)
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Ошибка при списании калорий")
 		b.api.Send(reply)
 		return
 	}
@@ -1878,13 +882,7 @@ func (b *Bot) handleChange(msg *tgbotapi.Message) {
 	newCalories := currentCalories - caloriesToSpend
 	newCups := currentCups + cupsToAdd
 
-	// Отправляем сообщение об успешном обмене
-	var replyText string
-	if chatType == "writing" {
-		replyText = fmt.Sprintf("🔄 Обмен выполнен! 💪\n\n%s написано 📝 %d %s → 🏆 %d кубка\n\n📊 Твой баланс:\n📝 Слова: %d\n🏆 Кубки: %d\n\n💡 Курс: %d %s = %d кубка", username, caloriesToSpend, getWordForm(caloriesToSpend), cupsToAdd, newCalories, newCups, exchangeRate, getWordForm(exchangeRate), cupsPerExchange)
-	} else {
-		replyText = fmt.Sprintf("🔄 Обмен выполнен! 💪\n\n%s сожжено 🔥 %d калорий → 🏆 %d кубка\n\n📊 Твой баланс:\n🔥 Калории: %d\n🏆 Кубки: %d\n\n💡 Курс: %d калорий = %d кубка", username, caloriesToSpend, cupsToAdd, newCalories, newCups, exchangeRate, cupsPerExchange)
-	}
+	replyText := fmt.Sprintf("🔄 Обмен выполнен! 💪\n\n%s сожжено 🔥 %d калорий → 🏆 %d кубка\n\n📊 Твой баланс:\n🔥 Калории: %d\n🏆 Кубки: %d\n\n💡 Курс: %d калорий = %d кубка", username, caloriesToSpend, cupsToAdd, newCalories, newCups, exchangeRate, cupsPerExchange)
 	reply := tgbotapi.NewMessage(msg.Chat.ID, replyText)
 
 	b.logger.Infof("Sending exchange success message to chat %d", msg.Chat.ID)
@@ -1934,45 +932,7 @@ func (b *Bot) handleStartTimer(msg *tgbotapi.Message) {
 	}
 }
 
-func welcomeStartText(chatType string) string {
-	if chatType == "writing" {
-		return `🦁 **Добро пожаловать в LeoPoacherBot!** 🦁
-
-📝 **Этот бот поможет вам оставаться активным в писательстве и не стать жирным леопардом!**
-
-📋 **Основные команды:**
-• /start — Показать это приветствие
-• /help — Показать полную справку
-• /start_timer — Запустить таймеры (только для администраторов)
-
-📝 **Отчеты о писательской работе:**
-• #writing_done — Отправить отчет о писательской сессии
-
-🏥 **Больничный:**
-• #sick_leave — Взять больничный (приостанавливает таймер)
-• #healthy — Выздороветь (возобновляет таймер)
-
-🔄 **Обмен:**
-• #change — Обменять слова на кубки (100 слов = 42 кубка)
-
-⏰ **Как это работает:**
-• При добавлении бота в чат запускаются таймеры для всех участников
-• Каждый отчет с #writing_done перезапускает таймер на 7 дней
-• Через 6 дней без отчета — предупреждение
-• Через 7 дней без отчета — удаление из чата
-• 🏆 За каждую писательскую сессию = 1 КУБОК! 🏆
-• 🏆 7 дней подряд = 42 КУБКА! 🏆
-• 🏆🏆 14 дней подряд = 42 КУБКА! 🏆🏆
-• 🏆🏆🏆 21 день подряд = 42 КУБКА! 🏆🏆🏆
-• 🏆🏆🏆 30 дней подряд = 420 КУБКОВ! 🏆🏆🏆
-• 🏆🏆🏆🏆 42 дня подряд = 42 КУБКА! 🏆🏆🏆🏆
-• 🏆🏆🏆🏆🏆 50 дней подряд = 42 КУБКА! 🏆🏆🏆🏆🏆
-• 🏆🏆🏆🏆🏆🏆 60 дней подряд = 420 КУБКОВ! 🏆🏆🏆🏆🏆🏆
-• 🏆🏆🏆🏆🏆🏆🏆🏆 90 дней подряд = 420 КУБКОВ! 🏆🏆🏆🏆🏆🏆🏆🏆
-• 🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆 100 дней подряд = 4200 КУБКОВ! 🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆
-
-🎯 **Начни прямо сейчас — отправь #writing_done!**`
-	}
+func welcomeStartText() string {
 	return `🦁 **Добро пожаловать в LeoPoacherBot!** 🦁
 
 💪 **Этот бот поможет вам оставаться в форме и не стать жирным леопардом!**
@@ -2164,18 +1124,7 @@ func (b *Bot) handleStart(msg *tgbotapi.Message) {
 		return
 	}
 
-	var chatType string
-	if msg.Chat.IsPrivate() && b.paywallActive() {
-		chatType = b.monetizedChatWelcomeType()
-	} else {
-		var err error
-		chatType, err = b.db.GetChatType(msg.Chat.ID)
-		if err != nil {
-			chatType = "training"
-		}
-	}
-
-	welcomeText := welcomeStartText(chatType)
+	welcomeText := welcomeStartText()
 	if msg.Chat.IsPrivate() && b.paywallActive() && msg.From != nil && !b.paywallPrivateNeedsPayFirst(msg.From.ID) {
 		welcomeText += b.paywallPrivatePaidFooter()
 	}
@@ -2777,18 +1726,17 @@ func (b *Bot) calculateRemainingTime(messageLog *domain.MessageLog) time.Duratio
 	// Если нет данных о времени, возвращаем полный таймер
 	if messageLog.TimerStartTime == nil {
 		b.logger.Infof("DEBUG: TimerStartTime is nil, returning full duration")
-		return 7 * 24 * time.Hour
+		return leopardmoney.FullTimerDuration
 	}
 
 	// Парсим время начала таймера
 	timerStart, err := utils.ParseMoscowTime(*messageLog.TimerStartTime)
 	if err != nil {
 		b.logger.Errorf("Failed to parse timer start time: %v", err)
-		return 7 * 24 * time.Hour
+		return leopardmoney.FullTimerDuration
 	}
 
-	// Полное время таймера (7 дней)
-	fullTimerDuration := 7 * 24 * time.Hour
+	fullTimerDuration := leopardmoney.FullTimerDuration
 
 	// Если был больничный, учитываем его
 	if messageLog.SickLeaveStartTime != nil && messageLog.HasSickLeave && !messageLog.HasHealthy {
@@ -2949,73 +1897,26 @@ func (b *Bot) generateAndSendDailyWisdom() {
 		return
 	}
 
-	// Группируем чаты по типу для генерации разных мудростей
-	writingChats := []int64{}
-	trainingChats := []int64{}
+	wisdom, err := b.aiClient.GenerateDailyWisdom()
+	if err != nil {
+		b.logger.Errorf("Failed to generate daily wisdom: %v", err)
+		candidates := []string{
+			"Тишина внутри сильнее шума вокруг. Дисциплина — это форма заботы о себе. Начни с малого и будь верен пути.",
+			"Сила духа рождается в простых шагах. Выбери одно действие сегодня — и сделай его спокойно.",
+			"Тело слушает разум. Разум слушает дыхание. Ровное дыхание — ровный прогресс.",
+			"Пусть тренировка будет краткой, но честной. Постоянство сильнее порывов.",
+			"Не ищи идеального момента. Сделай его. Терпение и движение — союзники."}
+		idx := int(time.Now().Unix() % int64(len(candidates)))
+		wisdom = candidates[idx]
+	} else {
+		wisdom = strings.ReplaceAll(wisdom, "**", "")
+	}
 
 	for _, chatID := range chatIDs {
-		chatType, err := b.db.GetChatType(chatID)
-		if err != nil {
-			chatType = "training" // По умолчанию
-		}
-		if chatType == "writing" {
-			writingChats = append(writingChats, chatID)
-		} else {
-			trainingChats = append(trainingChats, chatID)
-		}
-	}
-
-	// Генерируем мудрость для чатов тренировок
-	if len(trainingChats) > 0 {
-		wisdom, err := b.aiClient.GenerateDailyWisdom("training")
-		if err != nil {
-			b.logger.Errorf("Failed to generate daily wisdom for training: %v", err)
-			// Фолбэк на статическую мудрость
-			candidates := []string{
-				"Тишина внутри сильнее шума вокруг. Дисциплина — это форма заботы о себе. Начни с малого и будь верен пути.",
-				"Сила духа рождается в простых шагах. Выбери одно действие сегодня — и сделай его спокойно.",
-				"Тело слушает разум. Разум слушает дыхание. Ровное дыхание — ровный прогресс.",
-				"Пусть тренировка будет краткой, но честной. Постоянство сильнее порывов.",
-				"Не ищи идеального момента. Сделай его. Терпение и движение — союзники."}
-			idx := int(time.Now().Unix() % int64(len(candidates)))
-			wisdom = candidates[idx]
-		} else {
-			wisdom = strings.ReplaceAll(wisdom, "**", "")
-		}
-
-		for _, chatID := range trainingChats {
-			msg := tgbotapi.NewMessage(chatID, wisdom)
-			b.logger.Infof("Sending daily wisdom to training chat %d", chatID)
-			if _, err := b.api.Send(msg); err != nil {
-				b.logger.Errorf("Failed to send daily wisdom to chat %d: %v", chatID, err)
-			}
-		}
-	}
-
-	// Генерируем мудрость для чатов писательства
-	if len(writingChats) > 0 {
-		wisdom, err := b.aiClient.GenerateDailyWisdom("writing")
-		if err != nil {
-			b.logger.Errorf("Failed to generate daily wisdom for writing: %v", err)
-			// Фолбэк на статическую мудрость для писательства
-			candidates := []string{
-				"Тишина внутри сильнее шума вокруг. Дисциплина письма — это форма заботы о творчестве. Начни с малого и будь верен тексту.",
-				"Сила слова рождается в простых предложениях. Выбери одну мысль сегодня — и вырази её спокойно.",
-				"Перо слушает разум. Разум слушает вдохновение. Ровное дыхание — ровный текст.",
-				"Пусть писательская сессия будет краткой, но честной. Постоянство сильнее порывов.",
-				"Не ищи идеального момента. Создай его. Терпение и слово — союзники."}
-			idx := int(time.Now().Unix() % int64(len(candidates)))
-			wisdom = candidates[idx]
-		} else {
-			wisdom = strings.ReplaceAll(wisdom, "**", "")
-		}
-
-		for _, chatID := range writingChats {
-			msg := tgbotapi.NewMessage(chatID, wisdom)
-			b.logger.Infof("Sending daily wisdom to writing chat %d", chatID)
-			if _, err := b.api.Send(msg); err != nil {
-				b.logger.Errorf("Failed to send daily wisdom to chat %d: %v", chatID, err)
-			}
+		msg := tgbotapi.NewMessage(chatID, wisdom)
+		b.logger.Infof("Sending daily wisdom to chat %d", chatID)
+		if _, err := b.api.Send(msg); err != nil {
+			b.logger.Errorf("Failed to send daily wisdom to chat %d: %v", chatID, err)
 		}
 	}
 }
@@ -4271,7 +3172,7 @@ func (b *Bot) detectGenderFromMessage(text string) string {
 }
 
 // getUnifiedTrainingPrompt генерирует единый промпт для AI, объединяющий приписку и мудрость в одно сообщение
-func (b *Bot) getUnifiedTrainingPrompt(streakDays, totalCalories, totalCups int, wasOnSickLeave bool, chatType string) string {
+func (b *Bot) getUnifiedTrainingPrompt(streakDays, totalXP, achievementCount int, wasOnSickLeave bool, chatType string) string {
 	now := utils.GetMoscowTime()
 	hour := now.Hour()
 	weekday := now.Weekday()
@@ -4375,11 +3276,11 @@ func (b *Bot) getUnifiedTrainingPrompt(streakDays, totalCalories, totalCups int,
 		}
 	}
 
-	if totalCups >= 1000 {
+	if achievementCount >= leopardmoney.MaxAchievements {
 		if chatType == "writing" {
-			prompts = append(prompts, "Сделай одно цельное сообщение (2-3 предложения): пользователь накопил много кубков — это опытный писатель. Первое — обратись как к ветерану писательства, отметь писательскую работу, второе — конкретное наблюдение по писательству. НЕ упоминай тренировки, спорт или физическую активность. Избегай абстрактных фраз про 'дух', 'волю', 'помни'. Используй детали о писательской работе из сообщения. Без Markdown.")
+			prompts = append(prompts, "Сделай одно цельное сообщение (2-3 предложения): у пользователя максимум ачивок за серии — это опытный писатель. Первое — обратись как к ветерану писательства, отметь писательскую работу, второе — конкретное наблюдение по писательству. НЕ упоминай тренировки, спорт или физическую активность. Избегай абстрактных фраз про 'дух', 'волю', 'помни'. Используй детали о писательской работе из сообщения. Без Markdown.")
 		} else {
-			prompts = append(prompts, "Сделай одно цельное сообщение (2-3 предложения): пользователь накопил много кубков — это опытный участник. Первое — обратись как к ветерану, отметь упражнения, второе — конкретное наблюдение. Избегай абстрактных фраз про 'дух', 'волю', 'помни'. Используй упражнения из сообщения. Без Markdown.")
+			prompts = append(prompts, "Сделай одно цельное сообщение (2-3 предложения): у пользователя максимум ачивок за серии — это опытный участник. Первое — обратись как к ветерану, отметь упражнения, второе — конкретное наблюдение. Избегай абстрактных фраз про 'дух', 'волю', 'помни'. Используй упражнения из сообщения. Без Markdown.")
 		}
 	}
 

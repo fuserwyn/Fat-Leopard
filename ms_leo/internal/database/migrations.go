@@ -340,6 +340,24 @@ var Migrations = []Migration{
 			DROP COLUMN IF EXISTS yookassa_payment_id;
 		`,
 	},
+	{
+		Version:     17,
+		Description: "Leopard Money Model: XP achievements, freeze, daily XP cursor",
+		UpSQL: `
+			ALTER TABLE message_log ADD COLUMN IF NOT EXISTS achievement_count INTEGER NOT NULL DEFAULT 0;
+			ALTER TABLE message_log ADD COLUMN IF NOT EXISTS xp_freeze_until TIMESTAMP WITH TIME ZONE;
+			ALTER TABLE message_log ADD COLUMN IF NOT EXISTS last_daily_xp_msk_date DATE;
+			ALTER TABLE message_log ADD COLUMN IF NOT EXISTS leopard_starter_bonus_applied BOOLEAN NOT NULL DEFAULT FALSE;
+			ALTER TABLE message_log ADD COLUMN IF NOT EXISTS last_achievement_streak_level INTEGER NOT NULL DEFAULT 0;
+		`,
+		DownSQL: `
+			ALTER TABLE message_log DROP COLUMN IF EXISTS last_achievement_streak_level;
+			ALTER TABLE message_log DROP COLUMN IF EXISTS leopard_starter_bonus_applied;
+			ALTER TABLE message_log DROP COLUMN IF EXISTS last_daily_xp_msk_date;
+			ALTER TABLE message_log DROP COLUMN IF EXISTS xp_freeze_until;
+			ALTER TABLE message_log DROP COLUMN IF EXISTS achievement_count;
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции
