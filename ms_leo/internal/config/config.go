@@ -31,7 +31,7 @@ type Config struct {
 	PaywallInviteCreatesJoinRequest bool
 	PaymentProviderToken            string // токен провайдера из BotFather (не коммитить в git)
 	PaymentCurrency                 string // RUB и др. ISO 4217, либо XTR (Telegram Stars: 1 единица = 1 звезда)
-	PaymentAmountMinorUnits         int    // копейки для RUB; для XTR — число звёзд (см. PAYMENT_AMOUNT_STARS / PAYMENT_AMOUNT_MINOR_UNITS)
+	PaymentAmountMinorUnits         int    // копейки для RUB; для XTR — число звёзд (см. PAYMENT_STARS_AMOUNT / PAYMENT_AMOUNT_MINOR_UNITS)
 	PaymentInvoiceTitle             string
 	PaymentInvoiceDesc              string
 	// Доп. счёт Telegram Stars при PAYMENT_CURRENCY≠XTR (например RUB + ЮKassa и параллельно звёзды).
@@ -189,7 +189,7 @@ func parseEnvBool(s string) bool {
 	}
 }
 
-// paymentStarsAddonAmountFromEnv: PAYMENT_STARS_AMOUNT или PAYMENT_AMOUNT_STARS (только если флаг включён).
+// paymentStarsAddonAmountFromEnv: PAYMENT_STARS_AMOUNT (только если флаг включён).
 func paymentStarsAddonAmountFromEnv(starsEnabled bool) int {
 	if !starsEnabled {
 		return 0
@@ -200,30 +200,18 @@ func paymentStarsAddonAmountFromEnv(starsEnabled bool) int {
 			return v
 		}
 	}
-	raw2 := strings.TrimSpace(os.Getenv("PAYMENT_AMOUNT_STARS"))
-	if raw2 != "" {
-		if v, err := strconv.Atoi(raw2); err == nil && v > 0 {
-			return v
-		}
-	}
 	return 0
 }
 
 // paymentAmountMinorFromEnv: для RUB — PAYMENT_AMOUNT_RUB перекрывает копейки;
-// для XTR — PAYMENT_STARS_AMOUNT, затем PAYMENT_AMOUNT_STARS, затем PAYMENT_AMOUNT_MINOR_UNITS.
+// для XTR — PAYMENT_STARS_AMOUNT, затем PAYMENT_AMOUNT_MINOR_UNITS.
 func paymentAmountMinorFromEnv(currency string) int {
 	cur := strings.TrimSpace(strings.ToUpper(currency))
 	if cur == "" {
 		cur = "RUB"
 	}
 	if cur == "XTR" {
-		starsRawPrimary := strings.TrimSpace(os.Getenv("PAYMENT_STARS_AMOUNT"))
-		if starsRawPrimary != "" {
-			if v, err := strconv.Atoi(starsRawPrimary); err == nil && v > 0 {
-				return v
-			}
-		}
-		starsRaw := strings.TrimSpace(os.Getenv("PAYMENT_AMOUNT_STARS"))
+		starsRaw := strings.TrimSpace(os.Getenv("PAYMENT_STARS_AMOUNT"))
 		if starsRaw != "" {
 			if v, err := strconv.Atoi(starsRaw); err == nil && v > 0 {
 				return v

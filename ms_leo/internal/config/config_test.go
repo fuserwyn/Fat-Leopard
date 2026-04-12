@@ -15,7 +15,7 @@ func TestPaymentAmountMinorFromEnv_XTR(t *testing.T) {
 		{
 			name: "stars env wins",
 			env: map[string]string{
-				"PAYMENT_AMOUNT_STARS":       "42",
+				"PAYMENT_STARS_AMOUNT":       "42",
 				"PAYMENT_AMOUNT_MINOR_UNITS": "999",
 			},
 			want: 42,
@@ -24,7 +24,7 @@ func TestPaymentAmountMinorFromEnv_XTR(t *testing.T) {
 		{
 			name: "minor units when stars empty",
 			env: map[string]string{
-				"PAYMENT_AMOUNT_STARS":       "",
+				"PAYMENT_STARS_AMOUNT":       "",
 				"PAYMENT_AMOUNT_MINOR_UNITS": "15",
 			},
 			want: 15,
@@ -33,7 +33,7 @@ func TestPaymentAmountMinorFromEnv_XTR(t *testing.T) {
 		{
 			name: "default 100 when both empty",
 			env: map[string]string{
-				"PAYMENT_AMOUNT_STARS":       "",
+				"PAYMENT_STARS_AMOUNT":       "",
 				"PAYMENT_AMOUNT_MINOR_UNITS": "",
 			},
 			want: 100,
@@ -42,7 +42,7 @@ func TestPaymentAmountMinorFromEnv_XTR(t *testing.T) {
 		{
 			name: "invalid stars falls through to minor",
 			env: map[string]string{
-				"PAYMENT_AMOUNT_STARS":       "x",
+				"PAYMENT_STARS_AMOUNT":       "x",
 				"PAYMENT_AMOUNT_MINOR_UNITS": "20",
 			},
 			want: 20,
@@ -51,7 +51,7 @@ func TestPaymentAmountMinorFromEnv_XTR(t *testing.T) {
 		{
 			name: "invalid stars and no minor -> default",
 			env: map[string]string{
-				"PAYMENT_AMOUNT_STARS":       "0",
+				"PAYMENT_STARS_AMOUNT":       "0",
 				"PAYMENT_AMOUNT_MINOR_UNITS": "",
 			},
 			want: 100,
@@ -89,9 +89,8 @@ func TestPaymentStarsAddonAmountFromEnv(t *testing.T) {
 		t.Fatalf("got %d", paymentStarsAddonAmountFromEnv(true))
 	}
 	t.Setenv("PAYMENT_STARS_AMOUNT", "")
-	t.Setenv("PAYMENT_AMOUNT_STARS", "9")
-	if paymentStarsAddonAmountFromEnv(true) != 9 {
-		t.Fatalf("fallback PAYMENT_AMOUNT_STARS: got %d", paymentStarsAddonAmountFromEnv(true))
+	if paymentStarsAddonAmountFromEnv(true) != 0 {
+		t.Fatalf("empty PAYMENT_STARS_AMOUNT: got %d", paymentStarsAddonAmountFromEnv(true))
 	}
 }
 
@@ -184,7 +183,7 @@ func TestLoad_PaymentCurrencyUppercaseAndXTR(t *testing.T) {
 	}
 
 	t.Setenv("PAYMENT_CURRENCY", "  xtr  ")
-	t.Setenv("PAYMENT_AMOUNT_STARS", "33")
+	t.Setenv("PAYMENT_STARS_AMOUNT", "33")
 	t.Setenv("PAYMENT_AMOUNT_MINOR_UNITS", "")
 	// Avoid picking stray tokens from parent env if any
 	t.Setenv("PAYMENT_PROVIDER_TOKEN", "")

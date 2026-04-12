@@ -76,7 +76,6 @@ SCAN_HISTORY_ON_START=false
 # B) Дополнительно Telegram Stars при PAYMENT_CURRENCY=RUB + ЮKassa (рекомендуемый «два способа» без XTR):
 # PAYMENT_STARS_ENABLED=true
 # PAYMENT_STARS_AMOUNT=100
-# (если PAYMENT_STARS_AMOUNT пусто — можно PAYMENT_AMOUNT_STARS при включённом флаге)
 #
 # C) Оплата в Telegram картой через провайдера @BotFather (отдельно или вместе со звёздами/ЮKassa):
 # PAYMENT_PROVIDER_TOKEN=...
@@ -84,7 +83,7 @@ SCAN_HISTORY_ON_START=false
 #
 # D) Звёзды (XTR) и одновременно ЮKassa в рублях — задай сумму карты отдельно (основная PAYMENT_CURRENCY=XTR не задаёт рубли для ЮKassa):
 # PAYMENT_CURRENCY=XTR
-# PAYMENT_AMOUNT_STARS=100
+# PAYMENT_STARS_AMOUNT=100
 # PAYMENT_AMOUNT_RUB=100
 # (или PAYMENT_YOOKASSA_AMOUNT_RUB / PAYMENT_YOOKASSA_AMOUNT_MINOR_UNITS — только для ЮKassa)
 # + YOOKASSA_SHOP_ID / YOOKASSA_SECRET_KEY — тогда в боте две кнопки: звёзды и ссылка ЮKassa.
