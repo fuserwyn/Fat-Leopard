@@ -196,28 +196,6 @@ func (b *Bot) handleLeopardMoneyTrainingDone(msg *tgbotapi.Message) {
 		b.logger.Warnf("send training private summary: %v", err)
 	}
 
-	if b.aiClient != nil && xpAdd > 0 {
-		question := b.getUnifiedTrainingPrompt(newStreak, totalXP, ach, wasOnSickLeave)
-		var ctxBuilder strings.Builder
-		ctxBuilder.WriteString("КРИТИЧЕСКИ ВАЖНО: Отвечай ТОЛЬКО на этот отчёт.\n\n")
-		ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
-		if userGender != "" {
-			gt := "мужской"
-			if userGender == "f" {
-				gt = "женский"
-			}
-			ctxBuilder.WriteString(fmt.Sprintf("Пол: %s\n", gt))
-		}
-		ctxBuilder.WriteString(fmt.Sprintf("Серия: %d дней\n", newStreak))
-		ctxBuilder.WriteString(fmt.Sprintf("XP: %d, ачивки: %d\n", totalXP, ach))
-		ctxBuilder.WriteString(fmt.Sprintf("Текст отчёта:\n%s\n", text))
-		if add, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
-			add = strings.TrimSpace(strings.ReplaceAll(add, "**", ""))
-			if add != "" {
-				if _, err := b.api.Send(tgbotapi.NewMessage(msg.From.ID, add)); err != nil {
-					b.logger.Warnf("send training private ai note: %v", err)
-				}
-			}
-		}
-	}
+	_ = wasOnSickLeave
+	_ = userGender
 }
