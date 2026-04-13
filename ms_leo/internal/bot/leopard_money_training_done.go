@@ -151,11 +151,16 @@ func (b *Bot) handleLeopardMoneyTrainingDone(msg *tgbotapi.Message) {
 
 	wasOnSickLeave := messageLog.HasSickLeave && !messageLog.HasHealthy
 
+	chatAck := tgbotapi.NewMessage(msg.Chat.ID, "🦁 Красавчег, сегодня не съем тебя.")
+	if _, err := b.api.Send(chatAck); err != nil {
+		b.logger.Errorf("send training chat ack: %v", err)
+	}
+
 	messageText := fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Серия: %d дн.\n⚡ +%d XP (всего XP: %d)\n🏆 Ачивок: %d/%d\n\n⏰ Таймер неактивности: %d дней (день 8 — удаление)\n\n🎯 Отчёт с %s", newStreak, xpAdd, totalXP, ach, leopardmoney.MaxAchievements, leopardmoney.InactiveRemovalDays, tag)
 
-	reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
-	if _, err := b.api.Send(reply); err != nil {
-		b.logger.Errorf("send training ack: %v", err)
+	privateReply := tgbotapi.NewMessage(msg.From.ID, messageText)
+	if _, err := b.api.Send(privateReply); err != nil {
+		b.logger.Warnf("send training private summary: %v", err)
 	}
 
 	if b.aiClient != nil && xpAdd > 0 {
@@ -176,7 +181,9 @@ func (b *Bot) handleLeopardMoneyTrainingDone(msg *tgbotapi.Message) {
 		if add, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
 			add = strings.TrimSpace(strings.ReplaceAll(add, "**", ""))
 			if add != "" {
-				b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, add))
+				if _, err := b.api.Send(tgbotapi.NewMessage(msg.From.ID, add)); err != nil {
+					b.logger.Warnf("send training private ai note: %v", err)
+				}
 			}
 		}
 	}
