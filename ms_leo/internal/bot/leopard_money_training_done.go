@@ -11,6 +11,38 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
+func (b *Bot) generateShortLeopardChatAck(username, text string, streak, totalXP, ach int) string {
+	fallback := "🦁 Красавчег, сегодня не съем тебя."
+	if b.aiClient == nil {
+		return fallback
+	}
+
+	question := "Сгенерируй ОДНО короткое предложение в стиле Лео: 5-7 слов, по-доброму хищно, с посылом 'сегодня не съем тебя'. Без списков, без Markdown, без эмодзи, без пояснений."
+	var ctxBuilder strings.Builder
+	ctxBuilder.WriteString("Контекст отчёта тренировки.\n")
+	ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
+	ctxBuilder.WriteString(fmt.Sprintf("Серия: %d дней\n", streak))
+	ctxBuilder.WriteString(fmt.Sprintf("XP: %d\n", totalXP))
+	ctxBuilder.WriteString(fmt.Sprintf("Ачивки: %d\n", ach))
+	ctxBuilder.WriteString(fmt.Sprintf("Текст отчёта: %s\n", text))
+
+	ack, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String())
+	if err != nil {
+		b.logger.Warnf("generate short leopard ack: %v", err)
+		return fallback
+	}
+	ack = strings.TrimSpace(strings.ReplaceAll(ack, "**", ""))
+	if ack == "" {
+		return fallback
+	}
+	words := len(strings.Fields(ack))
+	if words < 3 || words > 12 {
+		// Страхуем длину, если модель нарушила ограничение.
+		return fallback
+	}
+	return "🦁 " + ack
+}
+
 // handleLeopardMoneyTrainingDone — отчёт #training_done по модели Leopard Money (XP, ачивки, таймер 8 дней).
 func (b *Bot) handleLeopardMoneyTrainingDone(msg *tgbotapi.Message) {
 	username := ""
@@ -151,7 +183,8 @@ func (b *Bot) handleLeopardMoneyTrainingDone(msg *tgbotapi.Message) {
 
 	wasOnSickLeave := messageLog.HasSickLeave && !messageLog.HasHealthy
 
-	chatAck := tgbotapi.NewMessage(msg.Chat.ID, "🦁 Красавчег, сегодня не съем тебя.")
+	chatAckText := b.generateShortLeopardChatAck(username, text, newStreak, totalXP, ach)
+	chatAck := tgbotapi.NewMessage(msg.Chat.ID, chatAckText)
 	if _, err := b.api.Send(chatAck); err != nil {
 		b.logger.Errorf("send training chat ack: %v", err)
 	}
