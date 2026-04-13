@@ -12,12 +12,12 @@ import (
 )
 
 func (b *Bot) generateShortLeopardChatAck(username, text string, streak, totalXP, ach int) string {
-	fallback := "🦁 Красавчег, сегодня не съем тебя."
+	fallback := "Красавчег, сегодня не съем тебя."
 	if b.aiClient == nil {
 		return fallback
 	}
 
-	question := "Сгенерируй ОДНО короткое предложение в стиле Лео: 5-7 слов, по-доброму хищно, с посылом 'сегодня не съем тебя'. Пиши только как прямую реплику Лео к пользователю: обращение на 'ты', без третьего лица, без ремарок/описаний действий (например, 'улыбнулся', 'подумал', 'прорычал'), без кавычек, без скобок, без Markdown и без эмодзи."
+	question := "Сгенерируй ОДНО короткое предложение в стиле Лео: 5-7 слов, по-доброму хищно, с посылом 'сегодня не съем тебя'. Пиши только как прямую реплику Лео к пользователю: обращение на 'ты', без третьего лица, без ремарок/описаний действий (например, 'улыбнулся', 'подумал', 'прорычал'), без кавычек, без скобок, без Markdown и без эмодзи. Верни только чистый текст одной фразы."
 	var ctxBuilder strings.Builder
 	ctxBuilder.WriteString("Контекст отчёта тренировки.\n")
 	ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
@@ -32,6 +32,7 @@ func (b *Bot) generateShortLeopardChatAck(username, text string, streak, totalXP
 		return fallback
 	}
 	ack = strings.TrimSpace(strings.ReplaceAll(ack, "**", ""))
+	ack = strings.Trim(ack, `"'«»“”„`)
 	if ack == "" {
 		return fallback
 	}
@@ -48,7 +49,7 @@ func (b *Bot) generateShortLeopardChatAck(username, text string, streak, totalXP
 		strings.Contains(lower, " произн") {
 		return fallback
 	}
-	return "🦁 " + ack
+	return ack
 }
 
 // handleLeopardMoneyTrainingDone — отчёт #training_done по модели Leopard Money (XP, ачивки, таймер 8 дней).
