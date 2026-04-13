@@ -192,8 +192,21 @@ func (b *Bot) handleLeopardMoneyTrainingDone(msg *tgbotapi.Message) {
 
 	wasOnSickLeave := messageLog.HasSickLeave && !messageLog.HasHealthy
 
-	chatAckText := b.generateShortLeopardChatAck(username, text, newStreak, totalXP, ach)
+	tagPrefix := ""
+	if msg.From != nil {
+		if msg.From.UserName != "" {
+			tagPrefix = "@" + msg.From.UserName + ", "
+		} else {
+			displayName := strings.TrimSpace(msg.From.FirstName)
+			if displayName == "" {
+				displayName = "дружище"
+			}
+			tagPrefix = fmt.Sprintf("[%s](tg://user?id=%d), ", displayName, msg.From.ID)
+		}
+	}
+	chatAckText := tagPrefix + b.generateShortLeopardChatAck(username, text, newStreak, totalXP, ach)
 	chatAck := tgbotapi.NewMessage(msg.Chat.ID, chatAckText)
+	chatAck.ParseMode = "Markdown"
 	if _, err := b.api.Send(chatAck); err != nil {
 		b.logger.Errorf("send training chat ack: %v", err)
 	}
