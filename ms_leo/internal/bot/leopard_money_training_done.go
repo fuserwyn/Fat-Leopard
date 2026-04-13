@@ -17,7 +17,7 @@ func (b *Bot) generateShortLeopardChatAck(username, text string, streak, totalXP
 		return fallback
 	}
 
-	question := "Сгенерируй ОДНО короткое предложение в стиле Лео: 5-7 слов, по-доброму хищно, с посылом 'сегодня не съем тебя'. Без списков, без Markdown, без эмодзи, без пояснений."
+	question := "Сгенерируй ОДНО короткое предложение в стиле Лео: 5-7 слов, по-доброму хищно, с посылом 'сегодня не съем тебя'. Пиши только как прямую реплику Лео к пользователю: обращение на 'ты', без третьего лица, без ремарок/описаний действий (например, 'улыбнулся', 'подумал', 'прорычал'), без кавычек, без скобок, без Markdown и без эмодзи."
 	var ctxBuilder strings.Builder
 	ctxBuilder.WriteString("Контекст отчёта тренировки.\n")
 	ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", username))
@@ -38,6 +38,14 @@ func (b *Bot) generateShortLeopardChatAck(username, text string, streak, totalXP
 	words := len(strings.Fields(ack))
 	if words < 3 || words > 12 {
 		// Страхуем длину, если модель нарушила ограничение.
+		return fallback
+	}
+	lower := strings.ToLower(ack)
+	if strings.Contains(lower, " улыб") ||
+		strings.Contains(lower, " подум") ||
+		strings.Contains(lower, " прорыч") ||
+		strings.Contains(lower, " сказал") ||
+		strings.Contains(lower, " произн") {
 		return fallback
 	}
 	return "🦁 " + ack
