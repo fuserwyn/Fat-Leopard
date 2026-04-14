@@ -5,8 +5,18 @@ import (
 	"strings"
 	"time"
 
+	"leo-bot/internal/utils"
+
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
+
+func parseLastMessageTime(lastMessage string) (time.Time, error) {
+	if ts, err := utils.ParseMoscowTime(lastMessage); err == nil {
+		return ts, nil
+	}
+	// Backward compatibility for legacy rows stored without timezone.
+	return time.ParseInLocation("2006-01-02 15:04:05", lastMessage, utils.GetMoscowTime().Location())
+}
 
 // normalizeUserDisplayName убирает лишние ведущие '@' и оставляет одно упоминание для @username.
 func normalizeUserDisplayName(username string) string {
@@ -31,9 +41,9 @@ func (b *Bot) removeUser(userID, chatID int64, username string) {
 		// Проверяем, был ли недавно отправлен #training_done
 		// Если HasTrainingDone = true и LastMessage недавно обновлен, не удаляем
 		if messageLog.HasTrainingDone {
-			lastMessageTime, parseErr := time.Parse("2006-01-02 15:04:05", messageLog.LastMessage)
+			lastMessageTime, parseErr := parseLastMessageTime(messageLog.LastMessage)
 			if parseErr == nil {
-				timeSinceLastMessage := time.Since(lastMessageTime)
+				timeSinceLastMessage := utils.GetMoscowTime().Sub(lastMessageTime)
 				// Если последнее сообщение было менее 1 минуты назад и содержит #training_done, не удаляем
 				if timeSinceLastMessage < 1*time.Minute {
 					b.logger.Infof("User %d (%s) just sent #training_done (%v ago), cancelling removal", userID, username, timeSinceLastMessage)
