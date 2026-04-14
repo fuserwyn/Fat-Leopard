@@ -4,6 +4,7 @@ import (
 	"os"
 	"strconv"
 
+	// cspell:ignore joho
 	"github.com/joho/godotenv"
 )
 
