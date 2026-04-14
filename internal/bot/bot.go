@@ -23,7 +23,7 @@ type Bot struct {
 	db                   *database.Database
 	logger               logger.Logger
 	config               *config.Config
-	timers               map[int64]*domain.TimerInfo
+	timers               map[string]*domain.TimerInfo
 	aiClient             *ai.OpenRouterClient
 	sickApprovalWatchers map[int64]chan struct{}
 	sickApprovalMutex    sync.Mutex
@@ -68,7 +68,7 @@ func New(cfg *config.Config, db *database.Database, log logger.Logger) (*Bot, er
 		db:                   db,
 		logger:               log,
 		config:               cfg,
-		timers:               make(map[int64]*domain.TimerInfo),
+		timers:               make(map[string]*domain.TimerInfo),
 		aiClient:             aiClient,
 		sickApprovalWatchers: make(map[int64]chan struct{}),
 		adminSessions:        make(map[int64]*adminSession),
@@ -2360,7 +2360,7 @@ func (b *Bot) handleSetExempt(msg *tgbotapi.Message) {
 	}
 
 	// Отменяем таймер если он активен
-	b.cancelTimer(userID)
+	b.cancelTimer(userID, msg.Chat.ID)
 
 	reply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("✅ Пользователь %s исключен из правила удаления за неактивность", messageLog.Username))
 	b.api.Send(reply)

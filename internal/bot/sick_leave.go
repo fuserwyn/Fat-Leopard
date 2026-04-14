@@ -147,7 +147,7 @@ func (b *Bot) activateSickLeave(msg *tgbotapi.Message, messageLog *domain.Messag
 	}
 
 	// Отменяем существующие таймеры
-	b.cancelTimer(msg.From.ID)
+	b.cancelTimer(msg.From.ID, msg.Chat.ID)
 
 	// Форматируем оставшееся время
 	remainingTimeFormatted := b.formatDurationToDays(remainingTime)

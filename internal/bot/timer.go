@@ -11,6 +11,18 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
+func makeTimerKey(userID, chatID int64) string {
+	return fmt.Sprintf("%d:%d", userID, chatID)
+}
+
+func parseLastMessageTime(lastMessage string) (time.Time, error) {
+	if ts, err := utils.ParseMoscowTime(lastMessage); err == nil {
+		return ts, nil
+	}
+	// Backward compatibility for legacy rows stored without timezone.
+	return time.ParseInLocation("2006-01-02 15:04:05", lastMessage, utils.GetMoscowTime().Location())
+}
+
 // normalizeUserDisplayName убирает лишние ведущие '@' и оставляет одно упоминание для @username.
 func normalizeUserDisplayName(username string) string {
 	clean := strings.TrimLeft(username, "@")
@@ -37,7 +49,7 @@ func (b *Bot) startTimerWithDuration(userID, chatID int64, username string, dura
 	}
 
 	// Отменяем существующие таймеры
-	b.cancelTimer(userID)
+	b.cancelTimer(userID, chatID)
 
 	// Создаем новые таймеры
 	warningTask := make(chan bool)
@@ -55,7 +67,7 @@ func (b *Bot) startTimerWithDuration(userID, chatID int64, username string, dura
 		TimerStartTime:      timerStartTime,
 	}
 
-	b.timers[userID] = timerInfo
+	b.timers[makeTimerKey(userID, chatID)] = timerInfo
 
 	// Сохраняем время начала таймера в базу данных
 	messageLog, err = b.db.GetMessageLog(userID, chatID)
@@ -124,7 +136,7 @@ func (b *Bot) startTimerWithDuration(userID, chatID int64, username string, dura
 // restoreTimerWithDuration восстанавливает таймер без обновления timer_start_time в БД
 func (b *Bot) restoreTimerWithDuration(userID, chatID int64, username string, duration time.Duration, existingTimerStartTime string) {
 	// Отменяем существующие таймеры
-	b.cancelTimer(userID)
+	b.cancelTimer(userID, chatID)
 
 	// Создаем новые таймеры
 	warningTask := make(chan bool)
@@ -141,7 +153,7 @@ func (b *Bot) restoreTimerWithDuration(userID, chatID int64, username string, du
 		TimerStartTime:      existingTimerStartTime, // Используем существующее время из БД
 	}
 
-	b.timers[userID] = timerInfo
+	b.timers[makeTimerKey(userID, chatID)] = timerInfo
 
 	// НЕ обновляем timer_start_time в БД - используем существующее значение
 
@@ -194,13 +206,14 @@ func (b *Bot) restoreTimerWithDuration(userID, chatID int64, username string, du
 	b.logger.Infof("Restored timer for user %d (%s) - warning in %v, critical in %v, removal in %v (timer start time: %s)", userID, username, warningTime, criticalWarningTime, duration, existingTimerStartTime)
 }
 
-func (b *Bot) cancelTimer(userID int64) {
-	if timer, exists := b.timers[userID]; exists {
+func (b *Bot) cancelTimer(userID, chatID int64) {
+	timerKey := makeTimerKey(userID, chatID)
+	if timer, exists := b.timers[timerKey]; exists {
 		close(timer.WarningTask)
 		close(timer.CriticalWarningTask)
 		close(timer.RemovalTask)
-		delete(b.timers, userID)
-		b.logger.Infof("Cancelled timer for user %d", userID)
+		delete(b.timers, timerKey)
+		b.logger.Infof("Cancelled timer for user %d in chat %d", userID, chatID)
 	}
 }
 
@@ -351,14 +364,14 @@ func (b *Bot) removeUser(userID, chatID int64, username string) {
 		// Проверяем, был ли недавно отправлен #training_done
 		// Если HasTrainingDone = true и LastMessage недавно обновлен, не удаляем
 		if messageLog.HasTrainingDone {
-			lastMessageTime, parseErr := time.Parse("2006-01-02 15:04:05", messageLog.LastMessage)
+			lastMessageTime, parseErr := parseLastMessageTime(messageLog.LastMessage)
 			if parseErr == nil {
-				timeSinceLastMessage := time.Since(lastMessageTime)
+				timeSinceLastMessage := utils.GetMoscowTime().Sub(lastMessageTime)
 				// Если последнее сообщение было менее 1 минуты назад и содержит #training_done, не удаляем
 				if timeSinceLastMessage < 1*time.Minute {
 					b.logger.Infof("User %d (%s) just sent #training_done (%v ago), cancelling removal", userID, username, timeSinceLastMessage)
 					// Отменяем таймер, если он еще существует
-					b.cancelTimer(userID)
+					b.cancelTimer(userID, chatID)
 					return
 				}
 			}
@@ -401,8 +414,8 @@ func (b *Bot) removeUser(userID, chatID int64, username string) {
 	}
 
 	// Удаляем таймер
-	delete(b.timers, userID)
-	b.logger.Infof("Timer removed for user %d", userID)
+	delete(b.timers, makeTimerKey(userID, chatID))
+	b.logger.Infof("Timer removed for user %d in chat %d", userID, chatID)
 }
 
 // recoverTimersFromDatabase восстанавливает таймеры из базы данных при запуске бота
