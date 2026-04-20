@@ -146,9 +146,12 @@ func (b *Bot) sendInactiveWarning(userID, chatID int64, username string, day int
 	tag := "#training_done"
 	messageText := fmt.Sprintf("⚠️ Предупреждение (день %d без отчёта)\n\n%s, прошло уже %d дней без отчёта с хэштегом.\n\n🎯 Отправь %s, чтобы остаться в игре.", day, who, day, tag)
 
+	typingChat := chatID
+	if chatID != userID {
+		typingChat = userID
+	}
 	if b.aiClient != nil {
-		action := tgbotapi.NewChatAction(chatID, tgbotapi.ChatTyping)
-		b.api.Send(action)
+		b.api.Send(tgbotapi.NewChatAction(typingChat, tgbotapi.ChatTyping))
 		var ctxBuilder strings.Builder
 		ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\nДень без отчёта: %d\n", username, day))
 		if addendum, err := b.aiClient.AnswerUserQuestion(b.config.Prompts.WarningTimerQuestion, ctxBuilder.String()); err == nil {
@@ -158,7 +161,20 @@ func (b *Bot) sendInactiveWarning(userID, chatID int64, username string, day int
 			}
 		}
 	}
-	b.api.Send(tgbotapi.NewMessage(chatID, messageText))
+
+	if chatID == userID {
+		b.api.Send(tgbotapi.NewMessage(userID, messageText))
+		return
+	}
+
+	_, dmErr := b.api.Send(tgbotapi.NewMessage(userID, messageText))
+	if dmErr != nil {
+		b.logger.Warnf("send inactive warning DM user=%d: %v, sending full text to group", userID, dmErr)
+		b.api.Send(tgbotapi.NewMessage(chatID, messageText))
+		return
+	}
+	short := fmt.Sprintf("⚠️ %s — день %d без отчёта с хэштегом. Полное напоминание смотри в личных сообщениях с ботом.", who, day)
+	b.api.Send(tgbotapi.NewMessage(chatID, short))
 }
 
 func (b *Bot) sendInactiveDay7ZeroXP(userID, chatID int64, username string) {
@@ -177,5 +193,16 @@ func (b *Bot) sendInactiveDay7ZeroXP(userID, chatID int64, username string) {
 			}
 		}
 	}
-	b.api.Send(tgbotapi.NewMessage(chatID, txt))
+
+	if chatID == userID {
+		b.api.Send(tgbotapi.NewMessage(userID, txt))
+		return
+	}
+	if _, dmErr := b.api.Send(tgbotapi.NewMessage(userID, txt)); dmErr != nil {
+		b.logger.Warnf("send inactive day7 DM user=%d: %v, sending full text to group", userID, dmErr)
+		b.api.Send(tgbotapi.NewMessage(chatID, txt))
+		return
+	}
+	short := fmt.Sprintf("🔴 %s — день 7: XP обнулён. Подробности в личных сообщениях с ботом.", who)
+	b.api.Send(tgbotapi.NewMessage(chatID, short))
 }
