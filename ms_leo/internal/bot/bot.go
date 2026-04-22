@@ -467,15 +467,18 @@ func (b *Bot) sendWelcomeMessage(chatID int64, username string, userID int64) {
 
 🎯 Начни прямо сейчас — отправь #training_done!`, username)
 
-	// Отправляем сообщение
-	reply := tgbotapi.NewMessage(chatID, welcomeText)
-
-	b.logger.Infof("Sending welcome message to chat %d for new user %s (ID: %d)", chatID, username, userID)
-	_, errSend := b.api.Send(reply)
+	// Сначала пытаемся отправить онбординг в личные сообщения.
+	privateReply := tgbotapi.NewMessage(userID, welcomeText)
+	b.logger.Infof("Sending onboarding to private chat for user %s (ID: %d) from chat %d", username, userID, chatID)
+	_, errSend := b.api.Send(privateReply)
 	if errSend != nil {
-		b.logger.Errorf("Failed to send welcome message: %v", errSend)
+		b.logger.Errorf("Failed to send onboarding to private chat for user %s (ID: %d): %v", username, userID, errSend)
+		fallbackText := fmt.Sprintf("%s, не могу отправить онбординг в личку. Напиши боту в личные сообщения (/start), и я пришлю инструкцию.", username)
+		if _, errFallback := b.api.Send(tgbotapi.NewMessage(chatID, fallbackText)); errFallback != nil {
+			b.logger.Errorf("Failed to send private-chat fallback message in chat %d: %v", chatID, errFallback)
+		}
 	} else {
-		b.logger.Infof("Successfully sent welcome message to chat %d for new user %s", chatID, username)
+		b.logger.Infof("Successfully sent onboarding to private chat for user %s (ID: %d)", username, userID)
 	}
 
 	// Запускаем таймер для нового пользователя
