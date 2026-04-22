@@ -322,6 +322,8 @@ func (b *Bot) handleCommand(msg *tgbotapi.Message) {
 	switch command {
 	case "start":
 		b.handleStart(msg)
+	case "rejoin":
+		b.handleRejoin(msg)
 	case "start_timer":
 		b.handleStartTimer(msg)
 	case "help":
@@ -1092,23 +1094,48 @@ func (b *Bot) handleStart(msg *tgbotapi.Message) {
 
 	// Для уже оплативших пользователей в личке — всегда даем свежую ссылку входа в группу.
 	if msg.Chat.IsPrivate() && b.paywallActive() && msg.From != nil && !b.paywallPrivateNeedsPayFirst(msg.From.ID) {
-		inviteURL := b.paywallFreshGroupInviteURL()
-		joinMsg := tgbotapi.NewMessage(msg.Chat.ID, "🔁 Нужен повторный вход в группу? Нажми кнопку ниже — это новая ссылка.")
-		if inviteURL != "" {
-			joinMsg.ReplyMarkup = &tgbotapi.InlineKeyboardMarkup{
-				InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
-					tgbotapi.NewInlineKeyboardRow(
-						tgbotapi.NewInlineKeyboardButtonURL("📩 Войти в группу", inviteURL),
-					),
-				},
-			}
-		} else {
-			joinMsg.Text = "🔁 Не удалось сгенерировать новую ссылку входа. Попробуй /start позже или попроси администратора выдать приглашение."
-		}
-		if _, err := b.api.Send(joinMsg); err != nil {
+		if err := b.sendFreshRejoinLink(msg.Chat.ID); err != nil {
 			b.logger.Errorf("Failed to send fresh join link after /start: %v", err)
 		}
 	}
+}
+
+func (b *Bot) handleRejoin(msg *tgbotapi.Message) {
+	if !msg.Chat.IsPrivate() {
+		_, _ = b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "ℹ️ Команда /rejoin работает в личке с ботом."))
+		return
+	}
+	if !b.paywallActive() || msg.From == nil {
+		_, _ = b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "ℹ️ Платный вход сейчас не используется."))
+		return
+	}
+	if b.paywallPrivateNeedsPayFirst(msg.From.ID) {
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "⚠️ Сначала оплати доступ. Нажми /start, чтобы получить счёт.")
+		reply.ReplyMarkup = b.paywallUnpaidInlineKeyboard()
+		_, _ = b.api.Send(reply)
+		return
+	}
+	if err := b.sendFreshRejoinLink(msg.Chat.ID); err != nil {
+		b.logger.Errorf("Failed to send fresh join link after /rejoin: %v", err)
+	}
+}
+
+func (b *Bot) sendFreshRejoinLink(chatID int64) error {
+	inviteURL := b.paywallFreshGroupInviteURL()
+	joinMsg := tgbotapi.NewMessage(chatID, "🔁 Нужен повторный вход в группу? Нажми кнопку ниже — это новая ссылка.")
+	if inviteURL != "" {
+		joinMsg.ReplyMarkup = &tgbotapi.InlineKeyboardMarkup{
+			InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
+				tgbotapi.NewInlineKeyboardRow(
+					tgbotapi.NewInlineKeyboardButtonURL("📩 Войти в группу", inviteURL),
+				),
+			},
+		}
+	} else {
+		joinMsg.Text = "🔁 Не удалось сгенерировать новую ссылку входа. Попробуй /start позже или попроси администратора выдать приглашение."
+	}
+	_, err := b.api.Send(joinMsg)
+	return err
 }
 
 func (b *Bot) handleDB(msg *tgbotapi.Message) {
