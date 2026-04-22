@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"leo-bot/internal/ai"
 	"leo-bot/internal/domain"
 	"leo-bot/internal/utils"
 
@@ -116,7 +117,7 @@ func (b *Bot) processTrainingDone(msg *tgbotapi.Message) {
 				ctxBuilder.WriteString(fmt.Sprintf("Текущие калории: %d\n", updatedCalories))
 				ctxBuilder.WriteString(fmt.Sprintf("Текущие кубки: %d\n", totalCups))
 				if add, err := b.aiClient.AnswerUserQuestion(q, ctxBuilder.String()); err == nil {
-					add = strings.TrimSpace(strings.ReplaceAll(add, "**", ""))
+					add = ai.SanitizeTextForUser(add)
 					if add != "" {
 						messageText = messageText + "\n\n" + add
 					}

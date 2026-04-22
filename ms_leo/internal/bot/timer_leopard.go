@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"leo-bot/internal/ai"
 	"leo-bot/internal/domain"
 	"leo-bot/internal/game/leopardmoney"
 	"leo-bot/internal/utils"
@@ -155,7 +156,7 @@ func (b *Bot) sendInactiveWarning(userID, chatID int64, username string, day int
 		var ctxBuilder strings.Builder
 		ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\nДень без отчёта: %d\n", username, day))
 		if addendum, err := b.aiClient.AnswerUserQuestion(b.config.Prompts.WarningTimerQuestion, ctxBuilder.String()); err == nil {
-			addendum = strings.TrimSpace(strings.ReplaceAll(addendum, "**", ""))
+			addendum = ai.SanitizeTextForUser(addendum)
 			if addendum != "" {
 				messageText = messageText + "\n\n" + addendum
 			}
@@ -187,7 +188,7 @@ func (b *Bot) sendInactiveDay7ZeroXP(userID, chatID int64, username string) {
 	txt := fmt.Sprintf("🔴 День 7 без отчёта\n\n%s, твой XP обнулён. Последний шанс: сделай отчёт с #training_done до конца дня 8, иначе удаление из чата.", who)
 	if b.aiClient != nil {
 		if add, err := b.aiClient.AnswerUserQuestion(b.config.Prompts.CriticalTimerQuestion, "День 7: XP=0, последний шанс.\nПользователь: "+username); err == nil {
-			add = strings.TrimSpace(strings.ReplaceAll(add, "**", ""))
+			add = ai.SanitizeTextForUser(add)
 			if add != "" {
 				txt = txt + "\n\n" + add
 			}

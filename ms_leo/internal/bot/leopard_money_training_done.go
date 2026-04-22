@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"leo-bot/internal/ai"
 	"leo-bot/internal/domain"
 	"leo-bot/internal/game/leopardmoney"
 	"leo-bot/internal/utils"
@@ -31,7 +32,7 @@ func (b *Bot) generateShortLeopardChatAck(username, text string, streak, totalXP
 		b.logger.Warnf("generate short leopard ack: %v", err)
 		return fallback
 	}
-	ack = strings.TrimSpace(strings.ReplaceAll(ack, "**", ""))
+	ack = ai.SanitizeTextForUser(ack)
 	ack = strings.Trim(ack, `"'«»“”„`)
 	if ack == "" {
 		return fallback

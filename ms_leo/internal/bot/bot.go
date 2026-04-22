@@ -2621,8 +2621,10 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 		return
 	}
 
-	// Удаляем markdown форматирование (**) перед отправкой
-	answer = strings.ReplaceAll(answer, "**", "")
+	answer = ai.SanitizeTextForUser(answer)
+	if answer == "" {
+		answer = "Сформулируй, пожалуйста, вопрос короче — отвечу по сути."
+	}
 
 	// Отправляем ответ с реплаем на исходное сообщение
 	reply := tgbotapi.NewMessage(msg.Chat.ID, answer)

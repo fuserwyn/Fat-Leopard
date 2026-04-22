@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"leo-bot/internal/ai"
 	"leo-bot/internal/domain"
 	"leo-bot/internal/utils"
 
@@ -180,7 +181,7 @@ func (b *Bot) activateSickLeave(msg *tgbotapi.Message, messageLog *domain.Messag
 		ctxBuilder.WriteString(fmt.Sprintf("Всего калорий: %d\n", messageLog.Calories))
 		ctxBuilder.WriteString(fmt.Sprintf("Всего кубков: %d\n", totalCups))
 		if addendum, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
-			addendum = strings.TrimSpace(strings.ReplaceAll(addendum, "**", ""))
+			addendum = ai.SanitizeTextForUser(addendum)
 			if addendum != "" {
 				messageText = messageText + "\n\n" + addendum
 			}
@@ -556,7 +557,7 @@ func (b *Bot) handleHealthy(msg *tgbotapi.Message) {
 		ctxBuilder.WriteString(fmt.Sprintf("Всего калорий: %d\n", messageLog.Calories))
 		ctxBuilder.WriteString(fmt.Sprintf("Всего кубков: %d\n", totalCups))
 		if addendum, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
-			addendum = strings.TrimSpace(strings.ReplaceAll(addendum, "**", ""))
+			addendum = ai.SanitizeTextForUser(addendum)
 			if addendum != "" {
 				messageText = messageText + "\n\n" + addendum
 			}
