@@ -86,6 +86,30 @@ func paywallInvoiceShortHintForUser(err error) string {
 	}
 }
 
+// paywallYookassaShortHintForUser — понятная подсказка пользователю по типовым сбоям создания ссылки ЮKassa.
+func paywallYookassaShortHintForUser(err error) string {
+	if err == nil {
+		return ""
+	}
+	msg := strings.ToLower(strings.TrimSpace(err.Error()))
+	switch {
+	case strings.Contains(msg, "credentials empty"):
+		return "Оплата ЮKassa временно недоступна (не заданы ключи). Напиши администратору."
+	case strings.Contains(msg, "amount must be positive"):
+		return "Оплата ЮKassa временно недоступна (некорректная сумма). Напиши администратору."
+	case strings.Contains(msg, "return_url must be http"):
+		return "Оплата ЮKassa временно недоступна (некорректный URL возврата). Напиши администратору."
+	case strings.Contains(msg, "http 401"), strings.Contains(msg, "http 403"):
+		return "ЮKassa отклонила запрос (проверь ключи магазина). Попробуй позже."
+	case strings.Contains(msg, "http 400"):
+		return "ЮKassa вернула ошибку параметров платежа. Попробуй позже."
+	case strings.Contains(msg, "timeout"), strings.Contains(msg, "deadline exceeded"):
+		return "ЮKassa долго отвечает. Попробуй ещё раз через минуту."
+	default:
+		return "Ссылка на оплату не создалась. Попробуй позже."
+	}
+}
+
 // paywallCreateInviteLink вызывает Telegram API; бот должен быть админом с правом приглашений.
 func (b *Bot) paywallCreateInviteLink(createsJoinRequest bool) (string, error) {
 	cfg := tgbotapi.CreateChatInviteLinkConfig{
@@ -324,7 +348,7 @@ func (b *Bot) paywallSendPaymentOffers(userID, reqID int64) {
 	if b.config.PaywallYookassaReady() {
 		if err := b.SendYookassaPaymentLink(userID, reqID); err != nil {
 			b.logger.Errorf("paywall yookassa link: %v", err)
-			b.paywallNotifyUser(userID, "⚠️ Ссылка на оплату не создалась. Попробуй позже или другой способ.")
+			b.paywallNotifyUser(userID, "⚠️ "+paywallYookassaShortHintForUser(err))
 		}
 	}
 }
@@ -527,7 +551,11 @@ func (b *Bot) handlePaywallPayYookassaCallback(callback *tgbotapi.CallbackQuery)
 	}
 	if err := b.SendYookassaPaymentLink(uid, reqID); err != nil {
 		b.logger.Errorf("paywall yookassa link: %v", err)
-		_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, "Ссылка не создалась. Попробуй позже."))
+		h := paywallYookassaShortHintForUser(err)
+		if len(h) > 180 {
+			h = h[:177] + "…"
+		}
+		_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, h))
 		return
 	}
 	_, _ = b.api.Request(tgbotapi.NewCallback(callback.ID, "Ссылка на оплату отправлена — открой сообщение ниже."))
