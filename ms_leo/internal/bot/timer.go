@@ -34,17 +34,6 @@ func (b *Bot) removeUser(userID, chatID int64, username string) {
 	b.logger.Infof("Attempting to remove user %d (%s) from chat %d", userID, username, chatID)
 	who := normalizeUserDisplayName(username)
 
-	// Пытаемся заранее уведомить пользователя в личке (если удаление идёт из группы).
-	if chatID != userID {
-		dmText := fmt.Sprintf(
-			"🚫 %s, ты удалён из чата за неактивность.\n\n🔴 На день 7 XP был обнулён, а на день 8 без #training_done сработало удаление.\n\n💪 Вернёшься — начни с отчёта #training_done.",
-			who,
-		)
-		if _, err := b.api.Send(tgbotapi.NewMessage(userID, dmText)); err != nil {
-			b.logger.Warnf("send removal DM user=%d: %v", userID, err)
-		}
-	}
-
 	// КРИТИЧЕСКИ ВАЖНО: Проверяем, не был ли только что отправлен #training_done
 	// Если пользователь отправил #training_done, таймер должен был быть перезапущен
 	// и этот вызов removeUser не должен был произойти
@@ -67,6 +56,19 @@ func (b *Bot) removeUser(userID, chatID int64, username string) {
 		}
 	}
 
+	dmText := fmt.Sprintf(
+		"🚫 %s, ты удалён из чата за неактивность.\n\n🔴 На день 7 XP был обнулён, а на день 8 без #training_done сработало удаление.\n\n💪 Вернёшься — начни с отчёта #training_done.",
+		who,
+	)
+	dmDelivered := chatID == userID
+	if chatID != userID {
+		if _, err := b.api.Send(tgbotapi.NewMessage(userID, dmText)); err != nil {
+			b.logger.Warnf("send removal DM user=%d: %v", userID, err)
+		} else {
+			dmDelivered = true
+		}
+	}
+
 	// Пытаемся удалить пользователя из чата
 	_, err = b.api.Request(tgbotapi.BanChatMemberConfig{
 		ChatMemberConfig: tgbotapi.ChatMemberConfig{
@@ -84,6 +86,9 @@ func (b *Bot) removeUser(userID, chatID int64, username string) {
 	} else {
 		// Отправляем сообщение об удалении в группу.
 		message := fmt.Sprintf("🚫 %s удалён из чата за неактивность.\n\n🦁 Ням-ням, вкусненько!\n\n💪 Ты ведь не хочешь стать как я?\n\nТогда тренируйся и отправляй отчёты!", who)
+		if chatID != userID && !dmDelivered {
+			message += "\n\nℹ️ Уведомление в личные сообщения доставить не удалось. Открой диалог с ботом через /start, чтобы получать личные предупреждения и уведомления."
+		}
 		msg := tgbotapi.NewMessage(chatID, message)
 		b.logger.Infof("Sending removal message for user %d (%s)", userID, username)
 		_, sendErr := b.api.Send(msg)
