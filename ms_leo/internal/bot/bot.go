@@ -1089,6 +1089,26 @@ func (b *Bot) handleStart(msg *tgbotapi.Message) {
 	} else {
 		b.logger.Infof("Successfully sent start message to chat %d", msg.Chat.ID)
 	}
+
+	// Для уже оплативших пользователей в личке — всегда даем свежую ссылку входа в группу.
+	if msg.Chat.IsPrivate() && b.paywallActive() && msg.From != nil && !b.paywallPrivateNeedsPayFirst(msg.From.ID) {
+		inviteURL := b.paywallFreshGroupInviteURL()
+		joinMsg := tgbotapi.NewMessage(msg.Chat.ID, "🔁 Нужен повторный вход в группу? Нажми кнопку ниже — это новая ссылка.")
+		if inviteURL != "" {
+			joinMsg.ReplyMarkup = &tgbotapi.InlineKeyboardMarkup{
+				InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
+					tgbotapi.NewInlineKeyboardRow(
+						tgbotapi.NewInlineKeyboardButtonURL("📩 Войти в группу", inviteURL),
+					),
+				},
+			}
+		} else {
+			joinMsg.Text = "🔁 Не удалось сгенерировать новую ссылку входа. Попробуй /start позже или попроси администратора выдать приглашение."
+		}
+		if _, err := b.api.Send(joinMsg); err != nil {
+			b.logger.Errorf("Failed to send fresh join link after /start: %v", err)
+		}
+	}
 }
 
 func (b *Bot) handleDB(msg *tgbotapi.Message) {

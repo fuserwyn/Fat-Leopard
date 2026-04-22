@@ -32,6 +32,18 @@ func normalizeUserDisplayName(username string) string {
 
 func (b *Bot) removeUser(userID, chatID int64, username string) {
 	b.logger.Infof("Attempting to remove user %d (%s) from chat %d", userID, username, chatID)
+	who := normalizeUserDisplayName(username)
+
+	// Пытаемся заранее уведомить пользователя в личке (если удаление идёт из группы).
+	if chatID != userID {
+		dmText := fmt.Sprintf(
+			"🚫 %s, ты удалён из чата за неактивность.\n\n🔴 На день 7 XP был обнулён, а на день 8 без #training_done сработало удаление.\n\n💪 Вернёшься — начни с отчёта #training_done.",
+			who,
+		)
+		if _, err := b.api.Send(tgbotapi.NewMessage(userID, dmText)); err != nil {
+			b.logger.Warnf("send removal DM user=%d: %v", userID, err)
+		}
+	}
 
 	// КРИТИЧЕСКИ ВАЖНО: Проверяем, не был ли только что отправлен #training_done
 	// Если пользователь отправил #training_done, таймер должен был быть перезапущен
@@ -70,8 +82,7 @@ func (b *Bot) removeUser(userID, chatID int64, username string) {
 		errorMsg := tgbotapi.NewMessage(chatID, fmt.Sprintf("❌ Не удалось удалить пользователя %s из чата", normalizeUserDisplayName(username)))
 		b.api.Send(errorMsg)
 	} else {
-		// Отправляем сообщение об удалении (одна строка про удаление — без дублирования заголовка и тела)
-		who := normalizeUserDisplayName(username)
+		// Отправляем сообщение об удалении в группу.
 		message := fmt.Sprintf("🚫 %s удалён из чата за неактивность.\n\n🦁 Ням-ням, вкусненько!\n\n💪 Ты ведь не хочешь стать как я?\n\nТогда тренируйся и отправляй отчёты!", who)
 		msg := tgbotapi.NewMessage(chatID, message)
 		b.logger.Infof("Sending removal message for user %d (%s)", userID, username)
