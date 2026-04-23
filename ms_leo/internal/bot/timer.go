@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -56,17 +57,36 @@ func (b *Bot) removeUser(userID, chatID int64, username string) {
 		}
 	}
 
-	dmText := fmt.Sprintf(
-		"🚫 %s, ты удалён из чата за неактивность.\n\n🔴 На день 7 XP был обнулён, а на день 8 без #training_done сработало удаление.\n\n💪 Вернёшься — начни с отчёта #training_done.",
-		who,
-	)
+	dmText := "Ну что, 7 дней без движения — и стая тебя больше не видит.\nТак тоже бывает. XP сгорел, доступ закрыт.\nЕсли захочешь вторую попытку — леопард не будет делать вид, что ничего не было."
 	dmDelivered := chatID == userID
+	dmStatus := "dm_skipped"
+	dmErrorText := ""
 	if chatID != userID {
-		if _, err := b.api.Send(tgbotapi.NewMessage(userID, dmText)); err != nil {
+		dmMsg := tgbotapi.NewMessage(userID, dmText)
+		dmMsg.ReplyMarkup = &tgbotapi.InlineKeyboardMarkup{
+			InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
+				tgbotapi.NewInlineKeyboardRow(
+					tgbotapi.NewInlineKeyboardButtonData("Вернуться в стаю", paywallCallbackReturnToPack),
+				),
+			},
+		}
+		if _, err := b.api.Send(dmMsg); err != nil {
 			b.logger.Warnf("send removal DM user=%d: %v", userID, err)
+			dmErrorText = err.Error()
+			dmStatus = "dm_failed"
+			var tgErr *tgbotapi.Error
+			if errors.As(err, &tgErr) && tgErr.Code == 403 {
+				dmStatus = "dm_blocked"
+			}
 		} else {
 			dmDelivered = true
+			dmStatus = "dm_sent"
 		}
+	} else {
+		dmStatus = "dm_sent"
+	}
+	if err := b.db.LogDeletionEvent(userID, chatID, dmStatus, dmErrorText); err != nil {
+		b.logger.Errorf("log deletion event user=%d chat=%d: %v", userID, chatID, err)
 	}
 
 	// Пытаемся удалить пользователя из чата

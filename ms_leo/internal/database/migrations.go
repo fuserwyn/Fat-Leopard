@@ -358,6 +358,30 @@ var Migrations = []Migration{
 			ALTER TABLE message_log DROP COLUMN IF EXISTS achievement_count;
 		`,
 	},
+	{
+		Version:     18,
+		Description: "Deletion events audit log for DM delivery status",
+		UpSQL: `
+			CREATE TABLE IF NOT EXISTS deletion_events (
+				id BIGSERIAL PRIMARY KEY,
+				user_id BIGINT NOT NULL,
+				chat_id BIGINT NOT NULL,
+				dm_status VARCHAR(32) NOT NULL,
+				error_text TEXT,
+				created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'Europe/Moscow')
+			);
+
+			CREATE INDEX IF NOT EXISTS idx_deletion_events_user_chat_created
+				ON deletion_events (user_id, chat_id, created_at DESC);
+			CREATE INDEX IF NOT EXISTS idx_deletion_events_status
+				ON deletion_events (dm_status);
+		`,
+		DownSQL: `
+			DROP INDEX IF EXISTS idx_deletion_events_status;
+			DROP INDEX IF EXISTS idx_deletion_events_user_chat_created;
+			DROP TABLE IF EXISTS deletion_events;
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции

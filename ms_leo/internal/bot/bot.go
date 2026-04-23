@@ -2944,6 +2944,9 @@ func (b *Bot) handleCallbackQuery(callback *tgbotapi.CallbackQuery) {
 	case paywallCallbackResendInvoice:
 		b.handlePaywallResendInvoiceCallback(callback)
 		return
+	case paywallCallbackReturnToPack:
+		b.handlePaywallReturnToPackCallback(callback)
+		return
 	case paywallCallbackRefreshInvite:
 		b.handlePaywallRefreshInviteCallback(callback)
 		return

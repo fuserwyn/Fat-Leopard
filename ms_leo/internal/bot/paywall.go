@@ -20,6 +20,7 @@ const paywallCallbackPayStars = "paywall_pay_stars"
 const paywallCallbackPayYookassa = "paywall_pay_yookassa"
 const paywallCallbackPayProvider = "paywall_pay_provider"
 const paywallCallbackRefreshInvite = "paywall_refresh_invite"
+const paywallCallbackReturnToPack = "paywall_return_to_pack"
 
 const paywallInviteCacheTTL = 25 * time.Minute
 
@@ -270,6 +271,28 @@ func (b *Bot) paywallUnpaidInlineKeyboard() *tgbotapi.InlineKeyboardMarkup {
 	if b.config.PaywallUsesTelegramProviderInvoice() {
 		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("💳 Счёт в Telegram (карта)", paywallCallbackPayProvider),
+		))
+	}
+	if len(rows) == 0 {
+		return nil
+	}
+	return &tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
+}
+
+func (b *Bot) paywallReturnInlineKeyboard() *tgbotapi.InlineKeyboardMarkup {
+	var rows [][]tgbotapi.InlineKeyboardButton
+	if b.config.PaywallUsesStars() {
+		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("⭐ Оплатить Stars", paywallCallbackPayStars),
+		))
+	}
+	if b.config.PaywallYookassaReady() {
+		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("💳 Оплатить картой", paywallCallbackPayYookassa),
+		))
+	} else if b.config.PaywallUsesTelegramProviderInvoice() {
+		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("💳 Оплатить картой", paywallCallbackPayProvider),
 		))
 	}
 	if len(rows) == 0 {
@@ -621,6 +644,42 @@ func (b *Bot) handlePaywallRefreshInviteCallback(callback *tgbotapi.CallbackQuer
 		return
 	}
 	_, _ = b.api.Request(tgbotapi.NewCallback(callback.ID, "Отправил новую ссылку в чат."))
+}
+
+func (b *Bot) handlePaywallReturnToPackCallback(callback *tgbotapi.CallbackQuery) {
+	if callback == nil || callback.From == nil {
+		return
+	}
+	if !b.paywallActive() {
+		_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, "Возврат сейчас недоступен."))
+		return
+	}
+
+	if !b.paywallPrivateNeedsPayFirst(callback.From.ID) {
+		if err := b.sendFreshRejoinLink(callback.From.ID); err != nil {
+			b.logger.Errorf("paywall return callback sendFreshRejoinLink: %v", err)
+			_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, "Не удалось создать ссылку. Нажми /rejoin."))
+			return
+		}
+		_, _ = b.api.Request(tgbotapi.NewCallback(callback.ID, "Доступ уже активен. Отправил свежую ссылку."))
+		return
+	}
+
+	price := "210 ₽"
+	if b.config.PaywallUsesStars() {
+		price = fmt.Sprintf("210 ₽ или %d ⭐", b.config.PaywallStarsInvoiceAmount())
+	}
+	msg := tgbotapi.NewMessage(callback.From.ID, "Возвращение в стаю:\n\nВыбери способ оплаты.\nЦена: "+price)
+	msg.ReplyMarkup = b.paywallReturnInlineKeyboard()
+	if msg.ReplyMarkup == nil {
+		msg.Text = "⚠️ Оплата временно недоступна в твоём регионе. Попробуй позже."
+	}
+	if _, err := b.api.Send(msg); err != nil {
+		b.logger.Errorf("paywall return callback send pay options: %v", err)
+		_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, "Не удалось отправить экран оплаты. Напиши /start."))
+		return
+	}
+	_, _ = b.api.Request(tgbotapi.NewCallback(callback.ID, "Открой сообщение ниже — там выбор оплаты."))
 }
 
 // paywallPrivateNeedsPayFirst — личка, paywall включён, не владелец, нет активной (не истёкшей) оплаты.

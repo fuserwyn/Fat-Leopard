@@ -508,6 +508,16 @@ func (d *Database) MarkUserAsDeleted(userID, chatID int64) error {
 	return err
 }
 
+// LogDeletionEvent пишет событие удаления пользователя и статус доставки DM.
+func (d *Database) LogDeletionEvent(userID, chatID int64, dmStatus, errorText string) error {
+	const query = `
+		INSERT INTO deletion_events (user_id, chat_id, dm_status, error_text)
+		VALUES ($1, $2, $3, NULLIF($4, ''))
+	`
+	_, err := d.db.Exec(query, userID, chatID, dmStatus, strings.TrimSpace(errorText))
+	return err
+}
+
 // GetTopUsers получает топ пользователей по калориям
 func (d *Database) GetTopUsers(chatID int64, limit int) ([]*domain.MessageLog, error) {
 	query := `
