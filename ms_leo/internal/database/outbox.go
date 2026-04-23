@@ -32,6 +32,21 @@ func (d *Database) enqueueOutboxEventTx(tx *sql.Tx, eventType, aggregateKey stri
 	return nil
 }
 
+func (d *Database) EnqueueOutboxEvent(eventType, aggregateKey string, payload any) error {
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("marshal outbox payload: %w", err)
+	}
+	const q = `
+		INSERT INTO outbox_events (event_type, aggregate_key, payload, status)
+		VALUES ($1, $2, $3::jsonb, 'pending')
+	`
+	if _, err := d.db.Exec(q, eventType, aggregateKey, string(raw)); err != nil {
+		return fmt.Errorf("insert outbox event: %w", err)
+	}
+	return nil
+}
+
 func (d *Database) ClaimOutboxEvents(limit int) ([]OutboxEvent, error) {
 	const q = `
 		WITH picked AS (

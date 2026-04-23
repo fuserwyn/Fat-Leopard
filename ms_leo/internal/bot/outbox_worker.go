@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"leo-bot/internal/database"
@@ -12,10 +13,21 @@ import (
 )
 
 const (
-	outboxWorkerBatchSize  = 20
-	outboxWorkerPollEvery  = 2 * time.Second
-	outboxWorkerMaxAttempts = 8
+	outboxWorkerBatchSize = 20
+	outboxWorkerPollEvery = 2 * time.Second
 )
+
+type refundRequestedPayload struct {
+	RequestID int64  `json:"request_id"`
+	UserID    int64  `json:"user_id"`
+	Reason    string `json:"reason"`
+}
+
+type nonRetryableOutboxError struct {
+	msg string
+}
+
+func (e nonRetryableOutboxError) Error() string { return e.msg }
 
 func (b *Bot) startOutboxWorker(ctx context.Context) {
 	ticker := time.NewTicker(outboxWorkerPollEvery)
@@ -39,12 +51,16 @@ func (b *Bot) processOutboxBatch() {
 	}
 	for _, event := range events {
 		if err := b.processOutboxEvent(event); err != nil {
-			if event.Attempts >= outboxWorkerMaxAttempts {
+			maxAttempts := outboxMaxAttemptsForType(event.EventType)
+			if event.Attempts >= maxAttempts || isNonRetryableOutboxErr(err) {
 				_ = b.db.MarkOutboxEventDead(event.ID, err.Error())
+				if event.EventType == "paywall_access_restore_requested" {
+					b.enqueueRefundRequestedForRestoreFailure(event, err)
+				}
 				b.notifyOps("OUTBOX DEAD event_id=%d type=%s attempts=%d err=%v", event.ID, event.EventType, event.Attempts, err)
 				continue
 			}
-			next := time.Now().Add(outboxBackoffDuration(event.Attempts))
+			next := time.Now().Add(outboxBackoffDuration(event.EventType, event.Attempts))
 			_ = b.db.MarkOutboxEventRetry(event.ID, next, err.Error())
 			continue
 		}
@@ -66,17 +82,31 @@ func (b *Bot) processOutboxEvent(event database.OutboxEvent) error {
 			return err
 		}
 		return nil
+	case "refund_requested":
+		var payload refundRequestedPayload
+		if err := json.Unmarshal(event.Payload, &payload); err != nil {
+			return fmt.Errorf("decode refund payload: %w", err)
+		}
+		if payload.RequestID == 0 || payload.UserID == 0 {
+			return nonRetryableOutboxError{msg: fmt.Sprintf("invalid refund payload request=%d user=%d", payload.RequestID, payload.UserID)}
+		}
+		return b.processRefundRequested(payload)
 	default:
 		return fmt.Errorf("unknown outbox event type: %s", event.EventType)
 	}
 }
 
-func outboxBackoffDuration(attempt int) time.Duration {
+func outboxBackoffDuration(eventType string, attempt int) time.Duration {
 	if attempt <= 1 {
+		if eventType == "paywall_access_restore_requested" {
+			return 5 * time.Second
+		}
 		return 10 * time.Second
 	}
-	// 10s, 30s, 90s, 270s, capped.
 	d := 10 * time.Second
+	if eventType == "paywall_access_restore_requested" {
+		d = 5 * time.Second
+	}
 	for i := 1; i < attempt; i++ {
 		d *= 3
 		if d > 30*time.Minute {
@@ -84,6 +114,81 @@ func outboxBackoffDuration(attempt int) time.Duration {
 		}
 	}
 	return d
+}
+
+func outboxMaxAttemptsForType(eventType string) int {
+	switch eventType {
+	case "paywall_access_restore_requested":
+		return 4
+	case "refund_requested":
+		return 3
+	default:
+		return 8
+	}
+}
+
+func isNonRetryableOutboxErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	_, ok := err.(nonRetryableOutboxError)
+	return ok
+}
+
+func (b *Bot) enqueueRefundRequestedForRestoreFailure(event database.OutboxEvent, cause error) {
+	var restorePayload database.PaywallRestoreOutboxPayload
+	if err := json.Unmarshal(event.Payload, &restorePayload); err != nil {
+		b.notifyOps("OUTBOX refund enqueue failed: decode restore payload event_id=%d err=%v", event.ID, err)
+		return
+	}
+	refundPayload := refundRequestedPayload{
+		RequestID: restorePayload.RequestID,
+		UserID:    restorePayload.UserID,
+		Reason:    strings.TrimSpace(cause.Error()),
+	}
+	key := fmt.Sprintf("refund_request:%d", restorePayload.RequestID)
+	if err := b.db.EnqueueOutboxEvent("refund_requested", key, refundPayload); err != nil {
+		b.notifyOps("OUTBOX refund enqueue failed request=%d user=%d err=%v", restorePayload.RequestID, restorePayload.UserID, err)
+	}
+}
+
+func (b *Bot) processRefundRequested(payload refundRequestedPayload) error {
+	req, err := b.db.GetPaywallAccessRequestByID(payload.RequestID)
+	if err != nil {
+		return err
+	}
+	if req == nil {
+		return nonRetryableOutboxError{msg: fmt.Sprintf("refund request not found id=%d", payload.RequestID)}
+	}
+	if req.UserID != payload.UserID {
+		return nonRetryableOutboxError{msg: fmt.Sprintf("refund user mismatch req=%d payload_user=%d db_user=%d", payload.RequestID, payload.UserID, req.UserID)}
+	}
+	if !req.TelegramPaymentChargeID.Valid || strings.TrimSpace(req.TelegramPaymentChargeID.String) == "" {
+		return nonRetryableOutboxError{msg: fmt.Sprintf("refund unsupported: empty telegram charge id req=%d currency=%s", req.ID, req.Currency.String)}
+	}
+	if strings.ToUpper(strings.TrimSpace(req.Currency.String)) != "XTR" {
+		return nonRetryableOutboxError{msg: fmt.Sprintf("refund unsupported currency=%s req=%d (manual refund required)", req.Currency.String, req.ID)}
+	}
+
+	if err := b.refundStarPayment(req.UserID, req.TelegramPaymentChargeID.String); err != nil {
+		return err
+	}
+	b.paywallNotifyUser(req.UserID, "✅ Оплата возвращена. Попробуй ещё раз чуть позже.")
+	return nil
+}
+
+func (b *Bot) refundStarPayment(userID int64, chargeID string) error {
+	params := tgbotapi.Params{}
+	params.AddNonZero64("user_id", userID)
+	params.AddNonEmpty("telegram_payment_charge_id", strings.TrimSpace(chargeID))
+	resp, err := b.api.MakeRequest("refundStarPayment", params)
+	if err != nil {
+		return fmt.Errorf("refundStarPayment request: %w", err)
+	}
+	if !resp.Ok {
+		return fmt.Errorf("refundStarPayment api error code=%d desc=%s", resp.ErrorCode, resp.Description)
+	}
+	return nil
 }
 
 func (b *Bot) notifyOps(format string, args ...any) {
