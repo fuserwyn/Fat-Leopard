@@ -170,12 +170,9 @@ func (b *Bot) sendInactiveWarning(userID, chatID int64, username string, day int
 
 	_, dmErr := b.api.Send(tgbotapi.NewMessage(userID, messageText))
 	if dmErr != nil {
-		b.logger.Warnf("send inactive warning DM user=%d: %v, sending full text to group", userID, dmErr)
-		b.api.Send(tgbotapi.NewMessage(chatID, messageText))
+		b.logger.Warnf("send inactive warning DM user=%d: %v", userID, dmErr)
 		return
 	}
-	short := fmt.Sprintf("⚠️ %s — день %d без отчёта с хэштегом. Полное напоминание смотри в личных сообщениях с ботом.", who, day)
-	b.api.Send(tgbotapi.NewMessage(chatID, short))
 }
 
 func (b *Bot) sendInactiveDay7ZeroXP(userID, chatID int64, username string) {
