@@ -286,13 +286,13 @@ func (b *Bot) paywallReturnInlineKeyboard() *tgbotapi.InlineKeyboardMarkup {
 			tgbotapi.NewInlineKeyboardButtonData("⭐ Оплатить Stars", paywallCallbackPayStars),
 		))
 	}
-	if b.config.PaywallYookassaReady() {
-		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("💳 Оплатить картой", paywallCallbackPayYookassa),
-		))
-	} else if b.config.PaywallUsesTelegramProviderInvoice() {
+	if b.config.PaywallUsesTelegramProviderInvoice() {
 		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("💳 Оплатить картой", paywallCallbackPayProvider),
+		))
+	} else if b.config.PaywallYookassaReady() {
+		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("💳 Оплатить картой", paywallCallbackPayYookassa),
 		))
 	}
 	if len(rows) == 0 {
@@ -669,7 +669,7 @@ func (b *Bot) handlePaywallReturnToPackCallback(callback *tgbotapi.CallbackQuery
 	if b.config.PaywallUsesStars() {
 		price = fmt.Sprintf("210 ₽ или %d ⭐", b.config.PaywallStarsInvoiceAmount())
 	}
-	msg := tgbotapi.NewMessage(callback.From.ID, "Возвращение в стаю:\n\nВыбери способ оплаты.\nЦена: "+price)
+	msg := tgbotapi.NewMessage(callback.From.ID, "Возвращение в стаю.\n\nВыбери способ оплаты:\n• Оплатить Stars\n• Оплатить картой\n\nЦена: "+price)
 	msg.ReplyMarkup = b.paywallReturnInlineKeyboard()
 	if msg.ReplyMarkup == nil {
 		msg.Text = "⚠️ Оплата временно недоступна в твоём регионе. Попробуй позже."
@@ -938,7 +938,8 @@ func (b *Bot) handlePaywallSuccessfulPayment(msg *tgbotapi.Message) {
 		return
 	}
 	if !okDb {
-		b.logger.Infof("paywall request %d already completed or not pending", reqID)
+		b.logger.Infof("paywall duplicate successful_payment for request=%d user=%d", reqID, msg.From.ID)
+		return
 	}
 
 	b.paywallDeliverAccessAfterPayment(msg.Chat.ID, msg.From.ID)
