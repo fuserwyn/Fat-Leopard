@@ -136,6 +136,7 @@ func (b *Bot) Start(ctx context.Context) error {
 	// Запускаем ежемесячную сводку (1-го числа 16:20) и «мудрость дня» (ежедневно 04:20)
 	go b.startDailySummaryScheduler(ctx)
 	go b.startDailyWisdomScheduler(ctx)
+	go b.startOutboxWorker(ctx)
 
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60

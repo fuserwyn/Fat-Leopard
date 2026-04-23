@@ -780,7 +780,7 @@ func (b *Bot) paywallTrySyncYookassaPayment(userID int64) bool {
 	if cur == "" {
 		cur = "RUB"
 	}
-	okDb, err := b.db.CompletePaywallAccessRequest(pending.ID, userID, b.config.MonetizedChatID, info.ID, amountMinor, cur)
+	okDb, err := b.db.CompletePaywallAccessRequestAndEnqueueRestore(pending.ID, userID, b.config.MonetizedChatID, info.ID, amountMinor, cur)
 	if err != nil {
 		b.logger.Errorf("paywall yookassa sync complete: %v", err)
 		return false
@@ -792,8 +792,7 @@ func (b *Bot) paywallTrySyncYookassaPayment(userID int64) bool {
 		}
 		return false
 	}
-	b.logger.Infof("paywall yookassa sync: заявка %d закрыта по API ЮKassa (вебхук мог не сработать)", pending.ID)
-	b.paywallDeliverAccessAfterPayment(userID, userID)
+	b.logger.Infof("paywall yookassa sync: заявка %d закрыта по API ЮKassa, событие восстановления отправлено в outbox", pending.ID)
 	return true
 }
 
@@ -852,17 +851,14 @@ func (b *Bot) handlePaywallPreCheckout(q *tgbotapi.PreCheckoutQuery) {
 }
 
 // paywallDeliverAccessAfterPayment — приглашение в группу и приветствие после зачёта оплаты (Telegram Payments / ЮKassa / sync API).
-func (b *Bot) paywallDeliverAccessAfterPayment(chatID, userID int64) {
+func (b *Bot) paywallDeliverAccessAfterPayment(userID int64) error {
 	reactivated, err := b.db.ReactivateReturnedUser(userID, b.config.MonetizedChatID, "")
 	if err != nil {
 		b.logger.Errorf("paywall reactivate returned user=%d: %v", userID, err)
-		b.paywallNotifyUser(chatID, "⚠️ Оплата прошла, но восстановление состояния временно недоступно. Мы проверим вручную.")
-		return
+		return err
 	}
 	if !reactivated {
-		b.logger.Errorf("paywall inconsistency: no deleted profile for paid return user=%d chat=%d", userID, b.config.MonetizedChatID)
-		b.paywallNotifyUser(chatID, "⚠️ Оплата прошла, но профиль для возврата не найден. Поддержка уже получила сигнал.")
-		return
+		return fmt.Errorf("paywall inconsistency: no profile for paid return user=%d chat=%d", userID, b.config.MonetizedChatID)
 	}
 
 	inviteURL := b.paywallFreshGroupInviteURL()
@@ -874,7 +870,7 @@ func (b *Bot) paywallDeliverAccessAfterPayment(chatID, userID int64) {
 	if err != nil {
 		b.logger.Errorf("paywall approve join request failed: %v", err)
 		follow := "✅ Оплата принята, доступ открыт на 30 дней.\n\nЕсли ты ещё не в группе — нажми кнопку ниже и отправь заявку на вступление."
-		pm := tgbotapi.NewMessage(chatID, follow)
+		pm := tgbotapi.NewMessage(userID, follow)
 		if inviteURL != "" {
 			pm.ReplyMarkup = &tgbotapi.InlineKeyboardMarkup{
 				InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
@@ -889,10 +885,12 @@ func (b *Bot) paywallDeliverAccessAfterPayment(chatID, userID int64) {
 		} else {
 			pm.Text += "\n\nНе удалось создать ссылку автоматически — попроси ссылку у администратора."
 		}
-		b.api.Send(pm)
-		return
+		if _, sendErr := b.api.Send(pm); sendErr != nil {
+			return sendErr
+		}
+		return nil
 	}
-	done := tgbotapi.NewMessage(chatID, "✅ Оплата принята, доступ к группе открыт на 30 дней. Если ты ещё не в группе — нажми кнопку ниже.")
+	done := tgbotapi.NewMessage(userID, "✅ Оплата принята, доступ к группе открыт на 30 дней. Если ты ещё не в группе — нажми кнопку ниже.")
 	if inviteURL != "" {
 		done.ReplyMarkup = &tgbotapi.InlineKeyboardMarkup{
 			InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
@@ -907,7 +905,9 @@ func (b *Bot) paywallDeliverAccessAfterPayment(chatID, userID int64) {
 	}
 	if _, err := b.api.Send(done); err != nil {
 		b.logger.Errorf("paywall send done msg: %v", err)
+		return err
 	}
+	return nil
 }
 
 func (b *Bot) handlePaywallSuccessfulPayment(msg *tgbotapi.Message) {
@@ -946,7 +946,7 @@ func (b *Bot) handlePaywallSuccessfulPayment(msg *tgbotapi.Message) {
 		b.logger.Warnf("paywall payment user/chat mismatch")
 		return
 	}
-	okDb, err := b.db.CompletePaywallAccessRequest(reqID, msg.From.ID, b.config.MonetizedChatID, sp.TelegramPaymentChargeID, sp.TotalAmount, sp.Currency)
+	okDb, err := b.db.CompletePaywallAccessRequestAndEnqueueRestore(reqID, msg.From.ID, b.config.MonetizedChatID, sp.TelegramPaymentChargeID, sp.TotalAmount, sp.Currency)
 	if err != nil {
 		b.logger.Errorf("paywall complete request: %v", err)
 		return
@@ -955,8 +955,6 @@ func (b *Bot) handlePaywallSuccessfulPayment(msg *tgbotapi.Message) {
 		b.logger.Infof("paywall duplicate successful_payment for request=%d user=%d", reqID, msg.From.ID)
 		return
 	}
-
-	b.paywallDeliverAccessAfterPayment(msg.Chat.ID, msg.From.ID)
 }
 
 // paywallShouldKickDirectJoinWithoutPayment — человек уже в группе (добавили вручную / публичный вход без заявки), а оплаты в БД нет.

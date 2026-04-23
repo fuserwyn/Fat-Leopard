@@ -398,6 +398,32 @@ var Migrations = []Migration{
 			DROP COLUMN IF EXISTS return_count;
 		`,
 	},
+	{
+		Version:     20,
+		Description: "Outbox events for reliable async delivery",
+		UpSQL: `
+			CREATE TABLE IF NOT EXISTS outbox_events (
+				id BIGSERIAL PRIMARY KEY,
+				event_type TEXT NOT NULL,
+				aggregate_key TEXT NOT NULL,
+				payload JSONB NOT NULL,
+				status TEXT NOT NULL DEFAULT 'pending',
+				attempts INTEGER NOT NULL DEFAULT 0,
+				next_attempt_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'Europe/Moscow'),
+				last_error TEXT,
+				locked_at TIMESTAMP WITH TIME ZONE,
+				created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'Europe/Moscow'),
+				updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'Europe/Moscow')
+			);
+
+			CREATE INDEX IF NOT EXISTS idx_outbox_events_ready
+				ON outbox_events (status, next_attempt_at, id);
+		`,
+		DownSQL: `
+			DROP INDEX IF EXISTS idx_outbox_events_ready;
+			DROP TABLE IF EXISTS outbox_events;
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции

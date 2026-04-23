@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -156,4 +157,53 @@ func (d *Database) CompletePaywallAccessRequest(id int64, userID, monetizedChatI
 	}
 	n, _ := res.RowsAffected()
 	return n == 1, nil
+}
+
+type PaywallRestoreOutboxPayload struct {
+	RequestID int64 `json:"request_id"`
+	UserID    int64 `json:"user_id"`
+	ChatID    int64 `json:"chat_id"`
+}
+
+func (d *Database) CompletePaywallAccessRequestAndEnqueueRestore(id int64, userID, monetizedChatID int64, telegramChargeID string, amountMinor int, currency string) (bool, error) {
+	tx, err := d.db.Begin()
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback()
+
+	const q = `
+		UPDATE paywall_access_requests
+		SET status = 'completed',
+		    completed_at = NOW(),
+		    access_expires_at = NOW() + INTERVAL '30 days',
+		    telegram_payment_charge_id = $4,
+		    total_amount_minor = $5,
+		    currency = $6
+		WHERE id = $1 AND user_id = $2 AND monetized_chat_id = $3 AND status = 'pending'`
+	res, err := tx.Exec(q, id, userID, monetizedChatID, telegramChargeID, amountMinor, currency)
+	if err != nil {
+		return false, err
+	}
+	n, _ := res.RowsAffected()
+	if n != 1 {
+		return false, nil
+	}
+
+	payload := PaywallRestoreOutboxPayload{RequestID: id, UserID: userID, ChatID: monetizedChatID}
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		return false, err
+	}
+	if _, err := tx.Exec(`
+		INSERT INTO outbox_events (event_type, aggregate_key, payload, status)
+		VALUES ($1, $2, $3::jsonb, 'pending')
+	`, "paywall_access_restore_requested", fmt.Sprintf("paywall_request:%d", id), string(payloadJSON)); err != nil {
+		return false, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return false, err
+	}
+	return true, nil
 }
