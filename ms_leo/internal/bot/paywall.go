@@ -113,10 +113,16 @@ func paywallYookassaShortHintForUser(err error) string {
 }
 
 // paywallCreateInviteLink вызывает Telegram API; бот должен быть админом с правом приглашений.
-func (b *Bot) paywallCreateInviteLink(createsJoinRequest bool) (string, error) {
+// oneTime24h=true создаёт одноразовую ссылку с TTL 24 часа.
+func (b *Bot) paywallCreateInviteLink(createsJoinRequest bool, oneTime24h bool) (string, error) {
 	cfg := tgbotapi.CreateChatInviteLinkConfig{
 		ChatConfig:         tgbotapi.ChatConfig{ChatID: b.config.MonetizedChatID},
 		CreatesJoinRequest: createsJoinRequest,
+	}
+	if oneTime24h {
+		cfg.CreatesJoinRequest = false
+		cfg.ExpireDate = int(time.Now().Add(24 * time.Hour).Unix())
+		cfg.MemberLimit = 1
 	}
 	resp, err := b.api.Request(cfg)
 	if err != nil {
@@ -149,7 +155,7 @@ func (b *Bot) paywallGroupInviteURL() string {
 
 	primary := b.config.PaywallInviteCreatesJoinRequest
 	for _, createsJR := range []bool{primary, !primary} {
-		u, err := b.paywallCreateInviteLink(createsJR)
+		u, err := b.paywallCreateInviteLink(createsJR, false)
 		if err == nil && u != "" {
 			b.paywallInviteURL = u
 			b.paywallInviteCached = time.Now()
@@ -178,7 +184,7 @@ func (b *Bot) paywallFreshGroupInviteURL() string {
 
 	primary := b.config.PaywallInviteCreatesJoinRequest
 	for _, createsJR := range []bool{primary, !primary} {
-		u, err := b.paywallCreateInviteLink(createsJR)
+		u, err := b.paywallCreateInviteLink(createsJR, true)
 		if err == nil && u != "" {
 			b.paywallInviteURL = u
 			b.paywallInviteCached = time.Now()
@@ -299,6 +305,10 @@ func (b *Bot) paywallReturnInlineKeyboard() *tgbotapi.InlineKeyboardMarkup {
 		return nil
 	}
 	return &tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
+}
+
+func paywallReturnPromptText(price string) string {
+	return "Возвращение в стаю.\n\nВыбери способ оплаты:\n• Оплатить Stars\n• Оплатить картой\n\nЦена: " + price
 }
 
 func (b *Bot) paywallNotifyUser(userID int64, text string) {
@@ -669,7 +679,7 @@ func (b *Bot) handlePaywallReturnToPackCallback(callback *tgbotapi.CallbackQuery
 	if b.config.PaywallUsesStars() {
 		price = fmt.Sprintf("210 ₽ или %d ⭐", b.config.PaywallStarsInvoiceAmount())
 	}
-	msg := tgbotapi.NewMessage(callback.From.ID, "Возвращение в стаю.\n\nВыбери способ оплаты:\n• Оплатить Stars\n• Оплатить картой\n\nЦена: "+price)
+	msg := tgbotapi.NewMessage(callback.From.ID, paywallReturnPromptText(price))
 	msg.ReplyMarkup = b.paywallReturnInlineKeyboard()
 	if msg.ReplyMarkup == nil {
 		msg.Text = "⚠️ Оплата временно недоступна в твоём регионе. Попробуй позже."
@@ -843,9 +853,21 @@ func (b *Bot) handlePaywallPreCheckout(q *tgbotapi.PreCheckoutQuery) {
 
 // paywallDeliverAccessAfterPayment — приглашение в группу и приветствие после зачёта оплаты (Telegram Payments / ЮKassa / sync API).
 func (b *Bot) paywallDeliverAccessAfterPayment(chatID, userID int64) {
+	reactivated, err := b.db.ReactivateReturnedUser(userID, b.config.MonetizedChatID, "")
+	if err != nil {
+		b.logger.Errorf("paywall reactivate returned user=%d: %v", userID, err)
+		b.paywallNotifyUser(chatID, "⚠️ Оплата прошла, но восстановление состояния временно недоступно. Мы проверим вручную.")
+		return
+	}
+	if !reactivated {
+		b.logger.Errorf("paywall inconsistency: no deleted profile for paid return user=%d chat=%d", userID, b.config.MonetizedChatID)
+		b.paywallNotifyUser(chatID, "⚠️ Оплата прошла, но профиль для возврата не найден. Поддержка уже получила сигнал.")
+		return
+	}
+
 	inviteURL := b.paywallFreshGroupInviteURL()
 
-	_, err := b.api.Request(tgbotapi.ApproveChatJoinRequestConfig{
+	_, err = b.api.Request(tgbotapi.ApproveChatJoinRequestConfig{
 		ChatConfig: tgbotapi.ChatConfig{ChatID: b.config.MonetizedChatID},
 		UserID:     userID,
 	})
@@ -868,9 +890,6 @@ func (b *Bot) paywallDeliverAccessAfterPayment(chatID, userID int64) {
 			pm.Text += "\n\nНе удалось создать ссылку автоматически — попроси ссылку у администратора."
 		}
 		b.api.Send(pm)
-		welcome := welcomeStartText()
-		wmsg := tgbotapi.NewMessage(chatID, welcome)
-		b.api.Send(wmsg)
 		return
 	}
 	done := tgbotapi.NewMessage(chatID, "✅ Оплата принята, доступ к группе открыт на 30 дней. Если ты ещё не в группе — нажми кнопку ниже.")
@@ -888,11 +907,6 @@ func (b *Bot) paywallDeliverAccessAfterPayment(chatID, userID int64) {
 	}
 	if _, err := b.api.Send(done); err != nil {
 		b.logger.Errorf("paywall send done msg: %v", err)
-	}
-	welcome := welcomeStartText()
-	wmsg := tgbotapi.NewMessage(chatID, welcome)
-	if _, err := b.api.Send(wmsg); err != nil {
-		b.logger.Errorf("paywall send welcome after payment: %v", err)
 	}
 }
 

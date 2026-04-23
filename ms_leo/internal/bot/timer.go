@@ -19,6 +19,20 @@ func parseLastMessageTime(lastMessage string) (time.Time, error) {
 	return time.ParseInLocation("2006-01-02 15:04:05", lastMessage, utils.GetMoscowTime().Location())
 }
 
+func removalDMText() string {
+	return "Ну что, 7 дней без движения — и стая тебя больше не видит.\nТак тоже бывает. XP сгорел, доступ закрыт.\nЕсли захочешь вторую попытку — леопард не будет делать вид, что ничего не было."
+}
+
+func removalDMReplyMarkup() *tgbotapi.InlineKeyboardMarkup {
+	return &tgbotapi.InlineKeyboardMarkup{
+		InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("Вернуться в стаю", paywallCallbackReturnToPack),
+			),
+		},
+	}
+}
+
 // normalizeUserDisplayName убирает лишние ведущие '@' и оставляет одно упоминание для @username.
 func normalizeUserDisplayName(username string) string {
 	clean := strings.TrimLeft(username, "@")
@@ -57,19 +71,13 @@ func (b *Bot) removeUser(userID, chatID int64, username string) {
 		}
 	}
 
-	dmText := "Ну что, 7 дней без движения — и стая тебя больше не видит.\nТак тоже бывает. XP сгорел, доступ закрыт.\nЕсли захочешь вторую попытку — леопард не будет делать вид, что ничего не было."
+	dmText := removalDMText()
 	dmDelivered := chatID == userID
 	dmStatus := "dm_skipped"
 	dmErrorText := ""
 	if chatID != userID {
 		dmMsg := tgbotapi.NewMessage(userID, dmText)
-		dmMsg.ReplyMarkup = &tgbotapi.InlineKeyboardMarkup{
-			InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
-				tgbotapi.NewInlineKeyboardRow(
-					tgbotapi.NewInlineKeyboardButtonData("Вернуться в стаю", paywallCallbackReturnToPack),
-				),
-			},
-		}
+		dmMsg.ReplyMarkup = removalDMReplyMarkup()
 		if _, err := b.api.Send(dmMsg); err != nil {
 			b.logger.Warnf("send removal DM user=%d: %v", userID, err)
 			dmErrorText = err.Error()

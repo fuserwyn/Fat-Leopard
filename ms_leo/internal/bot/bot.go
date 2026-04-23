@@ -390,9 +390,30 @@ func (b *Bot) handleNewChatMembers(msg *tgbotapi.Message) {
 			username = fmt.Sprintf("User%d", newMember.ID)
 		}
 
+		if b.paywallActive() && msg.Chat.ID == b.config.MonetizedChatID {
+			if returnCount, err := b.db.GetUserReturnCount(newMember.ID, msg.Chat.ID); err == nil && returnCount > 0 {
+				b.sendReturnedMemberWelcome(newMember.ID)
+				b.startTimer(newMember.ID, msg.Chat.ID, username)
+				continue
+			}
+		}
+
 		// Отправляем приветственное сообщение
 		b.sendWelcomeMessage(msg.Chat.ID, username, newMember.ID)
 	}
+}
+
+func (b *Bot) sendReturnedMemberWelcome(userID int64) {
+	if _, err := b.api.Send(tgbotapi.NewMessage(userID, returnedMemberWelcomeText())); err != nil {
+		b.logger.Warnf("send returned welcome DM user=%d: %v", userID, err)
+	}
+}
+
+func returnedMemberWelcomeText() string {
+	return `Ты снова в стае.
+На счету — 42 XP. Ачивок нет, их придётся заработать заново.
+Правила те же: активный день даёт +42 XP, пропущенный забирает -6. Семь дней подряд — ачивка.
+Первую тренировку можно запостить прямо сейчас.`
 }
 
 func (b *Bot) sendWelcomeMessage(chatID int64, username string, userID int64) {

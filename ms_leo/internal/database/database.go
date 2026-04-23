@@ -518,6 +518,64 @@ func (d *Database) LogDeletionEvent(userID, chatID int64, dmStatus, errorText st
 	return err
 }
 
+// ReactivateReturnedUser переводит удаленного пользователя в активное состояние возврата.
+// Возвращает false, если запись пользователя в чате не найдена (data inconsistency).
+func (d *Database) ReactivateReturnedUser(userID, chatID int64, username string) (bool, error) {
+	const q = `
+		UPDATE message_log
+		SET is_deleted = FALSE,
+		    lifecycle_status = 'active',
+		    calories = 42,
+		    achievement_count = 0,
+		    has_training_done = FALSE,
+		    has_sick_leave = FALSE,
+		    has_healthy = FALSE,
+		    timer_start_time = $4,
+		    returned_at = (NOW() AT TIME ZONE 'Europe/Moscow'),
+		    return_count = COALESCE(return_count, 0) + 1,
+		    username = CASE WHEN NULLIF($3, '') IS NULL THEN username ELSE $3 END,
+		    updated_at = $4
+		WHERE user_id = $1 AND chat_id = $2
+	`
+	now := utils.FormatMoscowTime(utils.GetMoscowTime())
+	res, err := d.db.Exec(q, userID, chatID, strings.TrimSpace(username), now)
+	if err != nil {
+		return false, err
+	}
+	n, _ := res.RowsAffected()
+	if n == 1 {
+		return true, nil
+	}
+
+	// Если записи нет вообще (первый платный вход), создаём профиль в активном состоянии.
+	const insertQ = `
+		INSERT INTO message_log (
+			user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned,
+			last_message, has_training_done, has_sick_leave, has_healthy, is_deleted,
+			timer_start_time, timezone_offset_from_moscow, achievement_count, return_count,
+			returned_at, lifecycle_status, created_at, updated_at
+		) VALUES (
+			$1, NULLIF($2, ''), $3, 42, 0, 0, 0,
+			$4, FALSE, FALSE, FALSE, FALSE,
+			$4, 0, 0, 1,
+			(NOW() AT TIME ZONE 'Europe/Moscow'), 'active', $4, $4
+		)
+	`
+	if _, err := d.db.Exec(insertQ, userID, strings.TrimSpace(username), chatID, now); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (d *Database) GetUserReturnCount(userID, chatID int64) (int, error) {
+	const q = `SELECT COALESCE(return_count, 0) FROM message_log WHERE user_id = $1 AND chat_id = $2`
+	var cnt int
+	if err := d.db.QueryRow(q, userID, chatID).Scan(&cnt); err != nil {
+		return 0, err
+	}
+	return cnt, nil
+}
+
 // GetTopUsers получает топ пользователей по калориям
 func (d *Database) GetTopUsers(chatID int64, limit int) ([]*domain.MessageLog, error) {
 	query := `

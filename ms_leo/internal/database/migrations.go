@@ -382,6 +382,22 @@ var Migrations = []Migration{
 			DROP TABLE IF EXISTS deletion_events;
 		`,
 	},
+	{
+		Version:     19,
+		Description: "Return analytics and lifecycle state in message_log",
+		UpSQL: `
+			ALTER TABLE message_log
+			ADD COLUMN IF NOT EXISTS return_count INTEGER NOT NULL DEFAULT 0,
+			ADD COLUMN IF NOT EXISTS returned_at TIMESTAMP WITH TIME ZONE,
+			ADD COLUMN IF NOT EXISTS lifecycle_status TEXT NOT NULL DEFAULT 'active';
+		`,
+		DownSQL: `
+			ALTER TABLE message_log
+			DROP COLUMN IF EXISTS lifecycle_status,
+			DROP COLUMN IF EXISTS returned_at,
+			DROP COLUMN IF EXISTS return_count;
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции
