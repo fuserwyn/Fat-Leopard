@@ -97,14 +97,27 @@ func (b *Bot) removeUser(userID, chatID int64, username string) {
 		b.logger.Errorf("log deletion event user=%d chat=%d: %v", userID, chatID, err)
 	}
 
-	// Пытаемся удалить пользователя из чата
-	_, err = b.api.Request(tgbotapi.BanChatMemberConfig{
-		ChatMemberConfig: tgbotapi.ChatMemberConfig{
-			ChatID: chatID,
-			UserID: userID,
-		},
-		UntilDate: time.Now().Add(30 * 24 * time.Hour).Unix(), // Бан на 30 дней
-	})
+	// Удаляем из чата через ban. В платной группе не оставляем 30-дневный бан: иначе после выкидывания
+	// за неактивность человек не может зайти по новым инвайтам (часто «ссылка истекла» / нет доступа).
+	if b.paywallActive() && chatID == b.config.MonetizedChatID {
+		until := time.Now().Add(40 * time.Second).Unix()
+		_, err = b.api.Request(tgbotapi.BanChatMemberConfig{
+			ChatMemberConfig: tgbotapi.ChatMemberConfig{ChatID: chatID, UserID: userID},
+			UntilDate:        until,
+			RevokeMessages:   false,
+		})
+		if err == nil {
+			b.paywallUnbanUserFromMonetizedGroup(userID)
+		}
+	} else {
+		_, err = b.api.Request(tgbotapi.BanChatMemberConfig{
+			ChatMemberConfig: tgbotapi.ChatMemberConfig{
+				ChatID: chatID,
+				UserID: userID,
+			},
+			UntilDate: time.Now().Add(30 * 24 * time.Hour).Unix(), // Бан на 30 дней
+		})
+	}
 
 	if err != nil {
 		b.logger.Errorf("Failed to remove user %d: %v", userID, err)

@@ -886,6 +886,7 @@ func (b *Bot) paywallDeliverAccessAfterPayment(userID int64) error {
 		return fmt.Errorf("paywall inconsistency: no profile for paid return user=%d chat=%d", userID, b.config.MonetizedChatID)
 	}
 
+	b.paywallUnbanUserFromMonetizedGroup(userID)
 	inviteURL := b.paywallFreshGroupInviteURL()
 
 	_, err = b.api.Request(tgbotapi.ApproveChatJoinRequestConfig{
@@ -1011,6 +1012,19 @@ func (b *Bot) paywallShouldKickDirectJoinWithoutPayment(chatID, userID int64) bo
 	return true
 }
 
+// paywallUnbanUserFromMonetizedGroup — снимает ограничение на вход в платную группу (после kick за неоплату, после таймера и т.д.).
+func (b *Bot) paywallUnbanUserFromMonetizedGroup(userID int64) {
+	if userID == 0 || !b.paywallActive() || b.config.MonetizedChatID == 0 {
+		return
+	}
+	if _, err := b.api.Request(tgbotapi.UnbanChatMemberConfig{
+		ChatMemberConfig: tgbotapi.ChatMemberConfig{ChatID: b.config.MonetizedChatID, UserID: userID},
+		OnlyIfBanned:     false,
+	}); err != nil {
+		b.logger.Warnf("paywall unban user=%d from monetized chat: %v", userID, err)
+	}
+}
+
 func (b *Bot) paywallKickFromMonetizedChatAndExplain(userID int64) {
 	chatID := b.config.MonetizedChatID
 	// Вышибаем из группы через ограниченный ban (требование API), иначе клиент Telegram долго
@@ -1025,18 +1039,10 @@ func (b *Bot) paywallKickFromMonetizedChatAndExplain(userID int64) {
 		b.logger.Errorf("paywall remove unpaid direct join user=%d: %v", userID, err)
 		return
 	}
-	if _, err := b.api.Request(tgbotapi.UnbanChatMemberConfig{
-		ChatMemberConfig: tgbotapi.ChatMemberConfig{ChatID: chatID, UserID: userID},
-		OnlyIfBanned:     false,
-	}); err != nil {
-		b.logger.Warnf("paywall unban after kick user=%d: %v", userID, err)
-	}
+	b.paywallUnbanUserFromMonetizedGroup(userID)
 	txt := `Вход в эту группу только после оплаты через бота.
 
-Нажми /start в личке с ботом — пришлю счёт. После оплаты зайди по ссылке на группу снова (или подай заявку, если включены заявки).`
-	if u := b.paywallGroupInviteURL(); u != "" {
-		txt += "\n\nСсылка на группу: " + u
-	}
+Нажми /start в личке с ботом — пришлю счёт. После оплаты бот пришлёт свежую ссылку на группу (или одобрит заявку, если включены заявки).`
 	pm := tgbotapi.NewMessage(userID, txt)
 	if _, err := b.api.Send(pm); err != nil {
 		b.logger.Warnf("paywall DM after kick user=%d: %v", userID, err)
@@ -1097,6 +1103,7 @@ func (b *Bot) handlePaywallChatJoinRequest(j *tgbotapi.ChatJoinRequest) {
 	}
 
 	if b.config.OwnerID != 0 && userID == b.config.OwnerID {
+		b.paywallUnbanUserFromMonetizedGroup(userID)
 		if _, err := b.api.Request(tgbotapi.ApproveChatJoinRequestConfig{
 			ChatConfig: tgbotapi.ChatConfig{ChatID: b.config.MonetizedChatID},
 			UserID:     userID,
@@ -1112,6 +1119,7 @@ func (b *Bot) handlePaywallChatJoinRequest(j *tgbotapi.ChatJoinRequest) {
 		return
 	}
 	if paid {
+		b.paywallUnbanUserFromMonetizedGroup(userID)
 		_, err := b.api.Request(tgbotapi.ApproveChatJoinRequestConfig{
 			ChatConfig: tgbotapi.ChatConfig{ChatID: b.config.MonetizedChatID},
 			UserID:     userID,

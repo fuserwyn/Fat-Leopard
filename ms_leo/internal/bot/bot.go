@@ -1068,6 +1068,7 @@ func (b *Bot) handleStart(msg *tgbotapi.Message) {
 
 	reply := tgbotapi.NewMessage(msg.Chat.ID, welcomeText)
 	if msg.Chat.IsPrivate() && b.paywallActive() && msg.From != nil && !b.paywallPrivateNeedsPayFirst(msg.From.ID) {
+		b.paywallUnbanUserFromMonetizedGroup(msg.From.ID)
 		if inviteURL := b.paywallFreshGroupInviteURL(); inviteURL != "" {
 			reply.ReplyMarkup = freshRejoinInviteKeyboard(inviteURL)
 		}
@@ -1121,6 +1122,8 @@ func freshRejoinInviteKeyboard(inviteURL string) *tgbotapi.InlineKeyboardMarkup 
 }
 
 func (b *Bot) sendFreshRejoinLink(chatID int64) error {
+	// В личке chatID == userID; снимаем возможный бан из платной группы (в т.ч. после старого 30-дневного removeUser).
+	b.paywallUnbanUserFromMonetizedGroup(chatID)
 	inviteURL := b.paywallFreshGroupInviteURL()
 	joinMsg := tgbotapi.NewMessage(chatID, "🔁 Нужен повторный вход в группу? Нажми кнопку ниже — это новая ссылка.")
 	if inviteURL != "" {
