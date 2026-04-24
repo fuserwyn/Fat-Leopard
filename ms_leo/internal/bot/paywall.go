@@ -113,17 +113,33 @@ func paywallYookassaShortHintForUser(err error) string {
 }
 
 // paywallCreateInviteLink вызывает Telegram API; бот должен быть админом с правом приглашений.
-// oneTime24h=true создаёт одноразовую ссылку с TTL 24 часа.
+// oneTime24h=true — ссылка с истечением через 24 ч. Раньше использовали member_limit=1 + прямой вход:
+// в клиентах часто «This invite link has expired» уже после одного открытия. Сначала заявка на вступление
+// (одобрение оплативших — handlePaywallChatJoinRequest), при отказе API — прямой вход без лимита, только срок.
 func (b *Bot) paywallCreateInviteLink(createsJoinRequest bool, oneTime24h bool) (string, error) {
-	cfg := tgbotapi.CreateChatInviteLinkConfig{
+	if oneTime24h {
+		exp := int(time.Now().Add(24 * time.Hour).Unix())
+		u, err := b.createChatInviteLinkParsed(tgbotapi.CreateChatInviteLinkConfig{
+			ChatConfig:         tgbotapi.ChatConfig{ChatID: b.config.MonetizedChatID},
+			CreatesJoinRequest: true,
+			ExpireDate:         exp,
+		})
+		if err == nil && u != "" {
+			return u, nil
+		}
+		return b.createChatInviteLinkParsed(tgbotapi.CreateChatInviteLinkConfig{
+			ChatConfig:         tgbotapi.ChatConfig{ChatID: b.config.MonetizedChatID},
+			CreatesJoinRequest: false,
+			ExpireDate:         exp,
+		})
+	}
+	return b.createChatInviteLinkParsed(tgbotapi.CreateChatInviteLinkConfig{
 		ChatConfig:         tgbotapi.ChatConfig{ChatID: b.config.MonetizedChatID},
 		CreatesJoinRequest: createsJoinRequest,
-	}
-	if oneTime24h {
-		cfg.CreatesJoinRequest = false
-		cfg.ExpireDate = int(time.Now().Add(24 * time.Hour).Unix())
-		cfg.MemberLimit = 1
-	}
+	})
+}
+
+func (b *Bot) createChatInviteLinkParsed(cfg tgbotapi.CreateChatInviteLinkConfig) (string, error) {
 	resp, err := b.api.Request(cfg)
 	if err != nil {
 		return "", err
@@ -170,7 +186,7 @@ func (b *Bot) paywallGroupInviteURL() string {
 	return ""
 }
 
-// paywallFreshGroupInviteURL — новая ссылка после оплаты (без использования кэша: иначе member_limit=1 уже «съедена» или ссылка устарела).
+// paywallFreshGroupInviteURL — новая ссылка после оплаты /rejoin (кэш сбрасываем, чтобы не отдать старую ссылку).
 func (b *Bot) paywallFreshGroupInviteURL() string {
 	if !b.paywallActive() || b.config.MonetizedChatID == 0 {
 		return ""
@@ -182,17 +198,14 @@ func (b *Bot) paywallFreshGroupInviteURL() string {
 	b.paywallInviteURL = ""
 	b.paywallInviteCached = time.Time{}
 
-	primary := b.config.PaywallInviteCreatesJoinRequest
-	for _, createsJR := range []bool{primary, !primary} {
-		u, err := b.paywallCreateInviteLink(createsJR, true)
-		if err == nil && u != "" {
-			b.paywallInviteURL = u
-			b.paywallInviteCached = time.Now()
-			b.paywallInviteFromAPI = true
-			return u
-		}
-		b.logger.Warnf("paywall fresh createChatInviteLink (creates_join_request=%v): %v", createsJR, err)
+	u, err := b.paywallCreateInviteLink(false, true)
+	if err == nil && u != "" {
+		b.paywallInviteURL = u
+		b.paywallInviteCached = time.Now()
+		b.paywallInviteFromAPI = true
+		return u
 	}
+	b.logger.Warnf("paywall fresh createChatInviteLink: %v", err)
 	if u := strings.TrimSpace(b.config.MonetizedChatInviteURL); u != "" {
 		return u
 	}
