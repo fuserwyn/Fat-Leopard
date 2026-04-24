@@ -112,26 +112,38 @@ func paywallYookassaShortHintForUser(err error) string {
 	}
 }
 
+// paywallFreshInviteLinkConfigs — два шага createChatInviteLink для «свежей» ссылки (см. paywallCreateInviteLink).
+func paywallFreshInviteLinkConfigs(chatID int64, now time.Time) []tgbotapi.CreateChatInviteLinkConfig {
+	exp := int(now.Add(24 * time.Hour).Unix())
+	return []tgbotapi.CreateChatInviteLinkConfig{
+		{
+			ChatConfig:         tgbotapi.ChatConfig{ChatID: chatID},
+			CreatesJoinRequest: true,
+			ExpireDate:         exp,
+		},
+		{
+			ChatConfig:         tgbotapi.ChatConfig{ChatID: chatID},
+			CreatesJoinRequest: false,
+			ExpireDate:         exp,
+		},
+	}
+}
+
 // paywallCreateInviteLink вызывает Telegram API; бот должен быть админом с правом приглашений.
 // oneTime24h=true — ссылка с истечением через 24 ч. Раньше использовали member_limit=1 + прямой вход:
 // в клиентах часто «This invite link has expired» уже после одного открытия. Сначала заявка на вступление
 // (одобрение оплативших — handlePaywallChatJoinRequest), при отказе API — прямой вход без лимита, только срок.
 func (b *Bot) paywallCreateInviteLink(createsJoinRequest bool, oneTime24h bool) (string, error) {
 	if oneTime24h {
-		exp := int(time.Now().Add(24 * time.Hour).Unix())
-		u, err := b.createChatInviteLinkParsed(tgbotapi.CreateChatInviteLinkConfig{
-			ChatConfig:         tgbotapi.ChatConfig{ChatID: b.config.MonetizedChatID},
-			CreatesJoinRequest: true,
-			ExpireDate:         exp,
-		})
-		if err == nil && u != "" {
-			return u, nil
+		var lastErr error
+		for _, cfg := range paywallFreshInviteLinkConfigs(b.config.MonetizedChatID, time.Now()) {
+			u, err := b.createChatInviteLinkParsed(cfg)
+			if err == nil && u != "" {
+				return u, nil
+			}
+			lastErr = err
 		}
-		return b.createChatInviteLinkParsed(tgbotapi.CreateChatInviteLinkConfig{
-			ChatConfig:         tgbotapi.ChatConfig{ChatID: b.config.MonetizedChatID},
-			CreatesJoinRequest: false,
-			ExpireDate:         exp,
-		})
+		return "", lastErr
 	}
 	return b.createChatInviteLinkParsed(tgbotapi.CreateChatInviteLinkConfig{
 		ChatConfig:         tgbotapi.ChatConfig{ChatID: b.config.MonetizedChatID},
