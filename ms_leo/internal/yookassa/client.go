@@ -16,6 +16,7 @@ import (
 )
 
 const createPaymentURL = "https://api.yookassa.ru/v3/payments"
+const createRefundURL = "https://api.yookassa.ru/v3/refunds"
 
 type createPaymentReq struct {
 	Amount struct {
@@ -50,6 +51,14 @@ type apiError struct {
 	Parameter   string            `json:"parameter"`
 	RetryAfter  int               `json:"retry_after,omitempty"`
 	Meta        map[string]string `json:"metadata,omitempty"`
+}
+
+type createRefundReq struct {
+	Amount struct {
+		Value    string `json:"value"`
+		Currency string `json:"currency"`
+	} `json:"amount"`
+	PaymentID string `json:"payment_id"`
 }
 
 func newIDempotenceKey() (string, error) {
@@ -219,4 +228,60 @@ func GetPayment(shopID, secretKey, paymentID string) (*PaymentStatusInfo, error)
 		out.Metadata[k] = strings.TrimSpace(fmt.Sprint(v))
 	}
 	return out, nil
+}
+
+// RefundPayment делает полный/частичный возврат через YooKassa API.
+func RefundPayment(shopID, secretKey, paymentID string, amountMinor int, currency string) error {
+	if shopID == "" || secretKey == "" || strings.TrimSpace(paymentID) == "" {
+		return fmt.Errorf("yookassa RefundPayment: empty shop_id, secret_key or payment_id")
+	}
+	if amountMinor <= 0 {
+		return fmt.Errorf("refund amount must be positive")
+	}
+	if strings.TrimSpace(currency) == "" {
+		currency = "RUB"
+	}
+	idem, err := newIDempotenceKey()
+	if err != nil {
+		return fmt.Errorf("idempotence key: %w", err)
+	}
+
+	var body createRefundReq
+	body.Amount.Value = fmt.Sprintf("%.2f", float64(amountMinor)/100.0)
+	body.Amount.Currency = strings.ToUpper(strings.TrimSpace(currency))
+	body.PaymentID = strings.TrimSpace(paymentID)
+
+	raw, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequest(http.MethodPost, createRefundURL, bytes.NewReader(raw))
+	if err != nil {
+		return err
+	}
+	auth := base64.StdEncoding.EncodeToString([]byte(shopID + ":" + secretKey))
+	req.Header.Set("Authorization", "Basic "+auth)
+	req.Header.Set("Idempotence-Key", idem)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 25 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("yookassa refund request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return fmt.Errorf("read refund response: %w", err)
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		var ae apiError
+		_ = json.Unmarshal(respBody, &ae)
+		if ae.Description != "" {
+			return fmt.Errorf("yookassa refund HTTP %d: %s", resp.StatusCode, ae.Description)
+		}
+		return fmt.Errorf("yookassa refund HTTP %d: %s", resp.StatusCode, string(respBody))
+	}
+	return nil
 }

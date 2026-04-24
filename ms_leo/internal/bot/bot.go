@@ -1100,24 +1100,30 @@ func (b *Bot) handleHelp(msg *tgbotapi.Message) {
 func (b *Bot) handleStart(msg *tgbotapi.Message) {
 	if msg.From != nil && msg.Chat.IsPrivate() && b.paywallActive() && b.paywallPrivateNeedsPayFirst(msg.From.ID) {
 		b.ensurePaywallInvoiceSent(msg.From.ID)
-		if !b.paywallPrivateNeedsPayFirst(msg.From.ID) {
+		if b.paywallPrivateNeedsPayFirst(msg.From.ID) {
+			reply := tgbotapi.NewMessage(msg.Chat.ID, b.paywallPrivateUnpaidUserText())
+			reply.ReplyMarkup = b.paywallUnpaidInlineKeyboard()
+			b.logger.Infof("Sending paywall-only /start to chat %d", msg.Chat.ID)
+			if _, err := b.api.Send(reply); err != nil {
+				b.logger.Errorf("Failed to send paywall /start: %v", err)
+			}
 			return
 		}
-		reply := tgbotapi.NewMessage(msg.Chat.ID, b.paywallPrivateUnpaidUserText())
-		reply.ReplyMarkup = b.paywallUnpaidInlineKeyboard()
-		b.logger.Infof("Sending paywall-only /start to chat %d", msg.Chat.ID)
-		if _, err := b.api.Send(reply); err != nil {
-			b.logger.Errorf("Failed to send paywall /start: %v", err)
-		}
-		return
+		// Оплата могла подтянуться (sync) — показываем полный /start оплатившему, без второго сообщения только со ссылкой.
 	}
 
 	welcomeText := welcomeStartText()
 	if msg.Chat.IsPrivate() && b.paywallActive() && msg.From != nil && !b.paywallPrivateNeedsPayFirst(msg.From.ID) {
 		welcomeText += b.paywallPrivatePaidFooter()
+		welcomeText += paidPrivateRetryEntryHintLine()
 	}
 
 	reply := tgbotapi.NewMessage(msg.Chat.ID, welcomeText)
+	if msg.Chat.IsPrivate() && b.paywallActive() && msg.From != nil && !b.paywallPrivateNeedsPayFirst(msg.From.ID) {
+		if inviteURL := b.paywallFreshGroupInviteURL(); inviteURL != "" {
+			reply.ReplyMarkup = freshRejoinInviteKeyboard(inviteURL)
+		}
+	}
 
 	b.logger.Infof("Sending start message to chat %d", msg.Chat.ID)
 	_, errSend := b.api.Send(reply)
@@ -1125,13 +1131,6 @@ func (b *Bot) handleStart(msg *tgbotapi.Message) {
 		b.logger.Errorf("Failed to send start message: %v", errSend)
 	} else {
 		b.logger.Infof("Successfully sent start message to chat %d", msg.Chat.ID)
-	}
-
-	// Для уже оплативших пользователей в личке — всегда даем свежую ссылку входа в группу.
-	if msg.Chat.IsPrivate() && b.paywallActive() && msg.From != nil && !b.paywallPrivateNeedsPayFirst(msg.From.ID) {
-		if err := b.sendFreshRejoinLink(msg.Chat.ID); err != nil {
-			b.logger.Errorf("Failed to send fresh join link after /start: %v", err)
-		}
 	}
 }
 
@@ -1155,20 +1154,29 @@ func (b *Bot) handleRejoin(msg *tgbotapi.Message) {
 	}
 }
 
+// paidPrivateRetryEntryHintLine — подсказка в /start для оплатившего: вход кнопками + новая ссылка при каждом /start.
+func paidPrivateRetryEntryHintLine() string {
+	return "\n\n🔁 Вход в группу — кнопки ниже (новая ссылка при каждом /start)."
+}
+
+func freshRejoinInviteKeyboard(inviteURL string) *tgbotapi.InlineKeyboardMarkup {
+	return &tgbotapi.InlineKeyboardMarkup{
+		InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonURL("📩 Войти в группу", inviteURL),
+			),
+			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("🔁 Новая ссылка", paywallCallbackRefreshInvite),
+			),
+		},
+	}
+}
+
 func (b *Bot) sendFreshRejoinLink(chatID int64) error {
 	inviteURL := b.paywallFreshGroupInviteURL()
 	joinMsg := tgbotapi.NewMessage(chatID, "🔁 Нужен повторный вход в группу? Нажми кнопку ниже — это новая ссылка.")
 	if inviteURL != "" {
-		joinMsg.ReplyMarkup = &tgbotapi.InlineKeyboardMarkup{
-			InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
-				tgbotapi.NewInlineKeyboardRow(
-					tgbotapi.NewInlineKeyboardButtonURL("📩 Войти в группу", inviteURL),
-				),
-				tgbotapi.NewInlineKeyboardRow(
-					tgbotapi.NewInlineKeyboardButtonData("🔁 Новая ссылка", paywallCallbackRefreshInvite),
-				),
-			},
-		}
+		joinMsg.ReplyMarkup = freshRejoinInviteKeyboard(inviteURL)
 	} else {
 		joinMsg.Text = "🔁 Не удалось сгенерировать новую ссылку входа. Попробуй /start позже или попроси администратора выдать приглашение."
 	}

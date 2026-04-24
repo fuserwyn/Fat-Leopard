@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"leo-bot/internal/database"
+	"leo-bot/internal/yookassa"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -163,18 +164,35 @@ func (b *Bot) processRefundRequested(payload refundRequestedPayload) error {
 	if req.UserID != payload.UserID {
 		return nonRetryableOutboxError{msg: fmt.Sprintf("refund user mismatch req=%d payload_user=%d db_user=%d", payload.RequestID, payload.UserID, req.UserID)}
 	}
-	if !req.TelegramPaymentChargeID.Valid || strings.TrimSpace(req.TelegramPaymentChargeID.String) == "" {
-		return nonRetryableOutboxError{msg: fmt.Sprintf("refund unsupported: empty telegram charge id req=%d currency=%s", req.ID, req.Currency.String)}
+	if strings.ToUpper(strings.TrimSpace(req.Currency.String)) == "XTR" {
+		if !req.TelegramPaymentChargeID.Valid || strings.TrimSpace(req.TelegramPaymentChargeID.String) == "" {
+			return nonRetryableOutboxError{msg: fmt.Sprintf("refund stars unsupported: empty telegram charge id req=%d", req.ID)}
+		}
+		if err := b.refundStarPayment(req.UserID, req.TelegramPaymentChargeID.String); err != nil {
+			return err
+		}
+		b.paywallNotifyUser(req.UserID, "✅ Оплата возвращена. Попробуй ещё раз чуть позже.")
+		return nil
 	}
-	if strings.ToUpper(strings.TrimSpace(req.Currency.String)) != "XTR" {
-		return nonRetryableOutboxError{msg: fmt.Sprintf("refund unsupported currency=%s req=%d (manual refund required)", req.Currency.String, req.ID)}
+	if req.YookassaPaymentID.Valid && strings.TrimSpace(req.YookassaPaymentID.String) != "" {
+		amount := int(req.TotalAmountMinor.Int64)
+		if amount <= 0 {
+			amount = b.config.YookassaAmountMinor
+		}
+		currency := strings.TrimSpace(req.Currency.String)
+		if currency == "" {
+			currency = b.config.YookassaCurrency
+		}
+		if currency == "" {
+			currency = "RUB"
+		}
+		if err := b.refundYookassaPayment(req.YookassaPaymentID.String, amount, currency); err != nil {
+			return err
+		}
+		b.paywallNotifyUser(req.UserID, "✅ Оплата возвращена. Попробуй ещё раз чуть позже.")
+		return nil
 	}
-
-	if err := b.refundStarPayment(req.UserID, req.TelegramPaymentChargeID.String); err != nil {
-		return err
-	}
-	b.paywallNotifyUser(req.UserID, "✅ Оплата возвращена. Попробуй ещё раз чуть позже.")
-	return nil
+	return nonRetryableOutboxError{msg: fmt.Sprintf("refund unsupported: request=%d currency=%s requires manual provider refund", req.ID, req.Currency.String)}
 }
 
 func (b *Bot) refundStarPayment(userID int64, chargeID string) error {
@@ -189,6 +207,19 @@ func (b *Bot) refundStarPayment(userID int64, chargeID string) error {
 		return fmt.Errorf("refundStarPayment api error code=%d desc=%s", resp.ErrorCode, resp.Description)
 	}
 	return nil
+}
+
+func (b *Bot) refundYookassaPayment(paymentID string, amountMinor int, currency string) error {
+	if strings.TrimSpace(b.config.YookassaShopID) == "" || strings.TrimSpace(b.config.YookassaSecretKey) == "" {
+		return nonRetryableOutboxError{msg: "refund yookassa unsupported: credentials empty"}
+	}
+	return yookassa.RefundPayment(
+		b.config.YookassaShopID,
+		b.config.YookassaSecretKey,
+		strings.TrimSpace(paymentID),
+		amountMinor,
+		currency,
+	)
 }
 
 func (b *Bot) notifyOps(format string, args ...any) {

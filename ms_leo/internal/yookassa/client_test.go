@@ -41,3 +41,18 @@ func TestNewIDempotenceKey(t *testing.T) {
 		t.Fatal("keys should differ (extremely unlikely if equal, check rand)")
 	}
 }
+
+func TestRefundPaymentValidation(t *testing.T) {
+	err := RefundPayment("", "secret", "payment-id", 100, "RUB")
+	if err == nil || !strings.Contains(err.Error(), "shop_id") {
+		t.Fatalf("empty shop: %v", err)
+	}
+	err = RefundPayment("shop", "secret", "", 100, "RUB")
+	if err == nil || !strings.Contains(err.Error(), "payment_id") {
+		t.Fatalf("empty payment id: %v", err)
+	}
+	err = RefundPayment("shop", "secret", "payment-id", 0, "RUB")
+	if err == nil || !strings.Contains(err.Error(), "amount") {
+		t.Fatalf("zero amount: %v", err)
+	}
+}
