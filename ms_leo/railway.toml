@@ -1,6 +1,7 @@
-# Nixpacks в ms_leo — через Docker, как в docker compose.
-# В Railway: Source / Root Directory = `ms_leo` (не весь репо). Dockerfile = `Dockerfile` (этот каталог).
-# Не указывай в UI путь `Dockerfile.bot` из корня — он для другого контекста сборки (там есть папка `ms_leo/` внутри build context).
+# Сборка через Docker (Nixpacks в монorepo с корня даёт node + «No start command»).
+# 1) Предпочтительно: Service → Root = `ms_leo` + этот `Dockerfile` в папке.
+# 2) Сборка с корня репо: в корне есть `Dockerfile` (не только Dockerfile.bot) — иначе Railway не видит Docker и тянет Nixpacks+miniapp.
+# Не смешивай: root = `ms_leo` + `Dockerfile.bot` из репо-корня (контекст без `ms_leo/`) → not found.
 
 [build]
 builder = "DOCKERFILE"

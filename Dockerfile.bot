@@ -1,3 +1,4 @@
+# То же, что **./Dockerfile** в корне: Railway авто-находит только `Dockerfile`, не этот файл.
 # Сборка ТОЛЬКО при контексте = КОРЕНЬ репозитория (docker build -f Dockerfile.bot .).
 # В Railway: либо Source Root = «корень репо» и в настройках Docker вручную путь = Dockerfile.bot,
 # либо (рекомендуется) Source Root = `ms_leo` и тогда `ms_leo/Dockerfile` — пути `COPY go.mod`, БЕЗ префикса `ms_leo/`.

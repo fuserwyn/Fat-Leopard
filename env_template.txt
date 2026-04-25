@@ -100,7 +100,7 @@ SCAN_HISTORY_ON_START=false
 # В логах должны быть app.webhook HTTP POST …/webhook/payment (с /api/v1 или без).
 #
 # ms_payments (Railway / payment-webhook):
-# На Railway создай ОТДЕЛЬНЫЙ сервис с Dockerfile.ms_payments; публичный URL этого сервиса — в настройках ЮKassa.
+# На Railway: отдельный сервис, Root Directory = ms_payments, Docker = ms_payments/Dockerfile (см. ms_payments/railway.toml). Публичный URL — в настройках ЮKassa.
 # Открой https://<этот-домен>/ в браузере: JSON с "service":"ms_payments". Если 404/другое — в ЮKassa указан URL бота, не вебхука.
 # DATABASE_URL — скопируй ТУ ЖЕ строку, что у бота (ms_leo). По ней вебхук обновляет paywall_access_requests;
 # иначе оплата в ЮKassa есть, а ms_leo не поймёт, что доступ куплен.

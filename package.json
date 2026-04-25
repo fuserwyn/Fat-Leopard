@@ -1,7 +1,0 @@
-{
-  "name": "leopardbot-monorepo",
-  "private": true,
-  "scripts": {
-    "build": "node -e \"console.error('\\n[Railway] Root this repo is not a deployable app.\\nSet Service → Settings → Source → Root Directory to:\\n  ms_leo       — Telegram bot (Go)\\n  miniapp      — Mini App (Vite)\\n  ms_payments  — payment webhook (Python), or set Dockerfile to ms_payments/Dockerfile.\\nOr for bot from repo root only: set builder Dockerfile → Dockerfile.bot\\n'); process.exit(1)\""
-  }
-}
