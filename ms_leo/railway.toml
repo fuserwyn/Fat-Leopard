@@ -1,7 +1,6 @@
-# Сборка через Docker (Nixpacks в монorepo с корня даёт node + «No start command»).
-# 1) Предпочтительно: Service → Root = `ms_leo` + этот `Dockerfile` в папке.
-# 2) Сборка с корня репо: в корне есть `Dockerfile` (не только Dockerfile.bot) — иначе Railway не видит Docker и тянет Nixpacks+miniapp.
-# Не смешивай: root = `ms_leo` + `Dockerfile.bot` из репо-корня (контекст без `ms_leo/`) → not found.
+# Service → Source / Root = `ms_leo` (обязательно), Docker = `Dockerfile` (этот каталог).
+# В самом Dockerfile — COPY go.mod (без префикса ms_leo/): контекст сборки = только папка ms_leo.
+# Сборка из КОРНЯ всего репо: в настройках укажи путь к файлу `Dockerfile.bot` (в корне репо, COPY ms_leo/...). Не подставляй этот путь, если Root = `ms_leo` — иначе COPY ms_leo/ not found.
 
 [build]
 builder = "DOCKERFILE"

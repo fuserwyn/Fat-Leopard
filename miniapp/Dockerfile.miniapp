@@ -1,8 +1,7 @@
-# Мини-апп на Railway: локальный npm не нужен — всё ставится и собирается внутри `docker build`.
-# Runtime: Vite-артефакты + serve (см. scripts/serve.cjs).
+# Node + Vite (НЕ Go, НЕ ms_leo). Сборка: в корне `miniapp` → docker build -f Dockerfile.miniapp .
+# Railway: Service → Root Directory = `miniapp`, иначе подтянется Dockerfile бота из репо.
 FROM node:20-alpine AS build
 WORKDIR /app
-# URL сервиса с ботом (Railway), без path — в чате фетчит /api/miniapp/messages
 ARG VITE_MINIAPP_API_URL
 ENV VITE_MINIAPP_API_URL=$VITE_MINIAPP_API_URL
 COPY package.json package-lock.json* ./
