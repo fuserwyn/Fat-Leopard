@@ -1,0 +1,113 @@
+.packroom {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 200px;
+}
+
+.packroom__warn,
+.packroom__err {
+  font-size: 0.85rem;
+  margin: 0;
+  color: #e0a0a0;
+}
+
+.packroom__hint {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--muted, #8b8b9a);
+  margin: 0 0 4px;
+  padding: 0 2px;
+}
+
+.packroom__log {
+  max-height: min(52dvh, 480px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.packroom__row {
+  display: flex;
+  flex-direction: column;
+  max-width: 90%;
+  gap: 2px;
+}
+
+.packroom__row--me {
+  align-self: flex-end;
+  text-align: right;
+}
+
+.packroom__row--leo,
+.packroom__row--oth {
+  align-self: flex-start;
+  text-align: left;
+}
+
+.packroom__meta {
+  font-size: 0.72rem;
+  color: var(--muted, #6b6b7a);
+}
+
+.packroom__bubble {
+  display: inline-block;
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+  text-align: start;
+}
+
+.packroom__row--leo .packroom__bubble {
+  background: #1a2a1f;
+  border: 1px solid #2a4a33;
+  color: #c4e0cc;
+}
+
+.packroom__row--oth .packroom__bubble {
+  background: #1a1a24;
+  border: 1px solid #2a2a36;
+  color: #c8c8d4;
+}
+
+.packroom__row--me .packroom__bubble {
+  background: linear-gradient(135deg, #2a5cff 0%, #5c3ce6 100%);
+  color: #f4f4ff;
+  border: none;
+}
+
+.packroom__form {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.packroom__input {
+  flex: 1;
+  min-height: 40px;
+  border-radius: 10px;
+  border: 1px solid #2a2a36;
+  background: #14141c;
+  color: #e8e8f0;
+  padding: 0 10px;
+  font-size: 0.9rem;
+}
+
+.packroom__send {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: none;
+  background: #2a4bc7;
+  color: #fff;
+  cursor: pointer;
+}
+
+.packroom__send:disabled {
+  opacity: 0.45;
+}

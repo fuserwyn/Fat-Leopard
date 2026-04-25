@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/joho/godotenv"
 
@@ -17,7 +18,8 @@ type Config struct {
 	DatabaseURL        string
 	LogLevel           string
 	OpenRouterAPIKey   string
-	OpenRouterModel    string // Модель OpenRouter (по умолчанию deepseek/deepseek-chat)
+	OpenRouterModel    string        // Модель OpenRouter (по умолчанию deepseek/deepseek-chat)
+	OpenRouterTimeout  time.Duration // HTTP-таймаут к OpenRouter (весь запрос + чтение тела)
 	ScanHistoryOnStart bool   // Сканировать историю при старте (по умолчанию false)
 
 	// Платный доступ в группу (Telegram Payments + заявки на вступление).
@@ -81,6 +83,13 @@ func Load() (*Config, error) {
 		ykReturn = strings.TrimSpace(getEnv("MONETIZED_CHAT_INVITE_URL", ""))
 	}
 
+	orTimeout := 3 * time.Minute
+	if s := strings.TrimSpace(getEnv("OPENROUTER_HTTP_TIMEOUT_SECONDS", "")); s != "" {
+		if n, err := strconv.Atoi(s); err == nil && n > 0 {
+			orTimeout = time.Duration(n) * time.Second
+		}
+	}
+
 	inviteJoinReq := true
 	switch strings.ToLower(strings.TrimSpace(getEnv("MONETIZED_INVITE_CREATES_JOIN_REQUEST", "true"))) {
 	case "false", "0", "no":
@@ -98,6 +107,7 @@ func Load() (*Config, error) {
 		LogLevel:           getEnv("LOG_LEVEL", "info"),
 		OpenRouterAPIKey:   getEnv("OPENROUTER_API_KEY", ""),
 		OpenRouterModel:    getEnv("OPENROUTER_MODEL", "deepseek/deepseek-chat"),
+		OpenRouterTimeout:  orTimeout,
 		ScanHistoryOnStart: scanHistoryOnStart,
 		Prompts:            prompts.BundleFromEnv(),
 

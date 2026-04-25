@@ -59,9 +59,12 @@ type UserTrainingData struct {
 	TrainingMessage string
 }
 
-func NewOpenRouterClient(apiKey string, defaultModel string, p prompts.Bundle, log logger.Logger) *OpenRouterClient {
+func NewOpenRouterClient(apiKey string, defaultModel string, p prompts.Bundle, log logger.Logger, httpTimeout time.Duration) *OpenRouterClient {
 	if defaultModel == "" {
 		defaultModel = "deepseek/deepseek-r1-0528" // Fallback
+	}
+	if httpTimeout <= 0 {
+		httpTimeout = 3 * time.Minute
 	}
 	return &OpenRouterClient{
 		apiKey:        apiKey,
@@ -70,7 +73,8 @@ func NewOpenRouterClient(apiKey string, defaultModel string, p prompts.Bundle, l
 		logger:        log,
 		promptsBundle: p,
 		httpClient: &http.Client{
-			Timeout: 60 * time.Second,
+			// Один дедлайн на connect + TTFB + чтение JSON — reasoning-модели иногда >60s.
+			Timeout: httpTimeout,
 		},
 	}
 }

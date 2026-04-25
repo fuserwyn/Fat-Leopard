@@ -9,6 +9,7 @@ export function useTelegramWebApp() {
   const [streak, setStreak] = useState(0);
 
   const [initData, setInitData] = useState("");
+  const [userId, setUserId] = useState(0);
 
   useEffect(() => {
     const w = window.Telegram?.WebApp;
@@ -28,6 +29,7 @@ export function useTelegramWebApp() {
     const u = w.initDataUnsafe?.user;
     if (u) {
       setName(u.first_name || u.username || "друг");
+      setUserId(u.id);
     }
   }, []);
 
@@ -36,6 +38,7 @@ export function useTelegramWebApp() {
     streak,
     setStreak,
     initData,
+    userId,
     inTelegram: Boolean(window.Telegram?.WebApp),
     tg: window.Telegram?.WebApp,
   };

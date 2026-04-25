@@ -37,6 +37,10 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		s.handlePostMessage(w, r)
 	case path == "/api/miniapp/feed" && r.Method == http.MethodPost:
 		s.handlePostFeed(w, r)
+	case path == "/api/miniapp/pack-group/feed" && r.Method == http.MethodPost:
+		s.handlePostPackGroupFeed(w, r)
+	case path == "/api/miniapp/pack-group/messages" && r.Method == http.MethodPost:
+		s.handlePostPackGroupMessage(w, r)
 	case path == "/" && r.Method == http.MethodGet:
 		s.handleRoot(w, r)
 	default:
@@ -165,6 +169,126 @@ func (s *Server) handlePostFeed(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "items": items})
+}
+
+func (s *Server) handlePostPackGroupFeed(w http.ResponseWriter, r *http.Request) {
+	corsWriteHeaders(w, r)
+	if s.bot == nil || s.token == "" {
+		s.jsonErr(w, http.StatusServiceUnavailable, "server_unavailable")
+		return
+	}
+	var body struct {
+		InitData string `json:"init_data"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		s.jsonErr(w, http.StatusBadRequest, "invalid_json")
+		return
+	}
+	if body.InitData == "" {
+		s.jsonErr(w, http.StatusBadRequest, "missing_init_data")
+		return
+	}
+	if err := initdata.Validate(body.InitData, s.token, 24*time.Hour); err != nil {
+		s.logger.Warnf("miniapp pack group feed: invalid init: %v", err)
+		s.jsonErr(w, http.StatusUnauthorized, "invalid_init_data")
+		return
+	}
+	parsed, err := initdata.Parse(body.InitData)
+	if err != nil {
+		s.jsonErr(w, http.StatusBadRequest, "parse_init_data")
+		return
+	}
+	if parsed.User.ID == 0 {
+		s.jsonErr(w, http.StatusBadRequest, "user_missing")
+		return
+	}
+	items, err := s.bot.PackGroupChatForViewer(parsed.User.ID, parsed)
+	if err != nil {
+		if errors.Is(err, bot.ErrMiniAppChatMismatch) {
+			s.jsonErr(w, http.StatusConflict, "chat_mismatch")
+			return
+		}
+		if errors.Is(err, bot.ErrPackFeedForbidden) {
+			s.jsonErr(w, http.StatusForbidden, "forbidden")
+			return
+		}
+		s.logger.Errorf("pack group feed: %v", err)
+		s.jsonErr(w, http.StatusInternalServerError, "pack_group_error")
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "messages": items})
+}
+
+func (s *Server) handlePostPackGroupMessage(w http.ResponseWriter, r *http.Request) {
+	corsWriteHeaders(w, r)
+	if s.bot == nil || s.token == "" {
+		s.jsonErr(w, http.StatusServiceUnavailable, "server_unavailable")
+		return
+	}
+	var body struct {
+		InitData string `json:"init_data"`
+		Text     string `json:"text"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		s.jsonErr(w, http.StatusBadRequest, "invalid_json")
+		return
+	}
+	text := strings.TrimSpace(body.Text)
+	if text == "" {
+		s.jsonErr(w, http.StatusBadRequest, "empty_text")
+		return
+	}
+	if utf8.RuneCountInString(text) > maxTextRunes {
+		s.jsonErr(w, http.StatusBadRequest, "text_too_long")
+		return
+	}
+	if body.InitData == "" {
+		s.jsonErr(w, http.StatusBadRequest, "missing_init_data")
+		return
+	}
+	if err := initdata.Validate(body.InitData, s.token, 24*time.Hour); err != nil {
+		s.logger.Warnf("miniapp pack group msg: invalid init: %v", err)
+		s.jsonErr(w, http.StatusUnauthorized, "invalid_init_data")
+		return
+	}
+	parsed, err := initdata.Parse(body.InitData)
+	if err != nil {
+		s.jsonErr(w, http.StatusBadRequest, "parse_init_data")
+		return
+	}
+	if parsed.User.ID == 0 {
+		s.jsonErr(w, http.StatusBadRequest, "user_missing")
+		return
+	}
+	if err := s.bot.AssertMiniAppPackChatAligns(parsed); err != nil {
+		if errors.Is(err, bot.ErrMiniAppChatMismatch) {
+			s.jsonErr(w, http.StatusConflict, "chat_mismatch")
+			return
+		}
+		s.jsonErr(w, http.StatusInternalServerError, "assert_chat_error")
+		return
+	}
+	miniRes, perr := s.bot.ProcessMiniAppPackGroupMessage(parsed, text)
+	if perr != nil {
+		if errors.Is(perr, bot.ErrMiniAppChatMismatch) {
+			s.jsonErr(w, http.StatusConflict, "chat_mismatch")
+			return
+		}
+		if errors.Is(perr, bot.ErrPackFeedForbidden) {
+			s.jsonErr(w, http.StatusForbidden, "forbidden")
+			return
+		}
+		s.logger.Errorf("pack group message: %v", perr)
+		s.jsonErr(w, http.StatusInternalServerError, "pack_group_error")
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	out := map[string]any{"ok": true}
+	if miniRes.ReplyText != "" {
+		out["reply_text"] = miniRes.ReplyText
+	}
+	_ = json.NewEncoder(w).Encode(out)
 }
 
 func (s *Server) jsonErr(w http.ResponseWriter, code int, err string) {

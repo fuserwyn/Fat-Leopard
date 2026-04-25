@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import leoAvatar from "../assets/leo-avatar.png";
+import { getTelegramUserId, loadLeoChat, saveLeoChat, type Msg } from "../lib/leoChatStorage";
 import "./ChatScreen.css";
 
-type Msg = { id: string; role: "user" | "system"; text: string; time: number };
-
 const envApi = (import.meta.env.VITE_MINIAPP_API_URL as string | undefined)?.replace(/\/$/, "") ?? "";
+
+const AVATAR_URL = `${import.meta.env.BASE_URL}leo-avatar.png`;
 
 type Props = {
   name: string;
@@ -20,19 +20,15 @@ function nowId() {
 export function ChatScreen({ name, initData, inTelegram, showAlert }: Props) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
-  const [items, setItems] = useState<Msg[]>(() => [
-    {
-      id: "h",
-      role: "system",
-      time: Date.now(),
-      text:
-        "Как в личке с ботом: ИИ отвечает на любой текст, есть #training_done и /start. Сообщения из мини-аппа копируются в Telegram (метка «Мини-апп»). «Стая» — чужие отчёты.",
-    },
-  ]);
+  const [items, setItems] = useState<Msg[]>(() => loadLeoChat(getTelegramUserId()));
   const endRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [items, sending]);
+
+  useEffect(() => {
+    saveLeoChat(getTelegramUserId(), items);
   }, [items]);
 
   const send = useCallback(async () => {
@@ -95,10 +91,21 @@ export function ChatScreen({ name, initData, inTelegram, showAlert }: Props) {
         </div>
       )}
       <header className="chat__head">
-        <img className="chat__head-avatar" src={leoAvatar} width={52} height={52} alt="Лео" />
+        <div className="chat__head-avatarwrap">
+          <img className="chat__head-avatar" src={AVATAR_URL} width={52} height={52} alt="Лео" loading="eager" />
+          {sending && (
+            <span className="chat__head-typing" aria-hidden="true">
+              <span className="chat__head-typing-dots">
+                <span className="chat__dot" />
+                <span className="chat__dot" />
+                <span className="chat__dot" />
+              </span>
+            </span>
+          )}
+        </div>
         <div className="chat__head-text">
           <h1 className="chat__title">Лео</h1>
-          <p className="chat__sub">{name}</p>
+          <p className="chat__sub">{sending ? "печатает…" : name}</p>
         </div>
       </header>
       <div className="chat__log" role="log" aria-label="Сообщения с ботом">
@@ -109,10 +116,22 @@ export function ChatScreen({ name, initData, inTelegram, showAlert }: Props) {
             </div>
           ) : (
             <div key={m.id} className="chat__row chat__row--sys">
-              <img className="chat__bubble-avatar" src={leoAvatar} width={36} height={36} alt="" aria-hidden="true" />
+              <img className="chat__bubble-avatar" src={AVATAR_URL} width={36} height={36} alt="" aria-hidden="true" />
               <div className="chat__bubble chat__bubble--sys">{m.text}</div>
             </div>
           )
+        )}
+        {sending && (
+          <div className="chat__row chat__row--sys" role="status" aria-live="polite" aria-label="Лео печатает">
+            <img className="chat__bubble-avatar" src={AVATAR_URL} width={36} height={36} alt="" aria-hidden="true" />
+            <div className="chat__bubble chat__bubble--sys chat__bubble--typing" aria-hidden="true">
+              <span className="chat__typing-dots">
+                <span className="chat__dot" />
+                <span className="chat__dot" />
+                <span className="chat__dot" />
+              </span>
+            </div>
+          </div>
         )}
         <div ref={endRef} />
       </div>

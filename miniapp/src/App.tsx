@@ -10,7 +10,7 @@ import "./App.css";
 type Tab = "chat" | "feed" | "profile";
 
 export function App() {
-  const { name, streak, setStreak, initData, inTelegram, tg } = useTelegramWebApp();
+  const { name, streak, setStreak, initData, userId, inTelegram, tg } = useTelegramWebApp();
   const showAlert = useCallback((m: string) => {
     if (tg?.showAlert) void tg.showAlert(m);
     else window.alert(m);
@@ -22,7 +22,16 @@ export function App() {
   return (
     <div className="app">
       {tab === "chat" && <ChatScreen name={name} initData={initData} inTelegram={inTelegram} showAlert={showAlert} />}
-      {tab === "feed" && <FeedScreen name={name} streak={streak} initData={initData} inTelegram={inTelegram} />}
+      {tab === "feed" && (
+        <FeedScreen
+          name={name}
+          streak={streak}
+          userId={userId}
+          initData={initData}
+          inTelegram={inTelegram}
+          showAlert={showAlert}
+        />
+      )}
       {tab === "profile" && <ProfileScreen name={name} streak={streak} workouts={workouts} />}
 
       <BottomNav

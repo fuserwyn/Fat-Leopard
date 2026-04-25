@@ -100,7 +100,7 @@ func New(cfg *config.Config, db *database.Database, log logger.Logger) (*Bot, er
 	// Создаем клиент OpenRouter для ИИ
 	var aiClient *ai.OpenRouterClient
 	if cfg.OpenRouterAPIKey != "" {
-		aiClient = ai.NewOpenRouterClient(cfg.OpenRouterAPIKey, cfg.OpenRouterModel, cfg.Prompts, log)
+		aiClient = ai.NewOpenRouterClient(cfg.OpenRouterAPIKey, cfg.OpenRouterModel, cfg.Prompts, log, cfg.OpenRouterTimeout)
 		log.Infof("OpenRouter AI client initialized with model: %s", cfg.OpenRouterModel)
 	} else {
 		log.Warn("OpenRouter API key not provided, AI features will be disabled")
@@ -724,7 +724,7 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message, personalReplyCh chan<- string
 			b.logger.Errorf("Failed to save user question: %v", err)
 		}
 
-		b.handleAIQuestion(msg, text, personalReplyCh)
+		b.handleAIQuestion(msg, text, personalReplyCh, false)
 		return
 	}
 
@@ -2215,7 +2215,8 @@ func (b *Bot) generateMonthlySummaryForChat(chatID int64, month time.Time) {
 
 // handleAIQuestion обрабатывает вопрос пользователя к ИИ.
 // personalReplyCh — дублирует доставленный в Telegram текст в Mini App (HTTP reply_text), если задан.
-func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, personalReplyCh chan<- string) {
+// skipTelegram — не слать в Telegram (общий чат мини-апpa: ответ только в БД/HTTP).
+func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, personalReplyCh chan<- string, skipTelegram bool) {
 	b.logger.Infof("handleAIQuestion called for user %d with text: %s", msg.From.ID, questionText)
 	miniReply := func(s string) {
 		if personalReplyCh == nil || s == "" {
@@ -2231,8 +2232,9 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 		b.logger.Warn("AI client is nil, cannot process question")
 		help := "❌ ИИ функции недоступны. Проверьте настройки OpenRouter API."
 		miniReply(help)
-		reply := tgbotapi.NewMessage(msg.Chat.ID, help)
-		b.api.Send(reply)
+		if !skipTelegram {
+			b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, help))
+		}
 		return
 	}
 
@@ -2250,8 +2252,9 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 		b.logger.Infof("Question text is empty after cleaning")
 		hint := "💬 Привет! 👋 Задай мне вопрос!\n\nНапример:\n• Что я делал вчера?\n• Как мой прогресс?\n• Что улучшить в тренировках?\n• Как лечиться?"
 		miniReply(hint)
-		reply := tgbotapi.NewMessage(msg.Chat.ID, hint)
-		b.api.Send(reply)
+		if !skipTelegram {
+			b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, hint))
+		}
 		return
 	}
 
@@ -2263,8 +2266,9 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 		b.logger.Errorf("Failed to get user training history: %v", err)
 		t := "❌ Ошибка при получении истории тренировок"
 		miniReply(t)
-		reply := tgbotapi.NewMessage(msg.Chat.ID, t)
-		b.api.Send(reply)
+		if !skipTelegram {
+			b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, t))
+		}
 		return
 	}
 
@@ -2448,22 +2452,24 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 		}
 	}
 
-	// Показываем индикатор набора текста до отправки ответа
-	// Отправляем сразу и поддерживаем индикатор каждые ~4 секунды, пока формируется ответ
-	b.api.Send(tgbotapi.NewChatAction(msg.Chat.ID, tgbotapi.ChatTyping))
-	typingDone := make(chan struct{})
-	go func(chatID int64, done <-chan struct{}) {
-		ticker := time.NewTicker(4 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-done:
-				return
-			case <-ticker.C:
-				b.api.Send(tgbotapi.NewChatAction(chatID, tgbotapi.ChatTyping))
+	// «Печатает…» только в Telegram, не в режиме «только мини-апп».
+	var typingDone chan struct{}
+	if !skipTelegram {
+		b.api.Send(tgbotapi.NewChatAction(msg.Chat.ID, tgbotapi.ChatTyping))
+		typingDone = make(chan struct{})
+		go func(chatID int64, done <-chan struct{}) {
+			ticker := time.NewTicker(4 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-done:
+					return
+				case <-ticker.C:
+					b.api.Send(tgbotapi.NewChatAction(chatID, tgbotapi.ChatTyping))
+				}
 			}
-		}
-	}(msg.Chat.ID, typingDone)
+		}(msg.Chat.ID, typingDone)
+	}
 
 	// Пытаемся определить пол из сообщения или имени
 	detectedGender := b.detectGenderFromMessage(questionText)
@@ -2713,17 +2719,28 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 		if strings.Contains(errorMsg, "data policy") || strings.Contains(errorMsg, "Model Training") {
 			help := "❌ ИИ функции требуют настройки OpenRouter API.\n\nДля бесплатных моделей нужно:\n1. Перейди на https://openrouter.ai/settings/privacy\n2. Включи опцию 'Model Training'\n\nПосле этого ИИ заработает!"
 			miniReply(help)
-			reply := tgbotapi.NewMessage(msg.Chat.ID, help)
-			b.api.Send(reply)
-			close(typingDone)
+			if !skipTelegram {
+				b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, help))
+			}
+			if typingDone != nil {
+				close(typingDone)
+			}
 			return
 		}
 
-		et := fmt.Sprintf("❌ Ошибка при генерации ответа ИИ: %v", err)
+		var et string
+		if strings.Contains(err.Error(), "context deadline exceeded") || strings.Contains(err.Error(), "Client.Timeout") {
+			et = "❌ ИИ не успел ответить вовремя. Попробуй ещё раз или сформулируй вопрос короче."
+		} else {
+			et = fmt.Sprintf("❌ Ошибка при генерации ответа ИИ: %v", err)
+		}
 		miniReply(et)
-		reply := tgbotapi.NewMessage(msg.Chat.ID, et)
-		b.api.Send(reply)
-		close(typingDone)
+		if !skipTelegram {
+			b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, et))
+		}
+		if typingDone != nil {
+			close(typingDone)
+		}
 		return
 	}
 
@@ -2734,15 +2751,19 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 
 	miniReply(answer)
 	// Отправляем ответ с реплаем на исходное сообщение
-	reply := tgbotapi.NewMessage(msg.Chat.ID, answer)
-	if msg.MessageID != 0 {
-		reply.ReplyToMessageID = msg.MessageID
+	if !skipTelegram {
+		reply := tgbotapi.NewMessage(msg.Chat.ID, answer)
+		if msg.MessageID != 0 {
+			reply.ReplyToMessageID = msg.MessageID
+		}
+		b.logger.Infof("Sending AI answer to user %d in chat %d (replying to message %d)", msg.From.ID, msg.Chat.ID, msg.MessageID)
+		_, err = b.api.Send(reply)
+		if err != nil {
+			b.logger.Errorf("Failed to send AI answer: %v", err)
+		}
 	}
-	b.logger.Infof("Sending AI answer to user %d in chat %d (replying to message %d)", msg.From.ID, msg.Chat.ID, msg.MessageID)
-	_, err = b.api.Send(reply)
-	close(typingDone)
-	if err != nil {
-		b.logger.Errorf("Failed to send AI answer: %v", err)
+	if typingDone != nil {
+		close(typingDone)
 	}
 
 	// Сохраняем ответ ИИ для анти‑повторов (тип ai_reply)

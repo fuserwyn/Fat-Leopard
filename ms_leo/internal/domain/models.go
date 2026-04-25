@@ -92,6 +92,16 @@ type PackActivityRow struct {
 	StreakDays  int
 }
 
+// PackGroupChatMessage — общий чат мини-апpa «Стая» (все участники; Лео — при @leo / @бот).
+type PackGroupChatMessage struct {
+	ID        int64  `json:"id"`
+	UserID    int64  `json:"user_id"`
+	Username  string `json:"username"`
+	Text      string `json:"text"`
+	CreatedAt string `json:"created_at"`
+	IsLeo     bool   `json:"is_leo"`
+}
+
 // TrainingSession представляет одну зафиксированную тренировочную сессию.
 type TrainingSession struct {
 	ID            int64     `json:"id" db:"id"`

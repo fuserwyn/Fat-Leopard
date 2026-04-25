@@ -424,6 +424,27 @@ var Migrations = []Migration{
 			DROP TABLE IF EXISTS outbox_events;
 		`,
 	},
+	{
+		Version:     21,
+		Description: "Mini app shared pack group chat (messages, Leo via @leo in app only)",
+		UpSQL: `
+			CREATE TABLE IF NOT EXISTS miniapp_pack_group_chat (
+				id BIGSERIAL PRIMARY KEY,
+				pack_chat_id BIGINT NOT NULL,
+				from_user_id BIGINT NOT NULL,
+				username TEXT NOT NULL DEFAULT '',
+				is_leo BOOLEAN NOT NULL DEFAULT FALSE,
+				message_text TEXT NOT NULL,
+				created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'Europe/Moscow')
+			);
+			CREATE INDEX IF NOT EXISTS idx_miniapp_pack_group_chat_pack_created
+				ON miniapp_pack_group_chat (pack_chat_id, created_at DESC);
+		`,
+		DownSQL: `
+			DROP INDEX IF EXISTS idx_miniapp_pack_group_chat_pack_created;
+			DROP TABLE IF EXISTS miniapp_pack_group_chat;
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции

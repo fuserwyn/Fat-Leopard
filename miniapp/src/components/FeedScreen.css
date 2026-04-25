@@ -39,6 +39,30 @@
   flex-shrink: 0;
 }
 
+.feed__subtabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.feed__subtab {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle, #2a2a36);
+  background: #14141c;
+  color: var(--muted, #8b8b9a);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.feed__subtab.is-active {
+  background: #1e2a4a;
+  color: #e8e8f0;
+  border-color: #3d5aee;
+}
+
 .feed__list {
   padding-bottom: 8px;
 }
