@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import leoAvatar from "../assets/leo-avatar.png";
 import "./ChatScreen.css";
 
 type Msg = { id: string; role: "user" | "system"; text: string; time: number };
@@ -94,18 +95,25 @@ export function ChatScreen({ name, initData, inTelegram, showAlert }: Props) {
         </div>
       )}
       <header className="chat__head">
-        <h1 className="chat__title">Лео</h1>
-        <p className="chat__sub">{name}</p>
+        <img className="chat__head-avatar" src={leoAvatar} width={52} height={52} alt="Лео" />
+        <div className="chat__head-text">
+          <h1 className="chat__title">Лео</h1>
+          <p className="chat__sub">{name}</p>
+        </div>
       </header>
       <div className="chat__log" role="log" aria-label="Сообщения с ботом">
-        {items.map((m) => (
-          <div
-            key={m.id}
-            className={`chat__bubble ${m.role === "user" ? "chat__bubble--user" : "chat__bubble--sys"}`}
-          >
-            {m.text}
-          </div>
-        ))}
+        {items.map((m) =>
+          m.role === "user" ? (
+            <div key={m.id} className="chat__row chat__row--user">
+              <div className="chat__bubble chat__bubble--user">{m.text}</div>
+            </div>
+          ) : (
+            <div key={m.id} className="chat__row chat__row--sys">
+              <img className="chat__bubble-avatar" src={leoAvatar} width={36} height={36} alt="" aria-hidden="true" />
+              <div className="chat__bubble chat__bubble--sys">{m.text}</div>
+            </div>
+          )
+        )}
         <div ref={endRef} />
       </div>
       <form
