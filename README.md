@@ -9,6 +9,6 @@
 
 - Сборка и тесты бота: `cd ms_leo && make build` / `make test`
 - Полный стек: `docker compose up --build` из **корня** репозитория
-- Railway: **Root Directory** = `ms_leo` (бот) или `ms_payments` / `miniapp`. Для **бота** при root = `ms_leo` не указывай путь к `Dockerfile.bot` в корне (будет `COPY ms_leo: not found`). **Мини-апп** — Root = `miniapp`, Dockerfile `Dockerfile.miniapp` (см. `miniapp/railway.toml`); в логах Golang+`ms_leo` = выбран не тот сервис/корень. Для ручного билда бота с корня репо: `docker build -f Dockerfile.bot -t leo .`
+- Railway: **Root Directory** = `ms_leo` (лучше для бота) или `ms_payments` / `miniapp`. Мини-апп: только Root = `miniapp` (см. `miniapp/railway.toml`). Бот, если **оставлен Root = весь репо**, подхватит [railway.toml](railway.toml) в корне → `Dockerfile.bot`, иначе Nixpacks. При Root = `ms_leo` путь к `Dockerfile.bot` из UI не вешаем. Ручной билд бота с корня: `docker build -f Dockerfile.bot -t leo .`
 
 Подробности по боту: [ms_leo/README.md](ms_leo/README.md).

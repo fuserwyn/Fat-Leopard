@@ -1,0 +1,7 @@
+# Сервис **ms_leo**: если в Railway **Root = корень репо** (а не `ms_leo/`), Nixpacks падает — тут жёстко Docker + Dockerfile.bot.
+# Когда сможешь, лучше в UI поставь Root = `ms_leo` + используй `ms_leo/railway.toml` и `ms_leo/Dockerfile` (без COPY ms_leo/ в пути).
+#
+# **miniapp** и **ms_payments** должны иметь свой Source Root = `miniapp` / `ms_payments` — тогда этот файл для них НЕ читается (свой railway.toml в подпапке).
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile.bot"
