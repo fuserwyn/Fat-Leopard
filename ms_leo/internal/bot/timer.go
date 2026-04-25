@@ -97,18 +97,16 @@ func (b *Bot) removeUser(userID, chatID int64, username string) {
 		b.logger.Errorf("log deletion event user=%d chat=%d: %v", userID, chatID, err)
 	}
 
-	// Удаляем из чата через ban. В платной группе не оставляем 30-дневный бан: иначе после выкидывания
-	// за неактивность человек не может зайти по новым инвайтам (часто «ссылка истекла» / нет доступа).
+	// Удаляем из чата через ban. В платной группе бан держим до явной разбанки в
+	// paywallDeliverAccessAfterPayment (после новой оплаты): раньше делали 40-секундный временный
+	// бан + сразу unban, и старая инвайт-ссылка ещё работала у Telegram — человек залетал в группу
+	// без оплаты до того, как сработают paywall-проверки на новые сообщения.
 	if b.paywallActive() && chatID == b.config.MonetizedChatID {
-		until := time.Now().Add(40 * time.Second).Unix()
 		_, err = b.api.Request(tgbotapi.BanChatMemberConfig{
 			ChatMemberConfig: tgbotapi.ChatMemberConfig{ChatID: chatID, UserID: userID},
-			UntilDate:        until,
+			UntilDate:        0, // 0 = forever; снимем сами после оплаты
 			RevokeMessages:   false,
 		})
-		if err == nil {
-			b.paywallUnbanUserFromMonetizedGroup(userID)
-		}
 		// Кик за неактивность аннулирует купленный доступ: повторный вход возможен только
 		// после новой оплаты, иначе /start и «Вернуться в стаю» молча отдают инвайт без paywall.
 		if expErr := b.db.ExpirePaywallAccessForUser(userID, chatID); expErr != nil {
