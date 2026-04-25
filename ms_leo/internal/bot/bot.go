@@ -347,11 +347,12 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 		return
 	}
 
-	b.dispatchTextMessageFromUser(msg)
+	b.dispatchTextMessageFromUser(msg, nil)
 }
 
 // dispatchTextMessageFromUser — тот же путь, что личка с ботом (и Mini App API с initData).
-func (b *Bot) dispatchTextMessageFromUser(msg *tgbotapi.Message) {
+// personalReplyCh — не nil только из Mini App: одно дублирование персонального ответа (см. #training_done).
+func (b *Bot) dispatchTextMessageFromUser(msg *tgbotapi.Message, personalReplyCh chan<- string) {
 	b.logger.Infof("Received message from %d: %s", msg.From.ID, msg.Text)
 
 	// Админ-мастер перехватывает сообщения владельца в личке при активной сессии.
@@ -396,7 +397,7 @@ func (b *Bot) dispatchTextMessageFromUser(msg *tgbotapi.Message) {
 	}
 
 	// Обрабатываем обычные сообщения
-	b.handleMessage(msg)
+	b.handleMessage(msg, personalReplyCh)
 }
 
 func (b *Bot) handleCommand(msg *tgbotapi.Message) {
@@ -544,7 +545,7 @@ func (b *Bot) sendWelcomeMessage(chatID int64, username string, userID int64) {
 	b.startTimer(userID, chatID, username)
 }
 
-func (b *Bot) handleMessage(msg *tgbotapi.Message) {
+func (b *Bot) handleMessage(msg *tgbotapi.Message, personalReplyCh chan<- string) {
 	// Проверяем наличие хештегов в тексте или подписи
 	text := msg.Text
 	if text == "" && msg.Caption != "" {
@@ -645,7 +646,7 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) {
 		if hasTimeZone {
 			b.handleTimezoneCommand(msg, text)
 		} else if hasTrainingDone {
-			b.handleTrainingDone(msg)
+			b.handleTrainingDone(msg, personalReplyCh)
 		} else if hasSickLeave {
 			b.handleSickLeave(msg)
 		} else if hasHealthy {
@@ -770,8 +771,8 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) {
 	}
 }
 
-func (b *Bot) handleTrainingDone(msg *tgbotapi.Message) {
-	b.handleLeopardMoneyTrainingDone(msg)
+func (b *Bot) handleTrainingDone(msg *tgbotapi.Message, personalReplyCh chan<- string) {
+	b.handleLeopardMoneyTrainingDone(msg, personalReplyCh)
 }
 
 

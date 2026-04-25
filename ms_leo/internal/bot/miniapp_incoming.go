@@ -48,21 +48,34 @@ func privateChatForUser(u *tgbotapi.User) *tgbotapi.Chat {
 	}
 }
 
+// MiniAppTextProcessResult — копия персонального ответа бота (тот же текст, что в личку), если она сформирована.
+type MiniAppTextProcessResult struct {
+	ReplyText string `json:"reply_text,omitempty"`
+}
+
 // ProcessMiniAppPrivateText — валидация initData, та же ветка, что и getUpdates (личка).
 // Вызывать с уже валидированной init-строкой; для проверки подписи смотри initdata.Validate.
-func (b *Bot) ProcessMiniAppPrivateText(d initdata.InitData, text string) {
+func (b *Bot) ProcessMiniAppPrivateText(d initdata.InitData, text string) MiniAppTextProcessResult {
+	out := MiniAppTextProcessResult{}
 	if text == "" || b == nil {
-		return
+		return out
 	}
 	if d.User.ID == 0 {
-		return
+		return out
 	}
 	if err := b.AssertMiniAppPackChatAligns(d); err != nil {
-		return
+		return out
 	}
 	msg := PrivateTextMessageFromInitUser(d, text)
 	if b.enforcePaywallForMonetizedChatMessage(msg) {
-		return
+		return out
 	}
-	b.dispatchTextMessageFromUser(msg)
+	ch := make(chan string, 1)
+	b.dispatchTextMessageFromUser(msg, ch)
+	select {
+	case t := <-ch:
+		out.ReplyText = t
+	default:
+	}
+	return out
 }

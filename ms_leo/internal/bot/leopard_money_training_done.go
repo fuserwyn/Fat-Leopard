@@ -54,7 +54,8 @@ func (b *Bot) generateShortLeopardChatAck(username, text string, streak, totalXP
 }
 
 // handleLeopardMoneyTrainingDone — отчёт #training_done по модели Leopard Money (XP, ачивки, таймер 8 дней).
-func (b *Bot) handleLeopardMoneyTrainingDone(msg *tgbotapi.Message) {
+// personalReplyCh, если задан, получает тот же текст, что и личка с итогом (для Mini App).
+func (b *Bot) handleLeopardMoneyTrainingDone(msg *tgbotapi.Message, personalReplyCh chan<- string) {
 	username := ""
 	if msg.From.UserName != "" {
 		username = "@" + msg.From.UserName
@@ -213,6 +214,13 @@ func (b *Bot) handleLeopardMoneyTrainingDone(msg *tgbotapi.Message) {
 	}
 
 	messageText := fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Серия: %d дн.\n⚡ +%d XP (всего XP: %d)\n🏆 Ачивок: %d/%d\n\n⏰ Таймер неактивности: %d дней (день 8 — удаление)\n\n🎯 Отчёт с %s", newStreak, xpAdd, totalXP, ach, leopardmoney.MaxAchievements, leopardmoney.InactiveRemovalDays, tag)
+
+	if personalReplyCh != nil {
+		select {
+		case personalReplyCh <- messageText:
+		default:
+		}
+	}
 
 	privateReply := tgbotapi.NewMessage(msg.From.ID, messageText)
 	if _, err := b.api.Send(privateReply); err != nil {

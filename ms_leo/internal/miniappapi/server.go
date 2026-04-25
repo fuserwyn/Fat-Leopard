@@ -109,9 +109,13 @@ func (s *Server) handlePostMessage(w http.ResponseWriter, r *http.Request) {
 		s.jsonErr(w, http.StatusInternalServerError, "assert_chat_error")
 		return
 	}
-	go s.bot.ProcessMiniAppPrivateText(parsed, text)
+	miniRes := s.bot.ProcessMiniAppPrivateText(parsed, text)
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
+	out := map[string]any{"ok": true}
+	if miniRes.ReplyText != "" {
+		out["reply_text"] = miniRes.ReplyText
+	}
+	_ = json.NewEncoder(w).Encode(out)
 }
 
 func (s *Server) handlePostFeed(w http.ResponseWriter, r *http.Request) {

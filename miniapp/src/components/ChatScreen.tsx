@@ -25,7 +25,7 @@ export function ChatScreen({ name, initData, inTelegram, showAlert }: Props) {
       role: "system",
       time: Date.now(),
       text:
-        "Пиши Лео как в личке: #training_done, /start, вопросы с @ботом. Ответ — в Telegram. Во вкладке «Стая» видны отчёты других.",
+        "Пиши Лео как в личке: #training_done, /start, вопросы с @ботом. Итог тренировки — здесь и в чате с ботом. «Стая» — чужие отчёты.",
     },
   ]);
   const endRef = useRef<HTMLDivElement | null>(null);
@@ -58,9 +58,14 @@ export function ChatScreen({ name, initData, inTelegram, showAlert }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ init_data: initData, text: t }),
       });
+      const j = (await res.json().catch(() => ({}))) as { error?: string; ok?: boolean; reply_text?: string };
       if (!res.ok) {
-        const j = (await res.json().catch(() => ({}))) as { error?: string };
         showAlert(j.error ?? `Ошибка ${res.status}`);
+        return;
+      }
+      const reply = j.reply_text?.trim();
+      if (reply) {
+        setItems((prev) => [...prev, { id: nowId(), role: "system", time: Date.now(), text: reply }]);
         return;
       }
       setItems((prev) => [
@@ -69,7 +74,7 @@ export function ChatScreen({ name, initData, inTelegram, showAlert }: Props) {
           id: nowId(),
           role: "system",
           time: Date.now(),
-          text: "Сообщение ушло боту. Открой чат с ботом в Telegram — ответ там же.",
+          text: "Сообщение ушло боту. Открой чат с ботом в Telegram, если ждёшь ответ там.",
         },
       ]);
     } catch (e) {
