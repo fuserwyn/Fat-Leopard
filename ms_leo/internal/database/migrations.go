@@ -445,6 +445,21 @@ var Migrations = []Migration{
 			DROP TABLE IF EXISTS miniapp_pack_group_chat;
 		`,
 	},
+	{
+		Version:     22,
+		Description: "Pack group chat: telegram_message_id for TG sync with mini app",
+		UpSQL: `
+			ALTER TABLE miniapp_pack_group_chat
+				ADD COLUMN IF NOT EXISTS telegram_message_id BIGINT;
+			CREATE UNIQUE INDEX IF NOT EXISTS uq_miniapp_pack_group_telegram_msg
+				ON miniapp_pack_group_chat (pack_chat_id, telegram_message_id)
+				WHERE telegram_message_id IS NOT NULL;
+		`,
+		DownSQL: `
+			DROP INDEX IF EXISTS uq_miniapp_pack_group_telegram_msg;
+			ALTER TABLE miniapp_pack_group_chat DROP COLUMN IF EXISTS telegram_message_id;
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции

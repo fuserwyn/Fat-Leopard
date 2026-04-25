@@ -98,7 +98,16 @@ func (b *Bot) ProcessMiniAppPackGroupMessage(d initdata.InitData, text string) (
 		}
 	}
 	uname := displayNameFromInitData(d)
-	_, _ = b.db.InsertMiniappPackGroupMessage(chatID, d.User.ID, uname, false, text)
+
+	var tgUser *int64
+	if mid, err := b.relayPackMiniAppMessageToTelegram(chatID, uname, text); err != nil {
+		b.logger.Warnf("pack miniapp relay to TG: %v", err)
+	} else if mid != 0 {
+		tgUser = &mid
+	}
+	if _, err := b.db.InsertMiniappPackGroupMessage(chatID, d.User.ID, uname, false, text, tgUser); err != nil {
+		b.logger.Warnf("pack miniapp insert user row: %v", err)
+	}
 
 	botName := ""
 	if b.api != nil && b.api.Self.ID != 0 {
@@ -137,7 +146,20 @@ func (b *Bot) ProcessMiniAppPackGroupMessage(d initdata.InitData, text string) (
 	if b.api != nil && b.api.Self.ID != 0 && b.api.Self.UserName != "" {
 		leoName = "@" + b.api.Self.UserName
 	}
-	_, _ = b.db.InsertMiniappPackGroupMessage(chatID, 0, leoName, true, reply)
+	var leoTg *int64
+	if b.api != nil {
+		m := tgbotapi.NewMessage(chatID, reply)
+		m.DisableWebPagePreview = true
+		if sent, err := b.api.Send(m); err != nil {
+			b.logger.Warnf("pack miniapp Leo reply to TG: %v", err)
+		} else {
+			v := int64(sent.MessageID)
+			leoTg = &v
+		}
+	}
+	if _, err := b.db.InsertMiniappPackGroupMessage(chatID, 0, leoName, true, reply, leoTg); err != nil {
+		b.logger.Warnf("pack miniapp insert Leo row: %v", err)
+	}
 	out.ReplyText = reply
 	return out, nil
 }

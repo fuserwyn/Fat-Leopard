@@ -552,6 +552,8 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message, personalReplyCh chan<- string
 		text = msg.Caption
 	}
 
+	b.maybeSyncPackGroupChatFromTelegram(msg, text)
+
 	b.tryHandleSickApprovalReply(msg, text)
 
 	// КРИТИЧЕСКИ ВАЖНО: Сначала проверяем хештеги команд (#training_done, #sick_leave, и т.д.)
@@ -695,6 +697,13 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message, personalReplyCh chan<- string
 				b.logger.Infof("Reply to bot message detected")
 			}
 		}
+	}
+
+	// Реплика из мини-аппа пришла в TG с префиксом — не запускаем ИИ повторно (ответ уже в приложении или не было @).
+	if msg.Chat != nil && msg.Chat.ID == b.config.MonetizedChatID &&
+		(msg.Chat.Type == "supergroup" || msg.Chat.Type == "group") &&
+		text != "" && strings.HasPrefix(strings.TrimSpace(text), "💬 Мини-апп") {
+		shouldHandleAI = false
 	}
 
 	// Если обращение к боту обнаружено и есть текст вопроса

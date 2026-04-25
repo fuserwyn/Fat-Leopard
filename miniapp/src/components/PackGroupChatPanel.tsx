@@ -107,8 +107,8 @@ export function PackGroupChatPanel({ initData, inTelegram, meId, showAlert, onHa
   return (
     <div className="packroom">
       <p className="packroom__hint">
-        Пиши всем в стае. Чтобы ответил Лео, обрати к нему: <strong>@leo</strong> (или <strong>@…</strong> с username бота). Без
-        @ — без ответа ИИ.
+        Тот же чат, что основная группа в Telegram после оплаты: сообщения из группы и отсюда совпадают. Лео отвечает в
+        приложении, если написать <strong>@leo</strong> или <strong>@…</strong> (username бота); без @ — без ответа ИИ.
       </p>
       {err && <p className="packroom__err">{err}</p>}
       <div className="packroom__log" role="log" aria-label="Чат стаи">
