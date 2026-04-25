@@ -1,0 +1,44 @@
+.feed {
+  padding: 8px 16px 0;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.feed__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-top: 4px;
+}
+
+.feed__greet {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 4px;
+}
+
+.feed__sub {
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.feed__streak {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--card);
+  border: 1px solid var(--border-subtle);
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.feed__list {
+  padding-bottom: 8px;
+}

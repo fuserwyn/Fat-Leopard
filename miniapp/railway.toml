@@ -1,0 +1,6 @@
+# Сборка только на Railway через Dockerfile (в панели: Root Directory = miniapp).
+# На своей машине npm не запускаешь — `npm ci` / `npm run build` идут внутри `docker build`.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"

@@ -33,6 +33,26 @@ func removalDMReplyMarkup() *tgbotapi.InlineKeyboardMarkup {
 	}
 }
 
+// paywallPermanentKickBanConfig — постоянный бан в платной группе после кика за неактивность.
+// Снимаем сами в paywallDeliverAccessAfterPayment / handleStart / sendFreshRejoinLink — после новой оплаты.
+// Регрессия: ранее использовали 40-секундный временный бан + сразу unban, и старая инвайт-ссылка
+// у Telegram оставалась рабочей: человек заходил в группу до того, как срабатывали paywall-проверки.
+func paywallPermanentKickBanConfig(chatID, userID int64) tgbotapi.BanChatMemberConfig {
+	return tgbotapi.BanChatMemberConfig{
+		ChatMemberConfig: tgbotapi.ChatMemberConfig{ChatID: chatID, UserID: userID},
+		UntilDate:        0, // 0 = forever; Telegram трактует пустое until_date как бессрочный бан
+		RevokeMessages:   false,
+	}
+}
+
+// legacyKick30dBanConfig — обычный 30-дневный бан для бесплатных чатов.
+func legacyKick30dBanConfig(chatID, userID int64, now time.Time) tgbotapi.BanChatMemberConfig {
+	return tgbotapi.BanChatMemberConfig{
+		ChatMemberConfig: tgbotapi.ChatMemberConfig{ChatID: chatID, UserID: userID},
+		UntilDate:        now.Add(30 * 24 * time.Hour).Unix(),
+	}
+}
+
 // normalizeUserDisplayName убирает лишние ведущие '@' и оставляет одно упоминание для @username.
 func normalizeUserDisplayName(username string) string {
 	clean := strings.TrimLeft(username, "@")
@@ -97,29 +117,17 @@ func (b *Bot) removeUser(userID, chatID int64, username string) {
 		b.logger.Errorf("log deletion event user=%d chat=%d: %v", userID, chatID, err)
 	}
 
-	// Удаляем из чата через ban. В платной группе бан держим до явной разбанки в
-	// paywallDeliverAccessAfterPayment (после новой оплаты): раньше делали 40-секундный временный
-	// бан + сразу unban, и старая инвайт-ссылка ещё работала у Telegram — человек залетал в группу
-	// без оплаты до того, как сработают paywall-проверки на новые сообщения.
+	// Удаляем из чата через ban. В платной группе — бессрочно (см. paywallPermanentKickBanConfig);
+	// разбан произойдёт после новой оплаты в paywallDeliverAccessAfterPayment.
 	if b.paywallActive() && chatID == b.config.MonetizedChatID {
-		_, err = b.api.Request(tgbotapi.BanChatMemberConfig{
-			ChatMemberConfig: tgbotapi.ChatMemberConfig{ChatID: chatID, UserID: userID},
-			UntilDate:        0, // 0 = forever; снимем сами после оплаты
-			RevokeMessages:   false,
-		})
+		_, err = b.api.Request(paywallPermanentKickBanConfig(chatID, userID))
 		// Кик за неактивность аннулирует купленный доступ: повторный вход возможен только
 		// после новой оплаты, иначе /start и «Вернуться в стаю» молча отдают инвайт без paywall.
 		if expErr := b.db.ExpirePaywallAccessForUser(userID, chatID); expErr != nil {
 			b.logger.Errorf("Failed to expire paywall access for inactive user %d: %v", userID, expErr)
 		}
 	} else {
-		_, err = b.api.Request(tgbotapi.BanChatMemberConfig{
-			ChatMemberConfig: tgbotapi.ChatMemberConfig{
-				ChatID: chatID,
-				UserID: userID,
-			},
-			UntilDate: time.Now().Add(30 * 24 * time.Hour).Unix(), // Бан на 30 дней
-		})
+		_, err = b.api.Request(legacyKick30dBanConfig(chatID, userID, time.Now()))
 	}
 
 	if err != nil {
