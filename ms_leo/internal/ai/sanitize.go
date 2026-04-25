@@ -8,14 +8,39 @@ import (
 // Преамбулы, которые модели иногда добавляют перед смысловым текстом.
 var reUserRequestAnswerHeader = regexp.MustCompile(`(?is)^\s*(?:ответ\s+на\s+запрос\s+пользователя|ответ\s+пользователю\s+на\s+запрос)\s*:\s*`)
 
+// Заголовки вида «### Ответ на сообщение …» и чистые markdown-заголовки в начале строки.
+var reMarkdownHeadingLine = regexp.MustCompile(`(?m)^[ \t]*#{1,6}\s.*$`)
+var reAnswerOnMessageLine = regexp.MustCompile(`(?mi)^[ \t]*(?:#{1,6}\s*)?(?:ответ\s+на\s+сообщение|ответ\s+на\s+запрос)[^\n]*$`)
+
 // Строка целиком в виде *реплика* / *Рычит* (и опц. эмодзи) — сценарная ремарка, убираем.
 var reStarOnlyLine = regexp.MustCompile(`(?m)^[ \t]*\*[^*]{1,200}\*(?:[ \t]*[🐆🦁🐯])?[ \t]*\r?$`)
 
 // *Рычит* / *р-р* / *мр-я* (внутри фразы)
 var reStarInlineGimmicks = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)(?:^|[\s,.!?:;—–-]|\(|\)|«|»|])\*рыч(ит|а|у|н(ул|ёшь|ит|ито)?|ь|о)\*(\s*[🐆🦁🐯]?\s*)?`),
+	regexp.MustCompile(`(?i)(?:^|[\s,.!?:;—–-]|\(|\)|«|»|])\*рык\*(\s*[🐆🦁🐯❗!?.…]*)?`),
 	regexp.MustCompile(`(?i)(?:^|[\s,.!?:;—–-]|\(|\)|«|»|])\*р+[-\s/]?р+[^*]{0,8}\*(\s*[🐆🦁🐯]?\s*)?`),
 	regexp.MustCompile(`(?i)(?:^|[\s,.!?:;—–-]|\(|\)|«|»|])\*мр+я+[^*]{0,4}\*(\s*[🐆🦁🐯]?\s*)?`),
+}
+
+func stripMarkdownHeadingAndAnswerLines(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	lines := strings.Split(s, "\n")
+	var out []string
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			out = append(out, "")
+			continue
+		}
+		if reMarkdownHeadingLine.MatchString(line) || reAnswerOnMessageLine.MatchString(line) {
+			continue
+		}
+		out = append(out, line)
+	}
+	return strings.TrimSpace(strings.ReplaceAll(strings.Join(out, "\n"), "\n\n\n", "\n\n"))
 }
 
 func stripAsteriskStageRemarks(s string) string {
@@ -38,6 +63,8 @@ func stripAsteriskStageRemarks(s string) string {
 func SanitizeTextForUser(text string) string {
 	clean := strings.TrimSpace(strings.ReplaceAll(text, "**", ""))
 	clean = reUserRequestAnswerHeader.ReplaceAllString(clean, "")
+	clean = strings.TrimSpace(clean)
+	clean = stripMarkdownHeadingAndAnswerLines(clean)
 	clean = strings.TrimSpace(clean)
 	if clean == "" {
 		return ""

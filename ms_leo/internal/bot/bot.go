@@ -34,6 +34,9 @@ type Bot struct {
 	paywallInviteURL     string
 	paywallInviteCached  time.Time
 	paywallInviteFromAPI bool
+	// Очередь ответов Лео для мини-аппа (личка): poll без БД. Несколько реплик бота — один процесс.
+	miniappPersonalMu    sync.Mutex
+	miniappPersonalQueue map[int64][]string
 }
 
 var (
@@ -115,6 +118,7 @@ func New(cfg *config.Config, db *database.Database, log logger.Logger) (*Bot, er
 		aiClient:             aiClient,
 		sickApprovalWatchers: make(map[int64]chan struct{}),
 		adminSessions:        make(map[int64]*adminSession),
+		miniappPersonalQueue: make(map[int64][]string),
 	}, nil
 }
 

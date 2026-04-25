@@ -460,6 +460,15 @@ var Migrations = []Migration{
 			ALTER TABLE miniapp_pack_group_chat DROP COLUMN IF EXISTS telegram_message_id;
 		`,
 	},
+	{
+		Version:     24,
+		Description: "Drop miniapp_personal_reply_queue (replies live in bot process memory)",
+		UpSQL: `
+			DROP INDEX IF EXISTS idx_miniapp_personal_reply_user_id_id;
+			DROP TABLE IF EXISTS miniapp_personal_reply_queue;
+		`,
+		DownSQL: `SELECT 1`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции

@@ -34,3 +34,24 @@ func TestSanitizeStripsUserRequestPreamble(t *testing.T) {
 		t.Errorf("expected body kept, got %q", got)
 	}
 }
+
+func TestSanitizeStripsMarkdownHeadingAndAnswerOnMessageLine(t *testing.T) {
+	t.Parallel()
+	in := "### Ответ на сообщение \"привет\"\n\nПривет. Как настроение?\n"
+	got := SanitizeTextForUser(in)
+	if strings.Contains(got, "###") || strings.Contains(strings.ToLower(got), "ответ на сообщение") {
+		t.Errorf("expected heading stripped, got %q", got)
+	}
+	if !strings.Contains(got, "Привет") {
+		t.Errorf("expected body kept, got %q", got)
+	}
+}
+
+func TestSanitizeStripsRykInline(t *testing.T) {
+	t.Parallel()
+	s := "Ты на связи. *Рык* 🐆 Продолжай."
+	got := SanitizeTextForUser(s)
+	if strings.Contains(got, "Рык") || strings.Contains(got, "*") {
+		t.Errorf("expected *Рык* stripped, got %q", got)
+	}
+}

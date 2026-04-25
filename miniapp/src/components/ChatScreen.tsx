@@ -55,14 +55,58 @@ export function ChatScreen({ name, initData, inTelegram, showAlert }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ init_data: initData, text: t }),
       });
-      const j = (await res.json().catch(() => ({}))) as { error?: string; ok?: boolean; reply_text?: string };
+      const j = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        ok?: boolean;
+        pending?: boolean;
+        reply_text?: string;
+      };
       if (!res.ok) {
         showAlert(j.error ?? `Ошибка ${res.status}`);
         return;
       }
-      const reply = j.reply_text?.trim();
-      if (reply) {
-        setItems((prev) => [...prev, { id: nowId(), role: "system", time: Date.now(), text: reply }]);
+      const replyNow = j.reply_text?.trim();
+      if (replyNow) {
+        setItems((prev) => [...prev, { id: nowId(), role: "system", time: Date.now(), text: replyNow }]);
+        return;
+      }
+      if (j.pending) {
+        const deadline = Date.now() + 4 * 60 * 1000;
+        let gotAny = false;
+        let idleEmpty = 0;
+        while (Date.now() < deadline) {
+          await new Promise((r) => setTimeout(r, 1500));
+          const pr = await fetch(`${envApi}/api/miniapp/personal-reply/poll`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ init_data: initData }),
+          });
+          const pj = (await pr.json().catch(() => ({}))) as { reply_text?: string; error?: string; ok?: boolean };
+          if (!pr.ok) {
+            showAlert(pj.error ?? `Ошибка poll ${pr.status}`);
+            break;
+          }
+          const chunk = pj.reply_text?.trim();
+          if (chunk) {
+            gotAny = true;
+            idleEmpty = 0;
+            setItems((prev) => [...prev, { id: nowId(), role: "system", time: Date.now(), text: chunk }]);
+            continue;
+          }
+          idleEmpty++;
+          if (gotAny && idleEmpty >= 2) break;
+        }
+        if (!gotAny) {
+          setItems((prev) => [
+            ...prev,
+            {
+              id: nowId(),
+              role: "system",
+              time: Date.now(),
+              text: "Ответ задерживается. Загляни в личку с ботом в Telegram — там он уже может быть.",
+            },
+          ]);
+        }
         return;
       }
       setItems((prev) => [

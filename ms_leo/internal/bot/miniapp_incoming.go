@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"strings"
 	"time"
 
 	initdata "github.com/telegram-mini-apps/init-data-golang"
@@ -62,13 +63,13 @@ func privateChatForUser(u *tgbotapi.User) *tgbotapi.Chat {
 	}
 }
 
-// MiniAppTextProcessResult — копия персонального ответа бота (тот же текст, что в личку), если она сформирована.
+// MiniAppTextProcessResult — ответ бота в личку: либо сразу reply_text (редко), либо pending + poll очереди.
 type MiniAppTextProcessResult struct {
 	ReplyText string `json:"reply_text,omitempty"`
+	Pending   bool   `json:"pending,omitempty"`
 }
 
-// ProcessMiniAppPrivateText — валидация initData, та же ветка, что и getUpdates (личка).
-// Вызывать с уже валидированной init-строкой; для проверки подписи смотри initdata.Validate.
+// ProcessMiniAppPrivateText — валидация initData; обработка в фоне, HTTP не ждёт ИИ.
 func (b *Bot) ProcessMiniAppPrivateText(d initdata.InitData, text string) MiniAppTextProcessResult {
 	out := MiniAppTextProcessResult{}
 	if text == "" || b == nil {
@@ -84,20 +85,32 @@ func (b *Bot) ProcessMiniAppPrivateText(d initdata.InitData, text string) MiniAp
 	if b.enforcePaywallForMonetizedChatMessage(msg) {
 		return out
 	}
-	// Не блокируем HTTP-ответ мини-аппа на Send в Telegram — ИИ и так долгий; зеркало в фоне.
+	b.miniappPersonalClear(d.User.ID)
 	go b.mirrorMiniAppToPrivateChat(d.User.ID, text)
-
-	ch := make(chan string, 2)
-	b.dispatchTextMessageFromUser(msg, ch)
-
-	// dispatch синхронный; ждём ответ для reply_text (таймаут чуть выше OpenRouter HTTP).
-	timer := time.NewTimer(4*time.Minute + 15*time.Second)
-	defer timer.Stop()
-	select {
-	case t := <-ch:
-		out.ReplyText = t
-	case <-timer.C:
-		b.logger.Warnf("miniapp private: reply channel timeout user_id=%d", d.User.ID)
-	}
+	go b.runMiniAppPrivateTextWorker(d, text)
+	out.Pending = true
 	return out
+}
+
+func (b *Bot) runMiniAppPrivateTextWorker(d initdata.InitData, text string) {
+	defer func() {
+		if r := recover(); r != nil {
+			b.logger.Errorf("miniapp private worker panic: %v", r)
+		}
+	}()
+	msg := PrivateTextMessageFromInitUser(d, text)
+	ch := make(chan string, 32)
+	b.dispatchTextMessageFromUser(msg, ch)
+	for {
+		select {
+		case t := <-ch:
+			tr := strings.TrimSpace(t)
+			if tr == "" {
+				continue
+			}
+			b.miniappPersonalPush(d.User.ID, tr)
+		default:
+			return
+		}
+	}
 }
