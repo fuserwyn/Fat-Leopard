@@ -22,3 +22,15 @@ func TestStripAsteriskOwnLine(t *testing.T) {
 		t.Errorf("expected line removed, got %q", got)
 	}
 }
+
+func TestSanitizeStripsUserRequestPreamble(t *testing.T) {
+	t.Parallel()
+	in := "Ответ на запрос пользователя:\n\nПривет, леопард!"
+	got := SanitizeTextForUser(in)
+	if strings.Contains(strings.ToLower(got), "ответ на запрос пользователя") {
+		t.Errorf("expected preamble stripped, got %q", got)
+	}
+	if !strings.Contains(got, "Привет") {
+		t.Errorf("expected body kept, got %q", got)
+	}
+}

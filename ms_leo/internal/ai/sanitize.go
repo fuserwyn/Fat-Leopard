@@ -5,6 +5,9 @@ import (
 	"strings"
 )
 
+// Преамбулы, которые модели иногда добавляют перед смысловым текстом.
+var reUserRequestAnswerHeader = regexp.MustCompile(`(?is)^\s*(?:ответ\s+на\s+запрос\s+пользователя|ответ\s+пользователю\s+на\s+запрос)\s*:\s*`)
+
 // Строка целиком в виде *реплика* / *Рычит* (и опц. эмодзи) — сценарная ремарка, убираем.
 var reStarOnlyLine = regexp.MustCompile(`(?m)^[ \t]*\*[^*]{1,200}\*(?:[ \t]*[🐆🦁🐯])?[ \t]*\r?$`)
 
@@ -34,6 +37,8 @@ func stripAsteriskStageRemarks(s string) string {
 // SanitizeTextForUser удаляет служебные артефакты/утечки промптов из AI-текста перед отправкой пользователю.
 func SanitizeTextForUser(text string) string {
 	clean := strings.TrimSpace(strings.ReplaceAll(text, "**", ""))
+	clean = reUserRequestAnswerHeader.ReplaceAllString(clean, "")
+	clean = strings.TrimSpace(clean)
 	if clean == "" {
 		return ""
 	}
