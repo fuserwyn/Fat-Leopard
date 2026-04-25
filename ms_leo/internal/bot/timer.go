@@ -109,6 +109,11 @@ func (b *Bot) removeUser(userID, chatID int64, username string) {
 		if err == nil {
 			b.paywallUnbanUserFromMonetizedGroup(userID)
 		}
+		// Кик за неактивность аннулирует купленный доступ: повторный вход возможен только
+		// после новой оплаты, иначе /start и «Вернуться в стаю» молча отдают инвайт без paywall.
+		if expErr := b.db.ExpirePaywallAccessForUser(userID, chatID); expErr != nil {
+			b.logger.Errorf("Failed to expire paywall access for inactive user %d: %v", userID, expErr)
+		}
 	} else {
 		_, err = b.api.Request(tgbotapi.BanChatMemberConfig{
 			ChatMemberConfig: tgbotapi.ChatMemberConfig{

@@ -128,6 +128,24 @@ func (d *Database) PaywallAccessDebugSnapshot(userID, monetizedChatID int64) str
 	return strings.Join(parts, ", ")
 }
 
+// ExpirePaywallAccessForUser помечает все активные оплаченные доступы пользователя к этой группе
+// как истёкшие. Используется при выкидывании за неактивность — повторный вход требует новой оплаты,
+// иначе после кика бот продолжает считать доступ активным и выдаёт инвайт без приглашения к оплате.
+func (d *Database) ExpirePaywallAccessForUser(userID, monetizedChatID int64) error {
+	const q = `
+		UPDATE paywall_access_requests
+		SET access_expires_at = NOW()
+		WHERE user_id = $1
+		  AND monetized_chat_id = $2
+		  AND status = 'completed'
+		  AND access_expires_at IS NOT NULL
+		  AND access_expires_at > NOW()`
+	if _, err := d.db.Exec(q, userID, monetizedChatID); err != nil {
+		return fmt.Errorf("expire paywall access: %w", err)
+	}
+	return nil
+}
+
 // SetPaywallYookassaPaymentID — сохраняет id платежа ЮKassa для опроса API, если вебхук не дошёл.
 func (d *Database) SetPaywallYookassaPaymentID(reqID int64, yookassaPaymentID string) error {
 	const q = `

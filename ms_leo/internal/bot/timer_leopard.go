@@ -192,15 +192,7 @@ func (b *Bot) sendInactiveDay7ZeroXP(userID, chatID int64, username string) {
 		}
 	}
 
-	if chatID == userID {
-		b.api.Send(tgbotapi.NewMessage(userID, txt))
-		return
-	}
 	if _, dmErr := b.api.Send(tgbotapi.NewMessage(userID, txt)); dmErr != nil {
-		b.logger.Warnf("send inactive day7 DM user=%d: %v, sending full text to group", userID, dmErr)
-		b.api.Send(tgbotapi.NewMessage(chatID, txt))
-		return
+		b.logger.Warnf("send inactive day7 DM user=%d: %v", userID, dmErr)
 	}
-	short := fmt.Sprintf("🔴 %s — день 7: XP обнулён. Подробности в личных сообщениях с ботом.", who)
-	b.api.Send(tgbotapi.NewMessage(chatID, short))
 }
