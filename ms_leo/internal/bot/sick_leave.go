@@ -24,7 +24,9 @@ func (b *Bot) handleSickLeave(msg *tgbotapi.Message) {
 	if messageLog.HasSickLeave {
 		infoText := "✅ У тебя уже активен больничный. Отдыхай и возвращайся, когда восстановишься."
 		response := tgbotapi.NewMessage(msg.Chat.ID, infoText)
-		response.ReplyToMessageID = msg.MessageID
+		if msg.MessageID != 0 {
+			response.ReplyToMessageID = msg.MessageID
+		}
 		if _, sendErr := b.api.Send(response); sendErr != nil {
 			b.logger.Errorf("Failed to send already sick leave info: %v", sendErr)
 		}

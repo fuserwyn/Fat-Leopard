@@ -1,9 +1,0 @@
-# Сервис бота: если в Railway **Source / Root = корень репозитория** (снапшот в логе со всеми папками) —
-# без этого Nixpacks / Railpack пытается угадать рантайм и падает. Явно Docker.
-#
-# Мини-апп — **отдельный** сервис с Root = `miniapp` (там другой `railway.toml`); сюда не смотрит.
-# Если вынес бота в подкаталог: Root = `ms_leo` → сработает `ms_leo/railway.toml` + `ms_leo/Dockerfile`.
-
-[build]
-builder = "DOCKERFILE"
-dockerfilePath = "Dockerfile.bot"

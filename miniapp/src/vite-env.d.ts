@@ -1,5 +1,9 @@
 /// <reference types="vite/client" />
 
+interface ImportMetaEnv {
+  readonly VITE_MINIAPP_API_URL?: string;
+}
+
 interface TelegramUser {
   id: number;
   first_name: string;
@@ -12,6 +16,7 @@ interface TelegramUser {
 interface TelegramWebApp {
   initData: string;
   initDataUnsafe: { user?: TelegramUser; query_id?: string };
+  HapticFeedback?: { impactOccurred: (style: "light" | "medium" | "heavy" | "rigid" | "soft") => void };
   colorScheme: "light" | "dark";
   themeParams: Record<string, string | undefined>;
   isExpanded: boolean;

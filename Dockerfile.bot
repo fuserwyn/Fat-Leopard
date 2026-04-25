@@ -1,6 +1,7 @@
-# Сборка бота, когда в Railway у сервиса «Root = корень репозитория» (снапшот: miniapp/, ms_leo/, …).
-# Контекст docker build = корень репо, пути внутри — через ms_leo/
-# Когда Source Root = `ms_leo` — вместо этого используется `ms_leo/Dockerfile` (docker compose тоже так).
+# Сборка ТОЛЬКО при контексте = КОРЕНЬ репозитория (docker build -f Dockerfile.bot .).
+# В Railway: либо Source Root = «корень репо» и в настройках Docker вручную путь = Dockerfile.bot,
+# либо (рекомендуется) Source Root = `ms_leo` и тогда `ms_leo/Dockerfile` — пути `COPY go.mod`, БЕЗ префикса `ms_leo/`.
+# Не смешивай: root = `ms_leo` + этот файл → ошибка "ms_leo: not found" (в контексте нет подкаталога `ms_leo/`).
 #
 #   docker build -f Dockerfile.bot -t leo-bot .
 #

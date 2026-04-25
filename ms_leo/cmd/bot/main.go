@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -11,6 +12,7 @@ import (
 	"leo-bot/internal/config"
 	"leo-bot/internal/database"
 	"leo-bot/internal/logger"
+	"leo-bot/internal/miniappapi"
 )
 
 func main() {
@@ -46,6 +48,19 @@ func main() {
 			logger.Errorf("Bot error: %v", err)
 		}
 	}()
+
+	// HTTP для Mini App: POST init_data + text → тот же путь, что getUpdates (личка).
+	// В Railway укажи публичный URL этого сервиса в VITE бота/мини-апpa (без path).
+	if p := os.Getenv("PORT"); p != "" {
+		addr := "0.0.0.0:" + p
+		h := miniappapi.New(bot, cfg.APIToken, logger)
+		go func() {
+			logger.Infof("Mini App API listening on %s", addr)
+			if err := http.ListenAndServe(addr, h); err != nil {
+				logger.Errorf("HTTP server: %v", err)
+			}
+		}()
+	}
 
 	// Ждем сигнала для graceful shutdown
 	sigChan := make(chan os.Signal, 1)

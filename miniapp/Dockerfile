@@ -2,6 +2,9 @@
 # Runtime: Vite-артефакты + serve (см. scripts/serve.cjs).
 FROM node:20-alpine AS build
 WORKDIR /app
+# URL сервиса с ботом (Railway), без path — в чате фетчит /api/miniapp/messages
+ARG VITE_MINIAPP_API_URL
+ENV VITE_MINIAPP_API_URL=$VITE_MINIAPP_API_URL
 COPY package.json package-lock.json* ./
 RUN npm ci
 COPY . ./

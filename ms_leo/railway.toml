@@ -1,5 +1,6 @@
-# Nixpacks в ms_leo часто падает (монорепо, пути, Go). Собираем через Dockerfile — тот же образ, что в docker compose.
-# В Railway: Root Directory = ms_leo, без этого файла снова может пойти Nixpacks.
+# Nixpacks в ms_leo — через Docker, как в docker compose.
+# В Railway: Source / Root Directory = `ms_leo` (не весь репо). Dockerfile = `Dockerfile` (этот каталог).
+# Не указывай в UI путь `Dockerfile.bot` из корня — он для другого контекста сборки (там есть папка `ms_leo/` внутри build context).
 
 [build]
 builder = "DOCKERFILE"

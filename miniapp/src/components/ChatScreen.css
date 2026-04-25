@@ -1,0 +1,113 @@
+.chat {
+  min-height: calc(100dvh - 8px);
+  display: flex;
+  flex-direction: column;
+  padding: 0 0 100px;
+  max-width: 480px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.chat__head {
+  padding: 20px 16px 12px;
+  border-bottom: 1px solid var(--line, #24242c);
+  position: sticky;
+  top: 0;
+  background: var(--bg, #0d0d12);
+  z-index: 1;
+}
+
+.chat__title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.chat__sub {
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+  color: var(--muted, #8b8b9a);
+}
+
+.chat__log {
+  flex: 1;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+}
+
+.chat__bubble {
+  max-width: 90%;
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.chat__bubble--user {
+  align-self: flex-end;
+  background: linear-gradient(135deg, #2a5cff 0%, #5c3ce6 100%);
+  color: #f4f4ff;
+  border-bottom-right-radius: 4px;
+}
+
+.chat__bubble--sys {
+  align-self: flex-start;
+  background: #1a1a24;
+  color: #c8c8d4;
+  border: 1px solid #2a2a36;
+  border-bottom-left-radius: 4px;
+}
+
+.chat__form {
+  position: fixed;
+  bottom: 72px;
+  left: 0;
+  right: 0;
+  max-width: 480px;
+  margin: 0 auto;
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  background: linear-gradient(180deg, transparent 0%, #0d0d12 24%);
+}
+
+.chat__input {
+  flex: 1;
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid #2a2a36;
+  background: #14141c;
+  color: #e8e8f0;
+  padding: 0 14px;
+  font-size: 1rem;
+  outline: none;
+}
+
+.chat__input:focus {
+  border-color: #3d5aee;
+}
+
+.chat__send {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: none;
+  background: #2a4bc7;
+  color: #fff;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chat__send:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

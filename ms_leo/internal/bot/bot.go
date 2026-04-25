@@ -176,20 +176,60 @@ func (b *Bot) Start(ctx context.Context) error {
 	go b.startDailyWisdomScheduler(ctx)
 	go b.startOutboxWorker(ctx)
 
-	u := tgbotapi.NewUpdate(0)
-	u.Timeout = 60
-
-	updates := b.api.GetUpdatesChan(u)
+	updatesCh := b.runGetUpdatesWithWebApp(ctx)
 
 	for {
 		select {
-		case update := <-updates:
+		case update := <-updatesCh:
 			go b.handleUpdate(update)
 		case <-ctx.Done():
 			b.logger.Info("Bot stopped")
 			return nil
 		}
 	}
+}
+
+// runGetUpdatesWithWebApp — long poll getUpdates + подстановка web_app_data в text (как в библиотеке, плюс merge).
+func (b *Bot) runGetUpdatesWithWebApp(ctx context.Context) <-chan tgbotapi.Update {
+	buf := 100
+	if b.api != nil && b.api.Buffer > 0 {
+		buf = b.api.Buffer
+	}
+	ch := make(chan tgbotapi.Update, buf)
+	config := tgbotapi.NewUpdate(0)
+	config.Timeout = 60
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+			resp, err := b.api.Request(&config)
+			if err != nil {
+				b.logger.Errorf("getUpdates: %v, retry in 3s", err)
+				time.Sleep(3 * time.Second)
+				continue
+			}
+			updates, err := UnmarshalUpdatesWithWebApp(resp.Result)
+			if err != nil {
+				b.logger.Errorf("parse updates: %v, retry in 3s", err)
+				time.Sleep(3 * time.Second)
+				continue
+			}
+			for _, u := range updates {
+				if u.UpdateID >= config.Offset {
+					config.Offset = u.UpdateID + 1
+					select {
+					case ch <- u:
+					case <-ctx.Done():
+						return
+					}
+				}
+			}
+		}
+	}()
+	return ch
 }
 
 func (b *Bot) getUserLocalNow(offsetFromMoscow int) time.Time {
@@ -307,6 +347,11 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 		return
 	}
 
+	b.dispatchTextMessageFromUser(msg)
+}
+
+// dispatchTextMessageFromUser — тот же путь, что личка с ботом (и Mini App API с initData).
+func (b *Bot) dispatchTextMessageFromUser(msg *tgbotapi.Message) {
 	b.logger.Infof("Received message from %d: %s", msg.From.ID, msg.Text)
 
 	// Админ-мастер перехватывает сообщения владельца в личке при активной сессии.
@@ -2672,7 +2717,9 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 
 	// Отправляем ответ с реплаем на исходное сообщение
 	reply := tgbotapi.NewMessage(msg.Chat.ID, answer)
-	reply.ReplyToMessageID = msg.MessageID // Отвечаем на сообщение пользователя
+	if msg.MessageID != 0 {
+		reply.ReplyToMessageID = msg.MessageID
+	}
 	b.logger.Infof("Sending AI answer to user %d in chat %d (replying to message %d)", msg.From.ID, msg.Chat.ID, msg.MessageID)
 	_, err = b.api.Send(reply)
 	close(typingDone)

@@ -1,6 +1,5 @@
-# Мини-апп: в Railway у этого сервиса Root Directory = `miniapp`, Dockerfile = `Dockerfile` (этот каталог).
-# В корне репо не должно быть «чужого» Dockerfile — иначе Railway путает сборки (был конфликт с Go-образом ms_leo).
-# Сервис бота: Root Directory = `ms_leo` (там свой Dockerfile). Локальный npm не нужен — build в Docker.
+# Мини-апп: в Railway — Source / Root = `miniapp`, Docker = `Dockerfile` (этот каталог).
+# Сервис бота: Root = `ms_leo` + `ms_leo/railway.toml` + `ms_leo/Dockerfile` (путь `Dockerfile.bot` из корня сюда не вешаем).
 
 [build]
 builder = "DOCKERFILE"
