@@ -57,6 +57,9 @@ func (b *Bot) ProcessMiniAppPrivateText(d initdata.InitData, text string) {
 	if d.User.ID == 0 {
 		return
 	}
+	if err := b.AssertMiniAppPackChatAligns(d); err != nil {
+		return
+	}
 	msg := PrivateTextMessageFromInitUser(d, text)
 	if b.enforcePaywallForMonetizedChatMessage(msg) {
 		return

@@ -1,6 +1,10 @@
 package bot
 
-import "errors"
+import (
+	"errors"
+
+	initdata "github.com/telegram-mini-apps/init-data-golang"
+)
 
 // ErrPackFeedForbidden — смотрящему нельзя видеть ленту (нет в стае / не оплачено).
 var ErrPackFeedForbidden = errors.New("pack feed forbidden")
@@ -15,13 +19,24 @@ type PackFeedItem struct {
 	CreatedAt  string `json:"created_at"`
 	StreakDays int    `json:"streak_days"`
 	IsYou      bool   `json:"is_you"`
+	// PackChatID — id группы «Стая» (MONETIZED_CHAT_ID), с которой синхронизирована лента.
+	PackChatID int64  `json:"pack_chat_id"`
+	PackTitle  string `json:"pack_title,omitempty"`
 }
 
 // PackFeedForViewer — лента «стаи» из user_messages (отчёты) для участника/оплатившего.
-func (b *Bot) PackFeedForViewer(viewerUserID int64) ([]PackFeedItem, error) {
+// initD сверяется с MONETIZED_CHAT_ID, если в подписи есть group/supergroup.
+func (b *Bot) PackFeedForViewer(viewerUserID int64, initD initdata.InitData) ([]PackFeedItem, error) {
+	if err := b.AssertMiniAppPackChatAligns(initD); err != nil {
+		return nil, err
+	}
 	chatID := b.config.MonetizedChatID
 	if chatID == 0 {
 		return []PackFeedItem{}, nil
+	}
+	packTitle := ""
+	if initD.Chat.ID != 0 && (initD.Chat.Type == initdata.ChatTypeSupergroup || initD.Chat.Type == initdata.ChatTypeGroup) {
+		packTitle = initD.Chat.Title
 	}
 	if b.config.OwnerID != 0 && viewerUserID == b.config.OwnerID {
 		// владелец видит ленту без лишних проверок
@@ -49,6 +64,8 @@ func (b *Bot) PackFeedForViewer(viewerUserID int64) ([]PackFeedItem, error) {
 			CreatedAt:  r.CreatedAt.UTC().Format("2006-01-02T15:04:05Z07:00"),
 			StreakDays: r.StreakDays,
 			IsYou:      r.UserID == viewerUserID,
+			PackChatID: chatID,
+			PackTitle:  packTitle,
 		})
 	}
 	return out, nil

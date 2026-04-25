@@ -100,6 +100,15 @@ func (s *Server) handlePostMessage(w http.ResponseWriter, r *http.Request) {
 		s.jsonErr(w, http.StatusBadRequest, "user_missing")
 		return
 	}
+	if err := s.bot.AssertMiniAppPackChatAligns(parsed); err != nil {
+		if errors.Is(err, bot.ErrMiniAppChatMismatch) {
+			s.jsonErr(w, http.StatusConflict, "chat_mismatch")
+			return
+		}
+		s.logger.Errorf("miniapp assert pack chat: %v", err)
+		s.jsonErr(w, http.StatusInternalServerError, "assert_chat_error")
+		return
+	}
 	go s.bot.ProcessMiniAppPrivateText(parsed, text)
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
@@ -136,8 +145,12 @@ func (s *Server) handlePostFeed(w http.ResponseWriter, r *http.Request) {
 		s.jsonErr(w, http.StatusBadRequest, "user_missing")
 		return
 	}
-	items, err := s.bot.PackFeedForViewer(parsed.User.ID)
+	items, err := s.bot.PackFeedForViewer(parsed.User.ID, parsed)
 	if err != nil {
+		if errors.Is(err, bot.ErrMiniAppChatMismatch) {
+			s.jsonErr(w, http.StatusConflict, "chat_mismatch")
+			return
+		}
 		if errors.Is(err, bot.ErrPackFeedForbidden) {
 			s.jsonErr(w, http.StatusForbidden, "forbidden")
 			return
