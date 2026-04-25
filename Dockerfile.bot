@@ -1,0 +1,24 @@
+# Сборка бота, когда в Railway у сервиса «Root = корень репозитория» (снапшот: miniapp/, ms_leo/, …).
+# Контекст docker build = корень репо, пути внутри — через ms_leo/
+# Когда Source Root = `ms_leo` — вместо этого используется `ms_leo/Dockerfile` (docker compose тоже так).
+#
+#   docker build -f Dockerfile.bot -t leo-bot .
+#
+FROM golang:1.21
+
+WORKDIR /app
+
+COPY ms_leo/go.mod ./
+COPY ms_leo/go.sum* ./
+
+RUN go mod download
+
+COPY ms_leo/ .
+
+RUN go mod tidy
+
+RUN CGO_ENABLED=0 GOOS=linux go build -o main ./cmd/bot
+
+EXPOSE 8080
+
+CMD ["./main"]
