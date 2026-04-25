@@ -1,5 +1,6 @@
-# Сборка только на Railway через Dockerfile (в панели: Root Directory = miniapp).
-# На своей машине npm не запускаешь — `npm ci` / `npm run build` идут внутри `docker build`.
+# Мини-апп: в Railway у этого сервиса Root Directory = `miniapp`, Dockerfile = `Dockerfile` (этот каталог).
+# В корне репо не должно быть «чужого» Dockerfile — иначе Railway путает сборки (был конфликт с Go-образом ms_leo).
+# Сервис бота: Root Directory = `ms_leo` (там свой Dockerfile). Локальный npm не нужен — build в Docker.
 
 [build]
 builder = "DOCKERFILE"
