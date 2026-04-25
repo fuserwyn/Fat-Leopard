@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"leo-bot/internal/bot"
 	"leo-bot/internal/config"
@@ -54,9 +55,18 @@ func main() {
 	if p := os.Getenv("PORT"); p != "" {
 		addr := "0.0.0.0:" + p
 		h := miniappapi.New(bot, cfg.APIToken, logger)
+		// Долгий ответ ИИ: WriteTimeout 0 = без лимита на запись тела ответа (иначе обрыв посреди JSON).
+		srv := &http.Server{
+			Addr:              addr,
+			Handler:           h,
+			ReadHeaderTimeout: 20 * time.Second,
+			ReadTimeout:       0,
+			WriteTimeout:      0,
+			IdleTimeout:       120 * time.Second,
+		}
 		go func() {
 			logger.Infof("Mini App API listening on %s", addr)
-			if err := http.ListenAndServe(addr, h); err != nil {
+			if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 				logger.Errorf("HTTP server: %v", err)
 			}
 		}()

@@ -123,7 +123,7 @@ func (b *Bot) ProcessMiniAppPackGroupMessage(d initdata.InitData, text string) (
 		Date: int(time.Now().Unix()),
 	}
 	ch := make(chan string, 2)
-	b.handleAIQuestion(msg, text, ch, true)
+	b.handleAIQuestion(msg, text, ch, true, true)
 	var reply string
 	select {
 	case reply = <-ch:

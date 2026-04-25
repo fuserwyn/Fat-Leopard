@@ -84,13 +84,20 @@ func (b *Bot) ProcessMiniAppPrivateText(d initdata.InitData, text string) MiniAp
 	if b.enforcePaywallForMonetizedChatMessage(msg) {
 		return out
 	}
-	b.mirrorMiniAppToPrivateChat(d.User.ID, text)
-	ch := make(chan string, 1)
+	// Не блокируем HTTP-ответ мини-аппа на Send в Telegram — ИИ и так долгий; зеркало в фоне.
+	go b.mirrorMiniAppToPrivateChat(d.User.ID, text)
+
+	ch := make(chan string, 2)
 	b.dispatchTextMessageFromUser(msg, ch)
+
+	// dispatch синхронный; ждём ответ для reply_text (таймаут чуть выше OpenRouter HTTP).
+	timer := time.NewTimer(4*time.Minute + 15*time.Second)
+	defer timer.Stop()
 	select {
 	case t := <-ch:
 		out.ReplyText = t
-	default:
+	case <-timer.C:
+		b.logger.Warnf("miniapp private: reply channel timeout user_id=%d", d.User.ID)
 	}
 	return out
 }

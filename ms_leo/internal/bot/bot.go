@@ -724,7 +724,7 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message, personalReplyCh chan<- string
 			b.logger.Errorf("Failed to save user question: %v", err)
 		}
 
-		b.handleAIQuestion(msg, text, personalReplyCh, false)
+		b.handleAIQuestion(msg, text, personalReplyCh, false, personalReplyCh != nil)
 		return
 	}
 
@@ -2216,7 +2216,8 @@ func (b *Bot) generateMonthlySummaryForChat(chatID int64, month time.Time) {
 // handleAIQuestion обрабатывает вопрос пользователя к ИИ.
 // personalReplyCh — дублирует доставленный в Telegram текст в Mini App (HTTP reply_text), если задан.
 // skipTelegram — не слать в Telegram (общий чат мини-апpa: ответ только в БД/HTTP).
-func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, personalReplyCh chan<- string, skipTelegram bool) {
+// compactContext — меньше истории/без RAG-примеров: быстрее и меньше токенов (мини-апп HTTP и pack-чат).
+func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, personalReplyCh chan<- string, skipTelegram bool, compactContext bool) {
 	b.logger.Infof("handleAIQuestion called for user %d with text: %s", msg.From.ID, questionText)
 	miniReply := func(s string) {
 		if personalReplyCh == nil || s == "" {
@@ -2225,6 +2226,7 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 		select {
 		case personalReplyCh <- s:
 		default:
+			b.logger.Warnf("miniapp reply channel full, drop duplicate fragment user_id=%d", msg.From.ID)
 		}
 	}
 
@@ -2260,8 +2262,12 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 
 	b.logger.Infof("Processing AI question: %s", questionText)
 
+	histLimit := 50
+	if compactContext {
+		histLimit = 18
+	}
 	// Получаем историю тренировок пользователя
-	history, err := b.db.GetUserTrainingHistory(msg.From.ID, msg.Chat.ID, 50)
+	history, err := b.db.GetUserTrainingHistory(msg.From.ID, msg.Chat.ID, histLimit)
 	if err != nil {
 		b.logger.Errorf("Failed to get user training history: %v", err)
 		t := "❌ Ошибка при получении истории тренировок"
@@ -2379,13 +2385,17 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 
 	// Недавний контекст беседы (последние 2 часа)
 	{
+		recentLimit := 10
+		if compactContext {
+			recentLimit = 5
+		}
 		end := time.Now()
 		start := end.Add(-2 * time.Hour)
 		recentChat, err := b.db.GetMessagesInRange(msg.Chat.ID, start, end)
 		if err == nil && len(recentChat) > 0 {
 			contextText.WriteString("\n=== НЕДАВНИЙ КОНТЕКСТ БЕСЕДЫ (2 часа) ===\n")
 			count := 0
-			for i := len(recentChat) - 1; i >= 0 && count < 10; i-- {
+			for i := len(recentChat) - 1; i >= 0 && count < recentLimit; i-- {
 				text := strings.TrimSpace(recentChat[i].MessageText)
 				if text == "" {
 					continue
@@ -2402,13 +2412,20 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 
 	// Добавляем анти‑повторы: последние ответы ИИ для этого пользователя
 	{
-		// Берем последние 30 дней и собираем до 5 последних ai_reply
+		maxReplies := 5
+		maxSnippet := 400
+		lookbackDays := 30
+		if compactContext {
+			maxReplies = 2
+			maxSnippet = 220
+			lookbackDays = 7
+		}
 		end := time.Now()
-		start := end.AddDate(0, 0, -30)
+		start := end.AddDate(0, 0, -lookbackDays)
 		recent, err := b.db.GetUserMessages(msg.From.ID, msg.Chat.ID, start, end)
 		if err == nil {
 			var lastReplies []string
-			for i := len(recent) - 1; i >= 0 && len(lastReplies) < 5; i-- {
+			for i := len(recent) - 1; i >= 0 && len(lastReplies) < maxReplies; i-- {
 				if strings.ToLower(recent[i].MessageType) == "ai_reply" {
 					lastReplies = append(lastReplies, recent[i].MessageText)
 				}
@@ -2416,10 +2433,9 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 			if len(lastReplies) > 0 {
 				contextText.WriteString("\n=== МОИ ПОСЛЕДНИЕ ОТВЕТЫ (ИЗБЕГАЙ ПОВТОРОВ ТЕМ) ===\n")
 				for _, r := range lastReplies {
-					// укоротим строку
 					txt := r
-					if len(txt) > 400 {
-						txt = txt[:400] + "…"
+					if len(txt) > maxSnippet {
+						txt = txt[:maxSnippet] + "…"
 					}
 					contextText.WriteString("• " + txt + "\n")
 				}
@@ -2427,8 +2443,8 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 		}
 	}
 
-	// Легкий RAG по чату: несколько анонимных примеров удачных тренировок
-	{
+	// Легкий RAG по чату — тяжёлый по токенам; для HTTP мини-аппа и pack-чата опускаем, чтобы быстрее ответить.
+	if !compactContext {
 		end := time.Now()
 		start := end.AddDate(0, 0, -14)
 		examples, err := b.db.GetMessagesInRange(msg.Chat.ID, start, end)
