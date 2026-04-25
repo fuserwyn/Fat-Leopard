@@ -1,0 +1,4 @@
+# Сервис ms_payments: в Railway — Source / Root = `ms_payments`, Docker = `Dockerfile`.
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
