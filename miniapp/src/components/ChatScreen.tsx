@@ -25,7 +25,7 @@ export function ChatScreen({ name, initData, inTelegram, showAlert }: Props) {
       role: "system",
       time: Date.now(),
       text:
-        "Пиши Лео как в личке: #training_done, /start, вопросы с @ботом. Ответ придёт в тот же чат в Telegram.",
+        "Пиши Лео как в личке: #training_done, /start, вопросы с @ботом. Ответ — в Telegram. Во вкладке «Стая» видны отчёты других.",
     },
   ]);
   const endRef = useRef<HTMLDivElement | null>(null);

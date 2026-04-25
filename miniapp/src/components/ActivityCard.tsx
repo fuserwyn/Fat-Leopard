@@ -10,7 +10,7 @@ export type ActivityCardProps = {
   details: string;
   comment?: string;
   aiText?: string;
-  reactions: { emoji: string; count?: number }[];
+  reactions?: { emoji: string; count?: number }[];
 };
 
 export function ActivityCard({
@@ -23,7 +23,7 @@ export function ActivityCard({
   details,
   comment,
   aiText,
-  reactions,
+  reactions = [],
 }: ActivityCardProps) {
   return (
     <article className="act-card">
@@ -53,17 +53,19 @@ export function ActivityCard({
             <p className="act-card__ai-text">{aiText}</p>
           </div>
         )}
-        <div className="act-card__react" role="group" aria-label="Реакции">
-          {reactions.map((r) => (
-            <button type="button" className="act-card__react-btn" key={r.emoji + (r.count ?? 0)}>
-              {r.emoji}
-              {r.count != null && r.count > 0 && <span className="act-card__react-cnt">{r.count}</span>}
-            </button>
-          ))}
-          <span className="act-card__sync" aria-hidden title="Поделиться">
-            🔄
-          </span>
-        </div>
+        {reactions.length > 0 && (
+          <div className="act-card__react" role="group" aria-label="Реакции">
+            {reactions.map((r) => (
+              <button type="button" className="act-card__react-btn" key={r.emoji + (r.count ?? 0)}>
+                {r.emoji}
+                {r.count != null && r.count > 0 && <span className="act-card__react-cnt">{r.count}</span>}
+              </button>
+            ))}
+            <span className="act-card__sync" aria-hidden title="Поделиться">
+              🔄
+            </span>
+          </div>
+        )}
       </div>
     </article>
   );

@@ -2,6 +2,7 @@ package miniappapi
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -34,6 +35,8 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		s.handleHealthz(w, r)
 	case path == "/api/miniapp/messages" && r.Method == http.MethodPost:
 		s.handlePostMessage(w, r)
+	case path == "/api/miniapp/feed" && r.Method == http.MethodPost:
+		s.handlePostFeed(w, r)
 	case path == "/" && r.Method == http.MethodGet:
 		s.handleRoot(w, r)
 	default:
@@ -100,6 +103,51 @@ func (s *Server) handlePostMessage(w http.ResponseWriter, r *http.Request) {
 	go s.bot.ProcessMiniAppPrivateText(parsed, text)
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
+}
+
+func (s *Server) handlePostFeed(w http.ResponseWriter, r *http.Request) {
+	corsWriteHeaders(w, r)
+	if s.bot == nil || s.token == "" {
+		s.jsonErr(w, http.StatusServiceUnavailable, "server_unavailable")
+		return
+	}
+	var body struct {
+		InitData string `json:"init_data"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		s.jsonErr(w, http.StatusBadRequest, "invalid_json")
+		return
+	}
+	if body.InitData == "" {
+		s.jsonErr(w, http.StatusBadRequest, "missing_init_data")
+		return
+	}
+	if err := initdata.Validate(body.InitData, s.token, 24*time.Hour); err != nil {
+		s.logger.Warnf("miniapp feed init_data invalid: %v", err)
+		s.jsonErr(w, http.StatusUnauthorized, "invalid_init_data")
+		return
+	}
+	parsed, err := initdata.Parse(body.InitData)
+	if err != nil {
+		s.jsonErr(w, http.StatusBadRequest, "parse_init_data")
+		return
+	}
+	if parsed.User.ID == 0 {
+		s.jsonErr(w, http.StatusBadRequest, "user_missing")
+		return
+	}
+	items, err := s.bot.PackFeedForViewer(parsed.User.ID)
+	if err != nil {
+		if errors.Is(err, bot.ErrPackFeedForbidden) {
+			s.jsonErr(w, http.StatusForbidden, "forbidden")
+			return
+		}
+		s.logger.Errorf("pack feed: %v", err)
+		s.jsonErr(w, http.StatusInternalServerError, "feed_error")
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "items": items})
 }
 
 func (s *Server) jsonErr(w http.ResponseWriter, code int, err string) {

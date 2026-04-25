@@ -80,6 +80,18 @@ type UserMessage struct {
 	CreatedAt   time.Time `json:"created_at" db:"created_at"`
 }
 
+// PackActivityRow — строка ленты мини-апpa (отчёты в чате стаи).
+type PackActivityRow struct {
+	ID          int64
+	UserID      int64
+	ChatID      int64
+	Username    string
+	MessageText string
+	MessageType string
+	CreatedAt   time.Time
+	StreakDays  int
+}
+
 // TrainingSession представляет одну зафиксированную тренировочную сессию.
 type TrainingSession struct {
 	ID            int64     `json:"id" db:"id"`

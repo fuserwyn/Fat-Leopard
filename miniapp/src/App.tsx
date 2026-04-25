@@ -15,14 +15,14 @@ export function App() {
     if (tg?.showAlert) void tg.showAlert(m);
     else window.alert(m);
   }, [tg]);
-  const [tab, setTab] = useState<Tab>("chat");
+  const [tab, setTab] = useState<Tab>("feed");
   const [workoutOpen, setWorkoutOpen] = useState(false);
   const [workouts, setWorkouts] = useState(1);
 
   return (
     <div className="app">
       {tab === "chat" && <ChatScreen name={name} initData={initData} inTelegram={inTelegram} showAlert={showAlert} />}
-      {tab === "feed" && <FeedScreen name={name} streak={streak} />}
+      {tab === "feed" && <FeedScreen name={name} streak={streak} initData={initData} inTelegram={inTelegram} />}
       {tab === "profile" && <ProfileScreen name={name} streak={streak} workouts={workouts} />}
 
       <BottomNav

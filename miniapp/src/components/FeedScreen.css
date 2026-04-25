@@ -42,3 +42,31 @@
 .feed__list {
   padding-bottom: 8px;
 }
+
+.feed__err {
+  color: #e8a08a;
+  font-size: 0.9rem;
+  margin: 0 0 10px;
+}
+
+.feed__load,
+.feed__empty {
+  margin: 0 0 10px;
+  font-size: 0.9rem;
+}
+
+.feed__actions {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 16px;
+}
+
+.feed__btn {
+  border: 1px solid var(--border-subtle, #2a2a36);
+  background: #1a1a24;
+  color: var(--text, #e8e8f0);
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
