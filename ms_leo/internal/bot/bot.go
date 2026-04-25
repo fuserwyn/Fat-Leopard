@@ -657,47 +657,43 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message, personalReplyCh chan<- string
 		return // Выходим, не обрабатывая через ИИ
 	}
 
-	// Если нет команд, проверяем обращение к боту (для вопросов к ИИ)
-	// 1. Упоминание через @ в тексте
-	// 2. Ответ на сообщение бота (reply)
-	// 3. Выбор бота из списка участников (bot_command или просто упоминание)
+	// Если нет команд — вопросы к ИИ: в личке с ботом — любой текст; в группах — @ или ответ на бота.
 	shouldHandleAI := false
+	if msg.Chat != nil && msg.Chat.Type == "private" {
+		shouldHandleAI = text != ""
+	} else {
+		// Проверяем упоминание через @ в тексте
+		if msg.Entities != nil && text != "" {
+			for _, entity := range msg.Entities {
+				if entity.Type == "mention" {
+					mentionText := ""
+					if entity.Offset+entity.Length <= len(text) {
+						mentionText = text[entity.Offset : entity.Offset+entity.Length]
+					}
 
-	// Проверяем упоминание через @ в тексте
-	if msg.Entities != nil && text != "" {
-		for _, entity := range msg.Entities {
-			if entity.Type == "mention" {
-				mentionText := ""
-				if entity.Offset+entity.Length <= len(text) {
-					mentionText = text[entity.Offset : entity.Offset+entity.Length]
-				}
+					botUsername := b.api.Self.UserName
+					if botUsername == "" {
+						botUsername = strings.TrimPrefix(mentionText, "@")
+					}
 
-				// Проверяем несколько вариантов имени бота
-				botUsername := b.api.Self.UserName
-				if botUsername == "" {
-					// Если UserName пустой, получаем из текста упоминания
-					botUsername = strings.TrimPrefix(mentionText, "@")
-				}
-
-				// Проверяем различные форматы упоминания
-				if strings.EqualFold(mentionText, "@"+botUsername) ||
-					strings.EqualFold(mentionText, botUsername) ||
-					strings.Contains(strings.ToLower(text), "@"+strings.ToLower(botUsername)) ||
-					strings.Contains(strings.ToLower(text), strings.ToLower(botUsername)+" ") {
-					shouldHandleAI = true
-					b.logger.Infof("Bot mention detected: %s in message: %s", mentionText, text)
-					break
+					if strings.EqualFold(mentionText, "@"+botUsername) ||
+						strings.EqualFold(mentionText, botUsername) ||
+						strings.Contains(strings.ToLower(text), "@"+strings.ToLower(botUsername)) ||
+						strings.Contains(strings.ToLower(text), strings.ToLower(botUsername)+" ") {
+						shouldHandleAI = true
+						b.logger.Infof("Bot mention detected: %s in message: %s", mentionText, text)
+						break
+					}
 				}
 			}
 		}
-	}
 
-	// Проверяем ответ на сообщение бота
-	if !shouldHandleAI && msg.ReplyToMessage != nil {
-		if msg.ReplyToMessage.From != nil && msg.ReplyToMessage.From.IsBot &&
-			msg.ReplyToMessage.From.ID == b.api.Self.ID {
-			shouldHandleAI = true
-			b.logger.Infof("Reply to bot message detected")
+		if !shouldHandleAI && msg.ReplyToMessage != nil {
+			if msg.ReplyToMessage.From != nil && msg.ReplyToMessage.From.IsBot &&
+				msg.ReplyToMessage.From.ID == b.api.Self.ID {
+				shouldHandleAI = true
+				b.logger.Infof("Reply to bot message detected")
+			}
 		}
 	}
 
@@ -728,7 +724,7 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message, personalReplyCh chan<- string
 			b.logger.Errorf("Failed to save user question: %v", err)
 		}
 
-		b.handleAIQuestion(msg, text)
+		b.handleAIQuestion(msg, text, personalReplyCh)
 		return
 	}
 
@@ -2217,13 +2213,25 @@ func (b *Bot) generateMonthlySummaryForChat(chatID int64, month time.Time) {
 	}
 }
 
-// handleAIQuestion обрабатывает вопрос пользователя к ИИ
-func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
+// handleAIQuestion обрабатывает вопрос пользователя к ИИ.
+// personalReplyCh — дублирует доставленный в Telegram текст в Mini App (HTTP reply_text), если задан.
+func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, personalReplyCh chan<- string) {
 	b.logger.Infof("handleAIQuestion called for user %d with text: %s", msg.From.ID, questionText)
+	miniReply := func(s string) {
+		if personalReplyCh == nil || s == "" {
+			return
+		}
+		select {
+		case personalReplyCh <- s:
+		default:
+		}
+	}
 
 	if b.aiClient == nil {
 		b.logger.Warn("AI client is nil, cannot process question")
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ ИИ функции недоступны. Проверьте настройки OpenRouter API.")
+		help := "❌ ИИ функции недоступны. Проверьте настройки OpenRouter API."
+		miniReply(help)
+		reply := tgbotapi.NewMessage(msg.Chat.ID, help)
 		b.api.Send(reply)
 		return
 	}
@@ -2240,7 +2248,9 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 
 	if questionText == "" {
 		b.logger.Infof("Question text is empty after cleaning")
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "💬 Привет! 👋 Задай мне вопрос!\n\nНапример:\n• Что я делал вчера?\n• Как мой прогресс?\n• Что улучшить в тренировках?\n• Как лечиться?")
+		hint := "💬 Привет! 👋 Задай мне вопрос!\n\nНапример:\n• Что я делал вчера?\n• Как мой прогресс?\n• Что улучшить в тренировках?\n• Как лечиться?"
+		miniReply(hint)
+		reply := tgbotapi.NewMessage(msg.Chat.ID, hint)
 		b.api.Send(reply)
 		return
 	}
@@ -2251,7 +2261,9 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 	history, err := b.db.GetUserTrainingHistory(msg.From.ID, msg.Chat.ID, 50)
 	if err != nil {
 		b.logger.Errorf("Failed to get user training history: %v", err)
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Ошибка при получении истории тренировок")
+		t := "❌ Ошибка при получении истории тренировок"
+		miniReply(t)
+		reply := tgbotapi.NewMessage(msg.Chat.ID, t)
 		b.api.Send(reply)
 		return
 	}
@@ -2699,13 +2711,17 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 		// Проверяем, является ли это ошибкой настройки политики данных
 		errorMsg := err.Error()
 		if strings.Contains(errorMsg, "data policy") || strings.Contains(errorMsg, "Model Training") {
-			reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ ИИ функции требуют настройки OpenRouter API.\n\nДля бесплатных моделей нужно:\n1. Перейди на https://openrouter.ai/settings/privacy\n2. Включи опцию 'Model Training'\n\nПосле этого ИИ заработает!")
+			help := "❌ ИИ функции требуют настройки OpenRouter API.\n\nДля бесплатных моделей нужно:\n1. Перейди на https://openrouter.ai/settings/privacy\n2. Включи опцию 'Model Training'\n\nПосле этого ИИ заработает!"
+			miniReply(help)
+			reply := tgbotapi.NewMessage(msg.Chat.ID, help)
 			b.api.Send(reply)
 			close(typingDone)
 			return
 		}
 
-		reply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("❌ Ошибка при генерации ответа ИИ: %v", err))
+		et := fmt.Sprintf("❌ Ошибка при генерации ответа ИИ: %v", err)
+		miniReply(et)
+		reply := tgbotapi.NewMessage(msg.Chat.ID, et)
 		b.api.Send(reply)
 		close(typingDone)
 		return
@@ -2716,6 +2732,7 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string) {
 		answer = "Сформулируй, пожалуйста, вопрос короче — отвечу по сути."
 	}
 
+	miniReply(answer)
 	// Отправляем ответ с реплаем на исходное сообщение
 	reply := tgbotapi.NewMessage(msg.Chat.ID, answer)
 	if msg.MessageID != 0 {

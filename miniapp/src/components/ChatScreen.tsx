@@ -25,7 +25,7 @@ export function ChatScreen({ name, initData, inTelegram, showAlert }: Props) {
       role: "system",
       time: Date.now(),
       text:
-        "Пиши Лео как в личке: #training_done, /start, вопросы с @ботом. Итог тренировки — здесь и в чате с ботом. «Стая» — чужие отчёты.",
+        "Как в личке с ботом: ИИ отвечает на любой текст, есть #training_done и /start. Сообщения из мини-аппа копируются в Telegram (метка «Мини-апп»). «Стая» — чужие отчёты.",
     },
   ]);
   const endRef = useRef<HTMLDivElement | null>(null);
