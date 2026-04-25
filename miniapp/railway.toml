@@ -1,5 +1,9 @@
 # Мини-апп: в Railway — Source / Root = `miniapp`, Docker = `Dockerfile` (этот каталог).
 # Сервис бота: Root = `ms_leo` + `ms_leo/railway.toml` + `ms_leo/Dockerfile` (путь `Dockerfile.bot` из корня сюда не вешаем).
+#
+# В сервисе **это** (miniapp) в Variables → Build: VITE_MINIAPP_API_URL = публичный https URL
+# **другого** сервиса, где крутится бот (ms_leo), без / в конце, например https://msleo-xxx.up.railway.app
+# После смены переменной сделай Redeploy, чтобы Vite пересобрал с новым API.
 
 [build]
 builder = "DOCKERFILE"

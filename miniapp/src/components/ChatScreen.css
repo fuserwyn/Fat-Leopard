@@ -1,3 +1,21 @@
+.chat__configwarn {
+  margin: 0 12px 10px;
+  padding: 10px 12px;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: #e8c4a0;
+  background: #2a1f14;
+  border: 1px solid rgba(255, 160, 60, 0.35);
+  border-radius: 10px;
+}
+
+.chat__code {
+  font-size: 0.78em;
+  padding: 0 4px;
+  background: #1a1210;
+  border-radius: 4px;
+}
+
 .chat {
   min-height: calc(100dvh - 8px);
   display: flex;

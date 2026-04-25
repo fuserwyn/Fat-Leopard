@@ -3,7 +3,7 @@ import "./ChatScreen.css";
 
 type Msg = { id: string; role: "user" | "system"; text: string; time: number };
 
-const apiBase = (import.meta.env.VITE_MINIAPP_API_URL as string | undefined)?.replace(/\/$/, "") ?? "";
+const envApi = (import.meta.env.VITE_MINIAPP_API_URL as string | undefined)?.replace(/\/$/, "") ?? "";
 
 type Props = {
   name: string;
@@ -37,8 +37,10 @@ export function ChatScreen({ name, initData, inTelegram, showAlert }: Props) {
   const send = useCallback(async () => {
     const t = text.trim();
     if (!t || sending) return;
-    if (!apiBase) {
-      showAlert("Задай VITE_MINIAPP_API_URL на сборке — URL бота (Railway, порт).");
+    if (!envApi) {
+      showAlert(
+        "Сборка без API: в Railway у сервиса мини-аппа задай Build Variable VITE_MINIAPP_API_URL = публичный https URL сервиса с ботом (ms_leo), затем Redeploy."
+      );
       return;
     }
     if (!inTelegram || !initData) {
@@ -51,7 +53,7 @@ export function ChatScreen({ name, initData, inTelegram, showAlert }: Props) {
     try {
       const w = window.Telegram?.WebApp;
       w?.HapticFeedback?.impactOccurred?.("light");
-      const res = await fetch(`${apiBase}/api/miniapp/messages`, {
+      const res = await fetch(`${envApi}/api/miniapp/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ init_data: initData, text: t }),
@@ -79,6 +81,13 @@ export function ChatScreen({ name, initData, inTelegram, showAlert }: Props) {
 
   return (
     <div className="chat">
+      {!import.meta.env.VITE_MINIAPP_API_URL && (
+        <div className="chat__configwarn" role="status">
+          Нет <code className="chat__code">VITE_MINIAPP_API_URL</code> при сборке. В Railway → сервис
+          <strong> miniapp</strong> → Variables → <strong>Build</strong> → укажи https URL сервиса
+          <strong> бота</strong> (ms_leo), Redeploy.
+        </div>
+      )}
       <header className="chat__head">
         <h1 className="chat__title">Лео</h1>
         <p className="chat__sub">{name}</p>
