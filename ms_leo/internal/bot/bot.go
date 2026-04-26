@@ -446,8 +446,6 @@ func (b *Bot) handleCommand(msg *tgbotapi.Message) {
 		b.handleAdmin(msg)
 	case "audit_last24":
 		b.auditLast24h()
-	case "set_chat_type":
-		b.handleSetChatType(msg)
 	default:
 		b.logger.Warnf("Unknown command: %s", command)
 	}
@@ -3305,16 +3303,4 @@ func (b *Bot) updateUserGender(userID, chatID int64, gender string) error {
 	}
 
 	return nil
-}
-
-// handleSetChatType — режим тренировок.
-func (b *Bot) handleSetChatType(msg *tgbotapi.Message) {
-	if err := b.db.SetChatType(msg.Chat.ID, "training"); err != nil {
-		b.logger.Errorf("Failed to set chat type: %v", err)
-		reply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("❌ Ошибка при установке типа чата: %v", err))
-		b.api.Send(reply)
-		return
-	}
-	reply := tgbotapi.NewMessage(msg.Chat.ID, "✅ Тип чата: тренировки. Бот работает только в этом режиме.")
-	b.api.Send(reply)
 }

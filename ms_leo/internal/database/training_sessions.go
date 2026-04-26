@@ -1,7 +1,6 @@
 package database
 
 import (
-	"database/sql"
 	"leo-bot/internal/domain"
 	"leo-bot/internal/utils"
 )
@@ -50,47 +49,4 @@ func (d *Database) CountTrainingSessionsInDateRange(userID, chatID int64, startD
 		return 0, err
 	}
 	return count, nil
-}
-
-// HasBonusTrainingSessionInDateRange проверяет, выдавался ли бонус в диапазоне дат (включительно).
-func (d *Database) HasBonusTrainingSessionInDateRange(userID, chatID int64, startDate, endDate string) (bool, error) {
-	query := `
-		SELECT COUNT(*)
-		FROM training_sessions
-		WHERE user_id = $1
-		  AND chat_id = $2
-		  AND session_date >= $3
-		  AND session_date <= $4
-		  AND is_bonus = TRUE
-	`
-
-	var count int
-	err := d.db.QueryRow(query, userID, chatID, startDate, endDate).Scan(&count)
-	if err != nil {
-		return false, err
-	}
-	return count > 0, nil
-}
-
-// GetLastBonusSessionDate возвращает дату последнего бонуса (+10) для пользователя в чате.
-func (d *Database) GetLastBonusSessionDate(userID, chatID int64) (*string, error) {
-	query := `
-		SELECT session_date
-		FROM training_sessions
-		WHERE user_id = $1
-		  AND chat_id = $2
-		  AND is_bonus = TRUE
-		ORDER BY session_date DESC, id DESC
-		LIMIT 1
-	`
-
-	var date string
-	err := d.db.QueryRow(query, userID, chatID).Scan(&date)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &date, nil
 }

@@ -23,8 +23,8 @@ func (d *Database) enqueueOutboxEventTx(tx *sql.Tx, eventType, aggregateKey stri
 		return fmt.Errorf("marshal outbox payload: %w", err)
 	}
 	const q = `
-		INSERT INTO outbox_events (event_type, aggregate_key, payload, status)
-		VALUES ($1, $2, $3::jsonb, 'pending')
+		INSERT INTO outbox_events (event_type, aggregate_key, payload, status, next_attempt_at)
+		VALUES ($1, $2, $3::jsonb, 'pending', NOW())
 	`
 	if _, err := tx.Exec(q, eventType, aggregateKey, string(raw)); err != nil {
 		return fmt.Errorf("insert outbox event: %w", err)
@@ -38,8 +38,8 @@ func (d *Database) EnqueueOutboxEvent(eventType, aggregateKey string, payload an
 		return fmt.Errorf("marshal outbox payload: %w", err)
 	}
 	const q = `
-		INSERT INTO outbox_events (event_type, aggregate_key, payload, status)
-		VALUES ($1, $2, $3::jsonb, 'pending')
+		INSERT INTO outbox_events (event_type, aggregate_key, payload, status, next_attempt_at)
+		VALUES ($1, $2, $3::jsonb, 'pending', NOW())
 	`
 	if _, err := d.db.Exec(q, eventType, aggregateKey, string(raw)); err != nil {
 		return fmt.Errorf("insert outbox event: %w", err)

@@ -159,24 +159,6 @@ func (d *Database) SetPaywallYookassaPaymentID(reqID int64, yookassaPaymentID st
 	return nil
 }
 
-func (d *Database) CompletePaywallAccessRequest(id int64, userID, monetizedChatID int64, telegramChargeID string, amountMinor int, currency string) (bool, error) {
-	const q = `
-		UPDATE paywall_access_requests
-		SET status = 'completed',
-		    completed_at = NOW(),
-		    access_expires_at = NOW() + INTERVAL '30 days',
-		    telegram_payment_charge_id = $4,
-		    total_amount_minor = $5,
-		    currency = $6
-		WHERE id = $1 AND user_id = $2 AND monetized_chat_id = $3 AND status = 'pending'`
-	res, err := d.db.Exec(q, id, userID, monetizedChatID, telegramChargeID, amountMinor, currency)
-	if err != nil {
-		return false, err
-	}
-	n, _ := res.RowsAffected()
-	return n == 1, nil
-}
-
 type PaywallRestoreOutboxPayload struct {
 	RequestID int64 `json:"request_id"`
 	UserID    int64 `json:"user_id"`
@@ -214,8 +196,8 @@ func (d *Database) CompletePaywallAccessRequestAndEnqueueRestore(id int64, userI
 		return false, err
 	}
 	if _, err := tx.Exec(`
-		INSERT INTO outbox_events (event_type, aggregate_key, payload, status)
-		VALUES ($1, $2, $3::jsonb, 'pending')
+		INSERT INTO outbox_events (event_type, aggregate_key, payload, status, next_attempt_at)
+		VALUES ($1, $2, $3::jsonb, 'pending', NOW())
 	`, "paywall_access_restore_requested", fmt.Sprintf("paywall_request:%d", id), string(payloadJSON)); err != nil {
 		return false, err
 	}

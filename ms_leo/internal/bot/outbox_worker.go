@@ -62,7 +62,9 @@ func (b *Bot) processOutboxBatch() {
 				continue
 			}
 			next := time.Now().Add(outboxBackoffDuration(event.EventType, event.Attempts))
-			_ = b.db.MarkOutboxEventRetry(event.ID, next, err.Error())
+			if rerr := b.db.MarkOutboxEventRetry(event.ID, next, err.Error()); rerr != nil {
+				b.logger.Errorf("outbox mark retry event_id=%d: %v", event.ID, rerr)
+			}
 			continue
 		}
 		_ = b.db.MarkOutboxEventDone(event.ID)
@@ -77,7 +79,7 @@ func (b *Bot) processOutboxEvent(event database.OutboxEvent) error {
 			return fmt.Errorf("decode payload: %w", err)
 		}
 		if payload.UserID == 0 || payload.ChatID == 0 {
-			return fmt.Errorf("invalid payload user=%d chat=%d", payload.UserID, payload.ChatID)
+			return nonRetryableOutboxError{msg: fmt.Sprintf("invalid payload user=%d chat=%d", payload.UserID, payload.ChatID)}
 		}
 		if err := b.paywallDeliverAccessAfterPayment(payload.UserID); err != nil {
 			return err
@@ -140,6 +142,9 @@ func (b *Bot) enqueueRefundRequestedForRestoreFailure(event database.OutboxEvent
 	var restorePayload database.PaywallRestoreOutboxPayload
 	if err := json.Unmarshal(event.Payload, &restorePayload); err != nil {
 		b.notifyOps("OUTBOX refund enqueue failed: decode restore payload event_id=%d err=%v", event.ID, err)
+		return
+	}
+	if restorePayload.RequestID == 0 || restorePayload.UserID == 0 {
 		return
 	}
 	refundPayload := refundRequestedPayload{

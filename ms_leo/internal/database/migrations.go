@@ -527,6 +527,43 @@ var Migrations = []Migration{
 			$m26d$;
 		`,
 	},
+	{
+		Version:     27,
+		Description: "Drop legacy chat_types (only training mode remains)",
+		UpSQL: `
+			DROP INDEX IF EXISTS idx_chat_types_chat_type;
+			DROP TABLE IF EXISTS chat_types;
+		`,
+		DownSQL: `
+			CREATE TABLE IF NOT EXISTS chat_types (
+				chat_id BIGINT PRIMARY KEY,
+				chat_type TEXT NOT NULL DEFAULT 'training',
+				created_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'Europe/Moscow'),
+				updated_at TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'Europe/Moscow')
+			);
+			CREATE INDEX IF NOT EXISTS idx_chat_types_chat_type ON chat_types (chat_type);
+		`,
+	},
+	{
+		Version:     28,
+		Description: "outbox_events: fix next_attempt_at default (claim uses NOW(); MSK-naive default broke UTC DBs)",
+		UpSQL: `
+			ALTER TABLE outbox_events
+				ALTER COLUMN next_attempt_at SET DEFAULT (NOW()),
+				ALTER COLUMN created_at SET DEFAULT (NOW()),
+				ALTER COLUMN updated_at SET DEFAULT (NOW());
+			UPDATE outbox_events
+			SET next_attempt_at = LEAST(next_attempt_at, NOW())
+			WHERE status IN ('pending', 'retry')
+			  AND next_attempt_at > NOW();
+		`,
+		DownSQL: `
+			ALTER TABLE outbox_events
+				ALTER COLUMN next_attempt_at SET DEFAULT (NOW() AT TIME ZONE 'Europe/Moscow'),
+				ALTER COLUMN created_at SET DEFAULT (NOW() AT TIME ZONE 'Europe/Moscow'),
+				ALTER COLUMN updated_at SET DEFAULT (NOW() AT TIME ZONE 'Europe/Moscow');
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции
