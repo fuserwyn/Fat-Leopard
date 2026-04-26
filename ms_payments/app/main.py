@@ -11,14 +11,18 @@ from starlette.requests import Request
 from app.api.v1.router import api_router
 from app.api.v1.views import payment as payment_views
 from app.core.database import init_database, shutdown_database
+from app.core.log_sanitize import install_log_redaction
 
 logging.basicConfig(level=logging.INFO)
+install_log_redaction()
 logger = logging.getLogger(__name__)
 webhook_logger = logging.getLogger("app.webhook")
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    # После старта uvicorn на корне могут появиться свои хендлеры — повторно подключаем фильтр.
+    install_log_redaction()
     await init_database()
     logger.info(
         "ЮKassa: POST …/api/v1/webhook/payment на ЭТОТ сервис (ms_payments). "

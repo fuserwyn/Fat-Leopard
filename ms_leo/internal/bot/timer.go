@@ -91,6 +91,22 @@ func (b *Bot) removeUser(userID, chatID int64, username string) {
 		}
 	}
 
+	// После оплаты (ЮKassa вебхук) доступ в paywall_access_requests активен, но таймер неактивности
+	// мог ещё сработать и вызвать removeUser — не снимаем оплату и не баним повторно.
+	if b.paywallActive() && chatID == b.config.MonetizedChatID {
+		paid, err := b.userHasActivePaywallAccessResilient(userID, chatID)
+		if err != nil {
+			b.logger.Warnf("removeUser: проверка paywall user=%d chat=%d: %v", userID, chatID, err)
+		} else if paid {
+			b.logger.Infof(
+				"removeUser: пропуск user=%d (%s) — есть активный оплаченный доступ к группе",
+				userID, username,
+			)
+			b.cancelTimer(userID)
+			return
+		}
+	}
+
 	dmText := removalDMText()
 	dmDelivered := chatID == userID
 	dmStatus := "dm_skipped"

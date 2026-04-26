@@ -188,6 +188,16 @@ class PaymentWebhookService:
         if self._ledger:
             await self._ledger.mark_main_db_synced(payment_id)
 
+        try:
+            await self._paywall.reactivate_returned_user(user_tid, chat_id)
+        except Exception:
+            logger.exception(
+                "yookassa webhook: reactivate_returned_user не удалась user=%s chat=%s",
+                user_tid,
+                chat_id,
+            )
+        await self._telegram.unban_chat_member(chat_id, user_tid)
+
         approved = await self._telegram.approve_chat_join_request(chat_id, user_tid)
         primary_jr = self._settings.paywall_invite_creates_join_request
         invite, used_jr = await self._telegram.create_chat_invite_link_best_effort(

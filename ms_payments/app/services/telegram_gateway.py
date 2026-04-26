@@ -63,6 +63,18 @@ class TelegramGateway:
                 return link, creates_jr
         return None, primary_creates_join_request
 
+    async def unban_chat_member(self, chat_id: int, user_id: int) -> None:
+        """Снимает бан на вход (после кика за неактивность ms_leo ставит постоянный бан). Как paywallUnbanUserFromMonetizedGroup."""
+        if not self._token:
+            logger.error("bot token empty, cannot unbanChatMember")
+            return
+        data = await self._post(
+            "unbanChatMember",
+            {"chat_id": chat_id, "user_id": user_id, "only_if_banned": False},
+        )
+        if not data.get("ok"):
+            logger.warning("unbanChatMember failed: %s", data)
+
     async def approve_chat_join_request(self, chat_id: int, user_id: int) -> bool:
         if not self._token:
             logger.error("bot token empty, cannot approve join request")
@@ -72,7 +84,14 @@ class TelegramGateway:
             {"chat_id": chat_id, "user_id": user_id},
         )
         if not data.get("ok"):
-            logger.warning("approveChatJoinRequest failed: %s", data)
+            desc = str((data.get("description") or "")).strip()
+            if "HIDE_REQUESTER_MISSING" in desc:
+                logger.info(
+                    "approveChatJoinRequest: нет активной заявки на вступление (ожидаемо до перехода по ссылке): %s",
+                    data,
+                )
+            else:
+                logger.warning("approveChatJoinRequest failed: %s", data)
             return False
         return True
 
@@ -85,6 +104,9 @@ class TelegramGateway:
         button_url: str | None = None,
     ) -> None:
         if not self._token:
+            logger.error(
+                "bot token empty, cannot sendMessage (set FAT_LEOPARD_API_TOKEN or API_TOKEN on ms_payments)"
+            )
             return
         body: dict[str, Any] = {"chat_id": chat_id, "text": text}
         if button_text and button_url:
