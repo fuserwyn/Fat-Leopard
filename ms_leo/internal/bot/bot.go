@@ -767,7 +767,7 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message, personalReplyCh chan<- string
 			b.logger.Errorf("Failed to save user message: %v", err)
 		}
 
-		// Обновляем LastMessage в message_log
+		// Обновляем LastMessage в training_state
 		messageLog, err := b.db.GetMessageLog(msg.From.ID, msg.Chat.ID)
 		if err == nil {
 			messageLog.Username = username

@@ -135,7 +135,8 @@ make docker-logs     # Просмотр логов
 
 Бот использует PostgreSQL с двумя основными таблицами:
 
-### message_log
+### training_state
+(раньше: `message_log` — per-user per-chat состояние: таймер, серия, кубки, больничный и т.д.)
 - `user_id` - ID пользователя
 - `chat_id` - ID чата
 - `last_message` - время последнего сообщения

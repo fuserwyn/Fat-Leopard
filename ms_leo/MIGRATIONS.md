@@ -17,8 +17,7 @@
 **Описание**: Обновляет поля `created_at` и `updated_at` для использования московского времени
 
 **Изменения**:
-- `message_log.created_at` → `TIMESTAMP WITH TIME ZONE` с московским временем
-- `message_log.updated_at` → `TIMESTAMP WITH TIME ZONE` с московским временем  
+- `training_state` (легаси: `message_log`) — `created_at` / `updated_at` → `TIMESTAMP WITH TIME ZONE` с московским временем  
 - `training_log.created_at` → `TIMESTAMP WITH TIME ZONE` с московским временем
 - `training_log.updated_at` → `TIMESTAMP WITH TIME ZONE` с московским временем
 

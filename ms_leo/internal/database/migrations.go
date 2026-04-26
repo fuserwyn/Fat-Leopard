@@ -22,15 +22,15 @@ var Migrations = []Migration{
 			BEGIN
 				IF EXISTS (
 					SELECT 1 FROM information_schema.columns
-					WHERE table_schema = 'public' AND table_name = 'message_log'
+					WHERE table_schema = 'public' AND table_name = 'training_state'
 					  AND column_name = 'created_at' AND udt_name = 'timestamp') THEN
-					ALTER TABLE message_log ALTER COLUMN created_at TYPE TIMESTAMP WITH TIME ZONE;
+					ALTER TABLE training_state ALTER COLUMN created_at TYPE TIMESTAMP WITH TIME ZONE;
 				END IF;
 				IF EXISTS (
 					SELECT 1 FROM information_schema.columns
-					WHERE table_schema = 'public' AND table_name = 'message_log'
+					WHERE table_schema = 'public' AND table_name = 'training_state'
 					  AND column_name = 'updated_at' AND udt_name = 'timestamp') THEN
-					ALTER TABLE message_log ALTER COLUMN updated_at TYPE TIMESTAMP WITH TIME ZONE;
+					ALTER TABLE training_state ALTER COLUMN updated_at TYPE TIMESTAMP WITH TIME ZONE;
 				END IF;
 				IF EXISTS (
 					SELECT 1 FROM information_schema.columns
@@ -47,7 +47,7 @@ var Migrations = []Migration{
 			END
 			$migrate1$;
 
-			ALTER TABLE message_log
+			ALTER TABLE training_state
 			ALTER COLUMN created_at SET DEFAULT (NOW() AT TIME ZONE 'Europe/Moscow'),
 			ALTER COLUMN updated_at SET DEFAULT (NOW() AT TIME ZONE 'Europe/Moscow');
 
@@ -60,15 +60,15 @@ var Migrations = []Migration{
 			BEGIN
 				IF EXISTS (
 					SELECT 1 FROM information_schema.columns
-					WHERE table_schema = 'public' AND table_name = 'message_log'
+					WHERE table_schema = 'public' AND table_name = 'training_state'
 					  AND column_name = 'created_at' AND udt_name = 'timestamptz') THEN
-					ALTER TABLE message_log ALTER COLUMN created_at TYPE TIMESTAMP;
+					ALTER TABLE training_state ALTER COLUMN created_at TYPE TIMESTAMP;
 				END IF;
 				IF EXISTS (
 					SELECT 1 FROM information_schema.columns
-					WHERE table_schema = 'public' AND table_name = 'message_log'
+					WHERE table_schema = 'public' AND table_name = 'training_state'
 					  AND column_name = 'updated_at' AND udt_name = 'timestamptz') THEN
-					ALTER TABLE message_log ALTER COLUMN updated_at TYPE TIMESTAMP;
+					ALTER TABLE training_state ALTER COLUMN updated_at TYPE TIMESTAMP;
 				END IF;
 				IF EXISTS (
 					SELECT 1 FROM information_schema.columns
@@ -85,7 +85,7 @@ var Migrations = []Migration{
 			END
 			$migrate1down$;
 
-			ALTER TABLE message_log
+			ALTER TABLE training_state
 			ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP,
 			ALTER COLUMN updated_at SET DEFAULT CURRENT_TIMESTAMP;
 
@@ -96,37 +96,37 @@ var Migrations = []Migration{
 	},
 	{
 		Version:     2,
-		Description: "Add cups_earned field to message_log table",
+		Description: "Add cups_earned field to training_state table",
 		UpSQL: `
-			ALTER TABLE message_log 
+			ALTER TABLE training_state 
 			ADD COLUMN IF NOT EXISTS cups_earned INTEGER DEFAULT 0;
 		`,
 		DownSQL: `
-			ALTER TABLE message_log 
+			ALTER TABLE training_state 
 			DROP COLUMN IF EXISTS cups_earned;
 		`,
 	},
 	{
 		Version:     3,
-		Description: "Add calorie_streak_days field to message_log table",
+		Description: "Add calorie_streak_days field to training_state table",
 		UpSQL: `
-			ALTER TABLE message_log 
+			ALTER TABLE training_state 
 			ADD COLUMN IF NOT EXISTS calorie_streak_days INTEGER DEFAULT 0;
 		`,
 		DownSQL: `
-			ALTER TABLE message_log 
+			ALTER TABLE training_state 
 			DROP COLUMN IF EXISTS calorie_streak_days;
 		`,
 	},
 	{
 		Version:     4,
-		Description: "Add is_exempt_from_deletion field to message_log table",
+		Description: "Add is_exempt_from_deletion field to training_state table",
 		UpSQL: `
-			ALTER TABLE message_log 
+			ALTER TABLE training_state 
 			ADD COLUMN IF NOT EXISTS is_exempt_from_deletion BOOLEAN DEFAULT FALSE;
 		`,
 		DownSQL: `
-			ALTER TABLE message_log 
+			ALTER TABLE training_state 
 			DROP COLUMN IF EXISTS is_exempt_from_deletion;
 		`,
 	},
@@ -159,27 +159,27 @@ var Migrations = []Migration{
 	},
 	{
 		Version:     6,
-		Description: "Add gender field to message_log table",
+		Description: "Add gender field to training_state table",
 		UpSQL: `
-			ALTER TABLE message_log 
+			ALTER TABLE training_state 
 			ADD COLUMN IF NOT EXISTS gender TEXT DEFAULT '';
 		`,
 		DownSQL: `
-			ALTER TABLE message_log 
+			ALTER TABLE training_state 
 			DROP COLUMN IF EXISTS gender;
 		`,
 	},
 	{
 		Version:     7,
-		Description: "Add sick leave approval fields to message_log",
+		Description: "Add sick leave approval fields to training_state",
 		UpSQL: `
-			ALTER TABLE message_log 
+			ALTER TABLE training_state 
 			ADD COLUMN IF NOT EXISTS sick_approval_pending BOOLEAN DEFAULT FALSE,
 			ADD COLUMN IF NOT EXISTS sick_approval_deadline TIMESTAMP WITH TIME ZONE,
 			ADD COLUMN IF NOT EXISTS sick_approval_message_id BIGINT;
 		`,
 		DownSQL: `
-			ALTER TABLE message_log 
+			ALTER TABLE training_state 
 			DROP COLUMN IF EXISTS sick_approval_pending,
 			DROP COLUMN IF EXISTS sick_approval_deadline,
 			DROP COLUMN IF EXISTS sick_approval_message_id;
@@ -251,13 +251,13 @@ var Migrations = []Migration{
 	},
 	{
 		Version:     11,
-		Description: "Add timezone_offset_from_moscow field to message_log",
+		Description: "Add timezone_offset_from_moscow field to training_state",
 		UpSQL: `
-			ALTER TABLE message_log
+			ALTER TABLE training_state
 			ADD COLUMN IF NOT EXISTS timezone_offset_from_moscow INTEGER NOT NULL DEFAULT 0;
 		`,
 		DownSQL: `
-			ALTER TABLE message_log
+			ALTER TABLE training_state
 			DROP COLUMN IF EXISTS timezone_offset_from_moscow;
 		`,
 	},
@@ -344,18 +344,18 @@ var Migrations = []Migration{
 		Version:     17,
 		Description: "Leopard Money Model: XP achievements, freeze, daily XP cursor",
 		UpSQL: `
-			ALTER TABLE message_log ADD COLUMN IF NOT EXISTS achievement_count INTEGER NOT NULL DEFAULT 0;
-			ALTER TABLE message_log ADD COLUMN IF NOT EXISTS xp_freeze_until TIMESTAMP WITH TIME ZONE;
-			ALTER TABLE message_log ADD COLUMN IF NOT EXISTS last_daily_xp_msk_date DATE;
-			ALTER TABLE message_log ADD COLUMN IF NOT EXISTS leopard_starter_bonus_applied BOOLEAN NOT NULL DEFAULT FALSE;
-			ALTER TABLE message_log ADD COLUMN IF NOT EXISTS last_achievement_streak_level INTEGER NOT NULL DEFAULT 0;
+			ALTER TABLE training_state ADD COLUMN IF NOT EXISTS achievement_count INTEGER NOT NULL DEFAULT 0;
+			ALTER TABLE training_state ADD COLUMN IF NOT EXISTS xp_freeze_until TIMESTAMP WITH TIME ZONE;
+			ALTER TABLE training_state ADD COLUMN IF NOT EXISTS last_daily_xp_msk_date DATE;
+			ALTER TABLE training_state ADD COLUMN IF NOT EXISTS leopard_starter_bonus_applied BOOLEAN NOT NULL DEFAULT FALSE;
+			ALTER TABLE training_state ADD COLUMN IF NOT EXISTS last_achievement_streak_level INTEGER NOT NULL DEFAULT 0;
 		`,
 		DownSQL: `
-			ALTER TABLE message_log DROP COLUMN IF EXISTS last_achievement_streak_level;
-			ALTER TABLE message_log DROP COLUMN IF EXISTS leopard_starter_bonus_applied;
-			ALTER TABLE message_log DROP COLUMN IF EXISTS last_daily_xp_msk_date;
-			ALTER TABLE message_log DROP COLUMN IF EXISTS xp_freeze_until;
-			ALTER TABLE message_log DROP COLUMN IF EXISTS achievement_count;
+			ALTER TABLE training_state DROP COLUMN IF EXISTS last_achievement_streak_level;
+			ALTER TABLE training_state DROP COLUMN IF EXISTS leopard_starter_bonus_applied;
+			ALTER TABLE training_state DROP COLUMN IF EXISTS last_daily_xp_msk_date;
+			ALTER TABLE training_state DROP COLUMN IF EXISTS xp_freeze_until;
+			ALTER TABLE training_state DROP COLUMN IF EXISTS achievement_count;
 		`,
 	},
 	{
@@ -384,15 +384,15 @@ var Migrations = []Migration{
 	},
 	{
 		Version:     19,
-		Description: "Return analytics and lifecycle state in message_log",
+		Description: "Return analytics and lifecycle state in training_state",
 		UpSQL: `
-			ALTER TABLE message_log
+			ALTER TABLE training_state
 			ADD COLUMN IF NOT EXISTS return_count INTEGER NOT NULL DEFAULT 0,
 			ADD COLUMN IF NOT EXISTS returned_at TIMESTAMP WITH TIME ZONE,
 			ADD COLUMN IF NOT EXISTS lifecycle_status TEXT NOT NULL DEFAULT 'active';
 		`,
 		DownSQL: `
-			ALTER TABLE message_log
+			ALTER TABLE training_state
 			DROP COLUMN IF EXISTS lifecycle_status,
 			DROP COLUMN IF EXISTS returned_at,
 			DROP COLUMN IF EXISTS return_count;
@@ -468,6 +468,30 @@ var Migrations = []Migration{
 			DROP TABLE IF EXISTS miniapp_personal_reply_queue;
 		`,
 		DownSQL: `SELECT 1`,
+	},
+	{
+		Version: 25,
+		Description: "Rename legacy table message_log to training_state (idempotent)",
+		UpSQL: `
+			DO $rename_ml$
+			BEGIN
+				IF to_regclass('public.message_log') IS NOT NULL
+					AND to_regclass('public.training_state') IS NULL THEN
+					ALTER TABLE message_log RENAME TO training_state;
+				END IF;
+			END
+			$rename_ml$;
+		`,
+		DownSQL: `
+			DO $rename_back$
+			BEGIN
+				IF to_regclass('public.training_state') IS NOT NULL
+					AND to_regclass('public.message_log') IS NULL THEN
+					ALTER TABLE training_state RENAME TO message_log;
+				END IF;
+			END
+			$rename_back$;
+		`,
 	},
 }
 

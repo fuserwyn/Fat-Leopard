@@ -8,7 +8,7 @@ import (
 )
 
 // ListPackActivityFeed — последние «отчёты» в чате стаи: #training_done, #sick_leave, #healthy.
-// streak берётся из message_log на момент выборки.
+// streak берётся из training_state на момент выборки.
 func (d *Database) ListPackActivityFeed(chatID int64, limit int) ([]*domain.PackActivityRow, error) {
 	if limit <= 0 {
 		limit = 50
@@ -21,7 +21,7 @@ func (d *Database) ListPackActivityFeed(chatID int64, limit int) ([]*domain.Pack
 			um.id, um.user_id, um.chat_id, um.username, um.message_text, um.message_type, um.created_at,
 			COALESCE(ml.streak_days, 0)::int
 		FROM user_messages um
-		LEFT JOIN message_log ml
+		LEFT JOIN training_state ml
 			ON ml.user_id = um.user_id AND ml.chat_id = um.chat_id AND ml.is_deleted = FALSE
 		WHERE um.chat_id = $1
 		  AND um.message_type IN ('training_done', 'sick_leave', 'healthy')
@@ -55,7 +55,7 @@ func (d *Database) ListPackActivityFeed(chatID int64, limit int) ([]*domain.Pack
 	return out, nil
 }
 
-// UserInPackOrPaid — участник стаи (message_log) или оплаченный доступ.
+// UserInPackOrPaid — участник стаи (training_state) или оплаченный доступ.
 func (d *Database) UserInPackOrPaid(userID, chatID int64, paywallEnabled bool) (bool, error) {
 	if paywallEnabled {
 		ok, err := d.UserHasActivePaywallAccess(userID, chatID)

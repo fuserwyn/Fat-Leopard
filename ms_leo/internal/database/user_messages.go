@@ -206,7 +206,7 @@ func (d *Database) GetUserTrainingHistory(userID, chatID int64, limit int) ([]*d
 
 // GetAllChatIDs получает все уникальные chat_id из базы данных
 func (d *Database) GetAllChatIDs() ([]int64, error) {
-	query := `SELECT DISTINCT chat_id FROM message_log WHERE is_deleted = FALSE`
+	query := `SELECT DISTINCT chat_id FROM training_state WHERE is_deleted = FALSE`
 	rows, err := d.db.Query(query)
 	if err != nil {
 		return nil, err

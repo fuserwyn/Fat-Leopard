@@ -52,10 +52,32 @@ func (d *Database) Close() error {
 	return d.db.Close()
 }
 
+// renameMessageLogToTrainingStateIfExists — для БД, созданных до переименования: не создавать вторую пустую таблицу рядом с legacy message_log.
+func (d *Database) renameMessageLogToTrainingStateIfExists() error {
+	_, err := d.db.Exec(`
+		DO $rename_ml$
+		BEGIN
+			IF to_regclass('public.message_log') IS NOT NULL
+				AND to_regclass('public.training_state') IS NULL THEN
+				ALTER TABLE message_log RENAME TO training_state;
+			END IF;
+		END
+		$rename_ml$;
+	`)
+	if err != nil {
+		return fmt.Errorf("rename message_log to training_state: %w", err)
+	}
+	return nil
+}
+
 // CreateTables создает таблицы в базе данных, если они не существуют
 func (d *Database) CreateTables() error {
+	if err := d.renameMessageLogToTrainingStateIfExists(); err != nil {
+		return err
+	}
+
 	queries := []string{
-		`CREATE TABLE IF NOT EXISTS message_log (
+		`CREATE TABLE IF NOT EXISTS training_state (
 			user_id BIGINT,
 			username TEXT DEFAULT '',
 			chat_id BIGINT,
@@ -109,7 +131,7 @@ func (d *Database) CreateTables() error {
 // SaveMessageLog сохраняет информацию о сообщении
 func (d *Database) SaveMessageLog(msg *domain.MessageLog) error {
 	query := `
-		INSERT INTO message_log (user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion, timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, gender, timezone_offset_from_moscow, sick_approval_pending, sick_approval_deadline, sick_approval_message_id, achievement_count, xp_freeze_until, last_daily_xp_msk_date, leopard_starter_bonus_applied, last_achievement_streak_level, updated_at)
+		INSERT INTO training_state (user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion, timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, gender, timezone_offset_from_moscow, sick_approval_pending, sick_approval_deadline, sick_approval_message_id, achievement_count, xp_freeze_until, last_daily_xp_msk_date, leopard_starter_bonus_applied, last_achievement_streak_level, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30)
 		ON CONFLICT (user_id, chat_id) 
 		DO UPDATE SET 
@@ -130,7 +152,7 @@ func (d *Database) SaveMessageLog(msg *domain.MessageLog) error {
 			sick_leave_end_time = EXCLUDED.sick_leave_end_time,
 			sick_time = EXCLUDED.sick_time,
 			rest_time_till_del = EXCLUDED.rest_time_till_del,
-			gender = CASE WHEN EXCLUDED.gender != '' THEN EXCLUDED.gender ELSE message_log.gender END,
+			gender = CASE WHEN EXCLUDED.gender != '' THEN EXCLUDED.gender ELSE training_state.gender END,
 			timezone_offset_from_moscow = EXCLUDED.timezone_offset_from_moscow,
 			sick_approval_pending = EXCLUDED.sick_approval_pending,
 			sick_approval_deadline = EXCLUDED.sick_approval_deadline,
@@ -175,7 +197,7 @@ func (d *Database) GetMessageLog(userID, chatID int64) (*domain.MessageLog, erro
 		SELECT user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion,
 		       timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, gender, timezone_offset_from_moscow, sick_approval_pending, sick_approval_deadline, sick_approval_message_id,
 		       achievement_count, xp_freeze_until, last_daily_xp_msk_date, leopard_starter_bonus_applied, last_achievement_streak_level, created_at, updated_at
-		FROM message_log 
+		FROM training_state 
 		WHERE user_id = $1 AND chat_id = $2 AND is_deleted = FALSE
 		ORDER BY updated_at DESC
 		LIMIT 1
@@ -203,16 +225,16 @@ func (d *Database) GetMessageLog(userID, chatID int64) (*domain.MessageLog, erro
 	return &msg, nil
 }
 
-// UserHasActiveMessageLogInChat — в message_log есть живая запись пользователя в этом чате (учитываем для paywall, если getChatMember недоступен).
+// UserHasActiveMessageLogInChat — в training_state есть живая запись пользователя в этом чате (учитываем для paywall, если getChatMember недоступен).
 func (d *Database) UserHasActiveMessageLogInChat(userID, chatID int64) (bool, error) {
 	const q = `
 		SELECT EXISTS (
-			SELECT 1 FROM message_log
+			SELECT 1 FROM training_state
 			WHERE user_id = $1 AND chat_id = $2 AND is_deleted = FALSE
 		)`
 	var ok bool
 	if err := d.db.QueryRow(q, userID, chatID).Scan(&ok); err != nil {
-		return false, fmt.Errorf("exists message_log user/chat: %w", err)
+		return false, fmt.Errorf("exists training_state user/chat: %w", err)
 	}
 	return ok, nil
 }
@@ -223,7 +245,7 @@ func (d *Database) GetUsersByChatID(chatID int64) ([]*domain.MessageLog, error) 
 		SELECT user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion,
 		       timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, gender, timezone_offset_from_moscow, sick_approval_pending, sick_approval_deadline, sick_approval_message_id,
 		       achievement_count, xp_freeze_until, last_daily_xp_msk_date, leopard_starter_bonus_applied, last_achievement_streak_level, created_at, updated_at
-		FROM message_log 
+		FROM training_state 
 		WHERE chat_id = $1 AND is_deleted = FALSE
 		ORDER BY calories DESC, last_message DESC
 	`
@@ -261,7 +283,7 @@ func (d *Database) GetUsersByChatID(chatID int64) ([]*domain.MessageLog, error) 
 func (d *Database) GetUserIDByUsername(username string, chatID int64) (int64, error) {
 	// Сначала пробуем точное совпадение
 	query := `
-		SELECT user_id FROM message_log 
+		SELECT user_id FROM training_state 
 		WHERE username = $1 AND chat_id = $2
 	`
 	var userID int64
@@ -273,7 +295,7 @@ func (d *Database) GetUserIDByUsername(username string, chatID int64) (int64, er
 	// Если не найдено, пробуем поиск с @
 	if !strings.HasPrefix(username, "@") {
 		query = `
-			SELECT user_id FROM message_log 
+			SELECT user_id FROM training_state 
 			WHERE username = $1 AND chat_id = $2
 		`
 		err = d.db.QueryRow(query, "@"+username, chatID).Scan(&userID)
@@ -285,7 +307,7 @@ func (d *Database) GetUserIDByUsername(username string, chatID int64) (int64, er
 	// Если не найдено, пробуем поиск без @
 	if strings.HasPrefix(username, "@") {
 		query = `
-			SELECT user_id FROM message_log 
+			SELECT user_id FROM training_state 
 			WHERE username = $1 AND chat_id = $2
 		`
 		err = d.db.QueryRow(query, username[1:], chatID).Scan(&userID)
@@ -296,7 +318,7 @@ func (d *Database) GetUserIDByUsername(username string, chatID int64) (int64, er
 
 	// Если все еще не найдено, пробуем поиск по частичному совпадению (для случаев типа "OggO Logos")
 	query = `
-		SELECT user_id FROM message_log 
+		SELECT user_id FROM training_state 
 		WHERE username ILIKE $1 AND chat_id = $2
 	`
 	err = d.db.QueryRow(query, "%"+username+"%", chatID).Scan(&userID)
@@ -332,7 +354,7 @@ func (d *Database) GetDatabaseStats() (map[string]interface{}, error) {
 			COUNT(CASE WHEN has_training_done = true THEN 1 END) as training_done,
 			COUNT(CASE WHEN has_sick_leave = true THEN 1 END) as sick_leave,
 			COUNT(CASE WHEN has_healthy = true THEN 1 END) as healthy
-		FROM message_log
+		FROM training_state
 	`
 
 	var stats struct {
@@ -358,7 +380,7 @@ func (d *Database) GetDatabaseStats() (map[string]interface{}, error) {
 // AddCalories добавляет калории пользователю
 func (d *Database) AddCalories(userID, chatID int64, calories int) error {
 	query := `
-		UPDATE message_log 
+		UPDATE training_state 
 		SET calories = calories + $3, updated_at = $4
 		WHERE user_id = $1 AND chat_id = $2
 	`
@@ -371,7 +393,7 @@ func (d *Database) AddCalories(userID, chatID int64, calories int) error {
 // GetUserCalories получает калории пользователя
 func (d *Database) GetUserCalories(userID, chatID int64) (int, error) {
 	query := `
-		SELECT calories FROM message_log 
+		SELECT calories FROM training_state 
 		WHERE user_id = $1 AND chat_id = $2
 	`
 	var calories int
@@ -385,7 +407,7 @@ func (d *Database) GetUserCalories(userID, chatID int64) (int, error) {
 // UpdateStreak обновляет серию тренировок пользователя
 func (d *Database) UpdateStreak(userID, chatID int64, streakDays int, lastTrainingDate string) error {
 	query := `
-		UPDATE message_log 
+		UPDATE training_state 
 		SET streak_days = $3, last_training_date = $4, updated_at = $5
 		WHERE user_id = $1 AND chat_id = $2
 	`
@@ -398,7 +420,7 @@ func (d *Database) UpdateStreak(userID, chatID int64, streakDays int, lastTraini
 // ResetStreakDays сбрасывает только серию дней, не трогая last_training_date
 func (d *Database) ResetStreakDays(userID, chatID int64) error {
 	query := `
-		UPDATE message_log 
+		UPDATE training_state 
 		SET streak_days = 0, updated_at = $3
 		WHERE user_id = $1 AND chat_id = $2
 	`
@@ -411,7 +433,7 @@ func (d *Database) ResetStreakDays(userID, chatID int64) error {
 // UpdateCalorieStreak обновляет серию дней для калорий
 func (d *Database) UpdateCalorieStreak(userID, chatID int64, calorieStreakDays int) error {
 	query := `
-		UPDATE message_log 
+		UPDATE training_state 
 		SET calorie_streak_days = $3, updated_at = $4
 		WHERE user_id = $1 AND chat_id = $2
 	`
@@ -424,7 +446,7 @@ func (d *Database) UpdateCalorieStreak(userID, chatID int64, calorieStreakDays i
 // UpdateCalorieStreakWithDate обновляет серию дней для калорий с датой последней тренировки
 func (d *Database) UpdateCalorieStreakWithDate(userID, chatID int64, calorieStreakDays int, lastTrainingDate string) error {
 	query := `
-		UPDATE message_log 
+		UPDATE training_state 
 		SET calorie_streak_days = $3, last_training_date = $4, updated_at = $5
 		WHERE user_id = $1 AND chat_id = $2
 	`
@@ -437,7 +459,7 @@ func (d *Database) UpdateCalorieStreakWithDate(userID, chatID int64, calorieStre
 // ResetCalorieStreak сбрасывает серию дней для калорий
 func (d *Database) ResetCalorieStreak(userID, chatID int64) error {
 	query := `
-		UPDATE message_log 
+		UPDATE training_state 
 		SET calorie_streak_days = 0, updated_at = $3
 		WHERE user_id = $1 AND chat_id = $2
 	`
@@ -450,7 +472,7 @@ func (d *Database) ResetCalorieStreak(userID, chatID int64) error {
 // AddCups добавляет кубки пользователю
 func (d *Database) AddCups(userID, chatID int64, cups int) error {
 	query := `
-		UPDATE message_log 
+		UPDATE training_state 
 		SET cups_earned = cups_earned + $3, updated_at = $4
 		WHERE user_id = $1 AND chat_id = $2
 	`
@@ -464,7 +486,7 @@ func (d *Database) AddCups(userID, chatID int64, cups int) error {
 func (d *Database) GetUserCups(userID, chatID int64) (int, error) {
 	query := `
 		SELECT COALESCE(cups_earned, 0) 
-		FROM message_log 
+		FROM training_state 
 		WHERE user_id = $1 AND chat_id = $2
 	`
 
@@ -482,7 +504,7 @@ func (d *Database) GetUserCups(userID, chatID int64) (int, error) {
 func (d *Database) CountUsersWithCups(chatID int64, minCups int) (int, error) {
 	query := `
 		SELECT COUNT(DISTINCT user_id)
-		FROM message_log 
+		FROM training_state 
 		WHERE chat_id = $1 AND cups_earned >= $2
 	`
 
@@ -498,7 +520,7 @@ func (d *Database) CountUsersWithCups(chatID int64, minCups int) (int, error) {
 // MarkUserAsDeleted помечает пользователя как удаленного
 func (d *Database) MarkUserAsDeleted(userID, chatID int64) error {
 	query := `
-		UPDATE message_log 
+		UPDATE training_state 
 		SET is_deleted = TRUE, updated_at = $3
 		WHERE user_id = $1 AND chat_id = $2
 	`
@@ -522,7 +544,7 @@ func (d *Database) LogDeletionEvent(userID, chatID int64, dmStatus, errorText st
 // Возвращает false, если запись пользователя в чате не найдена (data inconsistency).
 func (d *Database) ReactivateReturnedUser(userID, chatID int64, username string) (bool, error) {
 	const q = `
-		UPDATE message_log
+		UPDATE training_state
 		SET is_deleted = FALSE,
 		    lifecycle_status = 'active',
 		    calories = 42,
@@ -549,7 +571,7 @@ func (d *Database) ReactivateReturnedUser(userID, chatID int64, username string)
 
 	// Если записи нет вообще (первый платный вход), создаём профиль в активном состоянии.
 	const insertQ = `
-		INSERT INTO message_log (
+		INSERT INTO training_state (
 			user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned,
 			last_message, has_training_done, has_sick_leave, has_healthy, is_deleted,
 			timer_start_time, timezone_offset_from_moscow, achievement_count, return_count,
@@ -568,7 +590,7 @@ func (d *Database) ReactivateReturnedUser(userID, chatID int64, username string)
 }
 
 func (d *Database) GetUserReturnCount(userID, chatID int64) (int, error) {
-	const q = `SELECT COALESCE(return_count, 0) FROM message_log WHERE user_id = $1 AND chat_id = $2`
+	const q = `SELECT COALESCE(return_count, 0) FROM training_state WHERE user_id = $1 AND chat_id = $2`
 	var cnt int
 	if err := d.db.QueryRow(q, userID, chatID).Scan(&cnt); err != nil {
 		return 0, err
@@ -581,7 +603,7 @@ func (d *Database) GetTopUsers(chatID int64, limit int) ([]*domain.MessageLog, e
 	query := `
 		SELECT user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion,
 		       timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, timezone_offset_from_moscow, sick_approval_pending, sick_approval_deadline, sick_approval_message_id, created_at, updated_at
-		FROM message_log 
+		FROM training_state 
 		WHERE chat_id = $1 AND calories > 0 AND is_deleted = FALSE
 		ORDER BY calories DESC, last_message DESC
 		LIMIT $2
@@ -614,7 +636,7 @@ func (d *Database) GetAllUsersWithTimers() ([]*domain.MessageLog, error) {
 	query := `
 		SELECT user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion,
 		       timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, timezone_offset_from_moscow, sick_approval_pending, sick_approval_deadline, sick_approval_message_id, created_at, updated_at
-		FROM message_log 
+		FROM training_state 
 		WHERE timer_start_time IS NOT NULL AND is_deleted = FALSE
 		ORDER BY timer_start_time ASC
 	`
@@ -646,7 +668,7 @@ func (d *Database) GetPendingSickApprovals() ([]*domain.MessageLog, error) {
 	query := `
 		SELECT user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion,
 		       timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, gender, timezone_offset_from_moscow, sick_approval_pending, sick_approval_deadline, sick_approval_message_id, created_at, updated_at
-		FROM message_log
+		FROM training_state
 		WHERE sick_approval_pending = TRUE AND is_deleted = FALSE
 	`
 
@@ -743,14 +765,14 @@ func (d *Database) GetChatContext(chatID int64, excludeUserID int64, limit int) 
 		if err != nil {
 			continue
 		}
-		// Получаем полную информацию о пользователе из message_log
+		// Получаем полную информацию о пользователе из training_state
 		fullUserLog, err := d.GetMessageLog(msg.UserID, chatID)
 		if err == nil {
 			// Копируем последнее сообщение из user_messages
 			fullUserLog.LastMessage = msg.LastMessage
 			users = append(users, fullUserLog)
 		} else {
-			// Если нет записи в message_log, создаем минимальную
+			// Если нет записи в training_state, создаем минимальную
 			msg.ChatID = chatID
 			users = append(users, &msg)
 		}
