@@ -9,7 +9,7 @@ type MessageLog struct {
 	UserID                int64      `json:"user_id" db:"user_id"`
 	ChatID                int64      `json:"chat_id" db:"chat_id"`
 	Username              string     `json:"username" db:"username"`
-	Calories              int        `json:"calories" db:"calories"`
+	XP                    int        `json:"xp" db:"xp"`
 	StreakDays            int        `json:"streak_days" db:"streak_days"`
 	CalorieStreakDays     int        `json:"calorie_streak_days" db:"calorie_streak_days"`
 	CupsEarned            int        `json:"cups_earned" db:"cups_earned"`
@@ -30,7 +30,7 @@ type MessageLog struct {
 	SickApprovalPending   bool       `json:"sick_approval_pending" db:"sick_approval_pending"`
 	SickApprovalDeadline  *time.Time `json:"sick_approval_deadline" db:"sick_approval_deadline"`
 	SickApprovalMessageID *int64     `json:"sick_approval_message_id" db:"sick_approval_message_id"`
-	// Leopard Money Model: XP хранится в calories; achievement_count 0–4; заморозка дневного ±XP.
+	// Leopard Money Model: XP в колонке xp; achievement_count 0–4; заморозка дневного ±XP.
 	AchievementCount           int        `json:"achievement_count" db:"achievement_count"`
 	XpFreezeUntil               *time.Time `json:"xp_freeze_until" db:"xp_freeze_until"`
 	LastDailyXPMskDate          *string    `json:"last_daily_xp_msk_date" db:"last_daily_xp_msk_date"` // YYYY-MM-DD — обработан последний «вчера»

@@ -190,7 +190,7 @@ func (b *Bot) sendInactiveWarning(userID, chatID int64, username string, day int
 func (b *Bot) sendInactiveDay7ZeroXP(userID, chatID int64, username string) {
 	log, err := b.db.GetMessageLog(userID, chatID)
 	if err == nil {
-		log.Calories = 0
+		log.XP = 0
 		_ = b.db.SaveMessageLog(log)
 	}
 	who := normalizeUserDisplayName(username)

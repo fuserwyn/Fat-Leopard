@@ -493,6 +493,40 @@ var Migrations = []Migration{
 			$rename_back$;
 		`,
 	},
+	{
+		Version:     26,
+		Description: "Rename training_state.calories to xp (Leopard Money)",
+		UpSQL: `
+			DO $m26$
+			BEGIN
+				IF EXISTS (
+					SELECT 1 FROM information_schema.columns
+					WHERE table_schema = 'public' AND table_name = 'training_state' AND column_name = 'calories'
+				) AND NOT EXISTS (
+					SELECT 1 FROM information_schema.columns
+					WHERE table_schema = 'public' AND table_name = 'training_state' AND column_name = 'xp'
+				) THEN
+					ALTER TABLE training_state RENAME COLUMN calories TO xp;
+				END IF;
+			END
+			$m26$;
+		`,
+		DownSQL: `
+			DO $m26d$
+			BEGIN
+				IF EXISTS (
+					SELECT 1 FROM information_schema.columns
+					WHERE table_schema = 'public' AND table_name = 'training_state' AND column_name = 'xp'
+				) AND NOT EXISTS (
+					SELECT 1 FROM information_schema.columns
+					WHERE table_schema = 'public' AND table_name = 'training_state' AND column_name = 'calories'
+				) THEN
+					ALTER TABLE training_state RENAME COLUMN xp TO calories;
+				END IF;
+			END
+			$m26d$;
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции

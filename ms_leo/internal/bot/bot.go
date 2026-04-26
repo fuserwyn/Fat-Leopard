@@ -512,7 +512,7 @@ func (b *Bot) sendWelcomeMessage(chatID int64, username string, userID int64) {
 		UserID:          userID,
 		ChatID:          chatID,
 		Username:        username,
-		Calories:        0,
+		XP:              0,
 		StreakDays:      0,
 		CupsEarned:      0,
 		LastMessage:     timerStartTime,
@@ -618,7 +618,7 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message, personalReplyCh chan<- string
 				UserID:            msg.From.ID,
 				ChatID:            msg.Chat.ID,
 				Username:          username,
-				Calories:          0,
+				XP:                0,
 				StreakDays:        0,
 				CalorieStreakDays: 0,
 				CupsEarned:        0,
@@ -904,7 +904,7 @@ func (b *Bot) handleChange(msg *tgbotapi.Message) {
 	}
 
 	// Получаем текущие калории и кубки
-	currentCalories := messageLog.Calories
+	currentCalories := messageLog.XP
 	currentCups, err := b.db.GetUserCups(msg.From.ID, msg.Chat.ID)
 	if err != nil {
 		b.logger.Errorf("Failed to get user cups: %v", err)
@@ -933,7 +933,7 @@ func (b *Bot) handleChange(msg *tgbotapi.Message) {
 	caloriesToSpend := exchangesCanMake * exchangeRate
 	cupsToAdd := exchangesCanMake * cupsPerExchange
 
-	if err := b.db.AddCalories(msg.From.ID, msg.Chat.ID, -caloriesToSpend); err != nil {
+	if err := b.db.AddXP(msg.From.ID, msg.Chat.ID, -caloriesToSpend); err != nil {
 		b.logger.Errorf("Failed to spend calories/words: %v", err)
 		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Ошибка при списании калорий")
 		b.api.Send(reply)
@@ -1250,7 +1250,7 @@ func (b *Bot) handleTop(msg *tgbotapi.Message) {
 		} else {
 			emoji = fmt.Sprintf("%d️⃣", i+1)
 		}
-		topText += fmt.Sprintf("%s %s - %d калорий\n", emoji, user.Username, user.Calories)
+		topText += fmt.Sprintf("%s %s - %d калорий\n", emoji, user.Username, user.XP)
 	}
 
 	reply := tgbotapi.NewMessage(msg.Chat.ID, topText)
@@ -1266,7 +1266,7 @@ func (b *Bot) handleTop(msg *tgbotapi.Message) {
 
 func (b *Bot) handlePoints(msg *tgbotapi.Message) {
 	// Получаем калории/слова пользователя
-	calories, err := b.db.GetUserCalories(msg.From.ID, msg.Chat.ID)
+	calories, err := b.db.GetUserXP(msg.From.ID, msg.Chat.ID)
 	if err != nil {
 		b.logger.Errorf("Failed to get user calories: %v", err)
 		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Ошибка при получении данных")
@@ -2000,7 +2000,7 @@ func (b *Bot) auditProcessTrainingDone(um *domain.UserMessage) {
 	caloriesToAdd, newStreakDays, newCalorieStreakDays, weeklyAchievement, twoWeekAchievement, threeWeekAchievement, monthlyAchievement, fortyTwoDayAchievement, fiftyDayAchievement, sixtyDayAchievement, quarterlyAchievement, hundredDayAchievement, oneHundredEightyDayAchievement, twoHundredDayAchievement, twoHundredFortyDayAchievement := b.calculateCalories(messageLog)
 
 	if caloriesToAdd > 0 {
-		_ = b.db.AddCalories(um.UserID, um.ChatID, caloriesToAdd)
+		_ = b.db.AddXP(um.UserID, um.ChatID, caloriesToAdd)
 		_ = b.db.UpdateStreak(um.UserID, um.ChatID, newStreakDays, dateStr)
 		_ = b.db.UpdateCalorieStreakWithDate(um.UserID, um.ChatID, newCalorieStreakDays, dateStr)
 		_ = b.db.AddCups(um.UserID, um.ChatID, 1)
@@ -2041,7 +2041,7 @@ func (b *Bot) auditProcessTrainingDone(um *domain.UserMessage) {
 			_ = b.db.AddCups(um.UserID, um.ChatID, 4200)
 		}
 
-		totalCalories, _ := b.db.GetUserCalories(um.UserID, um.ChatID)
+		totalCalories, _ := b.db.GetUserXP(um.UserID, um.ChatID)
 		currentCups, _ := b.db.GetUserCups(um.UserID, um.ChatID)
 		text := fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Ты тренируешься дней подряд: %d\n🔥 +%d калорий\n🔥 Всего калорий: %d\n🏆 +1 кубок за тренировку!\n🏆 Всего кубков: %d\n\n⏰ Таймер перезапускается на 7 дней", newStreakDays, caloriesToAdd, totalCalories, currentCups)
 		b.api.Send(tgbotapi.NewMessage(um.ChatID, text))
@@ -2082,7 +2082,7 @@ type monthlyReportUser struct {
 	HasSickLeave  bool
 	HasHealthy    bool
 	StreakDays    int
-	Calories      int
+	XP            int
 	Cups          int
 }
 
@@ -2115,7 +2115,7 @@ func (b *Bot) generateMonthlySummaryForChat(chatID int64, month time.Time) {
 				HasSickLeave:  false,
 				HasHealthy:    false,
 				StreakDays:    userLog.StreakDays,
-				Calories:      userLog.Calories,
+				XP:            userLog.XP,
 				Cups:          cups,
 			}
 		}
@@ -2184,7 +2184,7 @@ func (b *Bot) generateMonthlySummaryForChat(chatID int64, month time.Time) {
 		lineWorkLabel := trainingsWordForm(u.TrainingCount)
 		sb.WriteString(fmt.Sprintf("• %s: %d %s", name, u.TrainingCount, lineWorkLabel))
 		sb.WriteString(fmt.Sprintf(", серия на момент отчёта: %d дн.", u.StreakDays))
-		sb.WriteString(fmt.Sprintf(", %d калорий, %d %s", u.Calories, u.Cups, cupsWordForm(u.Cups)))
+		sb.WriteString(fmt.Sprintf(", %d калорий, %d %s", u.XP, u.Cups, cupsWordForm(u.Cups)))
 
 		var flags []string
 		if u.HasSickLeave {
@@ -2336,7 +2336,7 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 
 		contextText.WriteString("\n=== ТЕКУЩАЯ СТАТИСТИКА ===\n")
 		contextText.WriteString(fmt.Sprintf("👤 Пользователь: %s\n", userLog.Username))
-		contextText.WriteString(fmt.Sprintf("🔥 Всего калорий: %d\n", userLog.Calories))
+		contextText.WriteString(fmt.Sprintf("🔥 Всего калорий: %d\n", userLog.XP))
 		contextText.WriteString(fmt.Sprintf("🏆 Всего кубков: %d\n", cups))
 		contextText.WriteString(fmt.Sprintf("💪 Серия тренировок: %d дней подряд\n", userLog.StreakDays))
 		contextText.WriteString(fmt.Sprintf("📈 Серия калорий: %d дней подряд\n", userLog.CalorieStreakDays))
@@ -2620,7 +2620,7 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 
 				// Статистика
 				cups, _ := b.db.GetUserCups(userID, msg.Chat.ID)
-				contextText.WriteString(fmt.Sprintf("🔥 Всего калорий: %d\n", otherUserLog.Calories))
+				contextText.WriteString(fmt.Sprintf("🔥 Всего калорий: %d\n", otherUserLog.XP))
 				contextText.WriteString(fmt.Sprintf("🏆 Всего кубков: %d\n", cups))
 				contextText.WriteString(fmt.Sprintf("💪 Серия тренировок: %d дней подряд\n", otherUserLog.StreakDays))
 				contextText.WriteString(fmt.Sprintf("📈 Серия калорий: %d дней подряд\n", otherUserLog.CalorieStreakDays))
@@ -2692,7 +2692,7 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 
 				// Статистика
 				cups, _ := b.db.GetUserCups(user.UserID, msg.Chat.ID)
-				contextText.WriteString(fmt.Sprintf("🔥 Всего калорий: %d\n", user.Calories))
+				contextText.WriteString(fmt.Sprintf("🔥 Всего калорий: %d\n", user.XP))
 				contextText.WriteString(fmt.Sprintf("🏆 Всего кубков: %d\n", cups))
 				contextText.WriteString(fmt.Sprintf("💪 Серия тренировок: %d дней подряд\n", user.StreakDays))
 				contextText.WriteString(fmt.Sprintf("📈 Серия калорий: %d дней подряд\n", user.CalorieStreakDays))

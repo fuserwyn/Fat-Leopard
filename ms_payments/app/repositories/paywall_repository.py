@@ -70,7 +70,7 @@ class PaywallRepository:
             UPDATE training_state
             SET is_deleted = FALSE,
                 lifecycle_status = 'active',
-                calories = 42,
+                xp = 42,
                 achievement_count = 0,
                 has_training_done = FALSE,
                 has_sick_leave = FALSE,
@@ -94,7 +94,7 @@ class PaywallRepository:
             await self._pool.execute(
                 """
                 INSERT INTO training_state (
-                    user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned,
+                    user_id, username, chat_id, xp, streak_days, calorie_streak_days, cups_earned,
                     last_message, has_training_done, has_sick_leave, has_healthy, is_deleted,
                     timer_start_time, timezone_offset_from_moscow, achievement_count, return_count,
                     returned_at, lifecycle_status, created_at, updated_at

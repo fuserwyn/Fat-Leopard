@@ -149,7 +149,7 @@ func (b *Bot) handleLeopardMoneyTrainingDone(msg *tgbotapi.Message, personalRepl
 	}
 
 	if xpAdd > 0 {
-		if err := b.db.AddCalories(msg.From.ID, msg.Chat.ID, xpAdd); err != nil {
+		if err := b.db.AddXP(msg.From.ID, msg.Chat.ID, xpAdd); err != nil {
 			b.logger.Errorf("add XP: %v", err)
 		}
 	}
@@ -171,7 +171,7 @@ func (b *Bot) handleLeopardMoneyTrainingDone(msg *tgbotapi.Message, personalRepl
 		}
 	}
 
-	totalXP, _ := b.db.GetUserCalories(msg.From.ID, msg.Chat.ID)
+	totalXP, _ := b.db.GetUserXP(msg.From.ID, msg.Chat.ID)
 	ach := 0
 	if ml, e := b.db.GetMessageLog(msg.From.ID, msg.Chat.ID); e == nil {
 		ach = ml.AchievementCount

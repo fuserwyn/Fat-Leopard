@@ -81,7 +81,7 @@ func (d *Database) CreateTables() error {
 			user_id BIGINT,
 			username TEXT DEFAULT '',
 			chat_id BIGINT,
-			calories INTEGER DEFAULT 0,
+			xp INTEGER DEFAULT 0,
 			streak_days INTEGER DEFAULT 0,
 			last_training_date TEXT,
 			last_message TEXT NOT NULL,
@@ -131,12 +131,12 @@ func (d *Database) CreateTables() error {
 // SaveMessageLog сохраняет информацию о сообщении
 func (d *Database) SaveMessageLog(msg *domain.MessageLog) error {
 	query := `
-		INSERT INTO training_state (user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion, timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, gender, timezone_offset_from_moscow, sick_approval_pending, sick_approval_deadline, sick_approval_message_id, achievement_count, xp_freeze_until, last_daily_xp_msk_date, leopard_starter_bonus_applied, last_achievement_streak_level, updated_at)
+		INSERT INTO training_state (user_id, username, chat_id, xp, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion, timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, gender, timezone_offset_from_moscow, sick_approval_pending, sick_approval_deadline, sick_approval_message_id, achievement_count, xp_freeze_until, last_daily_xp_msk_date, leopard_starter_bonus_applied, last_achievement_streak_level, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30)
 		ON CONFLICT (user_id, chat_id) 
 		DO UPDATE SET 
 			username = EXCLUDED.username,
-			calories = EXCLUDED.calories,
+			xp = EXCLUDED.xp,
 			streak_days = EXCLUDED.streak_days,
 			calorie_streak_days = EXCLUDED.calorie_streak_days,
 			cups_earned = EXCLUDED.cups_earned,
@@ -173,7 +173,7 @@ func (d *Database) SaveMessageLog(msg *domain.MessageLog) error {
 		msg.UserID, msg.TimerStartTime, msg.SickLeaveStartTime, msg.RestTimeTillDel)
 
 	result, err := d.db.Exec(query,
-		msg.UserID, msg.Username, msg.ChatID, msg.Calories, msg.StreakDays, msg.CalorieStreakDays, msg.CupsEarned, msg.LastTrainingDate, msg.LastMessage, msg.HasTrainingDone,
+		msg.UserID, msg.Username, msg.ChatID, msg.XP, msg.StreakDays, msg.CalorieStreakDays, msg.CupsEarned, msg.LastTrainingDate, msg.LastMessage, msg.HasTrainingDone,
 		msg.HasSickLeave, msg.HasHealthy, msg.IsDeleted, msg.IsExemptFromDeletion, msg.TimerStartTime, msg.SickLeaveStartTime, msg.SickLeaveEndTime, msg.SickTime, msg.RestTimeTillDel, msg.Gender, msg.TimezoneOffsetFromMoscow,
 		msg.SickApprovalPending, msg.SickApprovalDeadline, msg.SickApprovalMessageID,
 		msg.AchievementCount, msg.XpFreezeUntil, msg.LastDailyXPMskDate, msg.LeopardStarterBonusApplied, msg.LastAchievementStreakLevel,
@@ -194,7 +194,7 @@ func (d *Database) SaveMessageLog(msg *domain.MessageLog) error {
 // GetMessageLog получает информацию о сообщении пользователя
 func (d *Database) GetMessageLog(userID, chatID int64) (*domain.MessageLog, error) {
 	query := `
-		SELECT user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion,
+		SELECT user_id, username, chat_id, xp, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion,
 		       timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, gender, timezone_offset_from_moscow, sick_approval_pending, sick_approval_deadline, sick_approval_message_id,
 		       achievement_count, xp_freeze_until, last_daily_xp_msk_date, leopard_starter_bonus_applied, last_achievement_streak_level, created_at, updated_at
 		FROM training_state 
@@ -206,7 +206,7 @@ func (d *Database) GetMessageLog(userID, chatID int64) (*domain.MessageLog, erro
 	var msg domain.MessageLog
 	var lastDaily sql.NullString
 	err := d.db.QueryRow(query, userID, chatID).Scan(
-		&msg.UserID, &msg.Username, &msg.ChatID, &msg.Calories, &msg.StreakDays, &msg.CalorieStreakDays, &msg.CupsEarned, &msg.LastTrainingDate, &msg.LastMessage, &msg.HasTrainingDone,
+		&msg.UserID, &msg.Username, &msg.ChatID, &msg.XP, &msg.StreakDays, &msg.CalorieStreakDays, &msg.CupsEarned, &msg.LastTrainingDate, &msg.LastMessage, &msg.HasTrainingDone,
 		&msg.HasSickLeave, &msg.HasHealthy, &msg.IsDeleted, &msg.IsExemptFromDeletion, &msg.TimerStartTime, &msg.SickLeaveStartTime, &msg.SickLeaveEndTime, &msg.SickTime, &msg.RestTimeTillDel, &msg.Gender, &msg.TimezoneOffsetFromMoscow,
 		&msg.SickApprovalPending, &msg.SickApprovalDeadline, &msg.SickApprovalMessageID,
 		&msg.AchievementCount, &msg.XpFreezeUntil, &lastDaily, &msg.LeopardStarterBonusApplied, &msg.LastAchievementStreakLevel, &msg.CreatedAt, &msg.UpdatedAt)
@@ -242,12 +242,12 @@ func (d *Database) UserHasActiveMessageLogInChat(userID, chatID int64) (bool, er
 // GetUsersByChatID получает всех пользователей в чате
 func (d *Database) GetUsersByChatID(chatID int64) ([]*domain.MessageLog, error) {
 	query := `
-		SELECT user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion,
+		SELECT user_id, username, chat_id, xp, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion,
 		       timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, gender, timezone_offset_from_moscow, sick_approval_pending, sick_approval_deadline, sick_approval_message_id,
 		       achievement_count, xp_freeze_until, last_daily_xp_msk_date, leopard_starter_bonus_applied, last_achievement_streak_level, created_at, updated_at
 		FROM training_state 
 		WHERE chat_id = $1 AND is_deleted = FALSE
-		ORDER BY calories DESC, last_message DESC
+		ORDER BY xp DESC, last_message DESC
 	`
 
 	rows, err := d.db.Query(query, chatID)
@@ -261,7 +261,7 @@ func (d *Database) GetUsersByChatID(chatID int64) ([]*domain.MessageLog, error) 
 		var msg domain.MessageLog
 		var lastDaily2 sql.NullString
 		err := rows.Scan(
-			&msg.UserID, &msg.Username, &msg.ChatID, &msg.Calories, &msg.StreakDays, &msg.CalorieStreakDays, &msg.CupsEarned, &msg.LastTrainingDate, &msg.LastMessage, &msg.HasTrainingDone,
+			&msg.UserID, &msg.Username, &msg.ChatID, &msg.XP, &msg.StreakDays, &msg.CalorieStreakDays, &msg.CupsEarned, &msg.LastTrainingDate, &msg.LastMessage, &msg.HasTrainingDone,
 			&msg.HasSickLeave, &msg.HasHealthy, &msg.IsDeleted, &msg.IsExemptFromDeletion, &msg.TimerStartTime, &msg.SickLeaveStartTime, &msg.SickLeaveEndTime, &msg.SickTime, &msg.RestTimeTillDel, &msg.Gender, &msg.TimezoneOffsetFromMoscow,
 			&msg.SickApprovalPending, &msg.SickApprovalDeadline, &msg.SickApprovalMessageID,
 			&msg.AchievementCount, &msg.XpFreezeUntil, &lastDaily2, &msg.LeopardStarterBonusApplied, &msg.LastAchievementStreakLevel, &msg.CreatedAt, &msg.UpdatedAt)
@@ -377,31 +377,31 @@ func (d *Database) GetDatabaseStats() (map[string]interface{}, error) {
 	}, nil
 }
 
-// AddCalories добавляет калории пользователю
-func (d *Database) AddCalories(userID, chatID int64, calories int) error {
+// AddXP добавляет (или вычитает) XP в колонке training_state.xp.
+func (d *Database) AddXP(userID, chatID int64, delta int) error {
 	query := `
 		UPDATE training_state 
-		SET calories = calories + $3, updated_at = $4
+		SET xp = xp + $3, updated_at = $4
 		WHERE user_id = $1 AND chat_id = $2
 	`
 	// Используем московское время
 	moscowTime := utils.FormatMoscowTime(utils.GetMoscowTime())
-	_, err := d.db.Exec(query, userID, chatID, calories, moscowTime)
+	_, err := d.db.Exec(query, userID, chatID, delta, moscowTime)
 	return err
 }
 
-// GetUserCalories получает калории пользователя
-func (d *Database) GetUserCalories(userID, chatID int64) (int, error) {
+// GetUserXP возвращает текущий XP пользователя в чате.
+func (d *Database) GetUserXP(userID, chatID int64) (int, error) {
 	query := `
-		SELECT calories FROM training_state 
+		SELECT xp FROM training_state 
 		WHERE user_id = $1 AND chat_id = $2
 	`
-	var calories int
-	err := d.db.QueryRow(query, userID, chatID).Scan(&calories)
+	var xp int
+	err := d.db.QueryRow(query, userID, chatID).Scan(&xp)
 	if err != nil {
 		return 0, err
 	}
-	return calories, nil
+	return xp, nil
 }
 
 // UpdateStreak обновляет серию тренировок пользователя
@@ -549,7 +549,7 @@ func (d *Database) ReactivateReturnedUser(userID, chatID int64, username string)
 		UPDATE training_state
 		SET is_deleted = FALSE,
 		    lifecycle_status = 'active',
-		    calories = 42,
+		    xp = 42,
 		    achievement_count = 0,
 		    has_training_done = FALSE,
 		    has_sick_leave = FALSE,
@@ -574,7 +574,7 @@ func (d *Database) ReactivateReturnedUser(userID, chatID int64, username string)
 	// Если записи нет вообще (первый платный вход), создаём профиль в активном состоянии.
 	const insertQ = `
 		INSERT INTO training_state (
-			user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned,
+			user_id, username, chat_id, xp, streak_days, calorie_streak_days, cups_earned,
 			last_message, has_training_done, has_sick_leave, has_healthy, is_deleted,
 			timer_start_time, timezone_offset_from_moscow, achievement_count, return_count,
 			returned_at, lifecycle_status, created_at, updated_at
@@ -603,11 +603,11 @@ func (d *Database) GetUserReturnCount(userID, chatID int64) (int, error) {
 // GetTopUsers получает топ пользователей по калориям
 func (d *Database) GetTopUsers(chatID int64, limit int) ([]*domain.MessageLog, error) {
 	query := `
-		SELECT user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion,
+		SELECT user_id, username, chat_id, xp, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion,
 		       timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, timezone_offset_from_moscow, sick_approval_pending, sick_approval_deadline, sick_approval_message_id, created_at, updated_at
 		FROM training_state 
-		WHERE chat_id = $1 AND calories > 0 AND is_deleted = FALSE
-		ORDER BY calories DESC, last_message DESC
+		WHERE chat_id = $1 AND xp > 0 AND is_deleted = FALSE
+		ORDER BY xp DESC, last_message DESC
 		LIMIT $2
 	`
 
@@ -621,7 +621,7 @@ func (d *Database) GetTopUsers(chatID int64, limit int) ([]*domain.MessageLog, e
 	for rows.Next() {
 		var msg domain.MessageLog
 		err := rows.Scan(
-			&msg.UserID, &msg.Username, &msg.ChatID, &msg.Calories, &msg.StreakDays, &msg.CalorieStreakDays, &msg.CupsEarned, &msg.LastTrainingDate, &msg.LastMessage, &msg.HasTrainingDone,
+			&msg.UserID, &msg.Username, &msg.ChatID, &msg.XP, &msg.StreakDays, &msg.CalorieStreakDays, &msg.CupsEarned, &msg.LastTrainingDate, &msg.LastMessage, &msg.HasTrainingDone,
 			&msg.HasSickLeave, &msg.HasHealthy, &msg.IsDeleted, &msg.IsExemptFromDeletion, &msg.TimerStartTime, &msg.SickLeaveStartTime, &msg.SickLeaveEndTime, &msg.SickTime, &msg.RestTimeTillDel, &msg.TimezoneOffsetFromMoscow,
 			&msg.SickApprovalPending, &msg.SickApprovalDeadline, &msg.SickApprovalMessageID, &msg.CreatedAt, &msg.UpdatedAt)
 		if err != nil {
@@ -636,7 +636,7 @@ func (d *Database) GetTopUsers(chatID int64, limit int) ([]*domain.MessageLog, e
 // GetAllUsersWithTimers получает всех пользователей с активными таймерами
 func (d *Database) GetAllUsersWithTimers() ([]*domain.MessageLog, error) {
 	query := `
-		SELECT user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion,
+		SELECT user_id, username, chat_id, xp, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion,
 		       timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, timezone_offset_from_moscow, sick_approval_pending, sick_approval_deadline, sick_approval_message_id, created_at, updated_at
 		FROM training_state 
 		WHERE timer_start_time IS NOT NULL AND is_deleted = FALSE
@@ -653,7 +653,7 @@ func (d *Database) GetAllUsersWithTimers() ([]*domain.MessageLog, error) {
 	for rows.Next() {
 		var msg domain.MessageLog
 		err := rows.Scan(
-			&msg.UserID, &msg.Username, &msg.ChatID, &msg.Calories, &msg.StreakDays, &msg.CalorieStreakDays, &msg.CupsEarned, &msg.LastTrainingDate, &msg.LastMessage, &msg.HasTrainingDone,
+			&msg.UserID, &msg.Username, &msg.ChatID, &msg.XP, &msg.StreakDays, &msg.CalorieStreakDays, &msg.CupsEarned, &msg.LastTrainingDate, &msg.LastMessage, &msg.HasTrainingDone,
 			&msg.HasSickLeave, &msg.HasHealthy, &msg.IsDeleted, &msg.IsExemptFromDeletion, &msg.TimerStartTime, &msg.SickLeaveStartTime, &msg.SickLeaveEndTime, &msg.SickTime, &msg.RestTimeTillDel, &msg.TimezoneOffsetFromMoscow,
 			&msg.SickApprovalPending, &msg.SickApprovalDeadline, &msg.SickApprovalMessageID, &msg.CreatedAt, &msg.UpdatedAt)
 		if err != nil {
@@ -668,7 +668,7 @@ func (d *Database) GetAllUsersWithTimers() ([]*domain.MessageLog, error) {
 // GetPendingSickApprovals возвращает пользователей с ожидающим подтверждением больничного
 func (d *Database) GetPendingSickApprovals() ([]*domain.MessageLog, error) {
 	query := `
-		SELECT user_id, username, chat_id, calories, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion,
+		SELECT user_id, username, chat_id, xp, streak_days, calorie_streak_days, cups_earned, last_training_date, last_message, has_training_done, has_sick_leave, has_healthy, is_deleted, is_exempt_from_deletion,
 		       timer_start_time, sick_leave_start_time, sick_leave_end_time, sick_time, rest_time_till_del, gender, timezone_offset_from_moscow, sick_approval_pending, sick_approval_deadline, sick_approval_message_id, created_at, updated_at
 		FROM training_state
 		WHERE sick_approval_pending = TRUE AND is_deleted = FALSE
@@ -684,7 +684,7 @@ func (d *Database) GetPendingSickApprovals() ([]*domain.MessageLog, error) {
 	for rows.Next() {
 		var msg domain.MessageLog
 		err := rows.Scan(
-			&msg.UserID, &msg.Username, &msg.ChatID, &msg.Calories, &msg.StreakDays, &msg.CalorieStreakDays, &msg.CupsEarned, &msg.LastTrainingDate, &msg.LastMessage, &msg.HasTrainingDone,
+			&msg.UserID, &msg.Username, &msg.ChatID, &msg.XP, &msg.StreakDays, &msg.CalorieStreakDays, &msg.CupsEarned, &msg.LastTrainingDate, &msg.LastMessage, &msg.HasTrainingDone,
 			&msg.HasSickLeave, &msg.HasHealthy, &msg.IsDeleted, &msg.IsExemptFromDeletion, &msg.TimerStartTime, &msg.SickLeaveStartTime, &msg.SickLeaveEndTime, &msg.SickTime, &msg.RestTimeTillDel, &msg.Gender, &msg.TimezoneOffsetFromMoscow,
 			&msg.SickApprovalPending, &msg.SickApprovalDeadline, &msg.SickApprovalMessageID, &msg.CreatedAt, &msg.UpdatedAt)
 		if err != nil {

@@ -180,7 +180,7 @@ func (b *Bot) activateSickLeave(msg *tgbotapi.Message, messageLog *domain.Messag
 		}
 		ctxBuilder.WriteString("Событие: взят больничный (таймер приостановлен).\n")
 		ctxBuilder.WriteString(fmt.Sprintf("После выздоровления останется: %s\n", remainingTimeFormatted))
-		ctxBuilder.WriteString(fmt.Sprintf("Всего калорий: %d\n", messageLog.Calories))
+		ctxBuilder.WriteString(fmt.Sprintf("Всего калорий: %d\n", messageLog.XP))
 		ctxBuilder.WriteString(fmt.Sprintf("Всего кубков: %d\n", totalCups))
 		if addendum, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
 			addendum = ai.SanitizeTextForUser(addendum)
@@ -556,7 +556,7 @@ func (b *Bot) handleHealthy(msg *tgbotapi.Message) {
 			}
 		}
 		ctxBuilder.WriteString(fmt.Sprintf("После выздоровления осталось: %s\n", remainingTimeFormatted))
-		ctxBuilder.WriteString(fmt.Sprintf("Всего калорий: %d\n", messageLog.Calories))
+		ctxBuilder.WriteString(fmt.Sprintf("Всего калорий: %d\n", messageLog.XP))
 		ctxBuilder.WriteString(fmt.Sprintf("Всего кубков: %d\n", totalCups))
 		if addendum, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
 			addendum = ai.SanitizeTextForUser(addendum)
