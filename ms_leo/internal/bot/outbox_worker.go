@@ -81,6 +81,14 @@ func (b *Bot) processOutboxEvent(event database.OutboxEvent) error {
 		if payload.UserID == 0 || payload.ChatID == 0 {
 			return nonRetryableOutboxError{msg: fmt.Sprintf("invalid payload user=%d chat=%d", payload.UserID, payload.ChatID)}
 		}
+		// Смоук: мгновенный dead без Telegram/БД deliver → enqueueRefundRequestedForRestoreFailure (payload с ненулевыми id).
+		// aggregate_key должен начинаться с smoke:fail_restore — уведомление владельцу подавляет префикс smoke:.
+		if strings.HasPrefix(strings.TrimSpace(event.AggregateKey), "smoke:fail_restore") {
+			if payload.RequestID == 0 {
+				return nonRetryableOutboxError{msg: "smoke:fail_restore requires non-zero request_id in payload"}
+			}
+			return nonRetryableOutboxError{msg: "smoke: simulated paywall deliver failure (aggregate smoke:fail_restore*)"}
+		}
 		if err := b.paywallDeliverAccessAfterPayment(payload.UserID); err != nil {
 			return err
 		}
