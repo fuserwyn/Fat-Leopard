@@ -110,8 +110,20 @@ func (b *Bot) scheduleLeopardMilestones(userID, chatID int64, username string, t
 		fn := d.action
 		target := timerStart.Add(time.Duration(n) * 24 * time.Hour)
 		delay := target.Sub(now)
-		go func(delay time.Duration, ch chan bool, fn func()) {
+		removal := n == leopardmoney.InactiveRemovalDays
+		go func(delay time.Duration, ch chan bool, fn func(), removal bool) {
+			// Дни 5–7 в прошлом — пропускаем предупреждения. День 8 (кик): если дедлайн уже
+			// прошёл, нельзя молча выйти — иначе removeUser никогда не вызовется из этой горутины.
 			if delay <= 0 {
+				if !removal {
+					return
+				}
+				select {
+				case <-ch:
+					return
+				default:
+					fn()
+				}
 				return
 			}
 			t := time.NewTimer(delay)
@@ -127,7 +139,7 @@ func (b *Bot) scheduleLeopardMilestones(userID, chatID int64, username string, t
 					fn()
 				}
 			}
-		}(delay, ch, fn)
+		}(delay, ch, fn, removal)
 	}
 }
 

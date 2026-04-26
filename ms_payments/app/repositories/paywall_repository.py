@@ -75,7 +75,7 @@ class PaywallRepository:
                 has_training_done = FALSE,
                 has_sick_leave = FALSE,
                 has_healthy = FALSE,
-                timer_start_time = $4,
+                timer_start_time = NULL,
                 returned_at = (NOW() AT TIME ZONE 'Europe/Moscow'),
                 return_count = COALESCE(return_count, 0) + 1,
                 username = CASE WHEN NULLIF($3, '') IS NULL THEN username ELSE $3 END,
@@ -101,7 +101,7 @@ class PaywallRepository:
                 ) VALUES (
                     $1, NULLIF($2, ''), $3, 42, 0, 0, 0,
                     $4, FALSE, FALSE, FALSE, FALSE,
-                    $4, 0, 0, 1,
+                    NULL, 0, 0, 1,
                     (NOW() AT TIME ZONE 'Europe/Moscow'), 'active', $4, $4
                 )
                 """,

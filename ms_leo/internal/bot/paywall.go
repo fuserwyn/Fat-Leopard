@@ -1090,6 +1090,24 @@ func (b *Bot) paywallDeclineJoinRequest(userID int64) {
 	}
 }
 
+// paywallJoinRequestDisplayName — как в handleNewChatMembers для startTimer.
+func paywallJoinRequestDisplayName(u tgbotapi.User) string {
+	if u.IsBot {
+		return ""
+	}
+	if u.UserName != "" {
+		return "@" + u.UserName
+	}
+	if u.FirstName != "" {
+		s := u.FirstName
+		if u.LastName != "" {
+			s += " " + u.LastName
+		}
+		return s
+	}
+	return fmt.Sprintf("User%d", u.ID)
+}
+
 func (b *Bot) handlePaywallChatJoinRequest(j *tgbotapi.ChatJoinRequest) {
 	if !b.paywallActive() {
 		return
@@ -1109,7 +1127,9 @@ func (b *Bot) handlePaywallChatJoinRequest(j *tgbotapi.ChatJoinRequest) {
 			UserID:     userID,
 		}); err != nil {
 			b.logger.Errorf("paywall approve owner join request: %v", err)
+			return
 		}
+		b.startTimer(userID, b.config.MonetizedChatID, paywallJoinRequestDisplayName(j.From))
 		return
 	}
 
@@ -1126,7 +1146,10 @@ func (b *Bot) handlePaywallChatJoinRequest(j *tgbotapi.ChatJoinRequest) {
 		})
 		if err != nil {
 			b.logger.Errorf("paywall approve (already paid): %v", err)
+			return
 		}
+		// Сервисное сообщение NewChatMembers в супергруппе боту часто не приходит — таймер с момента одобрения заявки.
+		b.startTimer(userID, b.config.MonetizedChatID, paywallJoinRequestDisplayName(j.From))
 		return
 	}
 

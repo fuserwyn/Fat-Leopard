@@ -542,6 +542,8 @@ func (d *Database) LogDeletionEvent(userID, chatID int64, dmStatus, errorText st
 
 // ReactivateReturnedUser переводит удаленного пользователя в активное состояние возврата.
 // Возвращает false, если запись пользователя в чате не найдена (data inconsistency).
+// timer_start_time обнуляем: окно неактивности должно начинаться с фактического вступления в стаю
+// (handleNewChatMembers / approve заявки), а не с момента оплаты.
 func (d *Database) ReactivateReturnedUser(userID, chatID int64, username string) (bool, error) {
 	const q = `
 		UPDATE training_state
@@ -552,7 +554,7 @@ func (d *Database) ReactivateReturnedUser(userID, chatID int64, username string)
 		    has_training_done = FALSE,
 		    has_sick_leave = FALSE,
 		    has_healthy = FALSE,
-		    timer_start_time = $4,
+		    timer_start_time = NULL,
 		    returned_at = (NOW() AT TIME ZONE 'Europe/Moscow'),
 		    return_count = COALESCE(return_count, 0) + 1,
 		    username = CASE WHEN NULLIF($3, '') IS NULL THEN username ELSE $3 END,
@@ -579,7 +581,7 @@ func (d *Database) ReactivateReturnedUser(userID, chatID int64, username string)
 		) VALUES (
 			$1, NULLIF($2, ''), $3, 42, 0, 0, 0,
 			$4, FALSE, FALSE, FALSE, FALSE,
-			$4, 0, 0, 1,
+			NULL, 0, 0, 1,
 			(NOW() AT TIME ZONE 'Europe/Moscow'), 'active', $4, $4
 		)
 	`
