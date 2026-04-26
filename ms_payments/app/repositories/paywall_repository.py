@@ -63,7 +63,9 @@ class PaywallRepository:
 
     async def reactivate_returned_user(self, user_id: int, chat_id: int, username: str = "") -> None:
         """Дублирует ms_leo ReactivateReturnedUser — вебхук ЮKassa не проходит outbox paywall_access_restore_requested."""
-        now = datetime.now(ZoneInfo("Europe/Moscow")).isoformat()
+        # asyncpg ожидает datetime для timestamptz, не ISO-строку (иначе DataError на $4).
+        now_dt = datetime.now(ZoneInfo("Europe/Moscow"))
+        last_message = now_dt.isoformat()
         un = (username or "").strip()
         row = await self._pool.fetchrow(
             """
@@ -86,7 +88,7 @@ class PaywallRepository:
             user_id,
             chat_id,
             un,
-            now,
+            now_dt,
         )
         if row is not None:
             return
@@ -102,13 +104,14 @@ class PaywallRepository:
                     $1, NULLIF($2, ''), $3, 42, 0, 0, 0,
                     $4, FALSE, FALSE, FALSE, FALSE,
                     NULL, 0, 0, 1,
-                    (NOW() AT TIME ZONE 'Europe/Moscow'), 'active', $4, $4
+                    (NOW() AT TIME ZONE 'Europe/Moscow'), 'active', $5, $5
                 )
                 """,
                 user_id,
                 un,
                 chat_id,
-                now,
+                last_message,
+                now_dt,
             )
         except Exception:
             logger.exception(
