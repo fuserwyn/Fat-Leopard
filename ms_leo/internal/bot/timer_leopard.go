@@ -201,9 +201,9 @@ func (b *Bot) sendInactiveRemovalWarning(userID, chatID int64, username string, 
 	who := normalizeUserDisplayName(username)
 	deadlineHuman := formatRemovalAtLocalHuman(removalAt, loc)
 	messageText := fmt.Sprintf(
-		"⚠️ Предупреждение о неактивности\n\n"+
-			"%s, если не отметишь тренировку в мини-аппе, удаление из стаи — %s.\n\n"+
-			"В последний календарный день до этой полуночи отчёт ещё можно сдать до 23:59 МСК.",
+		"👀 Ты давно не занимался\n\n"+
+			"%s, если не отметишь тренировку в мини-аппе, Леопард тебя съест 🍴 — %s.\n\n"+
+			"Помни, в стае любое движение считается.",
 		who,
 		deadlineHuman,
 	)
