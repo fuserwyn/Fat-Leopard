@@ -1,11 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { STREAK_ACHIEVEMENTS, WORKOUT_ACHIEVEMENTS, workoutsWordRu } from "../lib/achievements";
-import {
-  buildStreakByDay,
-  parseWorkoutsByDay,
-  workoutsToChartDays,
-  type WorkoutDayPoint,
-} from "../lib/profileCharts";
 import { inactivityHighlight } from "../lib/inactivityHighlight";
 import { inactiveDaysFromRemovalRemaining, removalRemainingUntil } from "../lib/inactivityRemoval";
 import { cupsLevelProgressBarPct, formatCupsLevelProgressLabel, miniappCupsLevelProgress, miniappLevelFromCups, miniappLevelName } from "../lib/miniappLevel";
@@ -33,7 +27,6 @@ import {
   type DonateOptions,
 } from "../lib/donate";
 import { DonateThanksToast } from "./DonateThanksToast";
-import { ProfileDayChart } from "./ProfileDayChart";
 import "./ProfileScreen.css";
 
 const api = (import.meta.env.VITE_MINIAPP_API_URL as string | undefined)?.replace(/\/$/, "") ?? "";
@@ -143,7 +136,6 @@ export function ProfileScreen({
   const [profileSaving, setProfileSaving] = useState(false);
 
   const [onSick, setOnSick] = useState<boolean | null>(null);
-  const [workoutsByDay, setWorkoutsByDay] = useState<WorkoutDayPoint[]>([]);
   const [healthOpen, setHealthOpen] = useState(false);
   const [sickFormOpen, setSickFormOpen] = useState(false);
   const [sickReason, setSickReason] = useState("");
@@ -215,8 +207,6 @@ export function ProfileScreen({
   // Сколько ачивок за тренировки уже открыто = число порогов, не превышающих total.
   const workoutAchEarned = WORKOUT_ACHIEVEMENTS.filter(({ count }) => workouts >= count).length;
   const totalAchEarned = achievementCount + workoutAchEarned;
-  const workoutChartDays = useMemo(() => workoutsToChartDays(workoutsByDay), [workoutsByDay]);
-  const streakChartDays = useMemo(() => buildStreakByDay(workoutsByDay), [workoutsByDay]);
   const totalAchMax = achievementsMax + WORKOUT_ACHIEVEMENTS.length;
 
   const scrollHealthAboveKeyboard = useCallback(() => {
@@ -317,7 +307,6 @@ export function ProfileScreen({
         is_admin?: boolean;
         streak_save_attempts_used?: number;
         streak_save_attempts_max?: number;
-        workouts_by_day?: unknown;
       };
       if (!res.ok) {
         showAlert(j.error ?? `Профиль: ошибка ${res.status}`);
@@ -357,7 +346,6 @@ export function ProfileScreen({
       if (typeof j.streak_save_attempts_max === "number") {
         setSaveStreakMax(Math.max(1, j.streak_save_attempts_max));
       }
-      setWorkoutsByDay(parseWorkoutsByDay(j.workouts_by_day));
     } catch (e) {
       showAlert(e instanceof Error ? e.message : "Сеть");
     } finally {
@@ -370,19 +358,6 @@ export function ProfileScreen({
     void load();
     onRefreshStats?.();
   }, [load, active, onRefreshStats]);
-
-  // После новой тренировки родитель обновляет workouts — перечитываем workouts_by_day из БД.
-  const prevWorkoutsRef = useRef<number | null>(null);
-  useEffect(() => {
-    if (!active || !inTelegram || !initData?.trim()) return;
-    if (prevWorkoutsRef.current === null) {
-      prevWorkoutsRef.current = workouts;
-      return;
-    }
-    if (prevWorkoutsRef.current === workouts) return;
-    prevWorkoutsRef.current = workouts;
-    void load();
-  }, [workouts, active, inTelegram, initData, load]);
 
   const loadReminder = useCallback(async () => {
     if (!api || !inTelegram || !initData?.trim()) {
@@ -1252,20 +1227,6 @@ export function ProfileScreen({
           </div>
         ))}
         </div>
-        <ProfileDayChart
-          title="Тренировки по дням"
-          subtitle="90 дней"
-          points={workoutChartDays}
-          variant="workouts"
-          emptyHint="За последние 90 дней тренировок пока не было"
-        />
-        <ProfileDayChart
-          title="Стрик по дням"
-          subtitle="90 дней"
-          points={streakChartDays}
-          variant="streak"
-          emptyHint="Стрик появится после первых тренировок"
-        />
       </section>
 
       {burnLabel ? (
