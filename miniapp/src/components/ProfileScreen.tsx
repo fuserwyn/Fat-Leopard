@@ -143,8 +143,6 @@ export function ProfileScreen({
   const [profileSaving, setProfileSaving] = useState(false);
 
   const [onSick, setOnSick] = useState<boolean | null>(null);
-  // Ачивки и здоровье свёрнуты по умолчанию: полоски ачивок и форма больничного занимают много места.
-  const [achievementsOpen, setAchievementsOpen] = useState(false);
   const [workoutsByDay, setWorkoutsByDay] = useState<WorkoutDayPoint[]>([]);
   const [healthOpen, setHealthOpen] = useState(false);
   const [sickFormOpen, setSickFormOpen] = useState(false);
@@ -1067,42 +1065,10 @@ export function ProfileScreen({
         </div>
       </div>
 
-      {burnLabel ? (
-        <div className="profile__burn" title={`Стрик ${burnLabel}`}>
-          стрик {burnLabel}
-        </div>
-      ) : null}
-
-      <div className="profile__streak-save">
-        <button
-          type="button"
-          className="profile__save profile__streak-save-btn"
-          onClick={() => void useSaveStreak()}
-          disabled={saveStreakBusy || streakSaveBlocked}
-        >
-          {saveStreakBusy
-            ? "Отправляю…"
-            : `Спасти стрик осталось ${saveStreakAvail}/${saveStreakMax}`}
-        </button>
-      </div>
-      <p className="profile__hint muted profile__streak-save-hint">
-        Можно восстановить сгоревший стрик, если случайно забыл внести тренировку
-      </p>
-
       <section className="profile__achievements" aria-label="Ачивки">
-        <button
-          type="button"
-          className={`section-title profile__achievements-title profile__notif-toggle${achievementsOpen ? " is-open" : ""}`}
-          aria-expanded={achievementsOpen}
-          onClick={() => setAchievementsOpen((open) => !open)}
-        >
-          Ачивки{!achievementsOpen ? ` · ${totalAchEarned}/${totalAchMax}` : ""}
-          <span className="profile__notif-chevron" aria-hidden>
-            {achievementsOpen ? "▲" : "▼"}
-          </span>
-        </button>
-        {achievementsOpen && (
-        <>
+        <h2 className="section-title profile__achievements-title">
+          Ачивки · {totalAchEarned}/{totalAchMax}
+        </h2>
         <div className="profile__achievements-group">
           <span>Ачивки за стрики</span>
           <span className="profile__achievements-count">
@@ -1300,9 +1266,29 @@ export function ProfileScreen({
           variant="streak"
           emptyHint="Стрик появится после первых тренировок"
         />
-        </>
-        )}
       </section>
+
+      {burnLabel ? (
+        <div className="profile__burn" title={`Стрик ${burnLabel}`}>
+          стрик {burnLabel}
+        </div>
+      ) : null}
+
+      <div className="profile__streak-save">
+        <button
+          type="button"
+          className="profile__save profile__streak-save-btn"
+          onClick={() => void useSaveStreak()}
+          disabled={saveStreakBusy || streakSaveBlocked}
+        >
+          {saveStreakBusy
+            ? "Отправляю…"
+            : `Спасти стрик осталось ${saveStreakAvail}/${saveStreakMax}`}
+        </button>
+      </div>
+      <p className="profile__hint muted profile__streak-save-hint">
+        Можно восстановить сгоревший стрик, если случайно забыл внести тренировку
+      </p>
 
       {onSick === null ? (
         <section className="profile__health-section">
