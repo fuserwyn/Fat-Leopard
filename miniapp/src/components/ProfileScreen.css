@@ -313,11 +313,7 @@
 }
 
 .profile__achievements {
-  margin-bottom: 24px;
-  padding: 14px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-subtle);
-  background: var(--card-inner);
+  margin-bottom: 20px;
 }
 
 .profile__achievements-title {
