@@ -206,8 +206,6 @@ export function ProfileScreen({
 
   // Сколько ачивок за тренировки уже открыто = число порогов, не превышающих total.
   const workoutAchEarned = WORKOUT_ACHIEVEMENTS.filter(({ count }) => workouts >= count).length;
-  const totalAchEarned = achievementCount + workoutAchEarned;
-  const totalAchMax = achievementsMax + WORKOUT_ACHIEVEMENTS.length;
 
   const scrollHealthAboveKeyboard = useCallback(() => {
     const ta = healthTextareaRef.current;
@@ -1041,9 +1039,6 @@ export function ProfileScreen({
       </div>
 
       <section className="profile__achievements" aria-label="Ачивки">
-        <h2 className="section-title profile__achievements-title">
-          Ачивки · {totalAchEarned}/{totalAchMax}
-        </h2>
         <div className="profile__achievements-group">
           <span>Ачивки за стрики</span>
           <span className="profile__achievements-count">
