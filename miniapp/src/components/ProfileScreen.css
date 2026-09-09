@@ -316,13 +316,6 @@
   margin-bottom: 20px;
 }
 
-.profile__achievements-title {
-  margin-top: 0;
-  margin-bottom: 12px;
-  font-size: 13px;
-  color: var(--accent);
-}
-
 .profile__achievements-count {
   color: var(--text-muted);
   font-size: 12px;
