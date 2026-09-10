@@ -1022,8 +1022,8 @@ export function ProfileScreen({
             <div className="stat-card__val">{displayStreak}</div>
           </div>
           {burnLabel ? (
-            <div className="profile__burn" title={`Стрик ${burnLabel}`}>
-              стрик {burnLabel}
+            <div className="profile__burn" title={burnLabel}>
+              {burnLabel}
             </div>
           ) : null}
         </div>

@@ -111,9 +111,10 @@ describe("formatStreakBurnRemaining", () => {
     expect(formatStreakBurnRemaining(5 * H + 20 * M)).toBe("5 ч 20 мин");
   });
 
-  it("дни и часы с правильным склонением", () => {
-    expect(formatStreakBurnRemaining(24 * H + 4 * H)).toBe("1 день 4 ч");
-    expect(formatStreakBurnRemaining(2 * 24 * H + 3 * H)).toBe("2 дня 3 ч");
+  it("дни и часы в компактном формате", () => {
+    expect(formatStreakBurnRemaining(24 * H + 4 * H)).toBe("1д 4ч");
+    expect(formatStreakBurnRemaining(2 * 24 * H + 3 * H)).toBe("2д 3ч");
+    expect(formatStreakBurnRemaining(24 * H + 10 * H)).toBe("1д 10ч");
   });
 
   it("отрицательное/ноль → 0 мин", () => {
