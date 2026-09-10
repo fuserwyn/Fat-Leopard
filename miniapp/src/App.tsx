@@ -17,6 +17,8 @@ import { earnedAchievementKeys, freshAchievementKeys, type AchievementKey } from
 import { miniappLevelFromCups } from "./lib/miniappLevel";
 import { getStoredTheme, hasStoredTheme, hydrateThemeFromCloud, hydrateThemeFromServer, isThemeMode, persistTheme, persistThemeToServer } from "./lib/theme";
 import { buildOptimisticTrainingFeedItem, type PackFeedItemDTO } from "./lib/packFeed";
+import type { WorkoutCategoryId } from "./lib/workoutCategories";
+import { parseSuggestedWorkoutTypes } from "./lib/workoutSuggest";
 import { sendMiniappPrivateText, sendMiniappTrainingWithPhoto } from "./lib/miniappPrivateSend";
 import { isModerationError, moderationUserMessage } from "./lib/moderationMessages";
 import { fetchLeoPendingCount } from "./lib/leoPersonalInbox";
@@ -67,6 +69,7 @@ export function App() {
   const [achievementCount, setAchievementCount] = useState(0);
   const [achievementsMax, setAchievementsMax] = useState(9);
   const [workouts, setWorkouts] = useState(0);
+  const [suggestedWorkoutTypes, setSuggestedWorkoutTypes] = useState<WorkoutCategoryId[] | null>(null);
   const [leoPending, setLeoPending] = useState(0);
   const [feedThreadUnread, setFeedThreadUnread] = useState(0);
   const [packGroupUnread, setPackGroupUnread] = useState(0);
@@ -233,6 +236,7 @@ export function App() {
         is_admin?: boolean;
         access_price_rub?: number;
         theme?: string;
+        suggested_workout_types?: unknown;
       };
       if (!res.ok || !j.ok) return;
       setIsAdmin(Boolean(j.is_admin));
@@ -264,6 +268,7 @@ export function App() {
       setAchievementCount(achCount);
       setAchievementsMax(typeof j.achievements_max === "number" ? j.achievements_max : 9);
       setWorkouts(workoutsTotal);
+      setSuggestedWorkoutTypes(parseSuggestedWorkoutTypes(j.suggested_workout_types));
       notifyNewAchievements(userId, achCount, workoutsTotal);
       // Автоопределение часового пояса из устройства: приводим хранимое смещение к зоне телефона.
       if (!tzSyncedRef.current) {
@@ -543,6 +548,7 @@ export function App() {
         onAddWorkout={() => {
           setSupportOpen(false);
           setAdminOpen(false);
+          void refreshProfileStats();
           setWorkoutOpen(true);
           reportWorkoutLogStarted(initData); // §4: открыл форму логирования
         }}
@@ -563,6 +569,7 @@ export function App() {
 
       {workoutOpen && (
         <NewWorkoutScreen
+          suggestedWorkoutTypes={suggestedWorkoutTypes ?? undefined}
           showAlert={showAlert}
           onNonSportInterest={() => {
             if (inTelegram && initData?.trim()) {

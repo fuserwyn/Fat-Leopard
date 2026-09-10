@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { WORKOUT_TYPES as TYPES, type WorkoutCategoryId } from "../lib/workoutCategories";
+import { orderWorkoutTypes } from "../lib/workoutSuggest";
 import { PhotoCropper } from "./PhotoCropper";
 import { CameraButton } from "./CameraButton";
 import { hapticImpact, hapticNotification } from "../lib/haptics";
@@ -121,6 +122,8 @@ type Props = {
    * блокирует повторную попытку и не показывает ложное «Спасибо».
    */
   onNonSportInterest?: () => boolean | void;
+  /** Персональный порядок типов с сервера (история + контекст). */
+  suggestedWorkoutTypes?: readonly WorkoutCategoryId[];
   /** Сохранение отчёта: верни false, чтобы не закрывать шторку (например, при ошибке сети). */
   onSave: (payload: {
     /** Один или несколько видов спорта (мультивыбор). Кубки — за самый эффективный. */
@@ -142,8 +145,18 @@ const OTHER_LABEL_MAX = 80;
 /** Прикрепление фото к отчёту. Фото грузятся в Cloudflare R2 (см. R2_* в env). */
 const PHOTO_ENABLED = true;
 
-export function NewWorkoutScreen({ onClose, onSave, showAlert, onNonSportInterest }: Props) {
+export function NewWorkoutScreen({
+  onClose,
+  onSave,
+  showAlert,
+  onNonSportInterest,
+  suggestedWorkoutTypes,
+}: Props) {
   const { visualH } = useViewportMetrics();
+  const workoutTypes = useMemo(
+    () => orderWorkoutTypes(TYPES, suggestedWorkoutTypes),
+    [suggestedWorkoutTypes],
+  );
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -516,7 +529,7 @@ export function NewWorkoutScreen({ onClose, onSave, showAlert, onNonSportInteres
         <div className="nwo__upper">
           <h2 className="nwo__sec">Тип</h2>
           <div className="nwo__types-scroll" role="group" aria-label="Тип тренировки (можно выбрать несколько)">
-            {TYPES.map((t) => (
+            {workoutTypes.map((t) => (
               <button
                 key={t.id}
                 type="button"

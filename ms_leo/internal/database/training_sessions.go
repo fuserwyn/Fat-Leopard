@@ -1,9 +1,19 @@
 package database
 
 import (
+	"time"
+
+	"github.com/lib/pq"
+
 	"leo-bot/internal/domain"
 	"leo-bot/internal/utils"
 )
+
+// RecentTrainingSessionRow — текст отчёта и время для персонализации типов в форме.
+type RecentTrainingSessionRow struct {
+	MessageText string
+	CreatedAt   time.Time
+}
 
 // SaveTrainingSession сохраняет запись о конкретной тренировочной сессии.
 func (d *Database) SaveTrainingSession(session *domain.TrainingSession) error {
@@ -85,6 +95,41 @@ func (d *Database) GetTrainingCountsByDay(userID, chatID int64, startDate, endDa
 			continue
 		}
 		out = append(out, item)
+	}
+	return out, rows.Err()
+}
+
+// ListRecentTrainingSessions — последние зачтённые сессии пользователя (для подсказок типов).
+func (d *Database) ListRecentTrainingSessions(userID int64, chatIDs []int64, limit int) ([]RecentTrainingSessionRow, error) {
+	if d == nil || userID == 0 || len(chatIDs) == 0 {
+		return nil, nil
+	}
+	if limit <= 0 || limit > 200 {
+		limit = 100
+	}
+	ids := uniqInt64PreserveOrder(chatIDs)
+	query := `
+		SELECT message_text, created_at
+		FROM training_sessions
+		WHERE user_id = $1
+		  AND chat_id = ANY($2)
+		  AND is_bonus = FALSE
+		  AND trainings_count > 0
+		  AND NULLIF(BTRIM(message_text), '') IS NOT NULL
+		ORDER BY created_at DESC
+		LIMIT $3`
+	rows, err := d.db.Query(query, userID, pq.Array(ids), limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []RecentTrainingSessionRow
+	for rows.Next() {
+		var row RecentTrainingSessionRow
+		if err := rows.Scan(&row.MessageText, &row.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, row)
 	}
 	return out, rows.Err()
 }
