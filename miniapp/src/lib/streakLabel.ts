@@ -69,13 +69,13 @@ export function streakBurnRemainingMs(
   return ms > 0 ? ms : null;
 }
 
-/** «5 ч 20 мин», «1 день 4 ч», «18 мин» — компактный остаток времени до сгорания. */
+/** «5 ч 20 мин», «1д 4ч», «18 мин» — компактный остаток времени до сгорания. */
 export function formatStreakBurnRemaining(ms: number): string {
   const totalMin = Math.max(0, Math.floor(ms / 60_000));
   const days = Math.floor(totalMin / (60 * 24));
   const hours = Math.floor((totalMin % (60 * 24)) / 60);
   const mins = totalMin % 60;
-  if (days > 0) return `${days} ${daysWordRu(days)} ${hours} ч`;
+  if (days > 0) return `${days}д ${hours}ч`;
   if (hours > 0) return `${hours} ч ${mins} мин`;
   return `${mins} мин`;
 }
