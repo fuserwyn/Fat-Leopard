@@ -1012,13 +1012,20 @@ export function ProfileScreen({
       </header>
 
       <div className="profile__grid3">
-        <div
-          className={`stat-card${
-            inactiveHighlight !== "none" ? ` stat-card--inactive-${inactiveHighlight}` : ""
-          }`}
-        >
-          <div className="stat-card__label">Текущий стрик</div>
-          <div className="stat-card__val">{displayStreak}</div>
+        <div className="profile__stat-slot">
+          <div
+            className={`stat-card${
+              inactiveHighlight !== "none" ? ` stat-card--inactive-${inactiveHighlight}` : ""
+            }`}
+          >
+            <div className="stat-card__label">Текущий стрик</div>
+            <div className="stat-card__val">{displayStreak}</div>
+          </div>
+          {burnLabel ? (
+            <div className="profile__burn" title={`Стрик ${burnLabel}`}>
+              стрик {burnLabel}
+            </div>
+          ) : null}
         </div>
         <div
           className={`stat-card${
@@ -1223,12 +1230,6 @@ export function ProfileScreen({
         ))}
         </div>
       </section>
-
-      {burnLabel ? (
-        <div className="profile__burn" title={`Стрик ${burnLabel}`}>
-          стрик {burnLabel}
-        </div>
-      ) : null}
 
       <div className="profile__streak-save">
         <button
