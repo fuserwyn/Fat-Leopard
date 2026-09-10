@@ -88,7 +88,7 @@ func ActivityCoeff(categoryID string) float64 {
 		return 0.8
 	case "walk":
 		return 0.8
-	case "rowing", "workout", "strength", "kettlebell", "dance", "pole", "other":
+	case "rowing", "workout", "strength", "kettlebell", "dance", "pole", "gymnastics", "other":
 		return 1.0
 	case "swim", "bike", "run", "cardio", "jump_rope", "rollerblade", "basketball", "football", "volleyball", "tennis", "padel":
 		return 1.2
@@ -130,8 +130,9 @@ var labelToCategoryID = map[string]string{
 	"футбол":    "football",
 	"волейбол":  "volleyball",
 	"теннис":    "tennis",
-	"падел":     "padel",
-	"другое":    "other",
+	"падел":       "padel",
+	"гимнастика":  "gymnastics",
+	"другое":      "other",
 	"отжимания": "other",
 	"отжимание": "other",
 }

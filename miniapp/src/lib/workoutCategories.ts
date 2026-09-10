@@ -22,6 +22,7 @@ export type WorkoutCategoryId =
   | "volleyball"
   | "tennis"
   | "padel"
+  | "gymnastics"
   | "other";
 
 export type WorkoutCategoryOption = { id: WorkoutCategoryId; label: string; emoji: string };
@@ -50,6 +51,7 @@ export const WORKOUT_CATEGORY_OPTIONS: WorkoutCategoryOption[] = [
   { id: "volleyball", label: "Волейбол", emoji: "🏐" },
   { id: "tennis", label: "Теннис", emoji: "🎾" },
   { id: "padel", label: "Падел", emoji: "🏏" },
+  { id: "gymnastics", label: "Гимнастика", emoji: "🙆" },
   { id: "other", label: "Другое", emoji: "✨" },
 ];
 
