@@ -88,6 +88,7 @@ func TestParseTrainingDoneReport_table(t *testing.T) {
 		{"padel", "падел, 45 мин, инт. 4/5", 45, 4, "padel", true},
 		{"football", "футбол, 60 мин, инт. 3/5", 60, 3, "football", true},
 		{"volleyball", "волейбол, 45 мин, инт. 4/5", 45, 4, "volleyball", true},
+		{"gymnastics", "гимнастика, 45 мин, инт. 3/5", 45, 3, "gymnastics", true},
 		{"with hashtag prefix", "#training_done — йога, 30 мин, инт. 2/5", 30, 2, "yoga", true},
 		{"intensity defaults to 1", "ходьба, 20 мин", 20, 1, "walk", true},
 		{"unknown label -> other", "квиддич, 10 мин, инт. 4/5", 10, 4, "other", true},
@@ -120,6 +121,7 @@ func TestActivityCoeff(t *testing.T) {
 		{"padel", 1.2},
 		{"football", 1.2},
 		{"volleyball", 1.2},
+		{"gymnastics", 1.0},
 		{"hiit", 1.5},
 		{"crossfit", 1.5},
 		{"  RUN  ", 1.2}, // тримминг + регистр

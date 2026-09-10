@@ -42,6 +42,14 @@ describe("parseTrainingDoneCategories — мультивыбор", () => {
     ]);
   });
 
+  it("разбирает гимнастику как отдельный вид", () => {
+    expect(parseTrainingDoneCategories("гимнастика, 45 мин, инт. 3/5")).toEqual(["gymnastics"]);
+    expect(parseTrainingDoneCategories("гимнастика + йога, 60 мин, инт. 2/5")).toEqual([
+      "gymnastics",
+      "yoga",
+    ]);
+  });
+
   it("нераспознанный формат → пустой массив", () => {
     expect(parseTrainingDoneCategories("просто текст")).toEqual([]);
   });
@@ -80,5 +88,9 @@ describe("заголовок карточки", () => {
   it("показывает футбол и волейбол как отдельные подписи", () => {
     expect(trainingDoneCategoryDisplayLabel("футбол, 60 мин, инт. 3/5")).toBe("Футбол");
     expect(trainingDoneCategoryDisplayLabel("волейбол, 45 мин, инт. 4/5")).toBe("Волейбол");
+  });
+
+  it("показывает гимнастику как отдельную подпись", () => {
+    expect(trainingDoneCategoryDisplayLabel("гимнастика, 45 мин, инт. 3/5")).toBe("Гимнастика");
   });
 });
