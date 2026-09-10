@@ -873,7 +873,7 @@ html[data-theme="leopard"] .profile__burn {
   margin-top: 10px;
   font-weight: 510;
   letter-spacing: -0.015em;
-  color: #c2410c;
+  color: #000;
 }
 
 html[data-theme="leopard"] .chat:not(.support-chat) .chat__bubble--sys {
