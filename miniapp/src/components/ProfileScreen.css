@@ -270,9 +270,10 @@
   font-weight: 700;
   line-height: 1.25;
   letter-spacing: 0.01em;
-  color: #ff7a45;
+  color: #000;
   text-align: left;
   max-width: 100%;
+  white-space: nowrap;
 }
 
 .stat-card--inactive-yellow {
