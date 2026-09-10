@@ -2361,6 +2361,7 @@ func (s *Server) handlePostProfileLoad(w http.ResponseWriter, r *http.Request) {
 	tz := s.bot.GetTimezoneOffsetForAPI(parsed.User.ID, packID)
 	stats := s.bot.GetMiniappProfileStatsForAPI(parsed.User.ID, packID)
 	workoutsByDay := s.bot.GetMiniappWorkoutsByDayForAPI(parsed.User.ID, packID, 90)
+	suggestedWorkoutTypes := s.bot.GetSuggestedWorkoutTypesForAPI(parsed.User.ID, packID, tz, stats.DaysSinceLastTraining)
 	kickAt := s.bot.GetMiniappInactivityRemovalDeadlineRFC3339(parsed.User.ID, packID)
 	theme := s.bot.GetMiniappThemeForAPI(parsed.User.ID, packID)
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -2387,6 +2388,7 @@ func (s *Server) handlePostProfileLoad(w http.ResponseWriter, r *http.Request) {
 		"is_admin":                   s.bot.IsMiniappViewerAdmin(parsed.User.ID),
 		"access_price_rub":           s.bot.AccessPriceRub(),
 		"workouts_by_day":            workoutsByDay,
+		"suggested_workout_types":    suggestedWorkoutTypes,
 	}
 	if kickAt != "" {
 		out["inactivity_removal_at"] = kickAt
