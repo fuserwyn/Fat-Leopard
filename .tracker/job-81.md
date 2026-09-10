@@ -23,3 +23,7 @@
 **Тесты** — Go (`workout_suggest_test.go`) и Vitest (`workoutSuggest.test.ts`).
 
 Локальный коммит не создан: в окружении не настроен git user identity. Изменения в рабочей директории на ветке `tracker/77-613`.
+
+## ревью
+
+Ревью: на ветке tracker/77-613 config.go целый. Можно на тест.
