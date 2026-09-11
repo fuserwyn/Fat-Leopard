@@ -23,3 +23,7 @@
 - Обновлены `ProfileScreen.css` и `index.css` (оформление модалки, в т.ч. для leopard-темы).
 
 Изменены файлы: `ProfileScreen.tsx`, `ProfileScreen.css`, `index.css`. TypeScript-проверка проходит.
+
+## ревью
+
+Ревью: на ветке tracker/81-628 config.go целый. Можно на тест.
