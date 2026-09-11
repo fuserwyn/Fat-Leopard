@@ -62,6 +62,14 @@ function normalizeProfileData(profile: ProfileData): ProfileData {
   };
 }
 
+function donateTimesWordRu(n: number): string {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return "раз";
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return "раза";
+  return "раз";
+}
+
 type Props = {
   name: string;
   streak: number;
@@ -185,8 +193,7 @@ export function ProfileScreen({
   const [notifOpen, setNotifOpen] = useState(false);
   // Имя и пол спрятаны за шевроном: меняют редко, на экране занимают заметное место.
   const [personalOpen, setPersonalOpen] = useState(false);
-  // Донат свёрнут по умолчанию: номиналы и кнопки занимают много места, а платят редко.
-  const [donateOpen, setDonateOpen] = useState(false);
+  const [donateModalOpen, setDonateModalOpen] = useState(false);
   // Тема свёрнута по умолчанию: четыре кнопки и подсказки занимают место, меняют редко.
   const [themeOpen, setThemeOpen] = useState(false);
   const [friendBusyId, setFriendBusyId] = useState<number | null>(null);
@@ -562,6 +569,7 @@ export function ProfileScreen({
   }, [loadDonateOptions, active]);
 
   const finishDonate = useCallback(() => {
+    setDonateModalOpen(false);
     setDonateThanks(true);
     void window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.("success");
     void loadDonateOptions();
@@ -1619,89 +1627,106 @@ export function ProfileScreen({
 
       {(donateOptions.starsAvailable || donateOptions.cardAvailable) && (
         <section className="profile__donate">
+          <p className="profile__hint muted profile__donate-intro">
+            Донат по желанию: он не отменяет вылет за неактивность, но помогает Лео и проекту жить. Ты уже
+            поддержал {donateOptions.completedCount} {donateTimesWordRu(donateOptions.completedCount)}. Спасибо!
+          </p>
           <button
             type="button"
-            className={`section-title profile__donate-title profile__notif-toggle${donateOpen ? " is-open" : ""}`}
-            aria-expanded={donateOpen}
-            onClick={() => setDonateOpen((open) => !open)}
+            className="profile__save profile__donate-btn"
+            onClick={() => setDonateModalOpen(true)}
           >
             Поддержать проект
-            {donateOptions.completedCount > 0 ? ` · ${donateOptions.completedCount} раз` : ""}
-            <span className="profile__notif-chevron" aria-hidden>
-              {donateOpen ? "▲" : "▼"}
-            </span>
           </button>
-          {donateOpen && (
-          <>
-          <p className="profile__hint muted">
-            Вход в стаю бесплатный — донат по желанию: он не отменяет вылет за неактивность,
-            но помогает Лео и проекту жить
-            {donateOptions.completedCount > 0 ? ` Ты уже поддержал ${donateOptions.completedCount} раз — спасибо!` : ""}
-          </p>
-
-          {donateOptions.starsAvailable && (
-            <div className="profile__donate-method">
-              <span className="profile__donate-label">⭐ Звёздами Telegram — из любой страны</span>
-              <div className="profile__donate-tiers" role="group" aria-label="Сумма в звёздах">
-                {donateOptions.starsTiers.map((tier) => (
-                  <button
-                    key={tier}
-                    type="button"
-                    className={`profile__donate-tier ${donateStars === tier ? "is-active" : ""}`}
-                    aria-pressed={donateStars === tier}
-                    disabled={donateBusy}
-                    onClick={() => setDonateStars(tier)}
-                  >
-                    {tier} ⭐
-                  </button>
-                ))}
-              </div>
-              <button
-                type="button"
-                className="profile__save profile__donate-btn"
-                onClick={() => void donateWithStars()}
-                disabled={donateBusy || donateStars === null}
-              >
-                {donateBusy ? "Открываю счёт…" : `Задонатить ${donateStars ?? ""} ⭐`}
-              </button>
-            </div>
-          )}
-
-          {donateOptions.cardAvailable && (
-            <div className="profile__donate-method">
-              <span className="profile__donate-label">💳 Банковской картой — для РФ</span>
-              <div className="profile__donate-tiers" role="group" aria-label="Сумма в рублях">
-                {donateOptions.cardTiersRub.map((tier) => (
-                  <button
-                    key={tier}
-                    type="button"
-                    className={`profile__donate-tier ${donateRub === tier ? "is-active" : ""}`}
-                    aria-pressed={donateRub === tier}
-                    disabled={donateBusy}
-                    onClick={() => setDonateRub(tier)}
-                  >
-                    {tier} ₽
-                  </button>
-                ))}
-              </div>
-              <button
-                type="button"
-                className="profile__save profile__donate-btn"
-                onClick={() => void donateWithCard()}
-                disabled={donateBusy || donateRub === null}
-              >
-                {donateBusy ? "Жду оплату…" : `Задонатить ${donateRub ?? ""} ₽`}
-              </button>
-              <p className="profile__hint muted profile__donate-note">
-                Оплата откроется в браузере — вернись сюда, я дождусь подтверждения
-              </p>
-            </div>
-          )}
-
-          </>
-          )}
         </section>
       )}
+
+      {donateModalOpen ? (
+        <div className="profile__donate-modal" role="dialog" aria-modal="true" aria-labelledby="profile-donate-title">
+          <button
+            type="button"
+            className="profile__donate-modal-backdrop"
+            aria-label="Закрыть"
+            disabled={donateBusy}
+            onClick={() => setDonateModalOpen(false)}
+          />
+          <div className="profile__donate-modal-box">
+            <div className="profile__donate-modal-head">
+              <h2 id="profile-donate-title" className="section-title profile__donate-modal-title">
+                Поддержать проект
+              </h2>
+              <button
+                type="button"
+                className="profile__donate-modal-close"
+                aria-label="Закрыть"
+                disabled={donateBusy}
+                onClick={() => setDonateModalOpen(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            {donateOptions.starsAvailable && (
+              <div className="profile__donate-method">
+                <span className="profile__donate-label">⭐ Звёздами Telegram — из любой страны</span>
+                <div className="profile__donate-tiers" role="group" aria-label="Сумма в звёздах">
+                  {donateOptions.starsTiers.map((tier) => (
+                    <button
+                      key={tier}
+                      type="button"
+                      className={`profile__donate-tier ${donateStars === tier ? "is-active" : ""}`}
+                      aria-pressed={donateStars === tier}
+                      disabled={donateBusy}
+                      onClick={() => setDonateStars(tier)}
+                    >
+                      {tier} ⭐
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  className="profile__save profile__donate-btn"
+                  onClick={() => void donateWithStars()}
+                  disabled={donateBusy || donateStars === null}
+                >
+                  {donateBusy ? "Открываю счёт…" : `Задонатить ${donateStars ?? ""} ⭐`}
+                </button>
+              </div>
+            )}
+
+            {donateOptions.cardAvailable && (
+              <div className="profile__donate-method">
+                <span className="profile__donate-label">💳 Банковской картой — для РФ</span>
+                <div className="profile__donate-tiers" role="group" aria-label="Сумма в рублях">
+                  {donateOptions.cardTiersRub.map((tier) => (
+                    <button
+                      key={tier}
+                      type="button"
+                      className={`profile__donate-tier ${donateRub === tier ? "is-active" : ""}`}
+                      aria-pressed={donateRub === tier}
+                      disabled={donateBusy}
+                      onClick={() => setDonateRub(tier)}
+                    >
+                      {tier} ₽
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  className="profile__save profile__donate-btn"
+                  onClick={() => void donateWithCard()}
+                  disabled={donateBusy || donateRub === null}
+                >
+                  {donateBusy ? "Жду оплату…" : `Задонатить ${donateRub ?? ""} ₽`}
+                </button>
+                <p className="profile__hint muted profile__donate-note">
+                  Оплата откроется в браузере — вернись сюда, я дождусь подтверждения
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
 
       {donateThanks ? (
         <DonateThanksToast onDone={() => setDonateThanks(false)} />

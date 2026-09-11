@@ -994,23 +994,82 @@ html.app-keyboard-open .profile__health-actions--keyboard {
   background: color-mix(in srgb, var(--accent) 7%, var(--card-inner));
 }
 
-/* «Поддержать проект» — карточный блок со сворачиваемым заголовком, как «Уведомления». */
+/* «Поддержать проект» — аннотация и кнопка; номиналы в модалке. */
 .profile__donate {
   margin-top: 18px;
   margin-bottom: 24px;
-  padding: 14px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-subtle);
-  background: var(--card-inner);
-  min-width: 0;
-  overflow: hidden;
 }
 
-.profile__donate-title {
-  margin-top: 0;
-  margin-bottom: 12px;
-  font-size: 13px;
-  color: var(--accent);
+.profile__donate-intro {
+  margin: 0 0 12px;
+}
+
+.profile__donate-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.profile__donate-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.62);
+  cursor: pointer;
+}
+
+.profile__donate-modal-backdrop:disabled {
+  cursor: default;
+}
+
+.profile__donate-modal-box {
+  position: relative;
+  width: 100%;
+  max-width: 380px;
+  max-height: min(88vh, 640px);
+  overflow: auto;
+  padding: 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+}
+
+.profile__donate-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.profile__donate-modal-title {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+.profile__donate-modal-close {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--card-inner);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.profile__donate-modal-close:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .profile__donate-method {
