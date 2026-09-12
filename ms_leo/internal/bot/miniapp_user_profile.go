@@ -265,6 +265,7 @@ type MiniappProfileStats struct {
 	AchievementCount        int
 	AchievementsMax         int
 	WorkoutsTotal           int
+	MaxCupsPerTraining      int // максимум кубков за одну тренировку/активность
 	WorkoutsWeek            int
 	DaysSinceLastTraining   int    // -1, если тренировок ещё не было
 	LastTrainingDate        string // YYYY-MM-DD в локальном TZ; пусто, если не было отчётов
@@ -363,6 +364,10 @@ func (b *Bot) GetMiniappProfileStatsForAPI(userID, packChatID int64) MiniappProf
 		week, err := b.db.CountTrainingSessionsInDateRange(userID, chatID, weekAgo.Format("2006-01-02"), today.Format("2006-01-02"))
 		if err == nil {
 			out.WorkoutsWeek = int(math.Max(float64(out.WorkoutsWeek), float64(week)))
+		}
+		maxCups, err := b.db.MaxTrainingSessionCups(userID, chatID)
+		if err == nil {
+			out.MaxCupsPerTraining = int(math.Max(float64(out.MaxCupsPerTraining), float64(maxCups)))
 		}
 	}
 	countAndMerge(packChatID)

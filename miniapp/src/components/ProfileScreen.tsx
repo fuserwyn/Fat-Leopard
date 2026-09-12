@@ -75,6 +75,8 @@ type Props = {
   name: string;
   streak: number;
   recordStreak: number;
+  /** Максимум кубков за одну тренировку / активность. */
+  recordCups: number;
   xp: number;
   achievementCount: number;
   achievementsMax: number;
@@ -108,6 +110,7 @@ export function ProfileScreen({
   name,
   streak,
   recordStreak,
+  recordCups,
   xp,
   achievementCount,
   achievementsMax,
@@ -1046,6 +1049,14 @@ export function ProfileScreen({
         >
           <div className="stat-card__label">Рекорд стрика</div>
           <div className="stat-card__val">{recordStreak}</div>
+        </div>
+        <div
+          className={`stat-card${
+            inactiveHighlight !== "none" ? ` stat-card--inactive-${inactiveHighlight}` : ""
+          }`}
+        >
+          <div className="stat-card__label">Рекорд кубков</div>
+          <div className="stat-card__val">{recordCups}</div>
         </div>
         <div className="profile__stat-slot">
           <div

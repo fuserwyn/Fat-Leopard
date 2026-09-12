@@ -40,6 +40,28 @@ func (d *Database) SaveTrainingSession(session *domain.TrainingSession) error {
 	return err
 }
 
+// MaxTrainingSessionCups возвращает максимум кубков за одну тренировку/активность.
+func (d *Database) MaxTrainingSessionCups(userID, chatID int64) (int, error) {
+	query := `
+		SELECT COALESCE(MAX(cups_added), 0)
+		FROM training_sessions
+		WHERE user_id = $1
+		  AND chat_id = $2
+		  AND is_bonus = FALSE
+		  AND trainings_count > 0
+	`
+
+	var maxCups int
+	err := d.db.QueryRow(query, userID, chatID).Scan(&maxCups)
+	if err != nil {
+		return 0, err
+	}
+	if maxCups < 0 {
+		maxCups = 0
+	}
+	return maxCups, nil
+}
+
 // CountTrainingSessionsInDateRange считает количество сессий пользователя в диапазоне дат (включительно).
 func (d *Database) CountTrainingSessionsInDateRange(userID, chatID int64, startDate, endDate string) (int, error) {
 	query := `
