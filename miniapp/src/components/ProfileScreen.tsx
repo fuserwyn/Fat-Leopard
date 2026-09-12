@@ -5,6 +5,7 @@ import { inactiveDaysFromRemovalRemaining, removalRemainingUntil } from "../lib/
 import { cupsLevelProgressBarPct, formatCupsLevelProgressLabel, miniappCupsLevelProgress, miniappLevelFromCups, miniappLevelName } from "../lib/miniappLevel";
 import {
   canUseStreakSave,
+  daysWordRu,
   effectiveStreakDays,
   streakBurnLabel,
 } from "../lib/streakLabel";
@@ -78,6 +79,8 @@ type Props = {
   achievementCount: number;
   achievementsMax: number;
   workouts: number;
+  /** Дней в стае с первого дня текущего членства. */
+  packDays?: number;
   /** Дней с последней тренировки. -1 — тренировок ещё не было. */
   daysSinceLastTraining: number;
   /** YYYY-MM-DD последней тренировки в локальном TZ пользователя. */
@@ -109,6 +112,7 @@ export function ProfileScreen({
   achievementCount,
   achievementsMax,
   workouts,
+  packDays = 0,
   daysSinceLastTraining,
   lastTrainingDate,
   inactivityRemovalAt,
@@ -1043,13 +1047,20 @@ export function ProfileScreen({
           <div className="stat-card__label">Рекорд стрика</div>
           <div className="stat-card__val">{recordStreak}</div>
         </div>
-        <div
-          className={`stat-card${
-            inactiveHighlight !== "none" ? ` stat-card--inactive-${inactiveHighlight}` : ""
-          }`}
-        >
-          <div className="stat-card__label">Всего тренировок</div>
-          <div className="stat-card__val">{workouts}</div>
+        <div className="profile__stat-slot">
+          <div
+            className={`stat-card${
+              inactiveHighlight !== "none" ? ` stat-card--inactive-${inactiveHighlight}` : ""
+            }`}
+          >
+            <div className="stat-card__label">Всего тренировок</div>
+            <div className="stat-card__val">{workouts}</div>
+          </div>
+          {packDays > 0 ? (
+            <div className="profile__pack-tenure">
+              {`Из ${packDays} ${daysWordRu(packDays)} в стае`}
+            </div>
+          ) : null}
         </div>
       </div>
 

@@ -869,7 +869,8 @@ html[data-theme="leopard"] .profile__support:not(.profile__admin) {
   box-shadow: none;
 }
 
-html[data-theme="leopard"] .profile__burn {
+html[data-theme="leopard"] .profile__burn,
+html[data-theme="leopard"] .profile__pack-tenure {
   margin-top: 10px;
   font-weight: 510;
   letter-spacing: -0.015em;

@@ -271,6 +271,48 @@ type MiniappProfileStats struct {
 	StreakSaveAttemptsUsed  int    // сколько попыток спасения стрика использовано (lifetime)
 	StreakSaveAttemptsMax   int    // кап = min(level, 6); +1 за каждый новый уровень
 	StreakSaveAttemptsAvail int    // = max - used (не меньше 0)
+	PackDays                int    // дней в стае с первого дня текущего членства (локальный TZ)
+}
+
+// userLocalDateFromUTCInstant — календарная дата YYYY-MM-DD в локальном TZ пользователя.
+func userLocalDateFromUTCInstant(t time.Time, offsetFromMoscow int) string {
+	mt, err := utils.ParseMoscowTime(utils.FormatMoscowTime(t))
+	if err != nil {
+		return ""
+	}
+	return mt.Add(time.Duration(offsetFromMoscow) * time.Hour).Format("2006-01-02")
+}
+
+// calendarDaysInclusiveFromJoin — число календарных дней от joinDate до today включительно.
+func calendarDaysInclusiveFromJoin(joinDate, today string) int {
+	join, err1 := time.Parse("2006-01-02", joinDate)
+	td, err2 := time.Parse("2006-01-02", today)
+	if err1 != nil || err2 != nil {
+		return 0
+	}
+	d := int(td.Sub(join).Hours()/24) + 1
+	if d < 1 {
+		return 1
+	}
+	return d
+}
+
+func (b *Bot) packDaysForAPI(userID, packChatID int64) int {
+	if b == nil || b.db == nil || b.config == nil || userID == 0 || packChatID == 0 {
+		return 0
+	}
+	paywallEnabled := b.config.PaywallEnabled && b.config.MonetizedChatID != 0
+	sinceUTC, err := b.db.PackMiniappHistorySinceUTC(userID, packChatID, paywallEnabled)
+	if err != nil {
+		return 0
+	}
+	tzOffset := b.GetTimezoneOffsetForAPI(userID, packChatID)
+	today := b.getUserLocalDate(tzOffset)
+	joinDate := userLocalDateFromUTCInstant(sinceUTC, tzOffset)
+	if joinDate == "" {
+		return 0
+	}
+	return calendarDaysInclusiveFromJoin(joinDate, today)
 }
 
 // StreakSaveAttemptsMaxForLevel возвращает кап попыток спасения для данного уровня (1-based).
@@ -390,6 +432,7 @@ func (b *Bot) GetMiniappProfileStatsForAPI(userID, packChatID int64) MiniappProf
 		b.reconcileExpiredStreakInDB(userID, packChatID)
 	}
 	b.reconcileAchievementsWithStreak(&out, userID, packChatID)
+	out.PackDays = b.packDaysForAPI(userID, packChatID)
 	return out
 }
 
