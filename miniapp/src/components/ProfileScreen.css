@@ -263,30 +263,17 @@
   justify-content: center;
 }
 
-/* Подпись «сгорит» — под карточкой «Текущий стрик», по левому краю плашки. */
+/* Иконка часов — под карточкой «Текущий стрик», по левому краю плашки. */
 .profile__burn {
   margin: 4px 0 0;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1.25;
-  letter-spacing: 0.01em;
   color: #000;
-  text-align: left;
-  max-width: 100%;
-  white-space: nowrap;
+  line-height: 0;
 }
 
-/* Подпись «Из X дней в стае» — под карточкой «Всего тренировок». */
-.profile__pack-days {
-  margin: 4px 0 0;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1.25;
-  letter-spacing: 0.01em;
-  color: var(--text-muted, #666);
-  text-align: left;
-  max-width: 100%;
-  white-space: nowrap;
+.profile__burn-icon {
+  display: block;
+  width: 14px;
+  height: 14px;
 }
 
 .stat-card--inactive-yellow {

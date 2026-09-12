@@ -871,15 +871,6 @@ html[data-theme="leopard"] .profile__support:not(.profile__admin) {
 
 html[data-theme="leopard"] .profile__burn {
   margin-top: 10px;
-  font-weight: 510;
-  letter-spacing: -0.015em;
-  color: #000;
-}
-
-html[data-theme="leopard"] .profile__pack-days {
-  margin-top: 10px;
-  font-weight: 510;
-  letter-spacing: -0.015em;
   color: #000;
 }
 
