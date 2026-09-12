@@ -876,6 +876,13 @@ html[data-theme="leopard"] .profile__burn {
   color: #000;
 }
 
+html[data-theme="leopard"] .profile__pack-days {
+  margin-top: 10px;
+  font-weight: 510;
+  letter-spacing: -0.015em;
+  color: #000;
+}
+
 html[data-theme="leopard"] .chat:not(.support-chat) .chat__bubble--sys {
   border-radius: 20px 20px 20px 6px;
 }

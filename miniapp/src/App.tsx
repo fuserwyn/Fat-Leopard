@@ -69,6 +69,7 @@ export function App() {
   const [achievementCount, setAchievementCount] = useState(0);
   const [achievementsMax, setAchievementsMax] = useState(9);
   const [workouts, setWorkouts] = useState(0);
+  const [daysInPack, setDaysInPack] = useState(0);
   const [suggestedWorkoutTypes, setSuggestedWorkoutTypes] = useState<WorkoutCategoryId[] | null>(null);
   const [leoPending, setLeoPending] = useState(0);
   const [feedThreadUnread, setFeedThreadUnread] = useState(0);
@@ -232,6 +233,7 @@ export function App() {
         inactivity_removal_at?: string;
         timezone_offset?: number;
         days_since_last_training?: number;
+        days_in_pack?: number;
         last_training_date?: string;
         is_admin?: boolean;
         access_price_rub?: number;
@@ -268,6 +270,7 @@ export function App() {
       setAchievementCount(achCount);
       setAchievementsMax(typeof j.achievements_max === "number" ? j.achievements_max : 9);
       setWorkouts(workoutsTotal);
+      setDaysInPack(typeof j.days_in_pack === "number" && j.days_in_pack > 0 ? j.days_in_pack : 0);
       setSuggestedWorkoutTypes(parseSuggestedWorkoutTypes(j.suggested_workout_types));
       notifyNewAchievements(userId, achCount, workoutsTotal);
       // Автоопределение часового пояса из устройства: приводим хранимое смещение к зоне телефона.
@@ -456,6 +459,7 @@ export function App() {
             name={effectiveName}
             streak={streak}
             workouts={workouts}
+            daysInPack={daysInPack}
             initData={initData}
             inTelegram={inTelegram}
             userPhotoUrl={photoUrl}

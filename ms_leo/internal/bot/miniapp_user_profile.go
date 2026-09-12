@@ -271,6 +271,7 @@ type MiniappProfileStats struct {
 	StreakSaveAttemptsUsed  int    // сколько попыток спасения стрика использовано (lifetime)
 	StreakSaveAttemptsMax   int    // кап = min(level, 6); +1 за каждый новый уровень
 	StreakSaveAttemptsAvail int    // = max - used (не меньше 0)
+	DaysInPack              int    // дней в стае с первого входа (включая день входа), локальный TZ
 }
 
 // StreakSaveAttemptsMaxForLevel возвращает кап попыток спасения для данного уровня (1-based).
@@ -390,7 +391,36 @@ func (b *Bot) GetMiniappProfileStatsForAPI(userID, packChatID int64) MiniappProf
 		b.reconcileExpiredStreakInDB(userID, packChatID)
 	}
 	b.reconcileAchievementsWithStreak(&out, userID, packChatID)
+	tzOffset := b.GetTimezoneOffsetForAPI(userID, packChatID)
+	out.DaysInPack = b.packMembershipDaysForAPI(userID, packChatID, tzOffset)
 	return out
+}
+
+// packMembershipDaysForAPI — число календарных дней в стае с первого входа (день входа = 1).
+// Якорь — PackMiniappHistorySinceUTC (текущее членство: оплата или GREATEST(created_at, returned_at)).
+func (b *Bot) packMembershipDaysForAPI(userID, packChatID int64, tzOffset int) int {
+	if b == nil || b.db == nil || userID == 0 || packChatID == 0 {
+		return 0
+	}
+	anchor, err := b.db.PackMiniappHistorySinceUTC(userID, packChatID, b.paywallActive())
+	if err != nil {
+		b.logger.Warnf("pack membership days user=%d pack=%d: %v", userID, packChatID, err)
+		return 0
+	}
+	moscowNow := utils.GetMoscowTime()
+	joinLocal := anchor.In(moscowNow.Location()).Add(time.Duration(tzOffset) * time.Hour)
+	joinDateStr := joinLocal.Format("2006-01-02")
+	todayStr := b.getUserLocalDate(tzOffset)
+	joinDate, err1 := time.Parse("2006-01-02", joinDateStr)
+	today, err2 := time.Parse("2006-01-02", todayStr)
+	if err1 != nil || err2 != nil {
+		return 0
+	}
+	days := int(math.Floor(today.Sub(joinDate).Hours()/24+0.5)) + 1
+	if days < 1 {
+		return 1
+	}
+	return days
 }
 
 const miniappProfileChartDaysDefault = 90
