@@ -2385,6 +2385,7 @@ func (s *Server) handlePostProfileLoad(w http.ResponseWriter, r *http.Request) {
 		"streak_save_attempts_used":  stats.StreakSaveAttemptsUsed,
 		"streak_save_attempts_max":   stats.StreakSaveAttemptsMax,
 		"streak_save_attempts_avail": stats.StreakSaveAttemptsAvail,
+		"days_in_pack":               stats.DaysInPack,
 		"is_admin":                   s.bot.IsMiniappViewerAdmin(parsed.User.ID),
 		"access_price_rub":           s.bot.AccessPriceRub(),
 		"workouts_by_day":            workoutsByDay,
@@ -2504,6 +2505,7 @@ func (s *Server) handlePostProfileSave(w http.ResponseWriter, r *http.Request) {
 		"streak_save_attempts_used":  stats.StreakSaveAttemptsUsed,
 		"streak_save_attempts_max":   stats.StreakSaveAttemptsMax,
 		"streak_save_attempts_avail": stats.StreakSaveAttemptsAvail,
+		"days_in_pack":               stats.DaysInPack,
 	}
 	if kickAt != "" {
 		out["inactivity_removal_at"] = kickAt

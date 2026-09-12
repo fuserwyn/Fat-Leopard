@@ -276,6 +276,19 @@
   white-space: nowrap;
 }
 
+/* Подпись «Из X дней в стае» — под карточкой «Всего тренировок». */
+.profile__pack-days {
+  margin: 4px 0 0;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0.01em;
+  color: var(--text-muted, #666);
+  text-align: left;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
 .stat-card--inactive-yellow {
   border-color: rgba(230, 178, 40, 0.55);
   background: color-mix(in srgb, rgba(230, 178, 40, 0.14) 100%, var(--card));
