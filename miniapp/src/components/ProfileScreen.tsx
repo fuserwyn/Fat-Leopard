@@ -1035,7 +1035,7 @@ export function ProfileScreen({
             <div className="stat-card__val">{displayStreak}</div>
           </div>
           {burnLabel ? (
-            <div className="profile__burn" title={burnLabel} aria-label={burnLabel}>
+            <div className="profile__burn" aria-label={burnLabel}>
               <svg className="profile__burn-icon" viewBox="0 0 16 16" aria-hidden focusable="false">
                 <circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" strokeWidth="1.5" />
                 <path
@@ -1047,6 +1047,7 @@ export function ProfileScreen({
                   strokeLinejoin="round"
                 />
               </svg>
+              <span className="profile__burn-text">{burnLabel}</span>
             </div>
           ) : null}
         </div>

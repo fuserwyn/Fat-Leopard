@@ -263,17 +263,27 @@
   justify-content: center;
 }
 
-/* Иконка часов — под карточкой «Текущий стрик», по левому краю плашки. */
+/* Остаток до сгорания стрика — под карточкой «Текущий стрик», по левому краю плашки. */
 .profile__burn {
   margin: 4px 0 0;
-  color: #000;
-  line-height: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #dc3737;
+  line-height: 1.2;
+  font-size: 10px;
+  font-weight: 600;
 }
 
 .profile__burn-icon {
   display: block;
   width: 14px;
   height: 14px;
+  flex-shrink: 0;
+}
+
+.profile__burn-text {
+  min-width: 0;
 }
 
 .stat-card--inactive-yellow {
