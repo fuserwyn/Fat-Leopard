@@ -17,3 +17,7 @@
 Изменены: `ProfileScreen.tsx`, `ProfileScreen.css`, `index.css`. TypeScript-проверка и тесты `streakLabel` проходят.
 
 Локальный коммит не создан: в окружении не настроен git user identity (менять config по правилам нельзя). Изменения лежат в рабочей директории на ветке `tracker/85-644`.
+
+## ревью
+
+Ревью: на ветке tracker/85-644 config.go целый. Можно на тест.
