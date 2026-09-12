@@ -5,7 +5,6 @@ import { inactiveDaysFromRemovalRemaining, removalRemainingUntil } from "../lib/
 import { cupsLevelProgressBarPct, formatCupsLevelProgressLabel, miniappCupsLevelProgress, miniappLevelFromCups, miniappLevelName } from "../lib/miniappLevel";
 import {
   canUseStreakSave,
-  daysWordRu,
   effectiveStreakDays,
   streakBurnLabel,
 } from "../lib/streakLabel";
@@ -115,7 +114,6 @@ export function ProfileScreen({
   achievementCount,
   achievementsMax,
   workouts,
-  daysInPack = 0,
   daysSinceLastTraining,
   lastTrainingDate,
   inactivityRemovalAt,
@@ -1037,8 +1035,18 @@ export function ProfileScreen({
             <div className="stat-card__val">{displayStreak}</div>
           </div>
           {burnLabel ? (
-            <div className="profile__burn" title={burnLabel}>
-              {burnLabel}
+            <div className="profile__burn" title={burnLabel} aria-label={burnLabel}>
+              <svg className="profile__burn-icon" viewBox="0 0 16 16" aria-hidden focusable="false">
+                <circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                <path
+                  d="M8 4.75V8l2.25 1.75"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
             </div>
           ) : null}
         </div>
@@ -1058,20 +1066,13 @@ export function ProfileScreen({
           <div className="stat-card__label">Рекорд кубков</div>
           <div className="stat-card__val">{recordCups}</div>
         </div>
-        <div className="profile__stat-slot">
-          <div
-            className={`stat-card${
-              inactiveHighlight !== "none" ? ` stat-card--inactive-${inactiveHighlight}` : ""
-            }`}
-          >
-            <div className="stat-card__label">Всего тренировок</div>
-            <div className="stat-card__val">{workouts}</div>
-          </div>
-          {daysInPack > 0 ? (
-            <div className="profile__pack-days" title={`Из ${daysInPack} ${daysWordRu(daysInPack)} в стае`}>
-              Из {daysInPack} {daysWordRu(daysInPack)} в стае
-            </div>
-          ) : null}
+        <div
+          className={`stat-card${
+            inactiveHighlight !== "none" ? ` stat-card--inactive-${inactiveHighlight}` : ""
+          }`}
+        >
+          <div className="stat-card__label">Всего тренировок</div>
+          <div className="stat-card__val">{workouts}</div>
         </div>
       </div>
 
