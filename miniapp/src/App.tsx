@@ -69,6 +69,7 @@ export function App() {
   const [achievementCount, setAchievementCount] = useState(0);
   const [achievementsMax, setAchievementsMax] = useState(9);
   const [workouts, setWorkouts] = useState(0);
+  const [recordCups, setRecordCups] = useState(0);
   const [daysInPack, setDaysInPack] = useState(0);
   const [suggestedWorkoutTypes, setSuggestedWorkoutTypes] = useState<WorkoutCategoryId[] | null>(null);
   const [leoPending, setLeoPending] = useState(0);
@@ -229,6 +230,7 @@ export function App() {
         achievement_count?: number;
         achievements_max?: number;
         workouts_total?: number;
+        max_cups_per_training?: number;
         workouts_week?: number;
         inactivity_removal_at?: string;
         timezone_offset?: number;
@@ -270,6 +272,7 @@ export function App() {
       setAchievementCount(achCount);
       setAchievementsMax(typeof j.achievements_max === "number" ? j.achievements_max : 9);
       setWorkouts(workoutsTotal);
+      setRecordCups(typeof j.max_cups_per_training === "number" ? j.max_cups_per_training : 0);
       setDaysInPack(typeof j.days_in_pack === "number" && j.days_in_pack > 0 ? j.days_in_pack : 0);
       setSuggestedWorkoutTypes(parseSuggestedWorkoutTypes(j.suggested_workout_types));
       notifyNewAchievements(userId, achCount, workoutsTotal);
@@ -465,6 +468,7 @@ export function App() {
             userPhotoUrl={photoUrl}
             xp={xp}
             recordStreak={recordStreak}
+            recordCups={recordCups}
             achievementCount={achievementCount}
             achievementsMax={achievementsMax}
             daysSinceLastTraining={daysSinceLastTraining}
