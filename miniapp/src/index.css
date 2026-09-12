@@ -871,7 +871,7 @@ html[data-theme="leopard"] .profile__support:not(.profile__admin) {
 
 html[data-theme="leopard"] .profile__burn {
   margin-top: 10px;
-  color: #000;
+  color: #ff6b5a;
 }
 
 html[data-theme="leopard"] .chat:not(.support-chat) .chat__bubble--sys {
