@@ -174,6 +174,34 @@ const awaitingApproval: TrackerTask = {
   dev_column: "approve",
 };
 
+describe("TrackerScreen todo column order", () => {
+  it("shows oldest created task first in Ожидает (FIFO)", async () => {
+    const older: TrackerTask = {
+      ...pending,
+      id: 10,
+      num: 1,
+      prompt: "старая задача",
+      created_at: "2026-01-01T10:00:00Z",
+    };
+    const newer: TrackerTask = {
+      ...pending,
+      id: 20,
+      num: 2,
+      prompt: "новая задача",
+      created_at: "2026-02-01T10:00:00Z",
+    };
+    trackerList.mockResolvedValue({ tasks: [newer, older], started: 0 });
+    trackerAuthors.mockResolvedValue([]);
+
+    render(<TrackerScreen initData="admin" showAlert={() => undefined} />);
+    await waitFor(() => expect(screen.getByText("#1")).toBeTruthy());
+
+    const todoCol = document.querySelector('[data-col="todo"]');
+    const text = todoCol?.textContent || "";
+    expect(text.indexOf("#1")).toBeLessThan(text.indexOf("#2"));
+  });
+});
+
 describe("TrackerScreen approval column", () => {
   it("shows unapproved task in approve column even when dev_column is todo", async () => {
     trackerList.mockResolvedValue({
