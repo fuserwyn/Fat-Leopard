@@ -23,6 +23,7 @@ import {
   trackerRefresh,
   trackerReschedule,
   trackerReview,
+  trackerApprove,
   trackerRestart,
   trackerShip,
   trackerTask,
@@ -130,6 +131,12 @@ function formatWhen(iso: string): string {
 /** Задачу придумал Лео, а админ одобрил. */
 const LEO_AUTHOR_ID = -1;
 
+/** На доске автором показываем Лео: id −1 или kind leo_task (аппрув выставил админ). */
+function isLeoTask(task: TrackerTask): boolean {
+  const id = Number(task.author_id) || 0;
+  return id === LEO_AUTHOR_ID || task.kind === "leo_task";
+}
+
 const NEXT_COL: Record<string, { column: string; label: string }> = {
   todo: { column: "doing", label: "В работу" },
   approve: { column: "doing", label: "В работу" },
@@ -141,16 +148,16 @@ const NEXT_COL: Record<string, { column: string; label: string }> = {
 
 /** Автор задачи: Лео или человек из админки. */
 function authorLabel(task: TrackerTask, authors: Record<number, string>): string {
+  if (isLeoTask(task)) return "Лео";
   const id = Number(task.author_id) || 0;
-  if (id === LEO_AUTHOR_ID) return "Лео";
   if (!id) return "Из чата";
   return authors[id] || `id ${id}`;
 }
 
 /** Картинка автора: у Лео своя, у людей — из чата стаи, у задач из чата её нет. */
 function authorAvatar(task: TrackerTask, initData: string): string {
+  if (isLeoTask(task)) return LEO_AVATAR_URL;
   const id = Number(task.author_id) || 0;
-  if (id === LEO_AUTHOR_ID) return LEO_AVATAR_URL;
   return id > 0 ? trackerAvatarUrl(initData, id) : "";
 }
 
@@ -210,6 +217,8 @@ export function TrackerScreen({ initData, showAlert }: Props) {
   const [when, setWhen] = useState(WHEN_PRESETS[0].value);
   const [whenAt, setWhenAt] = useState("");
   const [needsApproval, setNeedsApproval] = useState(false);
+  /** Задачу от Лео на доску — с аппрувом других админов. */
+  const [leoNeedsApproval, setLeoNeedsApproval] = useState(true);
   const [images, setImages] = useState<TaskImage[]>([]);
   /** Тема для Лео; пусто — придумывает сам. */
   const [leoTopic, setLeoTopic] = useState("");
@@ -328,7 +337,7 @@ export function TrackerScreen({ initData, showAlert }: Props) {
     await createTaskWith(prompt.trim());
   };
 
-  const createTaskWith = async (raw: string, opts?: { leo?: boolean }) => {
+  const createTaskWith = async (raw: string, opts?: { leo?: boolean; needsApproval?: boolean }) => {
     const text = raw.trim();
     if (!text) {
       showAlert("Опиши задачу.");
@@ -338,12 +347,13 @@ export function TrackerScreen({ initData, showAlert }: Props) {
       showAlert("Выбери дату и время.");
       return;
     }
+    const wantApproval = opts?.leo ? (opts.needsApproval ?? leoNeedsApproval) : needsApproval;
     setBusy(true);
     try {
       const res = await trackerCreate(initData, {
         when: when === "custom" ? whenFromPicker(whenAt) : when,
         prompt: text,
-        needs_approval: needsApproval,
+        needs_approval: wantApproval,
         // Задачу сочинил Лео — пусть на доске и стоит он, а не тот, кто одобрил.
         leo: opts?.leo,
       });
@@ -360,10 +370,10 @@ export function TrackerScreen({ initData, showAlert }: Props) {
       }
       setImages([]);
       setPrompt("");
-      setNeedsApproval(false);
+      if (!opts?.leo) setNeedsApproval(false);
       showAlert(
-        needsApproval
-          ? `Задача поставлена на аппрув. Админам ушло уведомление.`
+        wantApproval
+          ? `Задача на доске в колонке «Аппрув». Админам ушло уведомление.`
           : `Задача поставлена на ${res.when || "ближайший запуск"}.`,
       );
       await load(false, true);
@@ -463,9 +473,9 @@ export function TrackerScreen({ initData, showAlert }: Props) {
 
   const approveProposal = async () => {
     if (!proposal?.task) return;
-    setPrompt(proposal.task);
+    const text = proposal.task;
     setProposal(null);
-    await createTaskWith(proposal.task, { leo: true });
+    await createTaskWith(text, { leo: true, needsApproval: leoNeedsApproval });
   };
 
   const openTask = async (task: TrackerTask) => {
@@ -817,8 +827,9 @@ export function TrackerScreen({ initData, showAlert }: Props) {
                 </span>
               </div>
               <p className="tracker__hint">
-                Раз в {autonomy.every_hours} ч Лео придумывает спринт своим голосом и сам ставит
-                задачи — по {autonomy.tasks_per_run} за прогон. На доске у них его аватарка.
+                Раз в {autonomy.every_hours} ч Лео придумывает спринт своим голосом и выносит задачи
+                на доску — по {autonomy.tasks_per_run} за прогон. Сначала колонка «Аппрув», потом
+                работа. На карточках его аватарка.
               </p>
               {autonomy.active ? (
                 <p className="tracker__auto-facts">
@@ -904,8 +915,8 @@ export function TrackerScreen({ initData, showAlert }: Props) {
               <b>Задача от Лео</b>
             </div>
             <p className="tracker__hint">
-              Напиши тему — или оставь пусто, тогда Лео решит сам. Дальше ты выбираешь: берём в работу или пусть
-              думает ещё.
+              Напиши тему — или оставь пусто, тогда Лео решит сам. Понравилось — выноси на доску: сначала аппрув
+              других админов, потом в работу.
             </p>
             <div className="tracker__new-row">
               <input
@@ -935,13 +946,24 @@ export function TrackerScreen({ initData, showAlert }: Props) {
                       onChange={(e) => setWhenAt(e.target.value)}
                     />
                   ) : null}
+                  <label className="tracker-feat">
+                    <input
+                      type="checkbox"
+                      checked={leoNeedsApproval}
+                      onChange={(e) => setLeoNeedsApproval(e.target.checked)}
+                    />
+                    <span>
+                      <b>Нужен аппрув других админов</b>
+                      <small>Два аппрува в Telegram или здесь — и задача уйдёт в работу</small>
+                    </span>
+                  </label>
                   <button
                     type="button"
                     className="tracker__primary"
                     disabled={busy || proposeBusy || !proposal.task}
                     onClick={() => void approveProposal()}
                   >
-                    Одобрить и поставить
+                    {leoNeedsApproval ? "На доску (аппрув)" : "На доску"}
                   </button>
                   <button
                     type="button"
@@ -1314,6 +1336,35 @@ export function TrackerScreen({ initData, showAlert }: Props) {
               <button type="button" disabled={busy} onClick={() => setEditorFor(detail.id)}>
                 🖼 Картинка
               </button>
+              {!isQa && detail.dev_column === "approve" && detail.needs_approval ? (
+                <>
+                  <button
+                    type="button"
+                    className="tracker-modal__accent"
+                    disabled={busy}
+                    onClick={() =>
+                      void actOnDetail(
+                        () => trackerApprove(initData, detail.id, "approve"),
+                        "Аппрув учтён.",
+                      )
+                    }
+                  >
+                    Аппрув ({detail.approvals_count ?? 0}/{detail.approvals_needed ?? 2})
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() =>
+                      void actOnDetail(
+                        () => trackerApprove(initData, detail.id, "reject"),
+                        "Задача отклонена.",
+                      )
+                    }
+                  >
+                    Отклонить
+                  </button>
+                </>
+              ) : null}
               {!isQa && detail.dev_column !== "approve" && NEXT_COL[detail.dev_column || "todo"] ? (
                 <button
                   type="button"
@@ -1591,9 +1642,10 @@ function TaskCard({
         <span>{author}</span>
       </div>
       <div className="tracker-card__text">{parsed.text || task.prompt}</div>
-      {parsed.sprint || task.kind === "deploy_fix" || task.manual_qa || task.fast_track || task.has_attachments || task.needs_approval ? (
+      {parsed.sprint || isLeoTask(task) || task.kind === "deploy_fix" || task.manual_qa || task.fast_track || task.has_attachments || task.needs_approval ? (
         <div className="tracker-card__badges">
           {parsed.sprint ? <span className="tracker-badge tracker-badge--sprint">Спринт {parsed.sprint}</span> : null}
+          {isLeoTask(task) ? <span className="tracker-badge tracker-badge--leo">🐆 Лео</span> : null}
           {task.needs_approval ? (
             <span className="tracker-badge tracker-badge--approve">
               👍 {task.approvals_count ?? 0}/{task.approvals_needed ?? 2}

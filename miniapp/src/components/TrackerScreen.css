@@ -494,6 +494,12 @@ html.app-keyboard-open .tracker {
   border: 1px solid rgba(191, 90, 242, 0.26);
 }
 
+.tracker-badge--leo {
+  color: #e8a838;
+  background: rgba(232, 168, 56, 0.12);
+  border: 1px solid rgba(232, 168, 56, 0.26);
+}
+
 .tracker-badge--photo {
   color: var(--muted);
   background: var(--card-inner);
