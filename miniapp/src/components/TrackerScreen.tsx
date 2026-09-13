@@ -23,7 +23,7 @@ import {
   trackerRefresh,
   trackerReschedule,
   trackerReview,
-  trackerRunNow,
+  trackerRestart,
   trackerShip,
   trackerTask,
   trackerAutoTest,
@@ -95,6 +95,7 @@ function canRetryAgent(task: TrackerTask): boolean {
 
 /** Завершённую, отменённую, упавшую или зависшую задачу можно снова поставить. */
 function canReturnToWork(task: TrackerTask): boolean {
+  if (typeof task.can_restart === "boolean") return task.can_restart;
   const status = String(task.status || "").toLowerCase();
   const column = String(task.dev_column || "").toLowerCase();
   return canRetryAgent(task)
@@ -552,6 +553,20 @@ export function TrackerScreen({ initData, showAlert }: Props) {
     }
   };
 
+  const restartFromBoard = async (task: TrackerTask) => {
+    setBusy(true);
+    try {
+      await trackerRestart(initData, task.id);
+      showAlert(canRetryAgent(task) ? "Снова запускаем агента." : "Задача перезапущена.");
+      if (detail?.id === task.id) setDetail(null);
+      await load(false, true);
+    } catch (e) {
+      showAlert(e instanceof Error ? e.message : "Не удалось перезапустить задачу");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const deleteFromBoard = async (task: TrackerTask) => {
     setBusy(true);
     try {
@@ -774,6 +789,7 @@ export function TrackerScreen({ initData, showAlert }: Props) {
                             author={authorLabel(t, authors)}
                             avatar={authorAvatar(t, initData)}
                             onOpen={() => void openTask(t)}
+                            onRestart={canReturnToWork(t) ? () => void restartFromBoard(t) : undefined}
                             onDelete={t.can_delete ? () => setDeleteAsk(t) : undefined}
                           />
                         ))
@@ -1359,12 +1375,12 @@ export function TrackerScreen({ initData, showAlert }: Props) {
                   disabled={busy}
                   onClick={() =>
                     void actOnDetail(
-                      () => trackerRunNow(initData, detail.id),
-                      canRetryAgent(detail) ? "Снова запускаем агента." : "Задача снова в работе.",
+                      () => trackerRestart(initData, detail.id),
+                      canRetryAgent(detail) ? "Снова запускаем агента." : "Задача перезапущена.",
                     )
                   }
                 >
-                  {canRetryAgent(detail) ? "Запустить снова" : "Вернуть в работу"}
+                  {canRetryAgent(detail) ? "Запустить снова" : "Перезапустить"}
                 </button>
               ) : null}
               {isQa && detail.handed_to_qa ? (
@@ -1496,6 +1512,7 @@ function TaskCard({
   author,
   avatar,
   onOpen,
+  onRestart,
   onDelete,
 }: {
   task: TrackerTask;
@@ -1503,6 +1520,7 @@ function TaskCard({
   author: string;
   avatar: string;
   onOpen: () => void;
+  onRestart?: () => void;
   onDelete?: () => void;
 }) {
   const parsed = parsePrompt(task.prompt);
@@ -1535,19 +1553,37 @@ function TaskCard({
       <div className="tracker-card__head">
         <span className="tracker-card__id">#{taskNo(task)}</span>
         <span className="tracker-card__status">{statusText}</span>
-        {onDelete ? (
-          <button
-            type="button"
-            className="tracker-card__delete"
-            aria-label="Удалить задачу"
-            title="Удалить"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-            }}
-          >
-            🗑
-          </button>
+        {onRestart || onDelete ? (
+          <span className="tracker-card__actions">
+            {onRestart ? (
+              <button
+                type="button"
+                className="tracker-card__restart"
+                aria-label="Перезапустить задачу"
+                title="Перезапустить"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRestart();
+                }}
+              >
+                ↻
+              </button>
+            ) : null}
+            {onDelete ? (
+              <button
+                type="button"
+                className="tracker-card__delete"
+                aria-label="Удалить задачу"
+                title="Удалить"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete();
+                }}
+              >
+                🗑
+              </button>
+            ) : null}
+          </span>
         ) : null}
       </div>
       <div className="tracker-card__author">

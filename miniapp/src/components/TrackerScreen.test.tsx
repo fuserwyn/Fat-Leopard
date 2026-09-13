@@ -6,6 +6,7 @@ import type { TrackerTask } from "../lib/trackerApi";
 const trackerList = vi.fn();
 const trackerRefresh = vi.fn();
 const trackerAuthors = vi.fn();
+const trackerRestart = vi.fn();
 
 vi.mock("../lib/trackerApi", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/trackerApi")>();
@@ -14,6 +15,7 @@ vi.mock("../lib/trackerApi", async (importOriginal) => {
     trackerList: (...args: unknown[]) => trackerList(...args),
     trackerRefresh: (...args: unknown[]) => trackerRefresh(...args),
     trackerAuthors: (...args: unknown[]) => trackerAuthors(...args),
+    trackerRestart: (...args: unknown[]) => trackerRestart(...args),
     trackerAvatarUrl: () => "",
   };
 });
@@ -25,6 +27,7 @@ afterEach(() => {
   trackerList.mockReset();
   trackerRefresh.mockReset();
   trackerAuthors.mockReset();
+  trackerRestart.mockReset();
 });
 
 const pending: TrackerTask = {
@@ -79,6 +82,34 @@ const reviewed: TrackerTask = {
   result: "⏰ Задача #1 выполнена.\n\nГотово.\n- Подпись теперь только «сгорит через …».",
   live_step: "Агент сдал результат",
 };
+
+const doneTask: TrackerTask = {
+  ...pending,
+  status: "done",
+  status_label: "Выполнено",
+  status_icon: "✅",
+  phase: "done",
+  dev_column: "done",
+  done: true,
+  active: false,
+  can_restart: true,
+};
+
+describe("TrackerScreen restart", () => {
+  it("shows restart on done card and calls restart op", async () => {
+    trackerList.mockResolvedValue({ tasks: [doneTask], started: 0 });
+    trackerRestart.mockResolvedValue({ ok: true });
+    trackerAuthors.mockResolvedValue([]);
+    const alerts: string[] = [];
+
+    render(<TrackerScreen initData="admin" showAlert={(t) => alerts.push(t)} />);
+    await waitFor(() => expect(screen.getByText("#1")).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("button", { name: "Перезапустить задачу" }));
+    await waitFor(() => expect(trackerRestart).toHaveBeenCalledWith("admin", 11));
+    expect(alerts.some((a) => a.includes("перезапущена"))).toBe(true);
+  });
+});
 
 describe("TrackerScreen refresh button", () => {
   it("calls refresh and moves a due card into work", async () => {

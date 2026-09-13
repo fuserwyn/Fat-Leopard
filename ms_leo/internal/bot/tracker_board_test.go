@@ -260,6 +260,51 @@ func TestTrackerRequestRefreshIsBoardOp(t *testing.T) {
 	}
 }
 
+func TestTrackerCanRestart(t *testing.T) {
+	done := database.TrackerTask{Status: "done", DevColumn: trackerColDone}
+	if !trackerCanRestart(done) {
+		t.Fatal("done must restart")
+	}
+	failed := database.TrackerTask{
+		Status:    "running",
+		DevColumn: trackerColDoing,
+		Error:     "Агент не стартовал",
+		Steps:     []string{"агент:#88", "Ошибка"},
+	}
+	if !trackerCanRestart(failed) {
+		t.Fatal("failed agent must restart")
+	}
+	live := database.TrackerTask{
+		Status:     "running",
+		DevColumn:  trackerColDoing,
+		HasLastRun: true,
+		Steps:      []string{"Агент: запустили", "агент:#88"},
+	}
+	if trackerCanRestart(live) {
+		t.Fatal("live remote must not restart")
+	}
+	review := database.TrackerTask{Status: "reviewing", DevColumn: trackerColReview}
+	if !trackerCanRestart(review) {
+		t.Fatal("review must restart")
+	}
+}
+
+func TestTrackerTaskViewCanRestart(t *testing.T) {
+	view := trackerTaskView(database.TrackerTask{
+		ID: 5, Num: 2, Status: "done", DevColumn: trackerColDone,
+	}, false)
+	if view["can_restart"] != true {
+		t.Fatalf("done: %#v", view["can_restart"])
+	}
+	view = trackerTaskView(database.TrackerTask{
+		ID: 6, Status: "running", DevColumn: trackerColDoing,
+		Steps: []string{"Агент: запустили", "агент:#1"},
+	}, false)
+	if view["can_restart"] != false {
+		t.Fatalf("live: %#v", view["can_restart"])
+	}
+}
+
 func TestPayloadHelpers(t *testing.T) {
 	p := map[string]any{"prompt": "  hello ", "leo": true, "sprint": float64(2), "on": "true"}
 	if payloadString(p, "prompt") != "hello" {

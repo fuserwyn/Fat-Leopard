@@ -392,6 +392,35 @@ html.app-keyboard-open .tracker {
   overflow-wrap: anywhere;
 }
 
+.tracker-card__actions {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.tracker-card__restart {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tracker-card__restart:hover,
+.tracker-card__restart:active {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
 .tracker-card__delete {
   flex: none;
   width: 28px;

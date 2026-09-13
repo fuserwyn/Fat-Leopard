@@ -27,6 +27,8 @@ export type TrackerTask = {
   done: boolean;
   active: boolean;
   can_delete: boolean;
+  /** Можно перезапустить агента с доски. */
+  can_restart?: boolean;
   auto_review: boolean;
   manual_qa: boolean;
   fast_track: boolean;
@@ -98,6 +100,7 @@ export type TrackerOp =
   | "auto_test"
   | "prompt"
   | "reschedule"
+  | "restart"
   | "promote"
   | "revert"
   | "ship"
@@ -267,11 +270,17 @@ export function trackerMove(initData: string, taskId: number, column: string) {
   return call<{ ok: boolean }>(initData, "move", { task_id: taskId, payload: { id: taskId, column } });
 }
 
-/** Вернуть завершённую или отменённую задачу в очередь и сразу взять в работу. */
-export function trackerRunNow(initData: string, taskId: number) {
-  return call<{ ok: boolean }>(initData, "reschedule", {
-    payload: { id: taskId, when: "сейчас" },
+/** Перезапустить задачу: сбросить ошибку/QA и снова пустить агента. */
+export function trackerRestart(initData: string, taskId: number) {
+  return call<{ ok: boolean; task?: TrackerTask }>(initData, "restart", {
+    task_id: taskId,
+    payload: { id: taskId },
   });
+}
+
+/** @deprecated используй trackerRestart */
+export function trackerRunNow(initData: string, taskId: number) {
+  return trackerRestart(initData, taskId);
 }
 
 export function trackerAutoQa(initData: string, taskId: number) {
