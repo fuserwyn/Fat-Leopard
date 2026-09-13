@@ -21,3 +21,7 @@
 Изменены: `tracker_board.go`, `leo_autonomy.go`, `TrackerScreen.tsx`, `TrackerScreen.css`, `tracker_board_test.go`.
 
 Локальный коммит не создан: в окружении не настроен git user identity.
+
+## ревью
+
+Ревью: на ветке tracker/89-664 config.go целый. Можно на тест.
