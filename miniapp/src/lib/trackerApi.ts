@@ -496,7 +496,13 @@ export function sprintGenerate(
 
 export function sprintApply(
   initData: string,
-  payload: { features: SprintFeature[]; sprint_count: number; tasks_per_sprint: number },
+  payload: {
+    features: SprintFeature[];
+    sprint_count: number;
+    tasks_per_sprint: number;
+    leo?: boolean;
+    needs_approval?: boolean;
+  },
 ) {
   return call<{ created?: number; ok?: boolean }>(initData, "sprint_apply", {
     payload: { auto_push: true, ...payload },
