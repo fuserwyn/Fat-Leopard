@@ -156,7 +156,7 @@ describe("streakBurnLabel", () => {
   const now = new Date(2026, 4, 29, 18, 0, 0);
 
   it("собирает подпись для живого стрика", () => {
-    expect(streakBurnLabel(5, 1, now)).toBe("сгорит через 6 ч 0 мин");
+    expect(streakBurnLabel(5, 1, now)).toBe("текущий стрик сгорит через 6 ч 0 мин");
   });
 
   it("null, когда стрик не горит", () => {
