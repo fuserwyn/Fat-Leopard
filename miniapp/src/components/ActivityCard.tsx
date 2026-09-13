@@ -130,12 +130,16 @@ export type ActivityCardPostEdit = {
   photoBusy?: boolean;
 };
 
-/** Минимум реакций в строке до кнопки «⋯», если типов больше (остальное — в попапе); строка может переноситься (flex-wrap). */
-const TRAINING_REACTIONS_MIN_INLINE = 4;
+/** До трёх типов реакций всегда показываем все чипы — без «⋯». */
+const TRAINING_REACTIONS_ALWAYS_INLINE = 3;
+
+/** Минимум реакций в строке до «⋯», если типов больше TRAINING_REACTIONS_ALWAYS_INLINE. */
+const TRAINING_REACTIONS_MIN_INLINE = 3;
 
 /** Ширина строки + кнопка «ещё»: оценка px на кнопку (эмодзи + отступы + счётчик). */
-function trainingReactionVisibleCount(rowWidth: number, total: number): number {
+export function trainingReactionVisibleCount(rowWidth: number, total: number): number {
   if (total <= 0) return 0;
+  if (total <= TRAINING_REACTIONS_ALWAYS_INLINE) return total;
   if (rowWidth <= 0) return total;
   const chip = 48;
   const gap = 6;
@@ -150,9 +154,6 @@ function trainingReactionVisibleCount(rowWidth: number, total: number): number {
       best = k;
       break;
     }
-  }
-  if (total <= TRAINING_REACTIONS_MIN_INLINE) {
-    return Math.min(total, best);
   }
   return Math.min(total, Math.max(TRAINING_REACTIONS_MIN_INLINE, best));
 }

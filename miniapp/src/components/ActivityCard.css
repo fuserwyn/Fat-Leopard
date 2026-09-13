@@ -508,7 +508,7 @@
 
 .act-card__react-inline {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   min-width: 0;

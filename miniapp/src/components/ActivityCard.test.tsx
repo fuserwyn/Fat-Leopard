@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen, fireEvent } from "@testing-library/react";
-import { ActivityCard, avatarFallbackGlyph } from "./ActivityCard";
+import { ActivityCard, avatarFallbackGlyph, trainingReactionVisibleCount } from "./ActivityCard";
 
 class ROStub {
   observe() {}
@@ -46,6 +46,18 @@ describe("ActivityCard streak pill", () => {
   it("hides the streak pill when hideStreak is set", () => {
     render(<ActivityCard {...baseProps} streak={10} hideStreak />);
     expect(screen.queryByLabelText(/^Стрик:/)).toBeNull();
+  });
+});
+
+describe("trainingReactionVisibleCount", () => {
+  it("always shows up to three reaction types without collapsing to more", () => {
+    expect(trainingReactionVisibleCount(120, 1)).toBe(1);
+    expect(trainingReactionVisibleCount(120, 2)).toBe(2);
+    expect(trainingReactionVisibleCount(120, 3)).toBe(3);
+  });
+
+  it("may hide extra reaction types behind more when there are more than three", () => {
+    expect(trainingReactionVisibleCount(120, 4)).toBeLessThan(4);
   });
 });
 
