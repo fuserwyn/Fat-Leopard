@@ -224,6 +224,35 @@ func trackerNotifyHeading(t database.TrackerTask) string {
 	return trackerNotifyLabel(trackerDueNum(t), trackerTaskTitle(t.Prompt))
 }
 
+// trackerTaskAuthorLabel — кто поставил задачу: Лео, админ или «из чата».
+func (b *Bot) trackerTaskAuthorLabel(t database.TrackerTask) string {
+	if !t.HasAuthor {
+		return "Из чата"
+	}
+	if t.AuthorID == database.TrackerLeoAuthorID || t.Kind == "leo_task" {
+		return "Лео"
+	}
+	if t.AuthorID <= 0 {
+		return "Из чата"
+	}
+	if b != nil && b.db != nil {
+		people, err := b.db.AdminPeopleByIDs(b.adminPackChatID(), []int64{t.AuthorID})
+		if err == nil && len(people) > 0 {
+			name := strings.TrimSpace(people[0].DisplayName)
+			if name == "" {
+				name = strings.TrimSpace(people[0].Username)
+			}
+			if name != "" {
+				if !strings.HasPrefix(name, "@") && adminLooksLikeTelegramHandle(name) {
+					return "@" + name
+				}
+				return name
+			}
+		}
+	}
+	return fmt.Sprintf("id %d", t.AuthorID)
+}
+
 func clipTrackerNotifyTitle(s string) string {
 	r := []rune(strings.TrimSpace(s))
 	if len(r) <= 80 {
