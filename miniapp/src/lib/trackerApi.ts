@@ -96,6 +96,7 @@ export type TrackerOp =
   | "status"
   | "cancel"
   | "delete"
+  | "clear_finished"
   | "qa"
   | "auto_qa"
   | "review"
@@ -255,6 +256,11 @@ export function trackerApprove(
 
 export function trackerDelete(initData: string, taskId: number) {
   return call<{ ok: boolean }>(initData, "delete", { task_id: taskId });
+}
+
+/** Снять с доски выполненные, отменённые и завершившиеся с ошибкой. */
+export function trackerClearFinished(initData: string) {
+  return call<{ ok: boolean; deleted?: number; tasks: TrackerTask[] }>(initData, "clear_finished");
 }
 
 /** Доска тестировщика: start — взять в тест, pass — принять, fail — вернуть, reset — в очередь. */

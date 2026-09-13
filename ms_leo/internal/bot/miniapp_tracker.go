@@ -197,6 +197,8 @@ func (b *Bot) trackerRequest(
 		return b.localTrackerCancel(taskID, payload)
 	case "delete":
 		return b.localTrackerDelete(taskID, payload)
+	case "clear_finished":
+		return b.localTrackerClearFinished()
 	case "qa":
 		return b.localTrackerQa(taskID, payload)
 	case "auto_qa":

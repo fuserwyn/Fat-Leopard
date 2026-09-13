@@ -521,6 +521,60 @@ func (b *Bot) localTrackerDelete(taskID int64, payload map[string]any) (json.Raw
 	return trackerJSON(map[string]any{"ok": true})
 }
 
+// trackerTaskClearable — выполненные, отменённые и упавшие карточки можно
+// снять с доски пакетом, не трогая очередь и живую работу агента.
+func trackerTaskClearable(t database.TrackerTask) bool {
+	status := strings.ToLower(strings.TrimSpace(t.Status))
+	col := strings.ToLower(strings.TrimSpace(t.DevColumn))
+	if status == "done" || status == "completed" || col == trackerColDone {
+		return true
+	}
+	if status == "canceled" || status == "cancelled" || col == trackerColCanceled {
+		return true
+	}
+	if status == "error" {
+		return true
+	}
+	if strings.TrimSpace(t.Error) == "" {
+		return false
+	}
+	if status == "running" || status == "reviewing" {
+		if trackerStepRemoteID(t.Steps) > 0 && !trackerAgentStartFailed(t) {
+			return false
+		}
+	}
+	return true
+}
+
+func (b *Bot) localTrackerClearFinished() (json.RawMessage, error) {
+	if b == nil || b.db == nil {
+		return nil, fmt.Errorf("база недоступна")
+	}
+	list, err := b.db.ListTrackerTasks()
+	if err != nil {
+		return nil, err
+	}
+	deleted := 0
+	for _, t := range list {
+		if !trackerTaskClearable(t) {
+			continue
+		}
+		if err := b.db.DeleteTrackerTask(t.ID); err != nil {
+			return nil, err
+		}
+		deleted++
+	}
+	fresh, err := b.db.ListTrackerTasks()
+	if err != nil {
+		return nil, err
+	}
+	tasks := make([]map[string]any, 0, len(fresh))
+	for _, t := range fresh {
+		tasks = append(tasks, trackerTaskView(t, false))
+	}
+	return trackerJSON(map[string]any{"ok": true, "deleted": deleted, "tasks": tasks, "repo": nil})
+}
+
 func (b *Bot) localTrackerRestart(taskID int64, payload map[string]any) (json.RawMessage, error) {
 	t, err := b.localTrackerLoad(taskID, payload)
 	if err != nil {

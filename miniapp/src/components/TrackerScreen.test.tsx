@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { TrackerTask } from "../lib/trackerApi";
 
 const trackerList = vi.fn();
@@ -9,6 +9,7 @@ const trackerAuthors = vi.fn();
 const trackerRestart = vi.fn();
 const trackerTask = vi.fn();
 const trackerPrompt = vi.fn();
+const trackerClearFinished = vi.fn();
 
 vi.mock("../lib/trackerApi", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/trackerApi")>();
@@ -20,6 +21,7 @@ vi.mock("../lib/trackerApi", async (importOriginal) => {
     trackerRestart: (...args: unknown[]) => trackerRestart(...args),
     trackerTask: (...args: unknown[]) => trackerTask(...args),
     trackerPrompt: (...args: unknown[]) => trackerPrompt(...args),
+    trackerClearFinished: (...args: unknown[]) => trackerClearFinished(...args),
     trackerAvatarUrl: () => "",
   };
 });
@@ -34,6 +36,7 @@ afterEach(() => {
   trackerRestart.mockReset();
   trackerTask.mockReset();
   trackerPrompt.mockReset();
+  trackerClearFinished.mockReset();
 });
 
 const pending: TrackerTask = {
@@ -186,6 +189,58 @@ describe("TrackerScreen approval column", () => {
     await waitFor(() => expect(screen.getByText("#2")).toBeTruthy());
     expect(document.querySelector('[data-col="todo"]')?.textContent).not.toContain("#2");
     expect(document.querySelector('[data-col="approve"]')?.textContent).toContain("#2");
+  });
+});
+
+const canceledTask: TrackerTask = {
+  ...pending,
+  id: 13,
+  num: 3,
+  status: "canceled",
+  status_label: "Отменено",
+  status_icon: "⛔",
+  phase: "canceled",
+  dev_column: "canceled",
+  done: false,
+  active: false,
+  can_delete: true,
+};
+
+const failedTask: TrackerTask = {
+  ...running,
+  id: 14,
+  num: 4,
+  error: "Агент не стартовал",
+  can_restart: true,
+};
+
+describe("TrackerScreen clear finished", () => {
+  it("shows clear button for finished cards and removes them", async () => {
+    trackerList.mockResolvedValue({ tasks: [pending, doneTask, canceledTask, failedTask], started: 0 });
+    trackerAuthors.mockResolvedValue([]);
+    trackerClearFinished.mockResolvedValue({ ok: true, deleted: 3, tasks: [pending] });
+    const alerts: string[] = [];
+
+    render(<TrackerScreen initData="admin" showAlert={(t) => alerts.push(t)} />);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Очистить (3)" })).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("button", { name: "Очистить (3)" }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Очистить доску?" })).toBeTruthy());
+
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Очистить" }));
+    await waitFor(() => expect(trackerClearFinished).toHaveBeenCalledWith("admin"));
+    expect(alerts.some((a) => a.includes("Убрали 3"))).toBe(true);
+  });
+
+  it("hides clear button when nothing to remove", async () => {
+    const inWork: TrackerTask = { ...running, id: 15, num: 2 };
+    trackerList.mockResolvedValue({ tasks: [pending, inWork], started: 0 });
+    trackerAuthors.mockResolvedValue([]);
+
+    render(<TrackerScreen initData="admin" showAlert={() => undefined} />);
+    await waitFor(() => expect(screen.getByText("#1")).toBeTruthy());
+    expect(screen.queryByRole("button", { name: /Очистить/ })).toBeNull();
   });
 });
 

@@ -404,6 +404,39 @@ func TestTrackerTaskViewCanRestart(t *testing.T) {
 	}
 }
 
+func TestTrackerTaskClearable(t *testing.T) {
+	done := database.TrackerTask{Status: "done", DevColumn: trackerColDone}
+	if !trackerTaskClearable(done) {
+		t.Fatal("done must clear")
+	}
+	canceled := database.TrackerTask{Status: "canceled", DevColumn: trackerColCanceled}
+	if !trackerTaskClearable(canceled) {
+		t.Fatal("canceled must clear")
+	}
+	failed := database.TrackerTask{
+		Status:    "running",
+		DevColumn: trackerColDoing,
+		Error:     "Агент не стартовал",
+		Steps:     []string{"агент:#88", "Ошибка"},
+	}
+	if !trackerTaskClearable(failed) {
+		t.Fatal("failed agent must clear")
+	}
+	live := database.TrackerTask{
+		Status:     "running",
+		DevColumn:  trackerColDoing,
+		HasLastRun: true,
+		Steps:      []string{"Агент: запустили", "агент:#88"},
+	}
+	if trackerTaskClearable(live) {
+		t.Fatal("live remote must not clear")
+	}
+	queued := database.TrackerTask{Status: "pending", DevColumn: trackerColTodo}
+	if trackerTaskClearable(queued) {
+		t.Fatal("queued must not clear")
+	}
+}
+
 func TestPayloadHelpers(t *testing.T) {
 	p := map[string]any{"prompt": "  hello ", "leo": true, "sprint": float64(2), "on": "true"}
 	if payloadString(p, "prompt") != "hello" {

@@ -13,6 +13,7 @@ import {
   trackerAutoQa,
   trackerAvatarUrl,
   trackerCancel,
+  trackerClearFinished,
   trackerCreate,
   trackerDelete,
   trackerDeployNow,
@@ -114,6 +115,18 @@ function buildPromptText(task: TrackerTask, text: string): string {
   if (!body) return "";
   if (parsed.sprint != null) return `[Спринт ${parsed.sprint}] ${body}`;
   return body;
+}
+
+/** Выполненные, отменённые и упавшие карточки можно снять с доски пакетом. */
+function isClearableTask(task: TrackerTask): boolean {
+  const status = String(task.status || "").toLowerCase();
+  const column = String(task.dev_column || "").toLowerCase();
+  if (["done", "completed"].includes(status) || column === "done") return true;
+  if (["canceled", "cancelled"].includes(status) || column === "canceled") return true;
+  if (status === "error") return true;
+  if (!task.error) return false;
+  if (status === "running" || status === "reviewing") return canRetryAgent(task);
+  return true;
 }
 
 /** Завершённую, отменённую, упавшую или зависшую задачу можно снова поставить. */
@@ -288,6 +301,8 @@ export function TrackerScreen({ initData, showAlert }: Props) {
   const [moveAt, setMoveAt] = useState("");
   /** Карточка, которую просят удалить с доски — показываем модалку подтверждения. */
   const [deleteAsk, setDeleteAsk] = useState<TrackerTask | null>(null);
+  /** Пакетная очистка завершённых, отменённых и упавших карточек. */
+  const [clearAsk, setClearAsk] = useState(false);
 
   const [hint, setHint] = useState("");
   const [sprintCount, setSprintCount] = useState(1);
@@ -371,6 +386,7 @@ export function TrackerScreen({ initData, showAlert }: Props) {
   const pool = useMemo(() => (isQa ? tasks.filter((t) => t.handed_to_qa) : tasks), [tasks, isQa]);
   const columns = isQa ? QA_COLS : DEV_COLS;
   const errCount = pool.filter((t) => t.error).length;
+  const clearableCount = tasks.filter(isClearableTask).length;
   const runningCount = pool.filter((t) =>
     isQa
       ? (t.qa_column || "todo") === "doing"
@@ -638,6 +654,27 @@ export function TrackerScreen({ initData, showAlert }: Props) {
     }
   };
 
+  const clearFinishedFromBoard = async () => {
+    setBusy(true);
+    try {
+      const j = await trackerClearFinished(initData);
+      const n = Number(j.deleted) || 0;
+      showAlert(
+        n > 0
+          ? `Убрали ${n} ${plural(n, "задачу", "задачи", "задач")} с доски.`
+          : "Нечего убирать — на доске нет завершённых карточек.",
+      );
+      if (detail && isClearableTask(detail)) setDetail(null);
+      setClearAsk(false);
+      setTasks(j.tasks ?? []);
+      await load(true);
+    } catch (e) {
+      showAlert(e instanceof Error ? e.message : "Не удалось очистить доску");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const loadIdeas = async () => {
     const text = hint.trim();
     if (!text) {
@@ -803,6 +840,16 @@ export function TrackerScreen({ initData, showAlert }: Props) {
             >
               {refreshing ? "Обновляю…" : "Обновить"}
             </button>
+            {clearableCount > 0 ? (
+              <button
+                type="button"
+                className="tracker__clear"
+                disabled={busy}
+                onClick={() => setClearAsk(true)}
+              >
+                Очистить ({clearableCount})
+              </button>
+            ) : null}
           </div>
 
           <div className="tracker__summary">
@@ -1228,6 +1275,35 @@ export function TrackerScreen({ initData, showAlert }: Props) {
           ) : null}
         </div>
       )}
+
+      {clearAsk ? (
+        <div className="tracker-confirm" role="dialog" aria-modal="true" aria-labelledby="tracker-clear-title">
+          <div className="tracker-confirm__box">
+            <h3 id="tracker-clear-title">Очистить доску?</h3>
+            <p>
+              Будут удалены выполненные, отменённые и завершившиеся с ошибкой:{" "}
+              <strong>{clearableCount}</strong>{" "}
+              {plural(clearableCount, "задача", "задачи", "задач")}.
+            </p>
+            <p className="tracker-confirm__hint">
+              Карточки в работе, на review и в очереди останутся. Восстановить удалённое нельзя.
+            </p>
+            <div className="tracker-confirm__actions">
+              <button type="button" disabled={busy} onClick={() => setClearAsk(false)}>
+                Отмена
+              </button>
+              <button
+                type="button"
+                className="tracker-confirm__danger"
+                disabled={busy}
+                onClick={() => void clearFinishedFromBoard()}
+              >
+                Очистить
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {deleteAsk ? (
         <div className="tracker-confirm" role="dialog" aria-modal="true" aria-labelledby="tracker-delete-title">
