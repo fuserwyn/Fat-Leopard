@@ -118,13 +118,29 @@ func TrackerNotifyIsFullyShipped(text string) bool {
 	return hasProd && hasMain && hasDeployed
 }
 
+func trackerDoneExecutionSummary(t database.TrackerTask) string {
+	done := trackerStepPrefixedSummary(t.Steps, "сделано:")
+	if done == "" {
+		done = trackerExtractAgentNote(t.Result)
+	}
+	if done == "" {
+		done = trackerTaskTitle(t.Prompt)
+	}
+	return clipDoneSummary(done)
+}
+
+// trackerFullyDoneNote — короткое DM о выкате. Полный чеклист из 5 пунктов
+// (выполнение → ревью → тест → сборка → уведомление) только на карточке
+// задачи в done_summary, не в телеграме.
 func trackerFullyDoneNote(t database.TrackerTask) string {
-	return fmt.Sprintf(
-		"✅ %s выполнена.\n%s\n\n%s",
-		trackerNotifyHeading(t),
+	parts := []string{
+		fmt.Sprintf("✅ %s выполнена.", trackerNotifyHeading(t)),
 		trackerDeploySummary(t),
-		trackerDoneBrief(t),
-	)
+	}
+	if summary := trackerDoneExecutionSummary(t); summary != "" {
+		parts = append(parts, summary)
+	}
+	return strings.Join(parts, "\n\n")
 }
 
 const trackerDoneSummaryMax = 400
@@ -279,14 +295,7 @@ func trackerDeploySummary(t database.TrackerTask) string {
 func trackerDoneBrief(t database.TrackerTask) string {
 	lines := make([]string, 0, 5)
 
-	done := trackerStepPrefixedSummary(t.Steps, "сделано:")
-	if done == "" {
-		done = trackerExtractAgentNote(t.Result)
-	}
-	if done == "" {
-		done = trackerTaskTitle(t.Prompt)
-	}
-	lines = append(lines, "1. Выполнение: "+clipDoneSummary(done))
+	lines = append(lines, "1. Выполнение: "+trackerDoneExecutionSummary(t))
 
 	if !t.FastTrack && trackerPhasePassed(t, "ревью") {
 		lines = append(lines, "2. Ревью: "+trackerPhaseBriefLine(t, "ревью", "пройдено"))
