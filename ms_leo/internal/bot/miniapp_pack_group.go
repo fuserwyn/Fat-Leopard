@@ -256,8 +256,12 @@ func (b *Bot) ProcessMiniAppPackGroupMessage(d initdata.InitData, text string, r
 	if text != "" {
 		b.indexPackGroupChatRAG(chatID, d.User.ID, "user", text, userMsgID)
 	}
-	if replyToID > 0 && userMsgID > 0 {
-		b.afterPackGroupReplyInserted(chatID, d.User.ID, uname, text, userMsgID, replyToID)
+	if userMsgID > 0 {
+		if replyToID > 0 {
+			b.afterPackGroupReplyInserted(chatID, d.User.ID, uname, text, userMsgID, replyToID)
+		} else if strings.TrimSpace(text) != "" {
+			b.notifyPackMemberMentionsInPackGroup(chatID, d.User.ID, uname, text, userMsgID, nil)
+		}
 	}
 
 	if reply := b.answerLeoInPackGroupChatIfMentioned(d, chatID, text, userMsgID, photoURL, replyToID); reply != "" {
@@ -430,6 +434,18 @@ func (b *Bot) afterPackGroupReplyInserted(packChatID, commenterUserID int64, com
 	if b == nil || b.db == nil || replyToID == 0 || messageID == 0 {
 		return
 	}
+	cn := strings.TrimSpace(commenterName)
+	if cn == "" {
+		cn = "Участник стаи"
+	}
+	var notifyUserID int64
+	defer func() {
+		if notifyUserID > 0 {
+			b.notifyPackMemberMentionsInPackGroup(packChatID, commenterUserID, cn, commentText, messageID, map[int64]struct{}{notifyUserID: {}})
+			return
+		}
+		b.notifyPackMemberMentionsInPackGroup(packChatID, commenterUserID, cn, commentText, messageID, nil)
+	}()
 	parent, ok, err := b.db.GetMiniappPackGroupMessageInPack(packChatID, replyToID)
 	if err != nil {
 		b.logger.Warnf("pack group reply parent lookup: %v", err)
@@ -438,7 +454,6 @@ func (b *Bot) afterPackGroupReplyInserted(packChatID, commenterUserID int64, com
 	if !ok {
 		return
 	}
-	var notifyUserID int64
 	if parent.IsLeo {
 		return
 	}
@@ -453,10 +468,6 @@ func (b *Bot) afterPackGroupReplyInserted(packChatID, commenterUserID int64, com
 		b.logger.Warnf("pack group unread insert: %v", err)
 	}
 	preview := truncateForDM(commentText, 160)
-	cn := strings.TrimSpace(commenterName)
-	if cn == "" {
-		cn = "Участник стаи"
-	}
 	commenterGender, _, _ := b.GetMiniappUserProfileJSONForAPI(commenterUserID, packChatID)
 	commenterGender = strings.TrimSpace(strings.ToLower(commenterGender))
 	var body string

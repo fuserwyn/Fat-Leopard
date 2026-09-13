@@ -184,7 +184,7 @@ func (b *Bot) publishDueScheduledAdminPosts() {
 		if p.ChatID != b.config.MonetizedChatID {
 			continue
 		}
-		if err := b.publishAdminPackFeedPost(p.Author, p.MessageText); err != nil {
+		if _, err := b.publishAdminPackFeedPost(p.CreatedBy, p.Author, p.MessageText); err != nil {
 			b.logger.Errorf("publish scheduled admin post id=%d: %v", p.ID, err)
 			continue
 		}

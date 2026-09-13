@@ -281,7 +281,18 @@ func (b *Bot) afterPackTrainingThreadInserted(packChatID, userMessageID, comment
 	if b == nil || b.db == nil {
 		return
 	}
+	cn := strings.TrimSpace(commenterName)
+	if cn == "" {
+		cn = "Участник стаи"
+	}
 	var notifyUserID int64
+	defer func() {
+		skip := map[int64]struct{}{}
+		if notifyUserID > 0 {
+			skip[notifyUserID] = struct{}{}
+		}
+		b.notifyPackMemberMentionsInFeedComment(packChatID, commenterUserID, cn, commentText, threadReplyID, skip)
+	}()
 	if replyToParentThreadID != 0 {
 		parent, ok, err := b.db.GetTrainingFeedThreadRowInPack(replyToParentThreadID, packChatID)
 		if err != nil {
@@ -327,10 +338,6 @@ func (b *Bot) afterPackTrainingThreadInserted(packChatID, userMessageID, comment
 	preview := truncateForDM(commentText, 160)
 	if strings.TrimSpace(preview) == "" {
 		preview = "📷 Фото"
-	}
-	cn := strings.TrimSpace(commenterName)
-	if cn == "" {
-		cn = "Участник стаи"
 	}
 	commenterGender, _, _ := b.GetMiniappUserProfileJSONForAPI(commenterUserID, packChatID)
 	commenterGender = strings.TrimSpace(strings.ToLower(commenterGender))
