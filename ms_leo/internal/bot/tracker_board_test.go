@@ -80,6 +80,28 @@ func TestTrackerQaMeta(t *testing.T) {
 	}
 }
 
+func TestTrackerTaskViewLeoTaskKind(t *testing.T) {
+	// leo_task: на карточке Лео, author_id — админ, выставивший на аппрув.
+	view := trackerTaskView(database.TrackerTask{
+		ID:            9,
+		Num:           2,
+		Prompt:        "улучшить профиль",
+		Kind:          "leo_task",
+		Status:        "pending",
+		DevColumn:     trackerColApprove,
+		NeedsApproval: true,
+		HasAuthor:     true,
+		AuthorID:      42,
+		Approvals:     []int64{100},
+	}, false)
+	if view["kind"] != "leo_task" || view["author_id"] != int64(42) {
+		t.Fatalf("leo_task view: %#v", view)
+	}
+	if view["needs_approval"] != true || view["approvals_count"] != 1 {
+		t.Fatalf("approval flags: %#v", view)
+	}
+}
+
 func TestTrackerTaskViewAuthorAndShipShape(t *testing.T) {
 	trow := database.TrackerTask{
 		ID:         7,

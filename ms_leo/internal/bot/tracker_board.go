@@ -378,6 +378,8 @@ func (b *Bot) localTrackerCreate(payload map[string]any, userID int64) (json.Raw
 	if err != nil {
 		return nil, err
 	}
+	isLeo := payloadBool(payload, "leo")
+	needsApproval := payloadBool(payload, "needs_approval")
 	t := database.TrackerTask{
 		Prompt:     prompt,
 		WhenAt:     at,
@@ -392,17 +394,29 @@ func (b *Bot) localTrackerCreate(payload map[string]any, userID int64) (json.Raw
 		AutoPush:   payloadBoolOr(payload, "auto_push", true),
 		Steps:      []string{"Поставлена на доску стаи"},
 	}
-	if payloadBool(payload, "needs_approval") {
+	if needsApproval {
 		t.NeedsApproval = true
 		t.DevColumn = trackerColApprove
-		t.Steps = []string{"Ждёт аппрува других админов"}
+		if isLeo {
+			t.Steps = []string{"Задача от Лео — ждёт аппрува других админов"}
+		} else {
+			t.Steps = []string{"Ждёт аппрува других админов"}
+		}
 	}
 	if _, ok := payload["auto_review"]; ok {
 		t.AutoReview = payloadBool(payload, "auto_review")
 	}
-	if payloadBool(payload, "leo") {
-		t.AuthorID = database.TrackerLeoAuthorID
-		t.HasAuthor = true
+	if isLeo {
+		// Лео на карточке, но выставивший админ — «автор» для аппрува:
+		// сам себе аппрувить не может, как с обычной задачей.
+		if needsApproval && userID != 0 {
+			t.AuthorID = userID
+			t.HasAuthor = true
+			t.Kind = "leo_task"
+		} else {
+			t.AuthorID = database.TrackerLeoAuthorID
+			t.HasAuthor = true
+		}
 	} else if userID != 0 {
 		t.AuthorID = userID
 		t.HasAuthor = true
