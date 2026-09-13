@@ -12,6 +12,10 @@ import (
 
 var trackerNotifyNumRe = regexp.MustCompile(`(?i)задач[аиеу]?\s*#\s*(\d+)`)
 
+// Шаблон агента «Сделано для задачи #N.» — в Telegram-DM не нужен:
+// заголовок уведомления уже содержит номер и название.
+var trackerDoneBoilerplateRe = regexp.MustCompile(`(?i)^Сделано\s+для\s+задачи\s+#\d+[.:]?\s*$`)
+
 const trackerNotifyResultMax = 4000
 
 // ApplyBoardNotify — входящее «задача выполнена» должно сдвинуть карточку
@@ -118,15 +122,22 @@ func TrackerNotifyIsFullyShipped(text string) bool {
 	return hasProd && hasMain && hasDeployed
 }
 
+func trackerEffectiveDoneSummary(s string) string {
+	s = clipDoneSummary(s)
+	if s == "" || trackerDoneBoilerplateRe.MatchString(s) {
+		return ""
+	}
+	return s
+}
+
 func trackerDoneExecutionSummary(t database.TrackerTask) string {
-	done := trackerStepPrefixedSummary(t.Steps, "сделано:")
-	if done == "" {
-		done = trackerExtractAgentNote(t.Result)
+	if done := trackerEffectiveDoneSummary(trackerStepPrefixedSummary(t.Steps, "сделано:")); done != "" {
+		return done
 	}
-	if done == "" {
-		done = trackerTaskTitle(t.Prompt)
+	if done := trackerEffectiveDoneSummary(trackerExtractAgentNote(t.Result)); done != "" {
+		return done
 	}
-	return clipDoneSummary(done)
+	return trackerEffectiveDoneSummary(trackerTaskTitle(t.Prompt))
 }
 
 // trackerFullyDoneNote — короткое DM о выкате. Полный чеклист из 5 пунктов
@@ -323,8 +334,8 @@ func trackerRecordPhaseSummary(t *database.TrackerTask, fromCol, text string) {
 	}
 	switch fromCol {
 	case trackerColDoing:
-		if summary := trackerExtractAgentNote(text); summary != "" {
-			appendTrackerStep(t, "сделано: "+clipDoneSummary(summary))
+		if summary := trackerEffectiveDoneSummary(trackerExtractAgentNote(text)); summary != "" {
+			appendTrackerStep(t, "сделано: "+summary)
 		}
 	case trackerColReview:
 		if trackerComposerPassed(trackerColReview, text) {

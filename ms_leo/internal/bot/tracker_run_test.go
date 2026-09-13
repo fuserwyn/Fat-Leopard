@@ -118,6 +118,30 @@ func TestTrackerFullyDoneNoteIncludesExecutionSummary(t *testing.T) {
 	}
 }
 
+func TestTrackerFullyDoneNoteSkipsDoneForTaskBoilerplate(t *testing.T) {
+	task := database.TrackerTask{
+		Num:    100,
+		Prompt: "Необязательно в уведомлении писать про все 5 пунктов",
+		Steps:  []string{"сделано: Сделано для задачи #100."},
+	}
+	note := trackerFullyDoneNote(task)
+	if strings.Contains(note, "Сделано для задачи") {
+		t.Fatalf("notify must not repeat agent boilerplate: %q", note)
+	}
+	wantParts := []string{
+		"✅ Задача #100:",
+		"Выехала на прод (ветка main).",
+	}
+	for _, part := range wantParts {
+		if !strings.Contains(note, part) {
+			t.Fatalf("notify missing %q: %q", part, note)
+		}
+	}
+	if strings.Count(note, "\n\n") != 1 {
+		t.Fatalf("notify must stay two-part without boilerplate summary: %q", note)
+	}
+}
+
 func TestTrackerDoneBriefIncludesPipeline(t *testing.T) {
 	task := database.TrackerTask{
 		Num:    67,
