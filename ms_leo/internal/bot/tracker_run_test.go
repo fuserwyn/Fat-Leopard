@@ -98,6 +98,24 @@ func TestTrackerFullyDoneNoteIncludesTitle(t *testing.T) {
 	if !strings.Contains(note, "Задача #40: Название в уведомлении") {
 		t.Fatalf("note: %q", note)
 	}
+	if strings.Contains(note, "1. Выполнение:") {
+		t.Fatalf("notify must stay short: %q", note)
+	}
+}
+
+func TestTrackerFullyDoneNoteIncludesExecutionSummary(t *testing.T) {
+	task := database.TrackerTask{
+		Num:    100,
+		Prompt: "Короткий отчёт в уведомлении",
+		Steps:  []string{"сделано: поправил уведомление о выкате"},
+	}
+	note := trackerFullyDoneNote(task)
+	if !strings.Contains(note, "поправил уведомление о выкате") {
+		t.Fatalf("execution summary in notify: %q", note)
+	}
+	if strings.Contains(note, "2. Ревью:") {
+		t.Fatalf("notify must not list pipeline phases: %q", note)
+	}
 }
 
 func TestTrackerDoneBriefIncludesPipeline(t *testing.T) {

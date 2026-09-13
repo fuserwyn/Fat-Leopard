@@ -43,8 +43,8 @@ func TestTrackerNotifyIsFullyShipped(t *testing.T) {
 	if !strings.Contains(note, "Задача #4: кнопка удалить") {
 		t.Fatalf("title in done note: %q", note)
 	}
-	if !strings.Contains(note, "1. Выполнение:") || !strings.Contains(note, "Уведомление админам отправлено.") {
-		t.Fatalf("done note must include brief: %q", note)
+	if strings.Contains(note, "1. Выполнение:") || strings.Contains(note, "Уведомление админам отправлено.") {
+		t.Fatalf("done note must not include 5-point brief: %q", note)
 	}
 }
 
