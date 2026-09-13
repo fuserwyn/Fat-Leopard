@@ -126,6 +126,42 @@ func trackerStatusMeta(status, col string) (label, icon, phase string) {
 	}
 }
 
+// trackerCanRestart — админ может снова пустить агента: завершённые, с ошибкой,
+// зависшие без живого remote job, или ещё не стартовавшие в очереди.
+func trackerCanRestart(t database.TrackerTask) bool {
+	status := strings.ToLower(strings.TrimSpace(t.Status))
+	col := strings.ToLower(strings.TrimSpace(t.DevColumn))
+	if status == "done" || col == trackerColDone {
+		return true
+	}
+	if status == "canceled" || col == trackerColCanceled {
+		return true
+	}
+	if status == "error" || strings.TrimSpace(t.Error) != "" {
+		return true
+	}
+	if trackerAgentStartFailed(t) {
+		return true
+	}
+	if status == "running" || status == "reviewing" {
+		if trackerStepRemoteID(t.Steps) > 0 && !trackerAgentStartFailed(t) {
+			return false
+		}
+		return true
+	}
+	if status == "holding" {
+		return true
+	}
+	if col == trackerColReview || col == trackerColTest || col == trackerColDeploy {
+		return true
+	}
+	if (status == "pending" || status == "scheduled") &&
+		(col == trackerColTodo || col == trackerColApprove || col == "") {
+		return true
+	}
+	return false
+}
+
 func trackerQaMeta(status, col string, handed bool) (label, icon string) {
 	if !handed {
 		return "", ""
@@ -149,6 +185,7 @@ func trackerTaskView(t database.TrackerTask, withAtts bool) map[string]any {
 	canceled := t.Status == "canceled" || t.DevColumn == trackerColCanceled
 	active := !done && !canceled
 	canDelete := canceled || done || t.DevColumn == trackerColTodo || t.DevColumn == trackerColApprove || t.Status == "pending" || t.Status == "error"
+	canRestart := trackerCanRestart(t)
 	when := strings.TrimSpace(t.WhenLabel)
 	if when == "" {
 		when = formatTrackerWhen(t.WhenAt)
@@ -195,6 +232,7 @@ func trackerTaskView(t database.TrackerTask, withAtts bool) map[string]any {
 		"done":              done,
 		"active":            active,
 		"can_delete":        canDelete,
+		"can_restart":       canRestart,
 		"auto_review":       t.AutoReview,
 		"manual_qa":         t.ManualQa,
 		"fast_track":        t.FastTrack,
@@ -411,6 +449,37 @@ func (b *Bot) localTrackerDelete(taskID int64, payload map[string]any) (json.Raw
 		return nil, err
 	}
 	return trackerJSON(map[string]any{"ok": true})
+}
+
+func (b *Bot) localTrackerRestart(taskID int64, payload map[string]any) (json.RawMessage, error) {
+	t, err := b.localTrackerLoad(taskID, payload)
+	if err != nil {
+		return nil, err
+	}
+	if !trackerCanRestart(t) {
+		return nil, fmt.Errorf("агент ещё работает — сначала останови задачу")
+	}
+	status := strings.ToLower(strings.TrimSpace(t.Status))
+	col := strings.ToLower(strings.TrimSpace(t.DevColumn))
+	if status == "done" || col == trackerColDone || status == "canceled" || col == trackerColCanceled {
+		t.Result = ""
+	}
+	t.Error = ""
+	t.HandedToQa = false
+	t.QaColumn = ""
+	t.QaStatus = ""
+	now := time.Now()
+	t.WhenAt = now
+	t.WhenLabel = "сейчас"
+	if err := applyTrackerColumn(&t, trackerColDoing); err != nil {
+		return nil, err
+	}
+	appendTrackerStep(&t, "Перезапускаем задачу")
+	if err := b.db.SaveTrackerTask(t); err != nil {
+		return nil, err
+	}
+	b.dispatchTrackerAgent(t, "doing")
+	return trackerJSON(map[string]any{"ok": true, "task": trackerTaskView(t, false)})
 }
 
 func (b *Bot) localTrackerReschedule(taskID int64, payload map[string]any) (json.RawMessage, error) {

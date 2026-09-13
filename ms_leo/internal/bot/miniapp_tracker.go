@@ -209,6 +209,8 @@ func (b *Bot) trackerRequest(
 		return b.localTrackerPrompt(taskID, payload)
 	case "reschedule":
 		return b.localTrackerReschedule(taskID, payload)
+	case "restart":
+		return b.localTrackerRestart(taskID, payload)
 	case "move":
 		return b.localTrackerMove(taskID, payload)
 	case "promote":
