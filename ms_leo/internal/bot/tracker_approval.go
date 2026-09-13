@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"leo-bot/internal/database"
 
@@ -13,6 +14,7 @@ import (
 
 const (
 	trackerApprovalCallbackPrefix = "admin_tracker_"
+	trackerApprovalReminderAfter  = 1 * time.Hour
 )
 
 func trackerApprovalTargets(b *Bot, authorID int64) []int64 {
@@ -51,7 +53,46 @@ func trackerAppendApproval(t *database.TrackerTask, adminID int64) bool {
 	return true
 }
 
+func trackerApprovalPendingTargets(b *Bot, t database.TrackerTask) []int64 {
+	authorID := int64(0)
+	if t.HasAuthor {
+		authorID = t.AuthorID
+	}
+	targets := trackerApprovalTargets(b, authorID)
+	pending := make([]int64, 0, len(targets))
+	for _, id := range targets {
+		if !trackerHasApproval(t, id) {
+			pending = append(pending, id)
+		}
+	}
+	return pending
+}
+
+func trackerApprovalReminderDue(t database.TrackerTask, now time.Time) bool {
+	if !t.NeedsApproval || t.DevColumn != trackerColApprove {
+		return false
+	}
+	if len(t.Approvals) >= trackerApprovalRequired {
+		return false
+	}
+	if !t.HasApprovalNotified || t.ApprovalNotifiedAt.IsZero() {
+		return false
+	}
+	if t.HasApprovalReminderSent {
+		return false
+	}
+	return !t.ApprovalNotifiedAt.Add(trackerApprovalReminderAfter).After(now)
+}
+
 func (b *Bot) notifyTrackerApprovalsNeeded(t database.TrackerTask) {
+	b.sendTrackerApprovalNotifications(t, false)
+}
+
+func (b *Bot) sendTrackerApprovalReminder(t database.TrackerTask) {
+	b.sendTrackerApprovalNotifications(t, true)
+}
+
+func (b *Bot) sendTrackerApprovalNotifications(t database.TrackerTask, reminder bool) {
 	if b == nil || !t.NeedsApproval || t.DevColumn != trackerColApprove {
 		return
 	}
@@ -60,10 +101,13 @@ func (b *Bot) notifyTrackerApprovalsNeeded(t database.TrackerTask) {
 		authorID = t.AuthorID
 	}
 	targets := trackerApprovalTargets(b, authorID)
+	if reminder {
+		targets = trackerApprovalPendingTargets(b, t)
+	}
 	if len(targets) == 0 {
 		return
 	}
-	text := b.trackerApprovalNotifyText(t)
+	text := b.trackerApprovalNotifyText(t, reminder)
 	markup := trackerApprovalNotifyKeyboard(t.ID)
 	for _, id := range targets {
 		msg := tgbotapi.NewMessage(id, text)
@@ -73,14 +117,30 @@ func (b *Bot) notifyTrackerApprovalsNeeded(t database.TrackerTask) {
 			b.logger.Warnf("трекер: не отправить аппрув #%d админу %d: %v", trackerDueNum(t), id, err)
 		}
 	}
+	if b.db == nil || t.ID <= 0 {
+		return
+	}
+	if reminder {
+		if err := b.db.MarkTrackerApprovalReminderSent(t.ID); err != nil && b.logger != nil {
+			b.logger.Warnf("трекер: не отметить напоминание аппрува #%d: %v", trackerDueNum(t), err)
+		}
+		return
+	}
+	if err := b.db.MarkTrackerApprovalNotified(t.ID); err != nil && b.logger != nil {
+		b.logger.Warnf("трекер: не отметить уведомление аппрува #%d: %v", trackerDueNum(t), err)
+	}
 }
 
-func (b *Bot) trackerApprovalNotifyText(t database.TrackerTask) string {
+func (b *Bot) trackerApprovalNotifyText(t database.TrackerTask, reminder bool) string {
 	prompt := strings.TrimSpace(t.Prompt)
 	if runes := []rune(prompt); len(runes) > 400 {
 		prompt = string(runes[:400]) + "…"
 	}
-	text := fmt.Sprintf("📋 %s ждёт аппрува\n\n", trackerNotifyHeading(t))
+	text := ""
+	if reminder {
+		text = "⏰ Напоминание: "
+	}
+	text += fmt.Sprintf("📋 %s ждёт аппрува\n\n", trackerNotifyHeading(t))
 	text += fmt.Sprintf("Поставил: %s\n\n", b.trackerTaskAuthorLabel(t))
 	if prompt != "" {
 		text += prompt + "\n\n"
@@ -192,7 +252,7 @@ func (b *Bot) editTrackerApprovalMessage(msg *tgbotapi.Message, taskID int64) {
 		b.api.Send(edit)
 		return
 	}
-	text := b.trackerApprovalNotifyText(t)
+	text := b.trackerApprovalNotifyText(t, false)
 	var markup *tgbotapi.InlineKeyboardMarkup
 	if t.DevColumn == trackerColApprove && t.NeedsApproval {
 		kb := trackerApprovalNotifyKeyboard(taskID)

@@ -134,6 +134,10 @@ func migrateTrackerBoardOnDB(db *sql.DB) error {
 			ADD COLUMN IF NOT EXISTS needs_approval BOOLEAN NOT NULL DEFAULT FALSE;
 		ALTER TABLE pack_tracker_tasks
 			ADD COLUMN IF NOT EXISTS approvals JSONB NOT NULL DEFAULT '[]'::jsonb;
+		ALTER TABLE pack_tracker_tasks
+			ADD COLUMN IF NOT EXISTS approval_notified_at TIMESTAMPTZ;
+		ALTER TABLE pack_tracker_tasks
+			ADD COLUMN IF NOT EXISTS approval_reminder_sent_at TIMESTAMPTZ;
 	`)
 	if err != nil {
 		return fmt.Errorf("tracker schema migrate: %w", err)
