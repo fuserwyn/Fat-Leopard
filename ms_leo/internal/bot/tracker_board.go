@@ -455,7 +455,10 @@ func (b *Bot) localTrackerCreate(payload map[string]any, userID int64) (json.Raw
 		t.NeedsApproval = true
 		t.DevColumn = trackerColApprove
 		if isLeo {
-			t.Steps = []string{"Задача от Лео — ждёт аппрува других админов"}
+			t.Steps = []string{"Задача от Лео — ждёт аппрува всех админов"}
+			if userID != 0 {
+				t.Steps = append(t.Steps, fmt.Sprintf("На доску вынес админ %d", userID))
+			}
 		} else {
 			t.Steps = []string{"Ждёт аппрува других админов"}
 		}
@@ -464,15 +467,11 @@ func (b *Bot) localTrackerCreate(payload map[string]any, userID int64) (json.Raw
 		t.AutoReview = payloadBool(payload, "auto_review")
 	}
 	if isLeo {
-		// Лео на карточке, но выставивший админ — «автор» для аппрува:
-		// сам себе аппрувить не может, как с обычной задачей.
-		if needsApproval && userID != 0 {
-			t.AuthorID = userID
-			t.HasAuthor = true
+		// На карточке — Лео; аппрув могут ставить все админы, в том числе вынесший на доску.
+		t.AuthorID = database.TrackerLeoAuthorID
+		t.HasAuthor = true
+		if needsApproval {
 			t.Kind = "leo_task"
-		} else {
-			t.AuthorID = database.TrackerLeoAuthorID
-			t.HasAuthor = true
 		}
 	} else if userID != 0 {
 		t.AuthorID = userID
