@@ -55,6 +55,18 @@ func TestTrackerTaskDueForStartSkipsApprove(t *testing.T) {
 	}
 }
 
+func TestTrackerTaskDueForStartSkipsNeedsApprovalInTodo(t *testing.T) {
+	task := database.TrackerTask{
+		Status:        "pending",
+		DevColumn:     trackerColTodo,
+		NeedsApproval: true,
+		Approvals:     []int64{42},
+	}
+	if trackerTaskDueForStart(task, task.WhenAt) {
+		t.Fatal("needs_approval in todo must not auto-start")
+	}
+}
+
 func TestTrackerHasApproval(t *testing.T) {
 	task := database.TrackerTask{Approvals: []int64{1, 2, 3}}
 	if !trackerHasApproval(task, 2) {

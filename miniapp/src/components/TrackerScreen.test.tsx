@@ -111,6 +111,36 @@ describe("TrackerScreen restart", () => {
   });
 });
 
+const awaitingApproval: TrackerTask = {
+  ...pending,
+  id: 12,
+  num: 2,
+  prompt: "новая фича от Лео",
+  kind: "leo_task",
+  needs_approval: true,
+  approvals_count: 0,
+  approvals_needed: 2,
+  status_label: "Аппрув",
+  status_icon: "👍",
+  phase: "approve",
+  dev_column: "approve",
+};
+
+describe("TrackerScreen approval column", () => {
+  it("shows unapproved task in approve column even when dev_column is todo", async () => {
+    trackerList.mockResolvedValue({
+      tasks: [{ ...awaitingApproval, dev_column: "todo", status_label: "Ожидает", status_icon: "⏳", phase: "todo" }],
+      started: 0,
+    });
+    trackerAuthors.mockResolvedValue([]);
+
+    render(<TrackerScreen initData="admin" showAlert={() => undefined} />);
+    await waitFor(() => expect(screen.getByText("#2")).toBeTruthy());
+    expect(document.querySelector('[data-col="todo"]')?.textContent).not.toContain("#2");
+    expect(document.querySelector('[data-col="approve"]')?.textContent).toContain("#2");
+  });
+});
+
 describe("TrackerScreen refresh button", () => {
   it("calls refresh and moves a due card into work", async () => {
     trackerList.mockResolvedValue({ tasks: [pending], started: 0 });

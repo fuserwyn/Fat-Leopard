@@ -137,6 +137,24 @@ function isLeoTask(task: TrackerTask): boolean {
   return id === LEO_AUTHOR_ID || task.kind === "leo_task";
 }
 
+/** Колонка на доске: без аппрува карточка в «Аппрув», не в «Ожидает». */
+function boardDevColumn(task: TrackerTask): string {
+  const col = String(task.dev_column || "todo").toLowerCase();
+  const needed = task.approvals_needed ?? 2;
+  const count = task.approvals_count ?? 0;
+  const status = String(task.status || "").toLowerCase();
+  if (
+    task.needs_approval &&
+    count < needed &&
+    !["done", "canceled", "cancelled"].includes(col) &&
+    !["done", "canceled", "cancelled"].includes(status)
+  ) {
+    if (["doing", "review", "test", "deploy"].includes(col)) return col;
+    return "approve";
+  }
+  return col || "todo";
+}
+
 const NEXT_COL: Record<string, { column: string; label: string }> = {
   todo: { column: "doing", label: "В работу" },
   approve: { column: "doing", label: "В работу" },
@@ -181,10 +199,10 @@ function cardClasses(t: TrackerTask, isQa: boolean): string {
   if (isQa) {
     if ((t.qa_column || "todo") === "doing") cls.push("is-running");
   } else if (t.status === "running" || t.status === "reviewing") cls.push("is-running");
-  else if (t.dev_column === "review") cls.push("is-review");
-  else if (t.dev_column === "approve") cls.push("is-approve");
-  else if (t.dev_column === "test") cls.push("is-qa");
-  else if (t.dev_column === "deploy") cls.push("is-deploy");
+  else if (boardDevColumn(t) === "review") cls.push("is-review");
+  else if (boardDevColumn(t) === "approve") cls.push("is-approve");
+  else if (boardDevColumn(t) === "test") cls.push("is-qa");
+  else if (boardDevColumn(t) === "deploy") cls.push("is-deploy");
   else if (t.status === "holding") cls.push("is-holding");
   if (t.error) cls.push("is-err");
   if (t.handed_to_qa && !isQa) cls.push("is-qa");
@@ -774,7 +792,7 @@ export function TrackerScreen({ initData, showAlert }: Props) {
             <div className="tracker__cols">
               {columns.map((col) => {
                 const items = pool.filter((t) =>
-                  isQa ? (t.qa_column || "todo") === col.key : (t.dev_column || "todo") === col.key,
+                  isQa ? (t.qa_column || "todo") === col.key : boardDevColumn(t) === col.key,
                 );
                 return (
                   <div className="tracker-col" data-col={col.key} key={col.key}>

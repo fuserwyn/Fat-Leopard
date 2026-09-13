@@ -89,6 +89,37 @@ func applyTrackerColumn(t *database.TrackerTask, col string) error {
 	return nil
 }
 
+// trackerAwaitingApproval — задача ждёт ещё аппрувы, пока не набрано нужное число.
+func trackerAwaitingApproval(t database.TrackerTask) bool {
+	if !t.NeedsApproval || len(t.Approvals) >= trackerApprovalRequired {
+		return false
+	}
+	col := strings.ToLower(strings.TrimSpace(t.DevColumn))
+	if col == trackerColDone || col == trackerColCanceled {
+		return false
+	}
+	status := strings.ToLower(strings.TrimSpace(t.Status))
+	return status != "done" && status != "canceled" && status != "cancelled"
+}
+
+// trackerEffectiveDevColumn — колонка на доске: без аппрува карточка в «Аппрув»,
+// даже если в базе ещё todo (старые записи или ручная правка).
+func trackerEffectiveDevColumn(t database.TrackerTask) string {
+	col := strings.ToLower(strings.TrimSpace(t.DevColumn))
+	if col == "" {
+		col = trackerColTodo
+	}
+	if !trackerAwaitingApproval(t) {
+		return col
+	}
+	switch col {
+	case trackerColDoing, trackerColReview, trackerColTest, trackerColDeploy:
+		return col
+	default:
+		return trackerColApprove
+	}
+}
+
 func appendTrackerStep(t *database.TrackerTask, step string) {
 	step = strings.TrimSpace(step)
 	if step == "" {
@@ -179,7 +210,8 @@ func trackerQaMeta(status, col string, handed bool) (label, icon string) {
 }
 
 func trackerTaskView(t database.TrackerTask, withAtts bool) map[string]any {
-	label, icon, phase := trackerStatusMeta(t.Status, t.DevColumn)
+	devColumn := trackerEffectiveDevColumn(t)
+	label, icon, phase := trackerStatusMeta(t.Status, devColumn)
 	qaLabel, qaIcon := trackerQaMeta(t.QaStatus, t.QaColumn, t.HandedToQa)
 	done := t.Status == "done" || t.DevColumn == trackerColDone
 	canceled := t.Status == "canceled" || t.DevColumn == trackerColCanceled
@@ -243,7 +275,7 @@ func trackerTaskView(t database.TrackerTask, withAtts bool) map[string]any {
 		"qa_label":          qaLabel,
 		"qa_icon":           qaIcon,
 		"auto_qa_running":   false,
-		"dev_column":        t.DevColumn,
+		"dev_column":        devColumn,
 		"qa_column":         qaCol,
 		"handed_to_qa":      t.HandedToQa,
 		"attachments_count": t.AttachmentsCount,

@@ -290,6 +290,7 @@ func (d *Database) ClaimDueTrackerTasks(now time.Time) ([]TrackerTask, error) {
 			SELECT id FROM pack_tracker_tasks
 			WHERE status IN ('pending', 'scheduled')
 			  AND COALESCE(NULLIF(dev_column, ''), 'todo') = 'todo'
+			  AND NOT COALESCE(needs_approval, FALSE)
 			  AND when_at <= NOW()
 			  AND NOT EXISTS (
 			    SELECT 1 FROM pack_tracker_tasks busy
