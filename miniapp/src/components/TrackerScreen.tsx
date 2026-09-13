@@ -159,6 +159,16 @@ function isLeoTask(task: TrackerTask): boolean {
   return id === LEO_AUTHOR_ID || task.kind === "leo_task";
 }
 
+/** В «Ожидает» — FIFO: самая старая созданная задача выше. */
+function sortTodoColumnFifo(tasks: TrackerTask[]): TrackerTask[] {
+  return [...tasks].sort((a, b) => {
+    const ca = Date.parse(a.created_at || "") || 0;
+    const cb = Date.parse(b.created_at || "") || 0;
+    if (ca !== cb) return ca - cb;
+    return (Number(a.id) || 0) - (Number(b.id) || 0);
+  });
+}
+
 /** Колонка на доске: без аппрува карточка в «Аппрув», не в «Ожидает». */
 function boardDevColumn(task: TrackerTask): string {
   const col = String(task.dev_column || "todo").toLowerCase();
@@ -832,9 +842,12 @@ export function TrackerScreen({ initData, showAlert }: Props) {
           ) : (
             <div className="tracker__cols">
               {columns.map((col) => {
-                const items = pool.filter((t) =>
+                let items = pool.filter((t) =>
                   isQa ? (t.qa_column || "todo") === col.key : boardDevColumn(t) === col.key,
                 );
+                if (!isQa && col.key === "todo") {
+                  items = sortTodoColumnFifo(items);
+                }
                 return (
                   <div className="tracker-col" data-col={col.key} key={col.key}>
                     <div className="tracker-col__head">
