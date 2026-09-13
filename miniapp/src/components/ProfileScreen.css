@@ -267,12 +267,14 @@
 .profile__burn {
   margin: 4px 0 0;
   display: flex;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 4px;
   color: #dc3737;
   line-height: 1.2;
   font-size: 10px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .profile__burn-icon {
@@ -284,6 +286,7 @@
 
 .profile__burn-text {
   min-width: 0;
+  white-space: nowrap;
 }
 
 .stat-card--inactive-yellow {

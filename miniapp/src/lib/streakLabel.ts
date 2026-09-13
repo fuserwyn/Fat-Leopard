@@ -128,7 +128,7 @@ export function effectiveStreakDays(
   return streak;
 }
 
-/** Подпись под счётчиком стрика: «сгорит через 5 ч 20 мин» или null, если стрик не горит. */
+/** Подпись под счётчиком стрика: «текущий стрик сгорит через 5 ч 20 мин» или null, если стрик не горит. */
 export function streakBurnLabel(
   streak: number,
   daysSinceLastTraining: number,
@@ -139,7 +139,7 @@ export function streakBurnLabel(
   if (frozen || days >= 2) return null;
   const ms = streakBurnRemainingMs(streak, days, now, lastTrainingDate);
   if (ms == null) return null;
-  return `сгорит через ${formatStreakBurnRemaining(ms)}`;
+  return `текущий стрик сгорит через ${formatStreakBurnRemaining(ms)}`;
 }
 
 /** Подпись к «Спасти стрик»: когда кнопка бесполезна / опасна по ошибке. */
