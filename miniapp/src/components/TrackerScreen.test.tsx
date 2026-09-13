@@ -9,6 +9,7 @@ const trackerAuthors = vi.fn();
 const trackerRestart = vi.fn();
 const trackerTask = vi.fn();
 const trackerPrompt = vi.fn();
+const trackerApprove = vi.fn();
 
 vi.mock("../lib/trackerApi", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/trackerApi")>();
@@ -20,6 +21,7 @@ vi.mock("../lib/trackerApi", async (importOriginal) => {
     trackerRestart: (...args: unknown[]) => trackerRestart(...args),
     trackerTask: (...args: unknown[]) => trackerTask(...args),
     trackerPrompt: (...args: unknown[]) => trackerPrompt(...args),
+    trackerApprove: (...args: unknown[]) => trackerApprove(...args),
     trackerAvatarUrl: () => "",
   };
 });
@@ -34,6 +36,7 @@ afterEach(() => {
   trackerRestart.mockReset();
   trackerTask.mockReset();
   trackerPrompt.mockReset();
+  trackerApprove.mockReset();
 });
 
 const pending: TrackerTask = {
@@ -214,6 +217,23 @@ describe("TrackerScreen approval column", () => {
     await waitFor(() => expect(screen.getByText("#2")).toBeTruthy());
     expect(document.querySelector('[data-col="todo"]')?.textContent).not.toContain("#2");
     expect(document.querySelector('[data-col="approve"]')?.textContent).toContain("#2");
+  });
+
+  it("shows approve button on board card and calls approve op", async () => {
+    trackerList.mockResolvedValue({ tasks: [awaitingApproval], started: 0 });
+    trackerAuthors.mockResolvedValue([]);
+    trackerApprove.mockResolvedValue({
+      ok: true,
+      task: { ...awaitingApproval, approvals_count: 1 },
+    });
+    const alerts: string[] = [];
+
+    render(<TrackerScreen initData="admin" showAlert={(t) => alerts.push(t)} />);
+    await waitFor(() => expect(screen.getByText("#2")).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("button", { name: "Аппрув" }));
+    await waitFor(() => expect(trackerApprove).toHaveBeenCalledWith("admin", 12, "approve"));
+    expect(alerts.some((a) => a.includes("Аппрув учтён"))).toBe(true);
   });
 });
 
