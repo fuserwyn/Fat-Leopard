@@ -21,6 +21,9 @@ const trackerDueTick = 15 * time.Second
 // trackerTaskDueForStart — та же развилка, что в ClaimDueTrackerTasks:
 // только очередь и только если when_at уже наступил.
 func trackerTaskDueForStart(t database.TrackerTask, now time.Time) bool {
+	if trackerAwaitingApproval(t) {
+		return false
+	}
 	status := strings.ToLower(strings.TrimSpace(t.Status))
 	if status != "pending" && status != "scheduled" {
 		return false

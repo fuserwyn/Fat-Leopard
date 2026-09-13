@@ -80,6 +80,28 @@ func TestTrackerQaMeta(t *testing.T) {
 	}
 }
 
+func TestTrackerEffectiveDevColumnAwaitingApproval(t *testing.T) {
+	task := database.TrackerTask{
+		Status:        "pending",
+		DevColumn:     trackerColTodo,
+		NeedsApproval: true,
+		Approvals:     []int64{100},
+	}
+	if col := trackerEffectiveDevColumn(task); col != trackerColApprove {
+		t.Fatalf("todo+needs_approval: got %q", col)
+	}
+	view := trackerTaskView(task, false)
+	if view["dev_column"] != trackerColApprove || view["phase"] != "approve" || view["status_label"] != "Аппрув" {
+		t.Fatalf("view awaiting approval: %#v", view)
+	}
+	done := task
+	done.DevColumn = trackerColDone
+	done.Status = "done"
+	if col := trackerEffectiveDevColumn(done); col != trackerColDone {
+		t.Fatalf("done must stay done: %q", col)
+	}
+}
+
 func TestTrackerTaskViewLeoTaskKind(t *testing.T) {
 	// leo_task: на карточке Лео, author_id — админ, выставивший на аппрув.
 	view := trackerTaskView(database.TrackerTask{
