@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"strings"
 	"testing"
 
 	"leo-bot/internal/database"
@@ -74,5 +75,41 @@ func TestTrackerHasApproval(t *testing.T) {
 	}
 	if trackerHasApproval(task, 9) {
 		t.Fatal("unexpected approval")
+	}
+}
+
+func TestTrackerTaskAuthorLabel(t *testing.T) {
+	var b Bot
+	if got := b.trackerTaskAuthorLabel(database.TrackerTask{}); got != "Из чата" {
+		t.Fatalf("no author: got %q", got)
+	}
+	if got := b.trackerTaskAuthorLabel(database.TrackerTask{
+		HasAuthor: true,
+		AuthorID:  database.TrackerLeoAuthorID,
+		Kind:      "leo_task",
+	}); got != "Лео" {
+		t.Fatalf("leo author: got %q", got)
+	}
+	if got := b.trackerTaskAuthorLabel(database.TrackerTask{
+		HasAuthor: true,
+		AuthorID:  42,
+	}); got != "id 42" {
+		t.Fatalf("human without db: got %q", got)
+	}
+}
+
+func TestTrackerApprovalNotifyTextShowsAuthor(t *testing.T) {
+	var b Bot
+	text := b.trackerApprovalNotifyText(database.TrackerTask{
+		Num:           99,
+		Prompt:        "Задача #99.\n\nТест",
+		HasAuthor:     true,
+		AuthorID:      database.TrackerLeoAuthorID,
+		Kind:          "leo_task",
+		NeedsApproval: true,
+		DevColumn:     trackerColApprove,
+	})
+	if !strings.Contains(text, "Поставил: Лео") {
+		t.Fatalf("expected Leo author in notify: %q", text)
 	}
 }

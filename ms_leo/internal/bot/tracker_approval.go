@@ -81,6 +81,7 @@ func (b *Bot) trackerApprovalNotifyText(t database.TrackerTask) string {
 		prompt = string(runes[:400]) + "…"
 	}
 	text := fmt.Sprintf("📋 %s ждёт аппрува\n\n", trackerNotifyHeading(t))
+	text += fmt.Sprintf("Поставил: %s\n\n", b.trackerTaskAuthorLabel(t))
 	if prompt != "" {
 		text += prompt + "\n\n"
 	}
