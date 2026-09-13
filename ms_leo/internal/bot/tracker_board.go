@@ -193,6 +193,29 @@ func trackerCanRestart(t database.TrackerTask) bool {
 	return false
 }
 
+// trackerCanEditPrompt — формулировку можно править, пока агент не взял задачу.
+func trackerCanEditPrompt(t database.TrackerTask) bool {
+	status := strings.ToLower(strings.TrimSpace(t.Status))
+	col := strings.ToLower(strings.TrimSpace(t.DevColumn))
+	if status == "done" || col == trackerColDone {
+		return false
+	}
+	if status == "canceled" || col == trackerColCanceled {
+		return false
+	}
+	if status == "running" || status == "reviewing" || status == "holding" {
+		return false
+	}
+	switch col {
+	case trackerColDoing, trackerColReview, trackerColTest, trackerColDeploy, trackerColDone, trackerColCanceled:
+		return false
+	case trackerColTodo, trackerColApprove, "":
+		return true
+	default:
+		return false
+	}
+}
+
 func trackerQaMeta(status, col string, handed bool) (label, icon string) {
 	if !handed {
 		return "", ""
@@ -218,6 +241,7 @@ func trackerTaskView(t database.TrackerTask, withAtts bool) map[string]any {
 	active := !done && !canceled
 	canDelete := canceled || done || t.DevColumn == trackerColTodo || t.DevColumn == trackerColApprove || t.Status == "pending" || t.Status == "error"
 	canRestart := trackerCanRestart(t)
+	canEditPrompt := trackerCanEditPrompt(t)
 	when := strings.TrimSpace(t.WhenLabel)
 	if when == "" {
 		when = formatTrackerWhen(t.WhenAt)
@@ -265,6 +289,7 @@ func trackerTaskView(t database.TrackerTask, withAtts bool) map[string]any {
 		"active":            active,
 		"can_delete":        canDelete,
 		"can_restart":       canRestart,
+		"can_edit_prompt":   canEditPrompt,
 		"auto_review":       t.AutoReview,
 		"manual_qa":         t.ManualQa,
 		"fast_track":        t.FastTrack,
@@ -703,6 +728,9 @@ func (b *Bot) localTrackerPrompt(taskID int64, payload map[string]any) (json.Raw
 	if err != nil {
 		return nil, err
 	}
+	if !trackerCanEditPrompt(t) {
+		return nil, fmt.Errorf("Задача уже началась — формулировку не меняем")
+	}
 	prompt := payloadString(payload, "prompt")
 	if prompt == "" {
 		return nil, fmt.Errorf("опиши задачу")
@@ -719,7 +747,7 @@ func (b *Bot) localTrackerPrompt(taskID int64, payload map[string]any) (json.Raw
 	if t.DevColumn == trackerColApprove && t.NeedsApproval {
 		b.notifyTrackerApprovalsNeeded(t)
 	}
-	return trackerJSON(map[string]any{"ok": true})
+	return trackerJSON(map[string]any{"ok": true, "task": trackerTaskView(t, false)})
 }
 
 func (b *Bot) localTrackerShip(taskID int64, payload map[string]any) (json.RawMessage, error) {

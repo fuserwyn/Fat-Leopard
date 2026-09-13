@@ -333,6 +333,40 @@ func TestTrackerCanRestart(t *testing.T) {
 	}
 }
 
+func TestTrackerCanEditPrompt(t *testing.T) {
+	queued := database.TrackerTask{Status: "pending", DevColumn: trackerColTodo}
+	if !trackerCanEditPrompt(queued) {
+		t.Fatal("queued must edit")
+	}
+	approve := database.TrackerTask{Status: "pending", DevColumn: trackerColApprove, NeedsApproval: true}
+	if !trackerCanEditPrompt(approve) {
+		t.Fatal("approve must edit")
+	}
+	live := database.TrackerTask{Status: "running", DevColumn: trackerColDoing}
+	if trackerCanEditPrompt(live) {
+		t.Fatal("running must not edit")
+	}
+	done := database.TrackerTask{Status: "done", DevColumn: trackerColDone}
+	if trackerCanEditPrompt(done) {
+		t.Fatal("done must not edit")
+	}
+}
+
+func TestTrackerTaskViewCanEditPrompt(t *testing.T) {
+	view := trackerTaskView(database.TrackerTask{
+		ID: 7, Status: "pending", DevColumn: trackerColTodo,
+	}, false)
+	if view["can_edit_prompt"] != true {
+		t.Fatalf("todo: %#v", view["can_edit_prompt"])
+	}
+	view = trackerTaskView(database.TrackerTask{
+		ID: 8, Status: "running", DevColumn: trackerColDoing,
+	}, false)
+	if view["can_edit_prompt"] != false {
+		t.Fatalf("doing: %#v", view["can_edit_prompt"])
+	}
+}
+
 func TestTrackerTaskViewCanRestart(t *testing.T) {
 	view := trackerTaskView(database.TrackerTask{
 		ID: 5, Num: 2, Status: "done", DevColumn: trackerColDone,

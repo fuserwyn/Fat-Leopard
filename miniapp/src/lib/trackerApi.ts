@@ -29,6 +29,8 @@ export type TrackerTask = {
   can_delete: boolean;
   /** Можно перезапустить агента с доски. */
   can_restart?: boolean;
+  /** Можно изменить текст задачи, пока агент не взял её в работу. */
+  can_edit_prompt?: boolean;
   auto_review: boolean;
   manual_qa: boolean;
   fast_track: boolean;
@@ -258,6 +260,14 @@ export function trackerDelete(initData: string, taskId: number) {
 /** Доска тестировщика: start — взять в тест, pass — принять, fail — вернуть, reset — в очередь. */
 export function trackerQa(initData: string, taskId: number, action: "start" | "pass" | "fail" | "reset") {
   return call<{ ok: boolean }>(initData, "qa", { payload: { id: taskId, action } });
+}
+
+/** Обновить формулировку задачи, пока она ещё не началась. */
+export function trackerPrompt(initData: string, taskId: number, prompt: string) {
+  return call<{ ok: boolean; task?: TrackerTask }>(initData, "prompt", {
+    task_id: taskId,
+    payload: { id: taskId, prompt },
+  });
 }
 
 /** Перенести запуск. Отменённую/завершённую этим же вернуть в «Ожидает» — время должно быть в будущем. */

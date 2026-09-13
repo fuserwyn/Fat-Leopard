@@ -19,6 +19,7 @@ import {
   trackerDeploySettings,
   trackerList,
   trackerMove,
+  trackerPrompt,
   trackerQa,
   trackerRefresh,
   trackerReschedule,
@@ -92,6 +93,27 @@ function canRetryAgent(task: TrackerTask): boolean {
   const err = String(task.error || "");
   const failed = /агент не стартовал|только заметка|нет правок/i.test(err);
   return failed && (status === "running" || status === "error" || column === "doing");
+}
+
+/** Текст задачи можно править, пока агент её не взял. */
+function canEditPrompt(task: TrackerTask): boolean {
+  if (typeof task.can_edit_prompt === "boolean") return task.can_edit_prompt;
+  const status = String(task.status || "").toLowerCase();
+  const column = String(task.dev_column || "").toLowerCase();
+  if (["running", "reviewing", "holding", "done", "completed", "canceled", "cancelled"].includes(status)) {
+    return false;
+  }
+  if (["doing", "review", "test", "deploy", "done", "canceled"].includes(column)) return false;
+  return column === "todo" || column === "approve" || column === "";
+}
+
+/** Собрать prompt с префиксом спринта, если он был. */
+function buildPromptText(task: TrackerTask, text: string): string {
+  const parsed = parsePrompt(task.prompt);
+  const body = text.trim();
+  if (!body) return "";
+  if (parsed.sprint != null) return `[Спринт ${parsed.sprint}] ${body}`;
+  return body;
 }
 
 /** Завершённую, отменённую, упавшую или зависшую задачу можно снова поставить. */
@@ -261,6 +283,8 @@ export function TrackerScreen({ initData, showAlert }: Props) {
   /** Открытая на весь экран картинка. */
   const [zoomed, setZoomed] = useState<string | null>(null);
   const [detail, setDetail] = useState<TrackerTask | null>(null);
+  const [editingPrompt, setEditingPrompt] = useState(false);
+  const [promptDraft, setPromptDraft] = useState("");
   const [moveAt, setMoveAt] = useState("");
   /** Карточка, которую просят удалить с доски — показываем модалку подтверждения. */
   const [deleteAsk, setDeleteAsk] = useState<TrackerTask | null>(null);
@@ -499,6 +523,8 @@ export function TrackerScreen({ initData, showAlert }: Props) {
   const openTask = async (task: TrackerTask) => {
     setDetail(task);
     setMoveAt("");
+    setEditingPrompt(false);
+    setPromptDraft("");
     try {
       const j = await trackerTask(initData, task.id);
       if (j.task) setDetail(j.task);
@@ -1218,7 +1244,16 @@ export function TrackerScreen({ initData, showAlert }: Props) {
               <span className="tracker-modal__status">
                 {detail.status_icon} {detail.status_label}
               </span>
-              <button type="button" className="tracker-modal__close" onClick={() => setDetail(null)} aria-label="Закрыть">
+              <button
+                type="button"
+                className="tracker-modal__close"
+                onClick={() => {
+                  setDetail(null);
+                  setEditingPrompt(false);
+                  setPromptDraft("");
+                }}
+                aria-label="Закрыть"
+              >
                 ✕
               </button>
             </div>
@@ -1230,7 +1265,64 @@ export function TrackerScreen({ initData, showAlert }: Props) {
               )}
               <span>Поставил: {authorLabel(detail, authors)}</span>
             </div>
-            <p className="tracker-modal__prompt">{parsePrompt(detail.prompt).text}</p>
+            <div className="tracker-modal__prompt-block">
+              {editingPrompt ? (
+                <>
+                  <textarea
+                    className="tracker-modal__prompt-edit"
+                    value={promptDraft}
+                    onChange={(e) => setPromptDraft(e.target.value)}
+                    disabled={busy}
+                    rows={4}
+                  />
+                  <div className="tracker-modal__prompt-actions">
+                    <button
+                      type="button"
+                      className="tracker__primary"
+                      disabled={busy || !promptDraft.trim()}
+                      onClick={() =>
+                        void actOnDetail(async () => {
+                          const next = buildPromptText(detail, promptDraft);
+                          if (!next) throw new Error("Опиши задачу");
+                          const res = await trackerPrompt(initData, detail.id, next);
+                          if (res.task) setDetail(res.task);
+                          setEditingPrompt(false);
+                        }, "Формулировку обновили.")
+                      }
+                    >
+                      Сохранить
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => {
+                        setEditingPrompt(false);
+                        setPromptDraft("");
+                      }}
+                    >
+                      Отмена
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="tracker-modal__prompt">{parsePrompt(detail.prompt).text}</p>
+                  {canEditPrompt(detail) ? (
+                    <button
+                      type="button"
+                      className="tracker-modal__prompt-edit-btn"
+                      disabled={busy}
+                      onClick={() => {
+                        setPromptDraft(parsePrompt(detail.prompt).text);
+                        setEditingPrompt(true);
+                      }}
+                    >
+                      Изменить текст
+                    </button>
+                  ) : null}
+                </>
+              )}
+            </div>
             {/* Приложенные фото: их можно рассмотреть и заменить. */}
             <div className="tracker-modal__atts">
               {(detail.attachments ?? []).map((att) => (
