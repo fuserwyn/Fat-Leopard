@@ -160,7 +160,7 @@ func (b *Bot) saveAdminCustomPackFeed(adminUserID int64, author, text string) er
 	if err := b.enforceAdminBroadcast(t, moderation.SurfaceAdminPost); err != nil {
 		return err
 	}
-	if err := b.publishAdminPackFeedPost(author, t); err != nil {
+	if _, err := b.publishAdminPackFeedPost(adminUserID, author, t); err != nil {
 		return err
 	}
 	b.logger.Infof("admin custom pack feed post published by admin=%d author=%s", adminUserID, author)
@@ -170,20 +170,28 @@ func (b *Bot) saveAdminCustomPackFeed(adminUserID int64, author, text string) er
 // publishAdminPackFeedPost — записывает админский пост в ленту стаи без модерации.
 // Используется и при немедленной публикации (после enforceAdminBroadcast), и планировщиком
 // отложенных постов (модерация уже прошла в момент постановки в очередь).
-func (b *Bot) publishAdminPackFeedPost(author, text string) error {
+func (b *Bot) publishAdminPackFeedPost(authorUserID int64, author, text string) (int64, error) {
 	if b == nil || b.db == nil || b.config == nil || b.config.MonetizedChatID == 0 {
-		return fmt.Errorf("pack feed unavailable")
+		return 0, fmt.Errorf("pack feed unavailable")
 	}
 	t := strings.TrimSpace(text)
 	if t == "" {
-		return fmt.Errorf("empty text")
+		return 0, fmt.Errorf("empty text")
 	}
+	packChatID := b.config.MonetizedChatID
 	um := &domain.UserMessage{
 		UserID:      0,
-		ChatID:      b.config.MonetizedChatID,
+		ChatID:      packChatID,
 		Username:    adminPostAuthorUsername(author),
 		MessageText: t,
 		MessageType: userMessageTypeAdminPost,
 	}
-	return b.db.SaveUserMessage(um)
+	msgID, err := b.db.SaveUserMessageReturningID(um)
+	if err != nil {
+		return 0, err
+	}
+	if msgID > 0 {
+		b.notifyPackMemberMentionsInFeedPost(packChatID, authorUserID, adminPostAuthorUsername(author), t, msgID)
+	}
+	return msgID, nil
 }

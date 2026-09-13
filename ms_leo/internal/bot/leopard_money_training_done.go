@@ -597,6 +597,10 @@ func (b *Bot) handleLeopardMoneyTrainingDone(msg *tgbotapi.Message, personalRepl
 		go b.notifyFriendWorkoutWatchers(msg.From.ID, packChatID, displayName, newStreak, userGender)
 	}
 
+	if trainingUserMessageID > 0 && packChatID != 0 && strings.TrimSpace(text) != "" {
+		b.notifyPackMemberMentionsInFeedPost(packChatID, msg.From.ID, username, text, trainingUserMessageID)
+	}
+
 }
 
 // feedThreadAuthorLabel — как подписать автора строки треда в транскрипте для Лео.
