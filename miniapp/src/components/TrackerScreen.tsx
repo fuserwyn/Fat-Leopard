@@ -153,7 +153,7 @@ function formatWhen(iso: string): string {
 /** Задачу придумал Лео, а админ одобрил. */
 const LEO_AUTHOR_ID = -1;
 
-/** На доске автором показываем Лео: id −1 или kind leo_task (аппрув выставил админ). */
+/** На доске автором показываем Лео: id −1 или kind leo_task. */
 function isLeoTask(task: TrackerTask): boolean {
   const id = Number(task.author_id) || 0;
   return id === LEO_AUTHOR_ID || task.kind === "leo_task";
@@ -257,7 +257,7 @@ export function TrackerScreen({ initData, showAlert }: Props) {
   const [when, setWhen] = useState(WHEN_PRESETS[0].value);
   const [whenAt, setWhenAt] = useState("");
   const [needsApproval, setNeedsApproval] = useState(false);
-  /** Задачу от Лео на доску — с аппрувом других админов. */
+  /** Задачу от Лео на доску — с аппрувом всех админов. */
   const [leoNeedsApproval, setLeoNeedsApproval] = useState(true);
   const [images, setImages] = useState<TaskImage[]>([]);
   /** Тема для Лео; пусто — придумывает сам. */
@@ -975,7 +975,7 @@ export function TrackerScreen({ initData, showAlert }: Props) {
             </div>
             <p className="tracker__hint">
               Напиши тему — или оставь пусто, тогда Лео решит сам. Понравилось — выноси на доску: сначала аппрув
-              других админов, потом в работу.
+              всех админов, потом в работу.
             </p>
             <div className="tracker__new-row">
               <input
@@ -1012,8 +1012,8 @@ export function TrackerScreen({ initData, showAlert }: Props) {
                       onChange={(e) => setLeoNeedsApproval(e.target.checked)}
                     />
                     <span>
-                      <b>Нужен аппрув других админов</b>
-                      <small>Два аппрува в Telegram или здесь — и задача уйдёт в работу</small>
+                      <b>Нужен аппрув всех админов</b>
+                      <small>Два аппрува (включая тебя) в Telegram или здесь — и задача уйдёт в работу</small>
                     </span>
                   </label>
                   <button

@@ -124,7 +124,7 @@ func TestSprintApplyLeoForcesApproval(t *testing.T) {
 }
 
 func TestTrackerTaskViewLeoTaskKind(t *testing.T) {
-	// leo_task: на карточке Лео, author_id — админ, выставивший на аппрув.
+	// leo_task: на карточке Лео (author_id −1), аппрув могут ставить все админы.
 	view := trackerTaskView(database.TrackerTask{
 		ID:            9,
 		Num:           2,
@@ -134,10 +134,10 @@ func TestTrackerTaskViewLeoTaskKind(t *testing.T) {
 		DevColumn:     trackerColApprove,
 		NeedsApproval: true,
 		HasAuthor:     true,
-		AuthorID:      42,
+		AuthorID:      database.TrackerLeoAuthorID,
 		Approvals:     []int64{100},
 	}, false)
-	if view["kind"] != "leo_task" || view["author_id"] != int64(42) {
+	if view["kind"] != "leo_task" || view["author_id"] != database.TrackerLeoAuthorID {
 		t.Fatalf("leo_task view: %#v", view)
 	}
 	if view["needs_approval"] != true || view["approvals_count"] != 1 {
