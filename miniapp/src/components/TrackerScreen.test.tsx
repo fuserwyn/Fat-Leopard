@@ -7,6 +7,8 @@ const trackerList = vi.fn();
 const trackerRefresh = vi.fn();
 const trackerAuthors = vi.fn();
 const trackerRestart = vi.fn();
+const trackerTask = vi.fn();
+const trackerPrompt = vi.fn();
 
 vi.mock("../lib/trackerApi", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/trackerApi")>();
@@ -16,6 +18,8 @@ vi.mock("../lib/trackerApi", async (importOriginal) => {
     trackerRefresh: (...args: unknown[]) => trackerRefresh(...args),
     trackerAuthors: (...args: unknown[]) => trackerAuthors(...args),
     trackerRestart: (...args: unknown[]) => trackerRestart(...args),
+    trackerTask: (...args: unknown[]) => trackerTask(...args),
+    trackerPrompt: (...args: unknown[]) => trackerPrompt(...args),
     trackerAvatarUrl: () => "",
   };
 });
@@ -28,6 +32,8 @@ afterEach(() => {
   trackerRefresh.mockReset();
   trackerAuthors.mockReset();
   trackerRestart.mockReset();
+  trackerTask.mockReset();
+  trackerPrompt.mockReset();
 });
 
 const pending: TrackerTask = {
@@ -44,6 +50,7 @@ const pending: TrackerTask = {
   done: false,
   active: true,
   can_delete: true,
+  can_edit_prompt: true,
   auto_review: false,
   manual_qa: false,
   fast_track: false,
@@ -94,6 +101,47 @@ const doneTask: TrackerTask = {
   active: false,
   can_restart: true,
 };
+
+describe("TrackerScreen prompt edit", () => {
+  it("shows edit control for queued task and saves new text", async () => {
+    trackerList.mockResolvedValue({ tasks: [pending], started: 0 });
+    trackerAuthors.mockResolvedValue([]);
+    trackerTask.mockResolvedValue({ task: pending });
+    trackerPrompt.mockResolvedValue({
+      ok: true,
+      task: { ...pending, prompt: "новый текст задачи" },
+    });
+    const alerts: string[] = [];
+
+    render(<TrackerScreen initData="admin" showAlert={(t) => alerts.push(t)} />);
+    await waitFor(() => expect(screen.getByText("#1")).toBeTruthy());
+
+    fireEvent.click(screen.getByText("#1"));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Изменить текст" })).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("button", { name: "Изменить текст" }));
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "новый текст задачи" } });
+    fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
+
+    await waitFor(() =>
+      expect(trackerPrompt).toHaveBeenCalledWith("admin", 11, "новый текст задачи"),
+    );
+    expect(alerts.some((a) => a.includes("Формулировку"))).toBe(true);
+  });
+
+  it("hides edit control for running task", async () => {
+    trackerList.mockResolvedValue({ tasks: [running], started: 0 });
+    trackerAuthors.mockResolvedValue([]);
+    trackerTask.mockResolvedValue({ task: { ...running, can_edit_prompt: false } });
+
+    render(<TrackerScreen initData="admin" showAlert={() => undefined} />);
+    await waitFor(() => expect(screen.getByText("#1")).toBeTruthy());
+
+    fireEvent.click(screen.getByText("#1"));
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeTruthy());
+    expect(screen.queryByRole("button", { name: "Изменить текст" })).toBeNull();
+  });
+});
 
 describe("TrackerScreen restart", () => {
   it("shows restart on done card and calls restart op", async () => {

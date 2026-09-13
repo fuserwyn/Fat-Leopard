@@ -664,6 +664,10 @@ html.app-keyboard-open .tracker {
   cursor: pointer;
 }
 
+.tracker-modal__prompt-block {
+  margin-bottom: 8px;
+}
+
 .tracker-modal__prompt {
   margin: 0 0 8px;
   font-size: 14px;
@@ -671,6 +675,36 @@ html.app-keyboard-open .tracker {
   color: var(--text);
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.tracker-modal__prompt-edit {
+  width: 100%;
+  min-height: 68px;
+  resize: vertical;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background: var(--card-inner);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+}
+
+.tracker-modal__prompt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.tracker-modal__prompt-edit-btn {
+  padding: 4px 0;
+  border: none;
+  background: transparent;
+  color: var(--accent, #6b8cff);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
 }
 
 .tracker-modal__log {
