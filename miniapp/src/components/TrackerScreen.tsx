@@ -169,6 +169,14 @@ function sortTodoColumnFifo(tasks: TrackerTask[]): TrackerTask[] {
   });
 }
 
+/** Задача ждёт аппрува — на доске можно поставить галочку без открытия карточки. */
+function canApproveOnBoard(task: TrackerTask, isQa: boolean): boolean {
+  if (isQa) return false;
+  const needed = task.approvals_needed ?? 2;
+  const count = task.approvals_count ?? 0;
+  return Boolean(task.needs_approval) && boardDevColumn(task) === "approve" && count < needed;
+}
+
 /** Колонка на доске: без аппрува карточка в «Аппрув», не в «Ожидает». */
 function boardDevColumn(task: TrackerTask): string {
   const col = String(task.dev_column || "todo").toLowerCase();
@@ -648,6 +656,23 @@ export function TrackerScreen({ initData, showAlert }: Props) {
     }
   };
 
+  const approveFromBoard = async (task: TrackerTask, action: "approve" | "reject") => {
+    setBusy(true);
+    try {
+      const res = await trackerApprove(initData, task.id, action);
+      showAlert(action === "approve" ? "Аппрув учтён." : "Задача отклонена.");
+      if (detail?.id === task.id) {
+        if (res.task) setDetail(res.task);
+        else setDetail(null);
+      }
+      await load(false, action === "approve");
+    } catch (e) {
+      showAlert(e instanceof Error ? e.message : "Не получилось");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const loadIdeas = async () => {
     const text = hint.trim();
     if (!text) {
@@ -871,6 +896,16 @@ export function TrackerScreen({ initData, showAlert }: Props) {
                             author={authorLabel(t, authors)}
                             avatar={authorAvatar(t, initData)}
                             onOpen={() => void openTask(t)}
+                            onApprove={
+                              canApproveOnBoard(t, isQa)
+                                ? () => void approveFromBoard(t, "approve")
+                                : undefined
+                            }
+                            onReject={
+                              canApproveOnBoard(t, isQa)
+                                ? () => void approveFromBoard(t, "reject")
+                                : undefined
+                            }
                             onRestart={canReturnToWork(t) ? () => void restartFromBoard(t) : undefined}
                             onDelete={t.can_delete ? () => setDeleteAsk(t) : undefined}
                           />
@@ -1094,7 +1129,7 @@ export function TrackerScreen({ initData, showAlert }: Props) {
                 />
                 <span>
                   <b>Нужен аппрув других админов</b>
-                  <small>Два аппрува в Telegram — и задача уйдёт в работу</small>
+                  <small>Два аппрува в Telegram или на доске — и задача уйдёт в работу</small>
                 </span>
               </label>
               <div className="tracker__new-row">
@@ -1706,6 +1741,8 @@ function TaskCard({
   author,
   avatar,
   onOpen,
+  onApprove,
+  onReject,
   onRestart,
   onDelete,
 }: {
@@ -1714,6 +1751,8 @@ function TaskCard({
   author: string;
   avatar: string;
   onOpen: () => void;
+  onApprove?: () => void;
+  onReject?: () => void;
   onRestart?: () => void;
   onDelete?: () => void;
 }) {
@@ -1808,6 +1847,38 @@ function TaskCard({
         <div className="tracker-card__live tracker-card__live--result">{resultPreview}</div>
       ) : showLive ? (
         <div className="tracker-card__live">{live || "⏳ выполняется…"}</div>
+      ) : null}
+      {onApprove || onReject ? (
+        <div className="tracker-card__approve">
+          {onApprove ? (
+            <button
+              type="button"
+              className="tracker-card__approve-btn"
+              aria-label="Аппрув"
+              title="Аппрув"
+              onClick={(e) => {
+                e.stopPropagation();
+                onApprove();
+              }}
+            >
+              👍 Аппрув ({task.approvals_count ?? 0}/{task.approvals_needed ?? 2})
+            </button>
+          ) : null}
+          {onReject ? (
+            <button
+              type="button"
+              className="tracker-card__reject-btn"
+              aria-label="Отклонить"
+              title="Отклонить"
+              onClick={(e) => {
+                e.stopPropagation();
+                onReject();
+              }}
+            >
+              Отклонить
+            </button>
+          ) : null}
+        </div>
       ) : null}
       {meta.length > 0 ? (
         <div className="tracker-card__meta">
