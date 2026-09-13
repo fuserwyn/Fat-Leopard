@@ -39,7 +39,11 @@ type TrackerTask struct {
 	FastTrack        bool
 	AutoPush         bool
 	NeedsApproval    bool
-	Approvals        []int64
+	Approvals              []int64
+	ApprovalNotifiedAt     time.Time
+	HasApprovalNotified    bool
+	ApprovalReminderSentAt time.Time
+	HasApprovalReminderSent bool
 	Error            string
 	Result           string
 	Steps            []string
@@ -67,6 +71,7 @@ const trackerTaskSelect = `
 		       t.status, t.dev_column, t.qa_column, t.qa_status, t.handed_to_qa,
 		       t.auto_review, t.manual_qa, t.fast_track, t.auto_push,
 		       t.needs_approval, t.approvals,
+		       t.approval_notified_at, t.approval_reminder_sent_at,
 		       t.error, t.result, t.steps, t.author_id,
 		       t.created_at, t.last_run_at, t.updated_at,
 		       (SELECT COUNT(*) FROM pack_tracker_attachments a WHERE a.task_id = t.id)
@@ -455,11 +460,13 @@ func scanTrackerTask(row trackerRow) (TrackerTask, error) {
 	var lastRun sql.NullTime
 	var steps []byte
 	var approvalsRaw []byte
+	var approvalNotified, approvalReminder sql.NullTime
 	err := row.Scan(
 		&t.ID, &t.Num, &t.Prompt, &t.WhenAt, &t.WhenLabel, &t.Repeat, &t.Kind,
 		&t.Status, &t.DevColumn, &qaCol, &qaStatus, &t.HandedToQa,
 		&t.AutoReview, &t.ManualQa, &t.FastTrack, &t.AutoPush,
 		&t.NeedsApproval, &approvalsRaw,
+		&approvalNotified, &approvalReminder,
 		&t.Error, &t.Result, &steps, &author,
 		&t.CreatedAt, &lastRun, &t.UpdatedAt, &t.AttachmentsCount,
 	)
@@ -476,6 +483,14 @@ func scanTrackerTask(row trackerRow) (TrackerTask, error) {
 	if lastRun.Valid {
 		t.LastRunAt = lastRun.Time
 		t.HasLastRun = true
+	}
+	if approvalNotified.Valid {
+		t.ApprovalNotifiedAt = approvalNotified.Time
+		t.HasApprovalNotified = true
+	}
+	if approvalReminder.Valid {
+		t.ApprovalReminderSentAt = approvalReminder.Time
+		t.HasApprovalReminderSent = true
 	}
 	if len(steps) > 0 && string(steps) != "null" {
 		_ = json.Unmarshal(steps, &t.Steps)
@@ -514,4 +529,77 @@ func parseTrackerApprovals(raw []byte) []int64 {
 		return nil
 	}
 	return ids
+}
+
+// MarkTrackerApprovalNotified — зафиксировать первичную рассылку админам.
+func (d *Database) MarkTrackerApprovalNotified(taskID int64) error {
+	if d == nil || d.trackerDB() == nil || taskID <= 0 {
+		return fmt.Errorf("задача не найдена")
+	}
+	res, err := d.trackerDB().Exec(`
+		UPDATE pack_tracker_tasks
+		SET approval_notified_at = NOW(),
+		    approval_reminder_sent_at = NULL,
+		    updated_at = NOW()
+		WHERE id = $1
+	`, taskID)
+	if err != nil {
+		return err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return fmt.Errorf("задача не найдена")
+	}
+	return nil
+}
+
+// MarkTrackerApprovalReminderSent — повторное уведомление уже ушло.
+func (d *Database) MarkTrackerApprovalReminderSent(taskID int64) error {
+	if d == nil || d.trackerDB() == nil || taskID <= 0 {
+		return fmt.Errorf("задача не найдена")
+	}
+	res, err := d.trackerDB().Exec(`
+		UPDATE pack_tracker_tasks
+		SET approval_reminder_sent_at = NOW(),
+		    updated_at = NOW()
+		WHERE id = $1
+	`, taskID)
+	if err != nil {
+		return err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return fmt.Errorf("задача не найдена")
+	}
+	return nil
+}
+
+// ListTrackerTasksAwaitingApprovalReminder — задачи на аппруве, где прошёл час
+// после первого уведомления и повтор ещё не отправляли.
+func (d *Database) ListTrackerTasksAwaitingApprovalReminder() ([]TrackerTask, error) {
+	if d == nil || d.trackerDB() == nil {
+		return nil, fmt.Errorf("база недоступна")
+	}
+	rows, err := d.trackerDB().Query(trackerTaskSelect + `
+		WHERE t.dev_column = 'approve'
+		  AND t.needs_approval = TRUE
+		  AND COALESCE(jsonb_array_length(t.approvals), 0) < 2
+		  AND t.approval_notified_at IS NOT NULL
+		  AND t.approval_notified_at <= NOW() - INTERVAL '1 hour'
+		  AND t.approval_reminder_sent_at IS NULL
+		ORDER BY t.approval_notified_at, t.id
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]TrackerTask, 0, 8)
+	for rows.Next() {
+		t, err := scanTrackerTask(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
 }

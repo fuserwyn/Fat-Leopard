@@ -3,7 +3,9 @@ package bot
 import (
 	"strings"
 	"testing"
+	"time"
 
+	"leo-bot/internal/config"
 	"leo-bot/internal/database"
 )
 
@@ -108,8 +110,64 @@ func TestTrackerApprovalNotifyTextShowsAuthor(t *testing.T) {
 		Kind:          "leo_task",
 		NeedsApproval: true,
 		DevColumn:     trackerColApprove,
-	})
+	}, false)
 	if !strings.Contains(text, "Поставил: Лео") {
 		t.Fatalf("expected Leo author in notify: %q", text)
+	}
+}
+
+func TestTrackerApprovalNotifyTextReminder(t *testing.T) {
+	var b Bot
+	text := b.trackerApprovalNotifyText(database.TrackerTask{
+		Num:           5,
+		NeedsApproval: true,
+		DevColumn:     trackerColApprove,
+	}, true)
+	if !strings.HasPrefix(text, "⏰ Напоминание:") {
+		t.Fatalf("expected reminder prefix: %q", text)
+	}
+}
+
+func TestTrackerApprovalPendingTargetsSkipsApproved(t *testing.T) {
+	b := &Bot{config: &config.Config{OwnerID: 100, AdminIDs: []int64{200, 300}}}
+	task := database.TrackerTask{
+		HasAuthor: true,
+		AuthorID:  999,
+		Approvals: []int64{100},
+	}
+	pending := trackerApprovalPendingTargets(b, task)
+	if len(pending) != 2 {
+		t.Fatalf("pending=%v", pending)
+	}
+	for _, id := range pending {
+		if id == 100 {
+			t.Fatal("approved admin should be skipped")
+		}
+	}
+}
+
+func TestTrackerApprovalReminderDue(t *testing.T) {
+	now := time.Date(2026, 3, 13, 12, 0, 0, 0, time.UTC)
+	base := database.TrackerTask{
+		NeedsApproval:       true,
+		DevColumn:           trackerColApprove,
+		HasApprovalNotified: true,
+		ApprovalNotifiedAt:  now.Add(-61 * time.Minute),
+	}
+	if !trackerApprovalReminderDue(base, now) {
+		t.Fatal("expected reminder due after 61 minutes")
+	}
+	if trackerApprovalReminderDue(base, now.Add(-2*time.Minute)) {
+		t.Fatal("reminder should not be due before an hour passed")
+	}
+	withReminder := base
+	withReminder.HasApprovalReminderSent = true
+	if trackerApprovalReminderDue(withReminder, now) {
+		t.Fatal("reminder should not repeat")
+	}
+	approved := base
+	approved.Approvals = []int64{1, 2}
+	if trackerApprovalReminderDue(approved, now) {
+		t.Fatal("fully approved task should not remind")
 	}
 }
