@@ -102,6 +102,27 @@ func TestTrackerEffectiveDevColumnAwaitingApproval(t *testing.T) {
 	}
 }
 
+func TestSprintApplyLeoForcesApproval(t *testing.T) {
+	for _, tc := range []struct {
+		payload map[string]any
+		want    bool
+	}{
+		{map[string]any{"leo": true}, true},
+		{map[string]any{"leo": true, "needs_approval": false}, true},
+		{map[string]any{"needs_approval": true}, true},
+		{map[string]any{}, false},
+	} {
+		isLeo := payloadBool(tc.payload, "leo")
+		needsApproval := payloadBool(tc.payload, "needs_approval")
+		if isLeo {
+			needsApproval = true
+		}
+		if needsApproval != tc.want {
+			t.Fatalf("payload %#v: got %v want %v", tc.payload, needsApproval, tc.want)
+		}
+	}
+}
+
 func TestTrackerTaskViewLeoTaskKind(t *testing.T) {
 	// leo_task: на карточке Лео, author_id — админ, выставивший на аппрув.
 	view := trackerTaskView(database.TrackerTask{

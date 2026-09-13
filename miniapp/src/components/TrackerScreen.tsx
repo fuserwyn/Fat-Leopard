@@ -297,6 +297,8 @@ export function TrackerScreen({ initData, showAlert }: Props) {
   const [features, setFeatures] = useState<(SprintFeature & { _on: boolean })[]>([]);
   const [sprintBusy, setSprintBusy] = useState<"" | "ideas" | "plan" | "apply" | "leo">("");
   const [leoSprintReply, setLeoSprintReply] = useState("");
+  /** Спринт сгенерирован Лео — перед стартом нужен аппрув админов. */
+  const [fromLeoSprint, setFromLeoSprint] = useState(false);
 
   const isQa = role === "tester";
   const detailRef = useRef<number | null>(null);
@@ -644,6 +646,8 @@ export function TrackerScreen({ initData, showAlert }: Props) {
     }
     setSprintBusy("ideas");
     setFeatures([]);
+    setFromLeoSprint(false);
+    setLeoSprintReply("");
     try {
       const j = await sprintIdeas(initData, text);
       setIdeas(j.ideas ?? []);
@@ -656,10 +660,11 @@ export function TrackerScreen({ initData, showAlert }: Props) {
   };
 
   // Спринт от Лео: он же придумывает тему и нарезку. Задачи кладём в тот же
-  // список, что и обычный генератор, — дальше «Поставить задачи в план».
+  // список, что и обычный генератор, — дальше «На доску (аппрув)».
   const askLeoSprint = async () => {
     setSprintBusy("leo");
     setLeoSprintReply("");
+    setFromLeoSprint(false);
     try {
       const j = await leoSprint(initData, hint.trim());
       setLeoSprintReply(j.reply);
@@ -673,6 +678,7 @@ export function TrackerScreen({ initData, showAlert }: Props) {
           _on: true,
         })),
       );
+      setFromLeoSprint(true);
     } catch (e) {
       showAlert(e instanceof Error ? e.message : "Лео промолчал");
     } finally {
@@ -687,6 +693,8 @@ export function TrackerScreen({ initData, showAlert }: Props) {
       return;
     }
     setSprintBusy("plan");
+    setFromLeoSprint(false);
+    setLeoSprintReply("");
     try {
       const j = await sprintGenerate(initData, {
         hint: hint.trim(),
@@ -714,11 +722,18 @@ export function TrackerScreen({ initData, showAlert }: Props) {
         features: picked.map(({ _on, ...rest }) => rest),
         sprint_count: sprintCount,
         tasks_per_sprint: tasksPerSprint,
+        ...(fromLeoSprint ? { leo: true, needs_approval: true } : {}),
       });
-      showAlert(`Поставлено задач: ${j.created ?? picked.length}.`);
+      showAlert(
+        fromLeoSprint
+          ? `Поставлено задач: ${j.created ?? picked.length}. Сначала аппрув двух админов — в колонке «Аппрув».`
+          : `Поставлено задач: ${j.created ?? picked.length}.`,
+      );
       setFeatures([]);
       setIdeas([]);
       setHint("");
+      setFromLeoSprint(false);
+      setLeoSprintReply("");
       setTab("board");
       await load();
     } catch (e) {
@@ -1176,6 +1191,11 @@ export function TrackerScreen({ initData, showAlert }: Props) {
           {features.length > 0 ? (
             <div className="tracker__feats">
               <h3 className="tracker__subtitle">Задачи спринта</h3>
+              {fromLeoSprint ? (
+                <p className="tracker__hint">
+                  Спринт от Лео — задачи попадут в «Аппрув», старт после двух аппрувов админов.
+                </p>
+              ) : null}
               {features.map((f, i) => (
                 <label className="tracker-feat" key={`${f.title}-${i}`}>
                   <input
@@ -1202,7 +1222,7 @@ export function TrackerScreen({ initData, showAlert }: Props) {
                 disabled={sprintBusy !== ""}
                 onClick={() => void applyPlan()}
               >
-                {sprintBusy === "apply" ? "Ставлю…" : "Поставить задачи в план"}
+                {sprintBusy === "apply" ? "Ставлю…" : fromLeoSprint ? "На доску (аппрув)" : "Поставить задачи в план"}
               </button>
             </div>
           ) : null}

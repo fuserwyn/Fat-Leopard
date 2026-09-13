@@ -873,6 +873,11 @@ func (b *Bot) localTrackerSprintApply(payload map[string]any, userID int64) (jso
 	if len(feats) == 0 {
 		return nil, fmt.Errorf("отметь хотя бы одну задачу")
 	}
+	isLeo := payloadBool(payload, "leo")
+	needsApproval := payloadBool(payload, "needs_approval")
+	if isLeo {
+		needsApproval = true
+	}
 	created := 0
 	for i, raw := range feats {
 		feat, _ := raw.(map[string]any)
@@ -895,10 +900,20 @@ func (b *Bot) localTrackerSprintApply(payload map[string]any, userID int64) (jso
 		if i > 0 {
 			when = fmt.Sprintf("через %d мин", i)
 		}
-		if _, err := b.localTrackerCreate(map[string]any{
+		createPayload := map[string]any{
 			"when":   when,
 			"prompt": prompt,
-		}, userID); err != nil {
+		}
+		if isLeo {
+			createPayload["leo"] = true
+		}
+		if needsApproval {
+			createPayload["needs_approval"] = true
+		}
+		if _, ok := payload["auto_push"]; ok {
+			createPayload["auto_push"] = payloadBool(payload, "auto_push")
+		}
+		if _, err := b.localTrackerCreate(createPayload, userID); err != nil {
 			return nil, err
 		}
 		created++
