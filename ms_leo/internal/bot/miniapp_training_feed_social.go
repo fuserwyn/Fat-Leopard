@@ -23,6 +23,8 @@ var sickLeaveAllowedEmojis = []string{"😢", "😔", "🥺", "🤒", "🫂", "�
 var healthyAllowedEmojis = []string{"🎉", "🥳", "😄", "💚", "❤️", "👏", "🙌", "✨", "🌟", "💪"}
 var packJoinAllowedEmojis = []string{"👋", "🎉", "❤️", "👏", "🙌"}
 
+const leoDefaultTrainingReactionEmoji = "👍"
+
 var (
 	// ErrTrainingFeedSocialForbidden — нет доступа к ленте.
 	ErrTrainingFeedSocialForbidden = errors.New("training feed social forbidden")
@@ -144,6 +146,16 @@ func (b *Bot) assertPackFeedSocialViewer(viewerUserID int64) error {
 		return ErrTrainingFeedSocialForbidden
 	}
 	return nil
+}
+
+// ensureLeoDefaultTrainingFeedReaction — автоматический 👍 от Лео на отчёт о тренировке в ленте стаи.
+func (b *Bot) ensureLeoDefaultTrainingFeedReaction(packChatID, userMessageID int64) {
+	if b == nil || b.db == nil || packChatID == 0 || userMessageID == 0 {
+		return
+	}
+	if _, err := b.db.SetTrainingFeedReaction(packChatID, userMessageID, 0, "Лео", leoDefaultTrainingReactionEmoji); err != nil {
+		b.logger.Warnf("training feed leo default reaction: %v", err)
+	}
 }
 
 // PackTrainingFeedReact — реакция на карточку ленты с соц. активностью (повтор с той же эмодзи снимает).
