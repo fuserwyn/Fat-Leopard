@@ -7,7 +7,7 @@ import (
 )
 
 // PackWeeklyWorkoutGoal — цель тренировок стаи за неделю (сброс каждый понедельник 00:00 МСК).
-const PackWeeklyWorkoutGoal = 100
+const PackWeeklyWorkoutGoal = 50
 
 // PackBonusThemeDuration — эксклюзивная тема на сутки после достижения цели.
 const PackBonusThemeDuration = 24 * time.Hour

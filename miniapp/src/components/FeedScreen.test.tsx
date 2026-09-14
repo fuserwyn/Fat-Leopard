@@ -64,12 +64,12 @@ describe("FeedScreen pack weekly progress", () => {
         active
         refreshToken={0}
         packWorkoutsWeek={42}
-        packWorkoutsGoal={100}
+        packWorkoutsGoal={50}
       />,
     );
     await waitFor(() => expect(screen.queryByText("Загрузка…")).toBeNull());
-    expect(screen.getByLabelText("Стая: 42/100 тренировок за неделю")).toBeTruthy();
-    expect(screen.getByText("42/100")).toBeTruthy();
+    expect(screen.getByLabelText("Стая: 42/50 тренировок за неделю")).toBeTruthy();
+    expect(screen.getByText("42/50")).toBeTruthy();
   });
 });
 
