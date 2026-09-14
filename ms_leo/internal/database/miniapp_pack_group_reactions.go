@@ -47,7 +47,7 @@ func (d *Database) ListPackGroupReactionAggs(packChatID int64, messageIDs []int6
 		return nil, nil, err
 	}
 	qVoters := `
-		SELECT r.pack_message_id, r.emoji,
+		SELECT r.pack_message_id, r.emoji, r.user_id,
 		       COALESCE(NULLIF(TRIM(r.username), ''), CONCAT('Участник ', r.user_id::text)) AS voter,
 		       COALESCE(p.telegram_photo_url, '') AS photo
 		FROM miniapp_pack_group_reactions r
@@ -62,15 +62,15 @@ func (d *Database) ListPackGroupReactionAggs(packChatID int64, messageIDs []int6
 	}
 	defer rv.Close()
 	for rv.Next() {
-		var mid int64
+		var mid, uid int64
 		var emoji, voter, photo string
-		if err := rv.Scan(&mid, &emoji, &voter, &photo); err != nil {
+		if err := rv.Scan(&mid, &emoji, &uid, &voter, &photo); err != nil {
 			return nil, nil, err
 		}
 		aggs := out[mid]
 		for i := range aggs {
 			if aggs[i].Emoji == emoji {
-				aggs[i].Voters = append(aggs[i].Voters, Voter{Name: voter, PhotoURL: photo})
+				aggs[i].Voters = append(aggs[i].Voters, Voter{UserID: uid, Name: voter, PhotoURL: photo})
 				break
 			}
 		}

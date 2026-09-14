@@ -97,7 +97,7 @@ func (b *Bot) PackGroupChatForViewer(viewerUserID int64, initD initdata.InitData
 		}
 	}
 	msgs = b.enrichPackGroupChatAuthorPhotos(msgs, chatID, initDataRaw)
-	return b.enrichPackGroupChatReactions(msgs, viewerUserID, chatID), nil
+	return b.enrichPackGroupChatReactions(msgs, viewerUserID, chatID, initDataRaw), nil
 }
 
 // PackGroupChatSearch — поиск по всей истории общего чата (текст сообщений).
@@ -722,7 +722,7 @@ func (b *Bot) PackGroupChatReport(viewerUserID int64, initD initdata.InitData, m
 	return nil
 }
 
-func (b *Bot) enrichPackGroupChatReactions(msgs []*domain.PackGroupChatMessage, viewerUserID, chatID int64) []*domain.PackGroupChatMessage {
+func (b *Bot) enrichPackGroupChatReactions(msgs []*domain.PackGroupChatMessage, viewerUserID, chatID int64, initDataRaw string) []*domain.PackGroupChatMessage {
 	if b == nil || b.db == nil || chatID == 0 || len(msgs) == 0 {
 		return msgs
 	}
@@ -751,8 +751,9 @@ func (b *Bot) enrichPackGroupChatReactions(msgs []*domain.PackGroupChatMessage, 
 				feedAggs[i] = database.TrainingFeedReactionAgg{Emoji: a.Emoji, Count: a.Count, Voters: a.Voters}
 			}
 			for _, a := range database.SortReactionAggsForDisplay(feedAggs, trainingFeedAllowedEmojis) {
-				voters := make([]domain.PackGroupChatVoter, len(a.Voters))
-				for i, v := range a.Voters {
+				pv := b.packVoters(a.Voters, initDataRaw)
+				voters := make([]domain.PackGroupChatVoter, len(pv))
+				for i, v := range pv {
 					voters[i] = domain.PackGroupChatVoter{Name: v.Name, PhotoURL: v.PhotoURL}
 				}
 				m.Reactions = append(m.Reactions, domain.PackGroupChatReaction{

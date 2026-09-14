@@ -23,6 +23,7 @@ import { clearPackGroupUnread, fetchPackGroupUnreadSummary } from "../lib/packGr
 import {
   mergeTrainingFeedReactions,
   optimisticTogglePackFeedReaction,
+  votersToLikers,
   resolveFeedAvatarUrl,
   resolveTrainingPhotoUrl,
   type PackFeedReactionDTO,
@@ -35,19 +36,6 @@ import "./ActivityCard.css";
 import "./PackGroupChatPanel.css";
 
 type ChatReaction = { emoji: string; count: number; me: boolean; voters?: VoterDTO[] | string[] };
-
-function votersToLikers(voters?: VoterDTO[] | string[]): Liker[] {
-  if (!voters) return [];
-  return voters.map((v) => {
-    if (typeof v === "string") {
-      return { name: v, photoUrl: undefined };
-    }
-    return {
-      name: v.name,
-      photoUrl: v.photo_url ? resolveFeedAvatarUrl(v.photo_url) : undefined,
-    };
-  });
-}
 
 /** Чип реакции в чате: тап = поставить/снять, зажатие = показать список отреагировавших. */
 function PackReactionChip({

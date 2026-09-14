@@ -5,31 +5,10 @@ import { PhotoCropper } from "./PhotoCropper";
 import { PhotoLightbox } from "./PhotoLightbox";
 import { CameraButton } from "./CameraButton";
 import { LEO_AVATAR_URL } from "../lib/leoAvatar";
-import { resolveFeedAvatarUrl, type VoterDTO } from "../lib/packFeed";
+import { resolveFeedAvatarUrl, votersToLikers, type VoterDTO } from "../lib/packFeed";
 import { streakStreakAriaLabel } from "../lib/streakLabel";
 import { hapticImpact } from "../lib/haptics";
 import "./ActivityCard.css";
-
-/** Голоса с бэкенда → строки списка лайкнувших (имя + отрезолвленный URL аватара).
-    Работает с обоими форматами: новый {name, photo_url} и старый строка. */
-function votersToLikers(voters?: VoterDTO[] | string[]): Liker[] {
-  if (!voters) return [];
-  return voters.map((v) => {
-    if (typeof v === "string") {
-      return { name: v, photoUrl: undefined };
-    }
-    const leoVoter = (v.name || "").trim() === "Лео";
-    const photoUrl = v.photo_url
-      ? resolveFeedAvatarUrl(v.photo_url)
-      : leoVoter
-        ? LEO_AVATAR_URL
-        : undefined;
-    return {
-      name: v.name,
-      photoUrl,
-    };
-  });
-}
 
 function avatarLooksLikeImageSrc(avatar: string): boolean {
   const t = avatar.trim();

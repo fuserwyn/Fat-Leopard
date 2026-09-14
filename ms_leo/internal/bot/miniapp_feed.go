@@ -34,7 +34,7 @@ func (b *Bot) packVoters(in []database.Voter, initDataRaw string) []PackVoter {
 	}
 	out := make([]PackVoter, len(in))
 	for i, v := range in {
-		if v.UserID == 0 {
+		if v.UserID == 0 || strings.TrimSpace(v.Name) == "Лео" {
 			out[i] = PackVoter{
 				Name:     v.Name,
 				PhotoURL: packFeedLeoAvatarURL(publicBase),
@@ -204,7 +204,7 @@ func (b *Bot) PackFeedForViewer(viewerUserID int64, initD initdata.InitData, ini
 			}
 		}
 		msgs = b.enrichPackGroupChatAuthorPhotos(msgs, chatID, initDataRaw)
-		msgs = b.enrichPackGroupChatReactions(msgs, viewerUserID, chatID)
+		msgs = b.enrichPackGroupChatReactions(msgs, viewerUserID, chatID, initDataRaw)
 		for _, m := range msgs {
 			if m == nil {
 				continue

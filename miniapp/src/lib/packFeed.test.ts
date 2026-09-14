@@ -8,6 +8,8 @@ import {
   packMessageCommentReplyToId,
   mapFeedThreadQuote,
   mergePackFeedReactions,
+  resolveVoterPhotoUrl,
+  votersToLikers,
   optimisticTogglePackFeedReaction,
   optimisticToggleThreadReplyLike,
   reconcilePinnedFeed,
@@ -108,6 +110,18 @@ describe("feed keys / message detection", () => {
 });
 
 describe("reactions", () => {
+  it("resolveVoterPhotoUrl uses miniapp static for Leo even when backend sends API-relative path", () => {
+    expect(resolveVoterPhotoUrl({ name: "Лео", photo_url: "/leo-avatar.png" })).toMatch(/leo-avatar\.png$/);
+    expect(resolveVoterPhotoUrl({ name: "Лео" })).toMatch(/leo-avatar\.png$/);
+    expect(resolveVoterPhotoUrl({ name: "Аня", photo_url: "/api/miniapp/user-avatar?user_id=1" })).toContain(
+      "/api/miniapp/user-avatar",
+    );
+  });
+
+  it("votersToLikers maps Leo string voter to avatar", () => {
+    expect(votersToLikers(["Лео"])).toEqual([{ name: "Лео", photoUrl: expect.stringMatching(/leo-avatar\.png$/) }]);
+  });
+
   it("mergePackFeedReactions puts mine first", () => {
     const merged = mergePackFeedReactions(["💪", "❤️", "🔥"], [
       { emoji: "🔥", count: 2, me: true },
