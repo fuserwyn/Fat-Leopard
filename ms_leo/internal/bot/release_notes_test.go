@@ -54,8 +54,25 @@ func TestTrackerTaskAffectsUserExperience(t *testing.T) {
 		Result: "На карточках в колонке Аппрув появились кнопки.",
 		Steps:  []string{"сделано: кнопки аппрува на доске"},
 	}
-	if !trackerTaskAffectsUserExperience(board) {
-		t.Fatal("board approve buttons are miniapp UX")
+	if trackerTaskAffectsUserExperience(board) {
+		t.Fatal("tracker board approve is admin-only, not pack UX")
+	}
+	adminPanel := database.TrackerTask{
+		Num:    106,
+		Prompt: "В админке показывать всех участников за всю историю стаи",
+		Result: "Счётчики активных и кикнутых в AdminScreen.",
+	}
+	if trackerTaskAffectsUserExperience(adminPanel) {
+		t.Fatal("admin moderation panel is not pack UX")
+	}
+	reaction := database.TrackerTask{
+		Num:    105,
+		Prompt: "На любую тренировку стаи ставить дефолтную реакцию 👍 от Лео",
+		Result: "Лео автоматически ставит 👍 на отчёты в ленте.",
+		Steps:  []string{"сделано: дефолтная реакция в ленте"},
+	}
+	if !trackerTaskAffectsUserExperience(reaction) {
+		t.Fatal("training feed reaction is user-facing")
 	}
 }
 

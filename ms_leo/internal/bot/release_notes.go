@@ -19,16 +19,17 @@ const (
 
 var releaseNotesInternalPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)(ms_tracker|cursor[\s-]?агент|зомби|конвейер|pipeline|планировщик.*трекер|tracker/notify|tracker_agent)`),
-	regexp.MustCompile(`(?i)(telegram[\s-]?уведомлен|уведомлен.*админ|dm.*админ|личк.*админ)`),
+	regexp.MustCompile(`(?i)(telegram[\s-]?уведомлен|уведомлен.*админ|dm.*админ|личк.*админ|уведомлен.*выкат|выкат.*уведомлен)`),
 	regexp.MustCompile(`(?i)(ревью|тест|сборк).{0,40}(трекер|агент|ms_leo\s+internal/bot/tracker)`),
-	regexp.MustCompile(`(?i)(зависш|перезапуск.*агент|ожид.*очеред)`),
+	regexp.MustCompile(`(?i)(зависш|перезапуск.*агент|ожид.*очеред|напоминан.*аппрув)`),
+	regexp.MustCompile(`(?i)(админк|adminscreen|admin_moderation|участник.*истори|кикнут|модерац)`),
+	regexp.MustCompile(`(?i)(доск.*трекер|трекер.*доск|tracker.*board|trackerapprove|leo-propose|придумыван.*задач)`),
 }
 
 var releaseNotesUserFacingHints = []string{
 	"miniapp", "мини-апп", "лента", "профиль", "чат стаи", "трениров",
 	"реакц", "упомин", "@", "feed", "profile", "pack group", "общий чат",
 	"стрик", "кубк", "опрос", "фото", "коммент", "поддержк", "мудрость",
-	"доск", "аппрув", "кнопк",
 }
 
 // trackerTaskShippedToProd — задача доехала до main (см. trackerTaskShippedToStand + финальный статус).
@@ -96,7 +97,7 @@ func releaseNotesShouldRunToday(now time.Time, lastPeriodEnd string) bool {
 	if lastPeriodEnd == "" {
 		return true
 	}
-	last, err := time.Parse("2006-01-02", lastPeriodEnd)
+	last, err := time.ParseInLocation("2006-01-02", lastPeriodEnd, now.Location())
 	if err != nil {
 		return true
 	}
