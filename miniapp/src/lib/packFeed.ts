@@ -95,6 +95,35 @@ export const PACK_JOIN_FEED_EMOJIS = ["👋", "🎉", "❤️", "👏", "🙌"] 
 /** Кто отреагировал/лайкнул: имя + аватар (для поповера «кто лайкнул»). */
 export type VoterDTO = { name: string; photo_url?: string };
 
+/** Элемент списка «кто отреагировал» с отрезолвленным URL аватара. */
+export type VoterLiker = { name: string; photoUrl?: string };
+
+/** URL аватара голосующего: Лео всегда leo-avatar.png (статик мини-аппа, не API-прокси). */
+export function resolveVoterPhotoUrl(v: Pick<VoterDTO, "name" | "photo_url">): string | undefined {
+  const name = (v.name || "").trim();
+  const raw = (v.photo_url ?? "").trim();
+  if (name === "Лео" || raw.includes("leo-avatar")) {
+    return LEO_AVATAR_URL;
+  }
+  if (!raw) return undefined;
+  return resolveFeedAvatarUrl(raw);
+}
+
+/** Голоса с бэкенда → список для LikersPopover (имя + photoUrl). */
+export function votersToLikers(voters?: VoterDTO[] | string[]): VoterLiker[] {
+  if (!voters) return [];
+  return voters.map((v) => {
+    if (typeof v === "string") {
+      const name = v.trim();
+      return { name: v, photoUrl: name === "Лео" ? LEO_AVATAR_URL : undefined };
+    }
+    return {
+      name: v.name,
+      photoUrl: resolveVoterPhotoUrl(v),
+    };
+  });
+}
+
 export type PackFeedReactionDTO = { emoji: string; count: number; me: boolean; voters?: VoterDTO[] | string[] };
 
 export type PackFeedPollOptionDTO = {

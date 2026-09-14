@@ -4,8 +4,27 @@ import (
 	"strings"
 	"testing"
 
+	"leo-bot/internal/database"
 	"leo-bot/internal/domain"
 )
+
+func TestPackVotersLeoAvatar(t *testing.T) {
+	b := &Bot{config: nil}
+	got := b.packVoters([]database.Voter{
+		{UserID: 0, Name: "Лео"},
+		{Name: "Лео", PhotoURL: "https://broken.example/x.jpg"},
+		{UserID: 42, Name: "Аня", PhotoURL: "https://t.me/i/userpic/320/a.jpg"},
+	}, "")
+	if len(got) != 3 {
+		t.Fatalf("len=%d", len(got))
+	}
+	if got[0].PhotoURL != "/leo-avatar.png" || got[1].PhotoURL != "/leo-avatar.png" {
+		t.Fatalf("leo voters: %+v", got[:2])
+	}
+	if got[2].PhotoURL != "https://t.me/i/userpic/320/a.jpg" {
+		t.Fatalf("user voter photo: %q", got[2].PhotoURL)
+	}
+}
 
 func TestPackFeedLeoAvatarURL(t *testing.T) {
 	got := packFeedLeoAvatarURL("https://app.example")

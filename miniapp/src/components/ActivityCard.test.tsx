@@ -64,6 +64,22 @@ describe("trainingReactionVisibleCount", () => {
 describe("ActivityCard reactions popover", () => {
   // Регресс: голос без фото и без имени не должен ронять рендер (был «чёрный экран»
   // из-за v.name.trim() при отсутствии ErrorBoundary).
+  it("shows Leo avatar in likers popover when Leo reacted", () => {
+    const { container } = render(
+      <ActivityCard
+        {...baseProps}
+        streak={4}
+        onReactionClick={() => {}}
+        reactions={[{ emoji: "🔥", count: 1, me: false, voters: [{ name: "Лео", photo_url: "/leo-avatar.png" }] }]}
+      />,
+    );
+    const chip = container.querySelector(".act-card__react-btn");
+    fireEvent.mouseEnter(chip!);
+    const img = document.querySelector(".act-card__likers-ava-img") as HTMLImageElement | null;
+    expect(img).toBeTruthy();
+    expect(img!.src).toMatch(/leo-avatar\.png$/);
+  });
+
   it("does not crash for a voter with no photo and missing name", () => {
     const { container } = render(
       <ActivityCard
