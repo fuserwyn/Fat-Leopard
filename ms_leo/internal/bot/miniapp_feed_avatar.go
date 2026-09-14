@@ -51,6 +51,17 @@ func packFeedTelegramPhotoURLIsSafePublic(raw string) bool {
 }
 
 // packFeedAvatarProxyURL — URL для <img>, сервер отдаёт байты через Bot API без утечки токена в клиент.
+const leoAvatarStaticPath = "/leo-avatar.png"
+
+// packFeedLeoAvatarURL — статичный аватар Лео из мини-аппа (public/leo-avatar.png).
+func packFeedLeoAvatarURL(publicBase string) string {
+	base := strings.TrimRight(strings.TrimSpace(publicBase), "/")
+	if base != "" {
+		return base + leoAvatarStaticPath
+	}
+	return leoAvatarStaticPath
+}
+
 func packFeedAvatarProxyURL(publicBase string, subjectUserID int64, initDataRaw string) string {
 	if subjectUserID == 0 || strings.TrimSpace(initDataRaw) == "" {
 		return ""

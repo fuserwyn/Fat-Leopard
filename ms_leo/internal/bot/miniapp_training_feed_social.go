@@ -23,8 +23,6 @@ var sickLeaveAllowedEmojis = []string{"😢", "😔", "🥺", "🤒", "🫂", "�
 var healthyAllowedEmojis = []string{"🎉", "🥳", "😄", "💚", "❤️", "👏", "🙌", "✨", "🌟", "💪"}
 var packJoinAllowedEmojis = []string{"👋", "🎉", "❤️", "👏", "🙌"}
 
-const leoDefaultTrainingReactionEmoji = "👍"
-
 var (
 	// ErrTrainingFeedSocialForbidden — нет доступа к ленте.
 	ErrTrainingFeedSocialForbidden = errors.New("training feed social forbidden")
@@ -148,12 +146,28 @@ func (b *Bot) assertPackFeedSocialViewer(viewerUserID int64) error {
 	return nil
 }
 
-// ensureLeoDefaultTrainingFeedReaction — автоматический 👍 от Лео на отчёт о тренировке в ленте стаи.
+// leoTrainingFeedReactionEmoji — эмодзи реакции Лео на отчёт: стабильно для одного поста,
+// но разное для разных тренировок (из trainingFeedAllowedEmojis).
+func leoTrainingFeedReactionEmoji(userMessageID int64) string {
+	list := trainingFeedAllowedEmojis
+	n := len(list)
+	if n == 0 {
+		return "👍"
+	}
+	if userMessageID < 0 {
+		userMessageID = -userMessageID
+	}
+	idx := int((userMessageID*7919 + 104729) % int64(n))
+	return list[idx]
+}
+
+// ensureLeoDefaultTrainingFeedReaction — автоматическая реакция от Лео на отчёт о тренировке в ленте стаи.
 func (b *Bot) ensureLeoDefaultTrainingFeedReaction(packChatID, userMessageID int64) {
 	if b == nil || b.db == nil || packChatID == 0 || userMessageID == 0 {
 		return
 	}
-	if _, err := b.db.SetTrainingFeedReaction(packChatID, userMessageID, 0, "Лео", leoDefaultTrainingReactionEmoji); err != nil {
+	emoji := leoTrainingFeedReactionEmoji(userMessageID)
+	if _, err := b.db.SetTrainingFeedReaction(packChatID, userMessageID, 0, "Лео", emoji); err != nil {
 		b.logger.Warnf("training feed leo default reaction: %v", err)
 	}
 }
