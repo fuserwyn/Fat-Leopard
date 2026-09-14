@@ -297,10 +297,23 @@ func (d *Database) ClaimDueTrackerTasks(now time.Time) ([]TrackerTask, error) {
 			  AND COALESCE(NULLIF(dev_column, ''), 'todo') = 'todo'
 			  AND NOT COALESCE(needs_approval, FALSE)
 			  AND when_at <= NOW()
+			  -- Конвейер держат ревью/тест/сборка и «В работе» с живым агентом —
+			  -- как trackerTaskInPipeline. Упавшая или ждущая «В работе» (#104)
+			  -- иначе навсегда запирала очередь.
 			  AND NOT EXISTS (
 			    SELECT 1 FROM pack_tracker_tasks busy
-			    WHERE busy.dev_column IN ('doing', 'review', 'test', 'deploy')
-			      AND busy.status NOT IN ('done', 'canceled')
+			    WHERE busy.status NOT IN ('done', 'canceled')
+			      AND (
+			        busy.dev_column IN ('review', 'test', 'deploy')
+			        OR (
+			          busy.dev_column = 'doing'
+			          AND busy.status <> 'error'
+			          AND busy.error NOT ILIKE '%гент не стартовал%'
+			          AND busy.error NOT ILIKE '%только заметка%'
+			          AND busy.error NOT ILIKE '%нет правок%'
+			          AND COALESCE(busy.steps->>-1, '') NOT IN ('ждёт очередь', 'Агент не стартовал')
+			        )
+			      )
 			  )
 			ORDER BY when_at, id
 			LIMIT 1
