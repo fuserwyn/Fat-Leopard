@@ -355,13 +355,18 @@ func (b *Bot) dispatchTextMessageFromUser(msg *tgbotapi.Message, personalReplyCh
 		b.syncPrivateBottomKeyboard(msg.Chat.ID, msg.From.ID)
 	}
 
+	// Отчёт о тренировке из мини-аппа — не ответ мастеру и не вопрос в поддержку.
+	// Иначе у админа с открытым мастером (или у юзера в сессии поддержки) отчёт
+	// молча проглатывался: ни стрика, ни кубков, в мини-аппе «загляни в личку».
+	miniappTrainingReport := personalReplyCh != nil && leopardmoney.IsTrainingReportLine(msg.Text)
+
 	// Админ-мастер перехватывает сообщения владельца в личке при активной сессии.
-	if b.handleAdminFlowMessage(msg) {
+	if !miniappTrainingReport && b.handleAdminFlowMessage(msg) {
 		return
 	}
 
 	// Поддержка в личке (оплата, доступ) — до мини-аппа, без Лео.
-	if b.handleUserSupportFlowMessage(msg) {
+	if !miniappTrainingReport && b.handleUserSupportFlowMessage(msg) {
 		return
 	}
 
