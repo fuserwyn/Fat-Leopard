@@ -274,6 +274,18 @@
   color: var(--accent);
 }
 
+.feed__pack-progress--plain {
+  margin: 10px 0 6px;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  border: none;
+}
+
+.feed__pack-progress--plain.is-bonus {
+  box-shadow: none;
+}
+
 .feed__subtabs {
   display: flex;
   gap: 5px;
@@ -612,7 +624,7 @@
   }
 }
 
-/* Pull-to-refresh: только при оттяге, сразу под fixed-шапкой, перед «Тренировки стаи». */
+/* Pull-to-refresh: только при оттяге, сразу под fixed-шапкой, перед «Неделя стаи». */
 .feed__ptr {
   position: relative;
   flex-shrink: 0;
@@ -777,65 +789,6 @@
   color: var(--accent);
 }
 
-.feed__section-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin: 10px 0 6px;
-  gap: 8px;
-}
-
-.feed__section-row .section-title {
-  margin-bottom: 0;
-}
-
-.feed__section-title {
-  text-transform: none;
-  letter-spacing: 0.02em;
-}
-
-.feed__refresh-btn {
-  flex-shrink: 0;
-  width: 44px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border-subtle);
-  background: var(--card);
-  color: var(--muted);
-  border-radius: 8px;
-  font-size: 1.1rem;
-  cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
-}
-
-.feed__refresh-btn:not(:disabled):hover {
-  color: var(--text);
-  border-color: rgba(51, 48, 74, 0.25);
-}
-
-.feed__refresh-btn:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
-.feed__refresh-ico {
-  display: inline-block;
-  line-height: 1;
-}
-
-.feed__refresh-btn.is-refreshing {
-  opacity: 1;
-  color: var(--accent);
-  border-color: var(--accent);
-  cursor: default;
-}
-
-.feed__refresh-btn.is-refreshing .feed__refresh-ico {
-  animation: feedPtrSpin 0.8s linear infinite;
-}
-
 /* Шире мобилки — лента занимает весь экран. На ≥1024px добавляется авто-сетка
    (2/3/4 колонки по ширине окна, минимум 420px на колонку). Mine/them различает
    зелёный border у своих — chat-сдвиг в гриде теряет смысл. */
@@ -870,7 +823,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .feed__refresh-btn.is-refreshing .feed__refresh-ico,
   .feed__ptr--refreshing .feed__ptr-icon,
   .feed__list--swap .feed__card-slot,
   .feed__cat-list {

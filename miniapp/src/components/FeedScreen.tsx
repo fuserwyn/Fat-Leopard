@@ -252,7 +252,6 @@ export function FeedScreen({
   const [feedItems, setFeedItems] = useState<PackFeedItemDTO[]>([]);
   const [useMockFeed, setUseMockFeed] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [manualRefreshing, setManualRefreshing] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [threadDrafts, setThreadDrafts] = useState<Record<number, string>>({});
   const [threadPosting, setThreadPosting] = useState<Record<number, boolean>>({});
@@ -1716,46 +1715,6 @@ export function FeedScreen({
                 <span className="feed__streak-num">{streak}</span>
               </span>
             </div>
-            <div
-              className={`feed__pack-progress${packGoalReached ? " is-complete" : ""}${packBonusThemeActive ? " is-bonus" : ""}`}
-              aria-label={`Стая: ${packWeeklyProgressLabel(packWorkoutsWeek, packWorkoutsGoal)} тренировок за неделю`}
-            >
-              <div className="feed__pack-progress-row">
-                <span className="feed__pack-progress-title">Неделя стаи</span>
-                <div
-                  className="feed__pack-progress-bar"
-                  role="progressbar"
-                  aria-valuenow={Math.max(0, Math.floor(packWorkoutsWeek))}
-                  aria-valuemin={0}
-                  aria-valuemax={packWorkoutsGoal > 0 ? packWorkoutsGoal : PACK_WEEKLY_GOAL_DEFAULT}
-                >
-                  {packWeeklyStepFillPcts(packWorkoutsWeek, packWorkoutsGoal).map((fillPct, i) => (
-                    <div key={i} className="feed__pack-progress-segment">
-                      <div className="feed__pack-progress-segment-fill" style={{ width: `${fillPct}%` }} />
-                    </div>
-                  ))}
-                </div>
-                <span className="feed__pack-progress-count">{packWeeklyProgressLabel(packWorkoutsWeek, packWorkoutsGoal)}</span>
-                <button
-                  type="button"
-                  className="feed__pack-progress-help"
-                  aria-label="Подсказка о недельной цели стаи"
-                  onClick={() => {
-                    hapticLight();
-                    showAlert(PACK_WEEKLY_GOAL_HINT);
-                  }}
-                >
-                  ?
-                </button>
-              </div>
-              {packGoalReached ? (
-                <span className="feed__pack-progress-bonus">
-                  {packBonusThemeActive
-                    ? "Цель достигнута · +50 кубков каждому · бонусная тема активна"
-                    : "Цель достигнута · +50 кубков каждому"}
-                </span>
-              ) : null}
-            </div>
           </div>
         </header>
         {sub === "activity" && (
@@ -1945,36 +1904,45 @@ export function FeedScreen({
         </div>
       ) : null}
       <div className={`feed__subpane${sub !== "activity" ? " feed__subpane--hidden" : ""}`}>
-          <div className="feed__section-row">
-            <h2 className="section-title feed__section-title">Тренировки стаи</h2>
-            {apiBase && inTelegram && initData && (
+          <div
+            className={`feed__pack-progress feed__pack-progress--plain${packGoalReached ? " is-complete" : ""}${packBonusThemeActive ? " is-bonus" : ""}`}
+            aria-label={`Стая: ${packWeeklyProgressLabel(packWorkoutsWeek, packWorkoutsGoal)} тренировок за неделю`}
+          >
+            <div className="feed__pack-progress-row">
+              <span className="feed__pack-progress-title">Неделя стаи</span>
+              <div
+                className="feed__pack-progress-bar"
+                role="progressbar"
+                aria-valuenow={Math.max(0, Math.floor(packWorkoutsWeek))}
+                aria-valuemin={0}
+                aria-valuemax={packWorkoutsGoal > 0 ? packWorkoutsGoal : PACK_WEEKLY_GOAL_DEFAULT}
+              >
+                {packWeeklyStepFillPcts(packWorkoutsWeek, packWorkoutsGoal).map((fillPct, i) => (
+                  <div key={i} className="feed__pack-progress-segment">
+                    <div className="feed__pack-progress-segment-fill" style={{ width: `${fillPct}%` }} />
+                  </div>
+                ))}
+              </div>
+              <span className="feed__pack-progress-count">{packWeeklyProgressLabel(packWorkoutsWeek, packWorkoutsGoal)}</span>
               <button
                 type="button"
-                className={`feed__refresh-btn${manualRefreshing ? " is-refreshing" : ""}`}
-                disabled={loading || manualRefreshing}
-                onClick={async () => {
-                  if (manualRefreshing) return;
-                  setManualRefreshing(true);
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                  newestTsRef.current = "";
-                  oldestTsRef.current = "";
-                  setHasMoreOlder(true);
-                  try {
-                    // force=true — игнорируем дедуп фоновых синков, чтобы клик всегда обновлял.
-                    await syncFeed({ full: true, reset: true, force: true });
-                    onRefreshAll?.();
-                  } finally {
-                    setManualRefreshing(false);
-                  }
+                className="feed__pack-progress-help"
+                aria-label="Подсказка о недельной цели стаи"
+                onClick={() => {
+                  hapticLight();
+                  showAlert(PACK_WEEKLY_GOAL_HINT);
                 }}
-                aria-label="Обновить ленту"
-                title="Обновить"
               >
-                <span className="feed__refresh-ico" aria-hidden>
-                  ↻
-                </span>
+                ?
               </button>
-            )}
+            </div>
+            {packGoalReached ? (
+              <span className="feed__pack-progress-bonus">
+                {packBonusThemeActive
+                  ? "Цель достигнута · +50 кубков каждому · бонусная тема активна"
+                  : "Цель достигнута · +50 кубков каждому"}
+              </span>
+            ) : null}
           </div>
           {err && <p className="feed__err">{err}</p>}
           {loading && <p className="feed__load muted">Загрузка…</p>}
