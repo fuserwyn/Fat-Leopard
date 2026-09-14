@@ -112,6 +112,9 @@ describe("feed keys / message detection", () => {
 describe("reactions", () => {
   it("resolveVoterPhotoUrl uses miniapp static for Leo even when backend sends API-relative path", () => {
     expect(resolveVoterPhotoUrl({ name: "Лео", photo_url: "/leo-avatar.png" })).toMatch(/leo-avatar\.png$/);
+    expect(resolveVoterPhotoUrl({ name: "Лео", photo_url: "https://app.example/leo-avatar.png" })).toMatch(
+      /leo-avatar\.png$/,
+    );
     expect(resolveVoterPhotoUrl({ name: "Лео" })).toMatch(/leo-avatar\.png$/);
     expect(resolveVoterPhotoUrl({ name: "Аня", photo_url: "/api/miniapp/user-avatar?user_id=1" })).toContain(
       "/api/miniapp/user-avatar",
