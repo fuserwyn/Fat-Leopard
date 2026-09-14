@@ -1075,9 +1075,14 @@ func (s *Server) handlePostAdminLeoAutonomy(w http.ResponseWriter, r *http.Reque
 
 func (s *Server) handlePostAdminLeoPropose(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		InitData string   `json:"init_data"`
-		Hint     string   `json:"hint"`
+		InitData string `json:"init_data"`
+		Hint     string `json:"hint"`
 		Busy     []string `json:"busy"`
+		Feedback string `json:"feedback"`
+		Previous struct {
+			Title string `json:"title"`
+			Task  string `json:"task"`
+		} `json:"previous"`
 	}
 	corsWriteHeaders(w, r)
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -1088,12 +1093,19 @@ func (s *Server) handlePostAdminLeoPropose(w http.ResponseWriter, r *http.Reques
 	if !ok {
 		return
 	}
-	reply, title, task, err := s.bot.MiniappLeoProposeTask(parsed.User.ID, parsed, body.Hint, body.Busy)
+	reply, title, task, variants, err := s.bot.MiniappLeoProposeTask(
+		parsed.User.ID, parsed, body.Hint, body.Busy,
+		body.Feedback, body.Previous.Title, body.Previous.Task,
+	)
 	if err != nil {
 		s.writeAdminErr(w, err)
 		return
 	}
-	s.writeAdminOK(w, map[string]any{"reply": reply, "title": title, "task": task})
+	out := map[string]any{"reply": reply, "title": title, "task": task}
+	if len(variants) > 0 {
+		out["variants"] = variants
+	}
+	s.writeAdminOK(w, out)
 }
 
 func (s *Server) handlePostAdminLeoSprint(w http.ResponseWriter, r *http.Request) {

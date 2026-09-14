@@ -325,30 +325,52 @@ export async function trackerAttachImage(
   }
 }
 
+export type LeoTaskVariant = { title: string; task: string };
+
+export type LeoProposeResult = {
+  reply: string;
+  title: string;
+  task: string;
+  variants?: LeoTaskVariant[];
+};
+
 /** Лео сам придумывает задачу. hint пуст — тему выбирает сам; busy — что уже на доске и что отклонили. */
 export async function leoProposeTask(
   initData: string,
   hint: string,
   busy: string[],
-): Promise<{ reply: string; title: string; task: string }> {
+  opts?: { feedback?: string; previous?: LeoTaskVariant },
+): Promise<LeoProposeResult> {
   if (!api) throw new Error("API не настроен");
   const res = await fetch(`${api}/api/miniapp/admin/tracker/leo-propose`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ init_data: initData, hint, busy }),
+    body: JSON.stringify({
+      init_data: initData,
+      hint,
+      busy,
+      feedback: opts?.feedback?.trim() || undefined,
+      previous: opts?.previous,
+    }),
   });
   const j = (await res.json().catch(() => ({}))) as {
     ok?: boolean;
     reply?: string;
     title?: string;
     task?: string;
+    variants?: LeoTaskVariant[];
     error?: string;
     message?: string;
   };
   if (!res.ok || j.ok === false) {
     throw new Error(j.message || trackerErrorLabel(j.error) || `Ошибка ${res.status}`);
   }
-  return { reply: j.reply ?? "", title: j.title ?? "", task: j.task ?? "" };
+  return {
+    reply: j.reply ?? "",
+    title: j.title ?? "",
+    task: j.task ?? "",
+    variants: j.variants?.length ? j.variants : undefined,
+  };
 }
 
 /** Байты приложенного фото: отдаём через свой бэкенд, ссылкой их не показать. */
