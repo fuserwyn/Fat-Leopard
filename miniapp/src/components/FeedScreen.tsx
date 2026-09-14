@@ -102,7 +102,7 @@ type Props = {
   onFeedThreadRead?: () => void;
   /** Админ может удалять любой пост ленты. */
   isAdmin?: boolean;
-  /** Недельный прогресс стаи (сброс каждое воскресенье). */
+  /** Недельный прогресс стаи (сброс каждый понедельник 00:00 МСК). */
   packWorkoutsWeek?: number;
   packWorkoutsGoal?: number;
   packGoalReached?: boolean;

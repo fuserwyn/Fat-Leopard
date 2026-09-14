@@ -2,21 +2,21 @@ package utils
 
 import "time"
 
-// WeekStartSundayMSK — YYYY-MM-DD ближайшего воскресенья (включая сегодня) по Москве.
-func WeekStartSundayMSK(now time.Time) string {
+// WeekStartMondayMSK — YYYY-MM-DD ближайшего понедельника (включая сегодня) по Москве.
+func WeekStartMondayMSK(now time.Time) string {
 	m := now.In(moscowLocation)
-	daysSinceSunday := int(m.Weekday()) // Sunday = 0
-	start := m.AddDate(0, 0, -daysSinceSunday)
+	daysSinceMonday := (int(m.Weekday()) + 6) % 7 // Monday = 0, Sunday = 6
+	start := m.AddDate(0, 0, -daysSinceMonday)
 	return start.Format("2006-01-02")
 }
 
-// WeekEndSaturdayMSK — YYYY-MM-DD субботы текущей недели (воскресенье–суббота) по Москве.
-func WeekEndSaturdayMSK(now time.Time) string {
+// WeekEndSundayMSK — YYYY-MM-DD воскресенья текущей недели (понедельник–воскресенье) по Москве.
+func WeekEndSundayMSK(now time.Time) string {
 	m := now.In(moscowLocation)
-	daysUntilSaturday := int(time.Saturday - m.Weekday())
-	if daysUntilSaturday < 0 {
-		daysUntilSaturday += 7
+	daysUntilSunday := int(time.Sunday - m.Weekday())
+	if daysUntilSunday < 0 {
+		daysUntilSunday += 7
 	}
-	end := m.AddDate(0, 0, daysUntilSaturday)
+	end := m.AddDate(0, 0, daysUntilSunday)
 	return end.Format("2006-01-02")
 }

@@ -1,4 +1,4 @@
-/** Прогресс недельной цели стаи (сброс каждое воскресенье). */
+/** Прогресс недельной цели стаи (сброс каждый понедельник 00:00 МСК). */
 export const PACK_WEEKLY_GOAL_DEFAULT = 100;
 
 export function packWeeklyProgressBarPct(completed: number, goal: number): number {
