@@ -168,6 +168,14 @@ func (b *Bot) kickStuckTrackerAgents(force bool) int {
 	now := time.Now()
 	n := 0
 	for _, t := range list {
+		if trackerNeedsPhaseKick(t, now, force) {
+			if b.logger != nil {
+				b.logger.Infof("трекер: снова запускаем %s #%d", t.DevColumn, trackerDueNum(t))
+			}
+			b.kickTrackerPipeline(t)
+			n++
+			continue
+		}
 		if !trackerNeedsAgentKick(t, now, force) {
 			continue
 		}
@@ -191,6 +199,44 @@ func (b *Bot) kickStuckTrackerAgents(force bool) int {
 		n++
 	}
 	return n
+}
+
+// Ревью/тест без агента: карточка приехала, а старт упёрся в занятый
+// конвейер. Повтора не было — #107 стояла в «Ревью» и держала всю очередь.
+const trackerPhaseKickWait = 10 * time.Minute
+
+// trackerNeedsPhaseKick — карточка в «Ревью»/«Тесте», агент фазы после
+// сдачи не запускался. «не принято» ждёт человека — не трогаем.
+func trackerNeedsPhaseKick(t database.TrackerTask, now time.Time, force bool) bool {
+	col := strings.ToLower(strings.TrimSpace(t.DevColumn))
+	if col != trackerColReview && col != trackerColTest {
+		return false
+	}
+	status := strings.ToLower(strings.TrimSpace(t.Status))
+	if status == "done" || status == "canceled" {
+		return false
+	}
+	if col == trackerColTest && t.ManualQa {
+		return false
+	}
+	arrived := false
+	for i := len(t.Steps) - 1; i >= 0; i-- {
+		low := strings.ToLower(strings.TrimSpace(t.Steps[i]))
+		if strings.Contains(low, "запустили") || strings.Contains(low, "не принято") {
+			return false
+		}
+		if low == "агент сдал результат" {
+			arrived = true
+			break
+		}
+	}
+	if !arrived {
+		return false
+	}
+	if force || !t.HasLastRun {
+		return true
+	}
+	return now.Sub(t.LastRunAt) >= trackerPhaseKickWait
 }
 
 func trackerDueNum(t database.TrackerTask) int {
