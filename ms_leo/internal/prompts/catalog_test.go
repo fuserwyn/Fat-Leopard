@@ -6,7 +6,7 @@ import (
 )
 
 func TestCatalogHasEmbedFiles(t *testing.T) {
-	if len(Catalog()) != 14 {
+	if len(Catalog()) != 15 {
 		t.Fatalf("slots: %d", len(Catalog()))
 	}
 	for _, s := range Catalog() {

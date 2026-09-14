@@ -227,6 +227,37 @@ func (c *OpenRouterClient) GenerateMonthlySummary(usersData []UserTrainingData) 
 	return c.Chat(messages, "")
 }
 
+// ReleaseNoteFeature — одна выкатанная задача для Release Notes.
+type ReleaseNoteFeature struct {
+	Num     int
+	Summary string
+}
+
+// GenerateReleaseNotes — пост Лео со списком пользовательских фич за период.
+func (c *OpenRouterClient) GenerateReleaseNotes(features []ReleaseNoteFeature) (string, error) {
+	systemPrompt := c.bundle().ReleaseNotes
+	if strings.TrimSpace(systemPrompt) == "" {
+		return "", fmt.Errorf("release notes prompt empty")
+	}
+	var body strings.Builder
+	body.WriteString("Выкатанные задачи за последние две недели:\n\n")
+	for _, f := range features {
+		if f.Summary == "" {
+			continue
+		}
+		if f.Num > 0 {
+			body.WriteString(fmt.Sprintf("#%d: %s\n", f.Num, f.Summary))
+		} else {
+			body.WriteString(f.Summary + "\n")
+		}
+	}
+	messages := []ChatMessage{
+		{Role: "system", Content: systemPrompt},
+		{Role: "user", Content: body.String()},
+	}
+	return c.Chat(messages, "")
+}
+
 // AnswerUserQuestion отвечает на вопрос пользователя.
 // userContext — либо полный structured user-message (с «Контекст для этого ответа»), либо legacy-плоский контекст + question.
 func (c *OpenRouterClient) AnswerUserQuestion(question string, userContext string) (string, error) {

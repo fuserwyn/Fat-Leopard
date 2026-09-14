@@ -1587,6 +1587,20 @@ var Migrations = []Migration{
 			ALTER TABLE miniapp_support_chat DROP COLUMN IF EXISTS photo_url;
 		`,
 	},
+	{
+		Version:     81,
+		Description: "release_notes_log — идемпотентность двухнедельных Release Notes в ленте",
+		UpSQL: `
+			CREATE TABLE IF NOT EXISTS release_notes_log (
+				period_end DATE PRIMARY KEY,
+				text       TEXT NOT NULL,
+				created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'Europe/Moscow')
+			);
+		`,
+		DownSQL: `
+			DROP TABLE IF EXISTS release_notes_log;
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции

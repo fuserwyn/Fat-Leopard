@@ -232,6 +232,8 @@ func (b *Bot) Start(ctx context.Context) error {
 	go b.startWorkoutReminderScheduler(ctx)
 	// Подписка на «мудрость дня» в личку бота (см. startDailyWisdomSubscriptionScheduler).
 	go b.startDailyWisdomSubscriptionScheduler(ctx)
+	// Release Notes от Лео раз в две недели (см. release_notes.go).
+	go b.startReleaseNotesScheduler(ctx)
 
 	updatesCh := b.runGetUpdatesWithWebApp(ctx)
 
