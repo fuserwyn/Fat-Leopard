@@ -1,11 +1,12 @@
 import { useRef, useState, useEffect, useLayoutEffect, useCallback, useMemo, type MouseEvent as ReactMouseEvent, type TouchEvent as ReactTouchEvent } from "react";
 import { createPortal } from "react-dom";
-import { LikersPopover, ReactionPickerPopover, useChipPress, useLikersPopover, type Liker, type LikerGroup } from "./Likers";
+import { LikersPopover, ReactionPickerPopover, useChipPress, useLikersPopover, type LikerGroup } from "./Likers";
 import { PhotoCropper } from "./PhotoCropper";
 import { PhotoLightbox } from "./PhotoLightbox";
 import { CameraButton } from "./CameraButton";
 import { LEO_AVATAR_URL } from "../lib/leoAvatar";
-import { resolveFeedAvatarUrl, votersToLikers, type VoterDTO } from "../lib/packFeed";
+import { votersToLikers, type VoterDTO } from "../lib/packFeed";
+import { clipboardImageFile } from "../lib/clipboardImage";
 import { streakStreakAriaLabel } from "../lib/streakLabel";
 import { hapticImpact } from "../lib/haptics";
 import "./ActivityCard.css";
@@ -1264,6 +1265,14 @@ export function ActivityCard({
                       maxLength={500}
                       onFocus={onThreadComposeFocus}
                       onBlur={onThreadComposeBlur}
+                      onPaste={(e) => {
+                        // Картинка из буфера — как фото из галереи: сразу в кроп.
+                        if (threadComposer.editReplyId != null) return;
+                        const pasted = clipboardImageFile(e.clipboardData);
+                        if (!pasted) return;
+                        e.preventDefault();
+                        setPendingThreadCrop(pasted);
+                      }}
                       onKeyDown={(e) => {
                         if (e.key !== "Enter" || (!e.ctrlKey && !e.metaKey)) return;
                         e.preventDefault();

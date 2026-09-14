@@ -29,7 +29,7 @@ import {
   type PackFeedReactionDTO,
   type VoterDTO,
 } from "../lib/packFeed";
-import { LikersPopover, pointerCanHover, useChipPress, useLikersPopover, type Liker, type LikerGroup } from "./Likers";
+import { LikersPopover, pointerCanHover, useChipPress, useLikersPopover, type LikerGroup } from "./Likers";
 import { PhotoLightbox } from "./PhotoLightbox";
 import { CameraButton } from "./CameraButton";
 import "./ActivityCard.css";

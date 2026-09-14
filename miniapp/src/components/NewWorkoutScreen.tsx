@@ -5,6 +5,7 @@ import { PhotoCropper } from "./PhotoCropper";
 import { CameraButton } from "./CameraButton";
 import { hapticImpact, hapticNotification } from "../lib/haptics";
 import "./NewWorkoutScreen.css";
+import { clipboardImageFile } from "../lib/clipboardImage";
 
 type ViewportMetrics = {
   /** Высота видимой области (над клавиатурой). */
@@ -447,6 +448,14 @@ export function NewWorkoutScreen({
             enterKeyHint="done"
             autoCorrect="on"
             spellCheck
+            onPaste={(e) => {
+              // Картинка из буфера — фото тренировки: сразу в кроп, как из галереи.
+              if (!PHOTO_ENABLED) return;
+              const pasted = clipboardImageFile(e.clipboardData);
+              if (!pasted) return;
+              e.preventDefault();
+              setPendingCrop(pasted);
+            }}
             onFocus={() => {
               noteFocusedRef.current = true;
               activeFieldRef.current = noteTaRef.current;
