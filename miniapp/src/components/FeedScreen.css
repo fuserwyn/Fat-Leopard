@@ -214,11 +214,38 @@
   font-variant-numeric: tabular-nums;
 }
 
+.feed__pack-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .feed__pack-progress-bar {
+  flex: 1 1 auto;
+  min-width: 0;
   height: 6px;
   border-radius: 999px;
-  background: #2a2a32;
+  background: color-mix(in srgb, var(--muted, #8b8b9a) 28%, #d8d8e2);
   overflow: hidden;
+}
+
+.feed__pack-progress-help {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted, #8b8b9a);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.feed__pack-progress-help:active {
+  opacity: 0.75;
 }
 
 .feed__pack-progress-fill {

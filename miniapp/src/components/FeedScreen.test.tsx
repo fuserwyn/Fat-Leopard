@@ -70,6 +70,26 @@ describe("FeedScreen pack weekly progress", () => {
     await waitFor(() => expect(screen.queryByText("Загрузка…")).toBeNull());
     expect(screen.getByLabelText("Стая: 42/50 тренировок за неделю")).toBeTruthy();
     expect(screen.getByText("42/50")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Подсказка о недельной цели стаи" })).toBeTruthy();
+  });
+
+  it("shows weekly goal hint on help button click", async () => {
+    let alert = "";
+    render(
+      <FeedScreen
+        {...baseProps}
+        active
+        refreshToken={0}
+        packWorkoutsWeek={42}
+        packWorkoutsGoal={50}
+        showAlert={(m) => {
+          alert = m;
+        }}
+      />,
+    );
+    await waitFor(() => expect(screen.queryByText("Загрузка…")).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "Подсказка о недельной цели стаи" }));
+    expect(alert).toMatch(/50 дополнительных кубков/i);
   });
 });
 

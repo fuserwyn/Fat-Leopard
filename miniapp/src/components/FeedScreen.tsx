@@ -32,6 +32,7 @@ import { formatLocalDateTime } from "../lib/timeAgo";
 import { streakStreakAriaLabel } from "../lib/streakLabel";
 import {
   PACK_WEEKLY_GOAL_DEFAULT,
+  PACK_WEEKLY_GOAL_HINT,
   packWeeklyProgressBarPct,
   packWeeklyProgressLabel,
 } from "../lib/packWeeklyGoal";
@@ -1723,15 +1724,30 @@ export function FeedScreen({
                 <span className="feed__pack-progress-title">Неделя стаи</span>
                 <span className="feed__pack-progress-count">{packWeeklyProgressLabel(packWorkoutsWeek, packWorkoutsGoal)}</span>
               </div>
-              <div className="feed__pack-progress-bar">
-                <div
-                  className="feed__pack-progress-fill"
-                  style={{ width: `${packWeeklyProgressBarPct(packWorkoutsWeek, packWorkoutsGoal)}%` }}
-                />
+              <div className="feed__pack-progress-row">
+                <div className="feed__pack-progress-bar">
+                  <div
+                    className="feed__pack-progress-fill"
+                    style={{ width: `${packWeeklyProgressBarPct(packWorkoutsWeek, packWorkoutsGoal)}%` }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="feed__pack-progress-help"
+                  aria-label="Подсказка о недельной цели стаи"
+                  onClick={() => {
+                    hapticLight();
+                    showAlert(PACK_WEEKLY_GOAL_HINT);
+                  }}
+                >
+                  ?
+                </button>
               </div>
               {packGoalReached ? (
                 <span className="feed__pack-progress-bonus">
-                  {packBonusThemeActive ? "Цель достигнута · бонусная тема активна" : "Цель достигнута!"}
+                  {packBonusThemeActive
+                    ? "Цель достигнута · +50 кубков каждому · бонусная тема активна"
+                    : "Цель достигнута · +50 кубков каждому"}
                 </span>
               ) : null}
             </div>

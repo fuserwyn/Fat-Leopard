@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"fmt"
 	"time"
 
 	"leo-bot/internal/utils"
@@ -8,6 +9,9 @@ import (
 
 // PackWeeklyWorkoutGoal — цель тренировок стаи за неделю (сброс каждый понедельник 00:00 МСК).
 const PackWeeklyWorkoutGoal = 50
+
+// PackWeeklyGoalCupsBonus — кубки каждому участнику стаи при достижении недельной цели.
+const PackWeeklyGoalCupsBonus = 50
 
 // PackBonusThemeDuration — эксклюзивная тема на сутки после достижения цели.
 const PackBonusThemeDuration = 24 * time.Hour
@@ -79,7 +83,36 @@ func (b *Bot) MaybeGrantPackWeeklyGoalBonus(packChatID int64) {
 		return
 	}
 	if granted {
-		b.logger.Infof("pack weekly goal reached pack=%d week=%s count=%d bonus_until=%s",
-			packChatID, weekStart, count, bonusUntil.Format(time.RFC3339))
+		b.grantPackWeeklyGoalMemberCups(packChatID)
+		b.saveDailyWisdomPackFeed(packWeeklyGoalAchievedFeedMessage())
+		b.logger.Infof("pack weekly goal reached pack=%d week=%s count=%d bonus_until=%s cups=%d",
+			packChatID, weekStart, count, bonusUntil.Format(time.RFC3339), PackWeeklyGoalCupsBonus)
+	}
+}
+
+func packWeeklyGoalAchievedFeedMessage() string {
+	return fmt.Sprintf(
+		"Цель недели стаи достигнута — %d тренировок за неделю! Каждому участнику начислено по %d кубков. Так держать, леопарды!",
+		PackWeeklyWorkoutGoal,
+		PackWeeklyGoalCupsBonus,
+	)
+}
+
+func (b *Bot) grantPackWeeklyGoalMemberCups(packChatID int64) {
+	if b == nil || b.db == nil || packChatID == 0 {
+		return
+	}
+	users, err := b.db.GetUsersByChatID(packChatID)
+	if err != nil {
+		b.logger.Warnf("pack weekly cups members pack=%d: %v", packChatID, err)
+		return
+	}
+	for _, user := range users {
+		if user == nil || user.UserID == 0 {
+			continue
+		}
+		if err := b.db.AddCups(user.UserID, packChatID, PackWeeklyGoalCupsBonus); err != nil {
+			b.logger.Warnf("pack weekly cups user=%d pack=%d: %v", user.UserID, packChatID, err)
+		}
 	}
 }
