@@ -42,3 +42,14 @@ func TestNormalizeMiniappThemeAccessWild(t *testing.T) {
 		t.Fatalf("almost: %q %v", got, ok)
 	}
 }
+
+func TestNormalizeMiniappThemeAccessPack(t *testing.T) {
+	got, ok := NormalizeMiniappThemeAccess("pack", MiniappThemeAccess{})
+	if !ok || got != "dark" {
+		t.Fatalf("locked: %q %v", got, ok)
+	}
+	got, ok = NormalizeMiniappThemeAccess("pack", MiniappThemeAccess{PackBonusThemeActive: true})
+	if !ok || got != "pack" {
+		t.Fatalf("bonus: %q %v", got, ok)
+	}
+}

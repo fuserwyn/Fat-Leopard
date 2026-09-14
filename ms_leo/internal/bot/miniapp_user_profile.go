@@ -181,14 +181,15 @@ const miniappWildThemeMinStreak = 365
 
 // MiniappThemeAccess — уровень, стрик и админ-флаг для разблокировки тем.
 type MiniappThemeAccess struct {
-	Level         int
-	StreakDays    int
-	MaxStreakDays int
-	IsAdmin       bool
+	Level                int
+	StreakDays           int
+	MaxStreakDays        int
+	IsAdmin              bool
+	PackBonusThemeActive bool
 }
 
 func isMiniappThemeName(t string) bool {
-	return t == "light" || t == "dark" || t == "leopard" || t == "wild"
+	return t == "light" || t == "dark" || t == "leopard" || t == "wild" || t == "pack"
 }
 
 func canUseWildMiniappTheme(access MiniappThemeAccess) bool {
@@ -219,6 +220,9 @@ func NormalizeMiniappThemeAccess(raw string, access MiniappThemeAccess) (string,
 	if t == "wild" && !canUseWildMiniappTheme(access) {
 		return "dark", true
 	}
+	if t == "pack" && !access.PackBonusThemeActive {
+		return "dark", true
+	}
 	return t, true
 }
 
@@ -245,10 +249,11 @@ func (b *Bot) SaveMiniappThemeFromMiniapp(userID, packChatID int64, theme string
 	}
 	stats := b.GetMiniappProfileStatsForAPI(userID, packChatID)
 	normalized, ok := NormalizeMiniappThemeAccess(theme, MiniappThemeAccess{
-		Level:         stats.Level,
-		StreakDays:    stats.StreakDays,
-		MaxStreakDays: stats.MaxStreakDays,
-		IsAdmin:       b.IsMiniappViewerAdmin(userID),
+		Level:                stats.Level,
+		StreakDays:           stats.StreakDays,
+		MaxStreakDays:        stats.MaxStreakDays,
+		IsAdmin:              b.IsMiniappViewerAdmin(userID),
+		PackBonusThemeActive: b.IsPackBonusThemeActive(packChatID),
 	})
 	if !ok {
 		return errors.New("invalid theme")

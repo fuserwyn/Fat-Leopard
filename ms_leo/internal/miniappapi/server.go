@@ -2363,6 +2363,7 @@ func (s *Server) handlePostProfileLoad(w http.ResponseWriter, r *http.Request) {
 	workoutsByDay := s.bot.GetMiniappWorkoutsByDayForAPI(parsed.User.ID, packID, 90)
 	suggestedWorkoutTypes := s.bot.GetSuggestedWorkoutTypesForAPI(parsed.User.ID, packID, tz, stats.DaysSinceLastTraining)
 	kickAt := s.bot.GetMiniappInactivityRemovalDeadlineRFC3339(parsed.User.ID, packID)
+	packWeekly := s.bot.GetMiniappPackWeeklyProgressForAPI(packID)
 	theme := s.bot.GetMiniappThemeForAPI(parsed.User.ID, packID)
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	out := map[string]any{
@@ -2391,9 +2392,18 @@ func (s *Server) handlePostProfileLoad(w http.ResponseWriter, r *http.Request) {
 		"access_price_rub":           s.bot.AccessPriceRub(),
 		"workouts_by_day":            workoutsByDay,
 		"suggested_workout_types":    suggestedWorkoutTypes,
+		"pack_workouts_week":         packWeekly.WorkoutsWeek,
+		"pack_workouts_goal":         packWeekly.Goal,
+		"pack_week_start":            packWeekly.WeekStart,
+		"pack_week_end":              packWeekly.WeekEnd,
+		"pack_goal_reached":          packWeekly.GoalReached,
+		"pack_bonus_theme_active":    packWeekly.BonusActive,
 	}
 	if kickAt != "" {
 		out["inactivity_removal_at"] = kickAt
+	}
+	if packWeekly.BonusActiveUntil != "" {
+		out["pack_bonus_theme_active_until"] = packWeekly.BonusActiveUntil
 	}
 	if a != nil {
 		out["age"] = *a
@@ -2484,6 +2494,7 @@ func (s *Server) handlePostProfileSave(w http.ResponseWriter, r *http.Request) {
 	tz := s.bot.GetTimezoneOffsetForAPI(parsed.User.ID, packID)
 	stats := s.bot.GetMiniappProfileStatsForAPI(parsed.User.ID, packID)
 	kickAt := s.bot.GetMiniappInactivityRemovalDeadlineRFC3339(parsed.User.ID, packID)
+	packWeekly := s.bot.GetMiniappPackWeeklyProgressForAPI(packID)
 	theme := s.bot.GetMiniappThemeForAPI(parsed.User.ID, packID)
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	out := map[string]any{
@@ -2508,9 +2519,18 @@ func (s *Server) handlePostProfileSave(w http.ResponseWriter, r *http.Request) {
 		"streak_save_attempts_max":   stats.StreakSaveAttemptsMax,
 		"streak_save_attempts_avail": stats.StreakSaveAttemptsAvail,
 		"days_in_pack":               stats.DaysInPack,
+		"pack_workouts_week":         packWeekly.WorkoutsWeek,
+		"pack_workouts_goal":         packWeekly.Goal,
+		"pack_week_start":            packWeekly.WeekStart,
+		"pack_week_end":              packWeekly.WeekEnd,
+		"pack_goal_reached":          packWeekly.GoalReached,
+		"pack_bonus_theme_active":    packWeekly.BonusActive,
 	}
 	if kickAt != "" {
 		out["inactivity_removal_at"] = kickAt
+	}
+	if packWeekly.BonusActiveUntil != "" {
+		out["pack_bonus_theme_active_until"] = packWeekly.BonusActiveUntil
 	}
 	if a != nil {
 		out["age"] = *a

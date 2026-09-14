@@ -10,6 +10,7 @@ import {
 } from "../lib/streakLabel";
 import {
   canUseLeopardTheme,
+  canUsePackTheme,
   canUseWildTheme,
   getStoredTheme,
   isThemeMode,
@@ -44,6 +45,7 @@ const THEME_LABELS: Record<ThemeMode, string> = {
   light: "☀️ Светлая",
   leopard: "🐆 Розовый",
   wild: "🐆 Дикий",
+  pack: "🏆 Стая",
 };
 
 export type FriendMember = {
@@ -132,17 +134,19 @@ export function ProfileScreen({
   const [cups, setCups] = useState(xp);
   const [theme, setThemeState] = useState<ThemeMode>(() => getStoredTheme());
   const [themeLevelReady, setThemeLevelReady] = useState(false);
+  const [packBonusThemeActive, setPackBonusThemeActive] = useState(false);
   const changeTheme = useCallback((mode: ThemeMode) => {
     const next = themeAllowedForLevel(mode, miniappLevelFromCups(cups), {
       streakDays: streak,
       maxStreakDays: recordStreak,
       workoutsTotal: workouts,
       isAdmin,
+      packBonusThemeActive,
     });
     setTheme(next);
     setThemeState(next);
     if (initData?.trim()) void persistThemeToServer(initData, next);
-  }, [cups, initData, streak, recordStreak, workouts, isAdmin]);
+  }, [cups, initData, streak, recordStreak, workouts, isAdmin, packBonusThemeActive]);
   const [profile, setProfile] = useState<ProfileData>(EMPTY_PROFILE);
   const [savedProfile, setSavedProfile] = useState<ProfileData>(EMPTY_PROFILE);
   const [profileLoading, setProfileLoading] = useState(true);
@@ -267,7 +271,14 @@ export function ProfileScreen({
     workoutsTotal: workouts,
     isAdmin,
   });
-  const themeUnlock = { streakDays: displayStreak, maxStreakDays: recordStreak, workoutsTotal: workouts, isAdmin };
+  const packUnlocked = canUsePackTheme({ packBonusThemeActive });
+  const themeUnlock = {
+    streakDays: displayStreak,
+    maxStreakDays: recordStreak,
+    workoutsTotal: workouts,
+    isAdmin,
+    packBonusThemeActive,
+  };
 
   useEffect(() => {
     const onTheme = (e: Event) => {
@@ -315,6 +326,7 @@ export function ProfileScreen({
         max_streak_days?: number;
         workouts_total?: number;
         is_admin?: boolean;
+        pack_bonus_theme_active?: boolean;
         streak_save_attempts_used?: number;
         streak_save_attempts_max?: number;
       };
@@ -339,12 +351,15 @@ export function ProfileScreen({
       if (typeof j.xp === "number") {
         setCups(Math.max(0, j.xp));
       }
+      const bonusThemeActive = Boolean(j.pack_bonus_theme_active);
+      setPackBonusThemeActive(bonusThemeActive);
       if (isThemeMode(j.theme)) {
         const next = themeAllowedForLevel(j.theme, miniappLevelFromCups(typeof j.xp === "number" ? j.xp : cups), {
           streakDays: typeof j.streak_days === "number" ? j.streak_days : streak,
           maxStreakDays: typeof j.max_streak_days === "number" ? j.max_streak_days : recordStreak,
           workoutsTotal: typeof j.workouts_total === "number" ? j.workouts_total : workouts,
           isAdmin: typeof j.is_admin === "boolean" ? j.is_admin : isAdmin,
+          packBonusThemeActive: bonusThemeActive,
         });
         setTheme(next);
         setThemeState(next);
@@ -1638,12 +1653,26 @@ export function ProfileScreen({
           >
             {THEME_LABELS.wild}
           </button>
+          <button
+            type="button"
+            className={`profile__theme-opt ${theme === "pack" ? "is-active" : ""} ${packUnlocked ? "" : "is-locked"}`}
+            aria-pressed={theme === "pack"}
+            aria-disabled={!packUnlocked}
+            disabled={!packUnlocked}
+            title={packUnlocked ? "Бонусная тема стаи на сутки" : "100 тренировок стаи за неделю"}
+            onClick={() => changeTheme("pack")}
+          >
+            {THEME_LABELS.pack}
+          </button>
         </div>
         {!leopardUnlocked ? (
           <p className="profile__theme-lock muted">Розовая тема откроется на 5 уровне · Лев</p>
         ) : null}
         {!wildUnlocked ? (
           <p className="profile__theme-lock muted">Дикая тема — стрик 365 дней или 1000 тренировок</p>
+        ) : null}
+        {!packUnlocked ? (
+          <p className="profile__theme-lock muted">Тема «Стая» — 100 тренировок стаи за неделю (сброс по воскресеньям)</p>
         ) : null}
         </>
         )}

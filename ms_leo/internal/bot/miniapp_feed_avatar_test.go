@@ -7,6 +7,30 @@ import (
 	"leo-bot/internal/domain"
 )
 
+func TestPackFeedLeoAvatarURL(t *testing.T) {
+	got := packFeedLeoAvatarURL("https://app.example")
+	if got != "https://app.example/leo-avatar.png" {
+		t.Fatalf("got %q", got)
+	}
+	if packFeedLeoAvatarURL("") != "/leo-avatar.png" {
+		t.Fatal("empty base should return static path")
+	}
+}
+
+func TestLeoTrainingFeedReactionEmojiVariesByPost(t *testing.T) {
+	a := leoTrainingFeedReactionEmoji(101)
+	b := leoTrainingFeedReactionEmoji(202)
+	if a == "" || b == "" {
+		t.Fatal("expected non-empty emoji")
+	}
+	if a == b {
+		t.Fatalf("expected different emojis for different posts, both %q", a)
+	}
+	if leoTrainingFeedReactionEmoji(101) != a {
+		t.Fatal("emoji must be stable for the same post id")
+	}
+}
+
 func TestPackFeedResolveAuthorPhotoPrefersProxy(t *testing.T) {
 	proxy := packFeedResolveAuthorPhoto("https://t.me/i/userpic/320/abc.jpg", "https://app.example", 42, "query_id=1")
 	if proxy == "" {

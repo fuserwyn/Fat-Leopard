@@ -16,6 +16,7 @@ import { LevelUpToast } from "./components/LevelUpToast";
 import { earnedAchievementKeys, freshAchievementKeys, type AchievementKey } from "./lib/achievements";
 import { miniappLevelFromCups } from "./lib/miniappLevel";
 import { getStoredTheme, hasStoredTheme, hydrateThemeFromCloud, hydrateThemeFromServer, isThemeMode, persistTheme, persistThemeToServer } from "./lib/theme";
+import { PACK_WEEKLY_GOAL_DEFAULT } from "./lib/packWeeklyGoal";
 import { buildOptimisticTrainingFeedItem, type PackFeedItemDTO } from "./lib/packFeed";
 import type { WorkoutCategoryId } from "./lib/workoutCategories";
 import { parseSuggestedWorkoutTypes } from "./lib/workoutSuggest";
@@ -85,6 +86,10 @@ export function App() {
   const [accessGateStatus, setAccessGateStatus] = useState<AccessGateStatus>("checking");
   const [isAdmin, setIsAdmin] = useState(false);
   const [accessPriceRub, setAccessPriceRub] = useState(99);
+  const [packWorkoutsWeek, setPackWorkoutsWeek] = useState(0);
+  const [packWorkoutsGoal, setPackWorkoutsGoal] = useState(PACK_WEEKLY_GOAL_DEFAULT);
+  const [packGoalReached, setPackGoalReached] = useState(false);
+  const [packBonusThemeActive, setPackBonusThemeActive] = useState(false);
   const tzSyncedRef = useRef(false);
   // Очередь тостов «Ачивка получена!» — показываем по одному, дедуп по ключам.
   const [achievementQueue, setAchievementQueue] = useState<AchievementKey[]>([]);
@@ -241,6 +246,10 @@ export function App() {
         access_price_rub?: number;
         theme?: string;
         suggested_workout_types?: unknown;
+        pack_workouts_week?: number;
+        pack_workouts_goal?: number;
+        pack_goal_reached?: boolean;
+        pack_bonus_theme_active?: boolean;
       };
       if (!res.ok || !j.ok) return;
       setIsAdmin(Boolean(j.is_admin));
@@ -256,11 +265,17 @@ export function App() {
       const xpNow = typeof j.xp === "number" ? j.xp : 0;
       setXP(xpNow);
       const levelNow = miniappLevelFromCups(xpNow);
+      const packBonusActive = Boolean(j.pack_bonus_theme_active);
+      setPackWorkoutsWeek(typeof j.pack_workouts_week === "number" ? j.pack_workouts_week : 0);
+      setPackWorkoutsGoal(typeof j.pack_workouts_goal === "number" && j.pack_workouts_goal > 0 ? j.pack_workouts_goal : PACK_WEEKLY_GOAL_DEFAULT);
+      setPackGoalReached(Boolean(j.pack_goal_reached));
+      setPackBonusThemeActive(packBonusActive);
       const themeUnlock = {
         streakDays: typeof j.streak_days === "number" ? j.streak_days : 0,
         maxStreakDays: typeof j.max_streak_days === "number" ? j.max_streak_days : 0,
         workoutsTotal: typeof j.workouts_total === "number" ? j.workouts_total : 0,
         isAdmin: Boolean(j.is_admin),
+        packBonusThemeActive: packBonusActive,
       };
       hydrateThemeFromServer(j.theme, levelNow, themeUnlock);
       if (!isThemeMode(j.theme) && hasStoredTheme()) {
@@ -440,6 +455,10 @@ export function App() {
             }}
             onRefreshTabBadges={refreshTabBadges}
             isAdmin={isAdmin}
+            packWorkoutsWeek={packWorkoutsWeek}
+            packWorkoutsGoal={packWorkoutsGoal}
+            packGoalReached={packGoalReached}
+            packBonusThemeActive={packBonusThemeActive}
           />
         </TabKeepAlive>
         <TabKeepAlive active={tab === "chat"} hidden={!tabsVisible}>

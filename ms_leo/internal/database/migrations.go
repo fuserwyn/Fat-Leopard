@@ -1589,6 +1589,24 @@ var Migrations = []Migration{
 	},
 	{
 		Version:     81,
+		Description: "pack_weekly_goal_bonus — бонусная тема стаи после недельной цели",
+		UpSQL: `
+			CREATE TABLE IF NOT EXISTS pack_weekly_goal_bonus (
+				pack_chat_id    BIGINT NOT NULL,
+				week_start_date DATE NOT NULL,
+				bonus_until     TIMESTAMP WITH TIME ZONE NOT NULL,
+				created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+				PRIMARY KEY (pack_chat_id, week_start_date)
+			);
+			CREATE INDEX IF NOT EXISTS pack_weekly_goal_bonus_active_idx
+				ON pack_weekly_goal_bonus (pack_chat_id, bonus_until DESC);
+		`,
+		DownSQL: `
+			DROP TABLE IF EXISTS pack_weekly_goal_bonus;
+		`,
+	},
+	{
+		Version:     82,
 		Description: "release_notes_log — идемпотентность двухнедельных Release Notes в ленте",
 		UpSQL: `
 			CREATE TABLE IF NOT EXISTS release_notes_log (

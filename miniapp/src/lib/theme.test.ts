@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   applyTheme,
   canUseLeopardTheme,
+  canUsePackTheme,
   canUseWildTheme,
   enforceThemeForLevel,
   getStoredTheme,
@@ -89,6 +90,13 @@ describe("theme", () => {
     expect(enforceThemeForLevel(2, { maxStreakDays: 400 })).toBe("wild");
     setTheme("wild");
     expect(enforceThemeForLevel(2, { workoutsTotal: 1200 })).toBe("wild");
+  });
+
+  it("unlocks pack theme only while pack bonus is active", () => {
+    expect(canUsePackTheme({})).toBe(false);
+    expect(canUsePackTheme({ packBonusThemeActive: true })).toBe(true);
+    expect(themeAllowedForLevel("pack", 1)).toBe("dark");
+    expect(themeAllowedForLevel("pack", 1, { packBonusThemeActive: true })).toBe("pack");
   });
 
   it("stores wild theme and hydrates it only when unlocked", () => {
