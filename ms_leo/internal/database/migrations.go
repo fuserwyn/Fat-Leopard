@@ -1587,6 +1587,24 @@ var Migrations = []Migration{
 			ALTER TABLE miniapp_support_chat DROP COLUMN IF EXISTS photo_url;
 		`,
 	},
+	{
+		Version:     81,
+		Description: "pack_weekly_goal_bonus — бонусная тема стаи после недельной цели",
+		UpSQL: `
+			CREATE TABLE IF NOT EXISTS pack_weekly_goal_bonus (
+				pack_chat_id    BIGINT NOT NULL,
+				week_start_date DATE NOT NULL,
+				bonus_until     TIMESTAMP WITH TIME ZONE NOT NULL,
+				created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+				PRIMARY KEY (pack_chat_id, week_start_date)
+			);
+			CREATE INDEX IF NOT EXISTS pack_weekly_goal_bonus_active_idx
+				ON pack_weekly_goal_bonus (pack_chat_id, bonus_until DESC);
+		`,
+		DownSQL: `
+			DROP TABLE IF EXISTS pack_weekly_goal_bonus;
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции

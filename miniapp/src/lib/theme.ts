@@ -1,7 +1,7 @@
 /** Тема оформления. По умолчанию — тёмная (как до редизайна); светлая — опция пользователя.
  *  Источник правды — профиль на сервере. localStorage и Telegram CloudStorage — кэш:
  *  WebView после закрытия Mini App часто их теряет. */
-export type ThemeMode = "light" | "dark" | "leopard" | "wild";
+export type ThemeMode = "light" | "dark" | "leopard" | "wild" | "pack";
 
 /** Розовая леопардовая тема — с 5 уровня (Лев). */
 export const LEOPARD_THEME_MIN_LEVEL = 5;
@@ -15,6 +15,8 @@ export type ThemeUnlock = {
   maxStreakDays?: number;
   workoutsTotal?: number;
   isAdmin?: boolean;
+  /** Временная тема «Стая» после достижения недельной цели. */
+  packBonusThemeActive?: boolean;
 };
 
 const STORAGE_KEY = "leo-theme";
@@ -31,10 +33,11 @@ const THEME_COLOR: Record<ThemeMode, string> = {
   dark: "#0d0d12",
   leopard: "#f6d4de",
   wild: "#0a0a0a",
+  pack: "#12180f",
 };
 
 export function isThemeMode(raw: unknown): raw is ThemeMode {
-  return raw === "light" || raw === "dark" || raw === "leopard" || raw === "wild";
+  return raw === "light" || raw === "dark" || raw === "leopard" || raw === "wild" || raw === "pack";
 }
 
 export function canUseLeopardTheme(level: number): boolean {
@@ -48,11 +51,18 @@ export function canUseWildTheme(unlock: ThemeUnlock = {}): boolean {
   return streak >= WILD_THEME_MIN_STREAK || workouts >= WILD_THEME_MIN_WORKOUTS;
 }
 
+export function canUsePackTheme(unlock: ThemeUnlock = {}): boolean {
+  return Boolean(unlock.packBonusThemeActive);
+}
+
 export function themeAllowedForLevel(mode: ThemeMode, level: number, unlock: ThemeUnlock = {}): ThemeMode {
   if (mode === "leopard" && !canUseLeopardTheme(level)) {
     return "dark";
   }
   if (mode === "wild" && !canUseWildTheme(unlock)) {
+    return "dark";
+  }
+  if (mode === "pack" && !canUsePackTheme(unlock)) {
     return "dark";
   }
   return mode;

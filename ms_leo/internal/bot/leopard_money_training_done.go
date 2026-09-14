@@ -464,6 +464,8 @@ func (b *Bot) handleLeopardMoneyTrainingDone(msg *tgbotapi.Message, personalRepl
 	}
 	if err := b.db.SaveTrainingSession(session); err != nil {
 		b.logger.Errorf("SaveTrainingSession: %v", err)
+	} else {
+		b.MaybeGrantPackWeeklyGoalBonus(packChatID)
 	}
 
 	wasOnSickLeave := messageLog.HasSickLeave && !messageLog.HasHealthy
