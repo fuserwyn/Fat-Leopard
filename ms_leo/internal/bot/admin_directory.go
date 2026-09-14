@@ -26,12 +26,13 @@ func (b *Bot) showAdminUsersListPage(chatID int64, offset int) {
 	if offset < 0 {
 		offset = 0
 	}
-	total, err := b.db.CountPackUsersForAdmin(packChatID)
+	counts, err := b.db.CountPackUsersBreakdownForAdmin(packChatID)
 	if err != nil {
 		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Не удалось загрузить список."))
 		return
 	}
-	users, err := b.db.ListPackUsersForAdmin(packChatID, offset, adminUsersListPageSize)
+	total := counts.Total
+	users, err := b.db.ListPackUsersForAdmin(packChatID, offset, adminUsersListPageSize, database.PackUserAdminFilterAll)
 	if err != nil {
 		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Ошибка списка: "+err.Error()))
 		return
@@ -42,7 +43,8 @@ func (b *Bot) showAdminUsersListPage(chatID int64, offset int) {
 	if total > 0 {
 		from := offset + 1
 		to := offset + len(users)
-		subtitle = fmt.Sprintf("Строки %d–%d из %d · нажми № под таблицей", from, to, total)
+		subtitle = fmt.Sprintf("Активных %d · кикнутых %d · строки %d–%d из %d · нажми № под таблицей",
+			counts.Active, counts.Kicked, from, to, total)
 
 		tbl := newAdminTable(
 			[]string{"№", "ID", "Ник", "Куб", "Стр"},

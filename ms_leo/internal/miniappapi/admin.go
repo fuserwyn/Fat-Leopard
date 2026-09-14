@@ -331,6 +331,7 @@ func (s *Server) handlePostAdminUsers(w http.ResponseWriter, r *http.Request) {
 		InitData string `json:"init_data"`
 		Query    string `json:"query"`
 		Offset   int    `json:"offset"`
+		Filter   string `json:"filter"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		s.jsonErr(w, http.StatusBadRequest, "invalid_json")
@@ -340,21 +341,21 @@ func (s *Server) handlePostAdminUsers(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var (
-		items []bot.MiniappAdminUserRow
-		err   error
-	)
-	if strings.TrimSpace(body.Query) != "" {
-		items, err = s.bot.MiniappAdminSearchUsers(parsed.User.ID, parsed, body.Query)
-	} else {
-		items, err = s.bot.MiniappAdminListUsers(parsed.User.ID, parsed, body.Offset, 20)
-	}
+	page, err := s.bot.MiniappAdminUsers(parsed.User.ID, parsed, body.Query, body.Offset, 20, body.Filter)
 	if err != nil {
 		s.writeAdminErr(w, err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "users": items})
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"ok":           true,
+		"users":        page.Users,
+		"total":        page.Total,
+		"offset":       page.Offset,
+		"limit":        page.Limit,
+		"users_active": page.UsersActive,
+		"users_kicked": page.UsersKicked,
+	})
 }
 
 func (s *Server) handlePostAdminUserCard(w http.ResponseWriter, r *http.Request) {
