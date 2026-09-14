@@ -278,12 +278,24 @@ func trackerTaskCommit(t database.TrackerTask) string {
 }
 
 // trackerTaskInPipeline — карточка уже в конвейере (не в «Ожидает»).
+// trackerTaskInPipeline — карточка держит конвейер. «В работе» держит только
+// с живым агентом: ждущая очередь или сорвавшаяся раньше тоже считалась
+// занятой, и карточки ждали друг друга вечно (ревью #107 ждало #104–#106,
+// а те — ревью).
 func trackerTaskInPipeline(t database.TrackerTask) bool {
 	col := strings.ToLower(strings.TrimSpace(t.DevColumn))
+	st := strings.ToLower(strings.TrimSpace(t.Status))
+	if st == "done" || st == "canceled" {
+		return false
+	}
 	switch col {
-	case trackerColDoing, trackerColReview, trackerColTest, trackerColDeploy:
-		st := strings.ToLower(strings.TrimSpace(t.Status))
-		return st != "done" && st != "canceled"
+	case trackerColReview, trackerColTest, trackerColDeploy:
+		return true
+	case trackerColDoing:
+		if st == "error" || trackerAgentStartFailed(t) {
+			return false
+		}
+		return !strings.EqualFold(trackerLastStep(t), trackerAgentWaitingStep)
 	default:
 		return false
 	}
