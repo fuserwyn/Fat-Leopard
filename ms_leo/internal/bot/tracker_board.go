@@ -487,7 +487,8 @@ func (b *Bot) localTrackerCreate(payload map[string]any, userID int64) (json.Raw
 	}
 	// Срок «сейчас» — забираем в этом же запросе, не в горутине: иначе
 	// следующая отрисовка доски ещё покажет карточку в «Ожидает».
-	if trackerTaskDueForStart(created, time.Now()) {
+	// Если конвейер занят — новая карточка остаётся в очереди.
+	if trackerTaskDueForStart(created, time.Now()) && !b.trackerPipelineBusy(created.ID) {
 		_, _ = b.claimAndNotifyDueTrackerTasks()
 	}
 	return trackerJSON(map[string]any{"id": created.ID, "when": created.WhenLabel})
@@ -541,14 +542,23 @@ func (b *Bot) localTrackerRestart(taskID int64, payload map[string]any) (json.Ra
 	now := time.Now()
 	t.WhenAt = now
 	t.WhenLabel = "сейчас"
-	if err := applyTrackerColumn(&t, trackerColDoing); err != nil {
-		return nil, err
+	if b.trackerPipelineBusy(t.ID) {
+		if err := applyTrackerColumn(&t, trackerColTodo); err != nil {
+			return nil, err
+		}
+		appendTrackerStep(&t, "Перезапуск — ждёт очередь")
+	} else {
+		if err := applyTrackerColumn(&t, trackerColDoing); err != nil {
+			return nil, err
+		}
+		appendTrackerStep(&t, "Перезапускаем задачу")
 	}
-	appendTrackerStep(&t, "Перезапускаем задачу")
 	if err := b.db.SaveTrackerTask(t); err != nil {
 		return nil, err
 	}
-	b.dispatchTrackerAgent(t, "doing")
+	if t.DevColumn == trackerColDoing {
+		b.dispatchTrackerAgent(t, "doing")
+	}
 	return trackerJSON(map[string]any{"ok": true, "task": trackerTaskView(t, false)})
 }
 
@@ -568,12 +578,19 @@ func (b *Bot) localTrackerReschedule(taskID int64, payload map[string]any) (json
 	// перехватывать карточку и снова слать агента.
 	if !at.After(time.Now()) && trackerNeedsAgentKick(t, time.Now(), true) {
 		t.Error = ""
-		_ = applyTrackerColumn(&t, trackerColDoing)
-		appendTrackerStep(&t, "Снова запускаем агента")
+		if b.trackerPipelineBusy(t.ID) {
+			_ = applyTrackerColumn(&t, trackerColTodo)
+			appendTrackerStep(&t, "Снова запускаем — ждёт очередь")
+		} else {
+			_ = applyTrackerColumn(&t, trackerColDoing)
+			appendTrackerStep(&t, "Снова запускаем агента")
+		}
 		if err := b.db.SaveTrackerTask(t); err != nil {
 			return nil, err
 		}
-		b.dispatchTrackerAgent(t, "doing")
+		if t.DevColumn == trackerColDoing {
+			b.dispatchTrackerAgent(t, "doing")
+		}
 		return trackerJSON(map[string]any{"ok": true})
 	}
 	if t.Status == "done" || t.Status == "canceled" || t.Status == "error" ||
@@ -588,7 +605,7 @@ func (b *Bot) localTrackerReschedule(taskID int64, payload map[string]any) (json
 	if err := b.db.SaveTrackerTask(t); err != nil {
 		return nil, err
 	}
-	if trackerTaskDueForStart(t, time.Now()) {
+	if trackerTaskDueForStart(t, time.Now()) && !b.trackerPipelineBusy(t.ID) {
 		_, _ = b.claimAndNotifyDueTrackerTasks()
 	}
 	return trackerJSON(map[string]any{"ok": true})

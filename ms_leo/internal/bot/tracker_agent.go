@@ -308,6 +308,24 @@ func (b *Bot) trackerPipelineBusy(exceptID int64) bool {
 	return false
 }
 
+// trackerKeepInWaitingQueue — конвейер занят: карточка остаётся в «Ожидает».
+func trackerKeepInWaitingQueue(t *database.TrackerTask, step string) {
+	if t == nil {
+		return
+	}
+	col := strings.ToLower(strings.TrimSpace(t.DevColumn))
+	if col == trackerColDoing {
+		_ = applyTrackerColumn(t, trackerColTodo)
+	}
+	if step != "" {
+		appendTrackerStep(t, step)
+		return
+	}
+	if !strings.EqualFold(trackerLastStep(*t), trackerAgentWaitingStep) {
+		appendTrackerStep(t, trackerAgentWaitingStep)
+	}
+}
+
 // dispatchTrackerAgent — поставить агенту работу по фазе карточки.
 // Код пишет внешняя доска (сессия BOARD_SSO_SECRET); ревью и тест — Composer.
 func (b *Bot) dispatchTrackerAgent(t database.TrackerTask, phase string) {
@@ -315,9 +333,8 @@ func (b *Bot) dispatchTrackerAgent(t database.TrackerTask, phase string) {
 		return
 	}
 	if b.trackerPipelineBusy(t.ID) {
-		if (phase == "" || phase == "doing") && b.db != nil &&
-			!strings.EqualFold(trackerLastStep(t), trackerAgentWaitingStep) {
-			appendTrackerStep(&t, trackerAgentWaitingStep)
+		if (phase == "" || phase == "doing") && b.db != nil {
+			trackerKeepInWaitingQueue(&t, "")
 			_ = b.db.SaveTrackerTask(t)
 		}
 		if b.logger != nil {

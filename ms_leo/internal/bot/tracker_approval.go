@@ -288,10 +288,17 @@ func (b *Bot) approveTrackerTask(taskID, adminID int64) (string, error) {
 	}
 	appendTrackerStep(&t, fmt.Sprintf("Аппрув от админа %d (%d/%d)", adminID, len(t.Approvals), trackerApprovalRequired))
 	if len(t.Approvals) >= trackerApprovalRequired {
-		if err := applyTrackerColumn(&t, trackerColDoing); err != nil {
-			return "", err
+		if b.trackerPipelineBusy(t.ID) {
+			if err := applyTrackerColumn(&t, trackerColTodo); err != nil {
+				return "", err
+			}
+			appendTrackerStep(&t, "Два аппрува — ждёт очередь")
+		} else {
+			if err := applyTrackerColumn(&t, trackerColDoing); err != nil {
+				return "", err
+			}
+			appendTrackerStep(&t, "Два аппрува — в работу")
 		}
-		appendTrackerStep(&t, "Два аппрува — в работу")
 	}
 	if err := b.db.SaveTrackerTask(t); err != nil {
 		return "", err
@@ -299,6 +306,9 @@ func (b *Bot) approveTrackerTask(taskID, adminID int64) (string, error) {
 	if t.DevColumn == trackerColDoing {
 		b.dispatchTrackerAgent(t, "doing")
 		return "Задача ушла в работу", nil
+	}
+	if len(t.Approvals) >= trackerApprovalRequired {
+		return "Задача в очереди — дождитесь текущей", nil
 	}
 	return fmt.Sprintf("Аппрув учтён (%d/%d)", len(t.Approvals), trackerApprovalRequired), nil
 }
