@@ -129,3 +129,20 @@ func TestTrackerNeedsAgentKickWaitingWithOldRemote(t *testing.T) {
 		t.Error("карточку с живым агентом трогать нельзя")
 	}
 }
+
+func TestTrackerLaterPhaseBlocksOlderWins(t *testing.T) {
+	older := database.TrackerTask{ID: 108, DevColumn: trackerColReview, Status: "reviewing"}
+	newer := database.TrackerTask{ID: 115, DevColumn: trackerColReview, Status: "reviewing"}
+	doing := database.TrackerTask{ID: 90, DevColumn: trackerColDoing, Status: "running", Steps: []string{"агент:#736"}}
+	list := []database.TrackerTask{older, newer, doing}
+	if trackerLaterPhaseBlocks(older, list) {
+		t.Error("старшая карточка в ревью не должна ждать младшую и «В работе»")
+	}
+	if !trackerLaterPhaseBlocks(newer, list) {
+		t.Error("младшая карточка в ревью ждёт старшую")
+	}
+	shipped := database.TrackerTask{ID: 100, DevColumn: trackerColDeploy, Status: "done"}
+	if trackerLaterPhaseBlocks(newer, []database.TrackerTask{shipped, newer}) {
+		t.Error("выкатанная карточка конвейер не держит")
+	}
+}

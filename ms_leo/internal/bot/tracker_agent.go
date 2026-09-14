@@ -341,13 +341,49 @@ func trackerKeepInWaitingQueue(t *database.TrackerTask, step string) {
 	}
 }
 
+// trackerPipelineBusyForPhase — занят ли конвейер для этой фазы карточки.
+// Ревью/тест не ждут «В работе» (ms_tracker и так гонит задачи по одной), а
+// среди ревью/теста/сборки первой идёт более старая карточка. Иначе две
+// карточки в «Ревью» (#104 и #111) ждали друг друга вечно.
+func (b *Bot) trackerPipelineBusyForPhase(t database.TrackerTask, phase string) bool {
+	phase = strings.ToLower(strings.TrimSpace(phase))
+	if phase != "review" && phase != "test" {
+		return b.trackerPipelineBusy(t.ID)
+	}
+	if b == nil || b.db == nil {
+		return false
+	}
+	list, err := b.db.ListTrackerTasks()
+	if err != nil {
+		return false
+	}
+	return trackerLaterPhaseBlocks(t, list)
+}
+
+func trackerLaterPhaseBlocks(t database.TrackerTask, list []database.TrackerTask) bool {
+	for _, other := range list {
+		if other.ID == t.ID || other.ID > t.ID {
+			continue
+		}
+		st := strings.ToLower(strings.TrimSpace(other.Status))
+		if st == "done" || st == "canceled" {
+			continue
+		}
+		switch strings.ToLower(strings.TrimSpace(other.DevColumn)) {
+		case trackerColReview, trackerColTest, trackerColDeploy:
+			return true
+		}
+	}
+	return false
+}
+
 // dispatchTrackerAgent — поставить агенту работу по фазе карточки.
 // Код пишет внешняя доска (сессия BOARD_SSO_SECRET); ревью и тест — Composer.
 func (b *Bot) dispatchTrackerAgent(t database.TrackerTask, phase string) {
 	if b == nil || t.ID <= 0 || b.config == nil {
 		return
 	}
-	if b.trackerPipelineBusy(t.ID) {
+	if b.trackerPipelineBusyForPhase(t, phase) {
 		if (phase == "" || phase == "doing") && b.db != nil {
 			trackerKeepInWaitingQueue(&t, "")
 			_ = b.db.SaveTrackerTask(t)
