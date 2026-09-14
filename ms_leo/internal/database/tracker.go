@@ -295,7 +295,15 @@ func (d *Database) ClaimDueTrackerTasks(now time.Time) ([]TrackerTask, error) {
 			SELECT id FROM pack_tracker_tasks
 			WHERE status IN ('pending', 'scheduled')
 			  AND COALESCE(NULLIF(dev_column, ''), 'todo') = 'todo'
-			  AND NOT COALESCE(needs_approval, FALSE)
+			  -- needs_approval после аппрувов не сбрасывается: одобренной считаем
+			  -- карточку с двумя аппрувами (trackerApprovalRequired). Иначе
+			  -- одобренные, которые #107 кладёт в «Ожидает», не стартуют никогда.
+			  AND (
+			    NOT COALESCE(needs_approval, FALSE)
+			    OR jsonb_array_length(
+			         CASE WHEN jsonb_typeof(approvals) = 'array' THEN approvals ELSE '[]'::jsonb END
+			       ) >= 2
+			  )
 			  AND when_at <= NOW()
 			  -- Конвейер держат ревью/тест/сборка и «В работе» с живым агентом —
 			  -- как trackerTaskInPipeline. Упавшая или ждущая «В работе» (#104)

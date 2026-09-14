@@ -114,7 +114,10 @@ func trackerNeedsAgentKick(t database.TrackerTask, now time.Time, force bool) bo
 		return false
 	}
 	failed := trackerAgentStartFailed(t)
-	if trackerStepRemoteID(t.Steps) > 0 && !failed {
+	// «ждёт очередь» после прошлой попытки: агент:#N остался в шагах, а живого
+	// агента нет. Без этого #104/#105 не будил даже «Обновить».
+	waiting := strings.EqualFold(trackerLastStep(t), trackerAgentWaitingStep)
+	if trackerStepRemoteID(t.Steps) > 0 && !failed && !waiting {
 		return false
 	}
 	if !force && trackerAgentKickCount(t) >= trackerAgentKickMax {

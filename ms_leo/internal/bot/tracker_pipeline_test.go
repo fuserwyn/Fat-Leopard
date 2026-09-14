@@ -114,3 +114,18 @@ func TestTrackerNeedsPhaseKick(t *testing.T) {
 		}
 	}
 }
+
+func TestTrackerNeedsAgentKickWaitingWithOldRemote(t *testing.T) {
+	now := time.Date(2026, 9, 14, 19, 30, 0, 0, time.UTC)
+	old := now.Add(-time.Hour)
+	waiting := database.TrackerTask{DevColumn: trackerColDoing, Status: "running", HasLastRun: true, LastRunAt: old,
+		Steps: []string{"Агент: запустили", "агент:#707", "Агент не стартовал", "Снова запускаем агента", trackerAgentWaitingStep}}
+	if !trackerNeedsAgentKick(waiting, now, false) {
+		t.Error("ждущая карточка со старым агент:#N должна перезапускаться")
+	}
+	live := database.TrackerTask{DevColumn: trackerColDoing, Status: "running", HasLastRun: true, LastRunAt: old,
+		Steps: []string{"Агент: запустили", "агент:#709"}}
+	if trackerNeedsAgentKick(live, now, false) {
+		t.Error("карточку с живым агентом трогать нельзя")
+	}
+}
