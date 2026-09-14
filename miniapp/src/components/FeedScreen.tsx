@@ -30,6 +30,11 @@ import { clearPackGroupUnread } from "../lib/packGroupUnread";
 import { reportLeoCommentDisplayed } from "../lib/leoCommentDiag";
 import { formatLocalDateTime } from "../lib/timeAgo";
 import { streakStreakAriaLabel } from "../lib/streakLabel";
+import {
+  PACK_WEEKLY_GOAL_DEFAULT,
+  packWeeklyProgressBarPct,
+  packWeeklyProgressLabel,
+} from "../lib/packWeeklyGoal";
 import { applyScrollY, feedFilterEpoch } from "../lib/tabScrollRestore";
 import {
   sortWorkoutCategoryIds,
@@ -97,6 +102,11 @@ type Props = {
   onFeedThreadRead?: () => void;
   /** Админ может удалять любой пост ленты. */
   isAdmin?: boolean;
+  /** Недельный прогресс стаи (сброс каждое воскресенье). */
+  packWorkoutsWeek?: number;
+  packWorkoutsGoal?: number;
+  packGoalReached?: boolean;
+  packBonusThemeActive?: boolean;
 };
 
 // Единый поток — подвкладок больше нет; тип оставлен для совместимости эффектов.
@@ -230,6 +240,10 @@ export function FeedScreen({
   feedThreadUnreadCount = 0,
   onFeedThreadRead,
   isAdmin = false,
+  packWorkoutsWeek = 0,
+  packWorkoutsGoal = PACK_WEEKLY_GOAL_DEFAULT,
+  packGoalReached = false,
+  packBonusThemeActive = false,
 }: Props) {
   const [sub] = useState<Sub>("activity");
   const [unreadFeedCardIds, setUnreadFeedCardIds] = useState<Set<number>>(() => new Set());
@@ -1700,6 +1714,26 @@ export function FeedScreen({
                 <span className="feed__streak-word">Стрик</span>
                 <span className="feed__streak-num">{streak}</span>
               </span>
+            </div>
+            <div
+              className={`feed__pack-progress${packGoalReached ? " is-complete" : ""}${packBonusThemeActive ? " is-bonus" : ""}`}
+              aria-label={`Стая: ${packWeeklyProgressLabel(packWorkoutsWeek, packWorkoutsGoal)} тренировок за неделю`}
+            >
+              <div className="feed__pack-progress-head">
+                <span className="feed__pack-progress-title">Неделя стаи</span>
+                <span className="feed__pack-progress-count">{packWeeklyProgressLabel(packWorkoutsWeek, packWorkoutsGoal)}</span>
+              </div>
+              <div className="feed__pack-progress-bar">
+                <div
+                  className="feed__pack-progress-fill"
+                  style={{ width: `${packWeeklyProgressBarPct(packWorkoutsWeek, packWorkoutsGoal)}%` }}
+                />
+              </div>
+              {packGoalReached ? (
+                <span className="feed__pack-progress-bonus">
+                  {packBonusThemeActive ? "Цель достигнута · бонусная тема активна" : "Цель достигнута!"}
+                </span>
+              ) : null}
             </div>
           </div>
         </header>
