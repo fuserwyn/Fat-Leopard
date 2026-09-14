@@ -1605,6 +1605,20 @@ var Migrations = []Migration{
 			DROP TABLE IF EXISTS pack_weekly_goal_bonus;
 		`,
 	},
+	{
+		Version:     82,
+		Description: "release_notes_log — идемпотентность двухнедельных Release Notes в ленте",
+		UpSQL: `
+			CREATE TABLE IF NOT EXISTS release_notes_log (
+				period_end DATE PRIMARY KEY,
+				text       TEXT NOT NULL,
+				created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT (NOW() AT TIME ZONE 'Europe/Moscow')
+			);
+		`,
+		DownSQL: `
+			DROP TABLE IF EXISTS release_notes_log;
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции

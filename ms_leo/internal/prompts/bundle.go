@@ -21,6 +21,7 @@ type Bundle struct {
 	WarningTimerQuestion    string // предупреждение день 5/6/7 до кика за неактивность (stage-aware)
 	AchievementMilestone    string // milestone-ачивка: in_app_text + leo_message (Промт 5)
 	TrainingEvaluation      string // комментарий после тренировки JSON (Промт 1)
+	ReleaseNotes            string // Release Notes за две недели в ленту стаи
 	// PackFeedParticipantRemoved — карточка в ленте мини‑аппа, когда человек уже не видит её: текст для стаи.
 	PackFeedParticipantRemoved string
 }
@@ -67,6 +68,9 @@ var embeddedPackFeedParticipantRemoved string
 //go:embed data/training_evaluation.txt
 var embeddedTrainingEvaluation string
 
+//go:embed data/release_notes.txt
+var embeddedReleaseNotes string
+
 // DefaultBundle возвращает встроенные тексты из каталога data/.
 func DefaultBundle() Bundle {
 	return Bundle{
@@ -83,6 +87,7 @@ func DefaultBundle() Bundle {
 		WarningTimerQuestion:       embeddedWarningTimerQuestion,
 		AchievementMilestone:       embeddedAchievementMilestone,
 		TrainingEvaluation:         embeddedTrainingEvaluation,
+		ReleaseNotes:               embeddedReleaseNotes,
 		PackFeedParticipantRemoved: embeddedPackFeedParticipantRemoved,
 	}
 }

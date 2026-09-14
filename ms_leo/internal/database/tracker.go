@@ -595,6 +595,32 @@ func (d *Database) MarkTrackerApprovalReminderSent(taskID int64) error {
 	return nil
 }
 
+// ListShippedTrackerTasksSince — выкатанные на прод задачи, обновлённые не раньше since.
+func (d *Database) ListShippedTrackerTasksSince(since time.Time) ([]TrackerTask, error) {
+	if d == nil || d.trackerDB() == nil {
+		return nil, fmt.Errorf("база недоступна")
+	}
+	rows, err := d.trackerDB().Query(trackerTaskSelect+`
+		WHERE t.status = 'done'
+		  AND t.dev_column = 'done'
+		  AND t.updated_at >= $1
+		ORDER BY t.updated_at ASC, t.num ASC
+	`, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]TrackerTask, 0, 16)
+	for rows.Next() {
+		t, err := scanTrackerTask(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
 // ListTrackerTasksAwaitingApprovalReminder — задачи на аппруве, где прошёл час
 // после первого уведомления и повтор ещё не отправляли.
 func (d *Database) ListTrackerTasksAwaitingApprovalReminder() ([]TrackerTask, error) {
