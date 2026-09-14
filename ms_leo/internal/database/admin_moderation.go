@@ -10,6 +10,44 @@ import (
 	"leo-bot/internal/utils"
 )
 
+// PackUserAdminFilter — фильтр списка участников в админке.
+type PackUserAdminFilter string
+
+const (
+	PackUserAdminFilterAll    PackUserAdminFilter = "all"
+	PackUserAdminFilterActive PackUserAdminFilter = "active"
+	PackUserAdminFilterKicked PackUserAdminFilter = "kicked"
+)
+
+func NormalizePackUserAdminFilter(raw string) PackUserAdminFilter {
+	switch strings.TrimSpace(strings.ToLower(raw)) {
+	case "active":
+		return PackUserAdminFilterActive
+	case "kicked":
+		return PackUserAdminFilterKicked
+	default:
+		return PackUserAdminFilterAll
+	}
+}
+
+func packUserAdminFilterClause(filter PackUserAdminFilter) string {
+	switch filter {
+	case PackUserAdminFilterActive:
+		return " AND ts.is_deleted = FALSE"
+	case PackUserAdminFilterKicked:
+		return " AND ts.is_deleted = TRUE"
+	default:
+		return ""
+	}
+}
+
+// AdminPackUserCounts — счётчики участников стаи для админки.
+type AdminPackUserCounts struct {
+	Total  int
+	Active int
+	Kicked int
+}
+
 // AdminPackUserSearchHit — результат поиска пользователя в админке.
 type AdminPackUserSearchHit struct {
 	UserID      int64
@@ -19,7 +57,7 @@ type AdminPackUserSearchHit struct {
 }
 
 // SearchPackUsersForAdmin ищет пользователей стаи по ID, @нику или display_name из мини-аппа.
-func (d *Database) SearchPackUsersForAdmin(packChatID int64, rawQuery string, limit int) ([]AdminPackUserSearchHit, error) {
+func (d *Database) SearchPackUsersForAdmin(packChatID int64, rawQuery string, limit int, filter PackUserAdminFilter) ([]AdminPackUserSearchHit, error) {
 	if d == nil || packChatID == 0 {
 		return nil, nil
 	}
@@ -40,7 +78,8 @@ func (d *Database) SearchPackUsersForAdmin(packChatID int64, rawQuery string, li
 		exactID = id
 	}
 
-	const query = `
+	statusClause := packUserAdminFilterClause(filter)
+	query := fmt.Sprintf(`
 		SELECT ts.user_id,
 		       COALESCE(NULLIF(BTRIM(ts.username), ''), ''),
 		       COALESCE(NULLIF(BTRIM(p.display_name), ''), ''),
@@ -48,7 +87,7 @@ func (d *Database) SearchPackUsersForAdmin(packChatID int64, rawQuery string, li
 		FROM training_state ts
 		LEFT JOIN miniapp_user_profile p
 			ON p.user_id = ts.user_id AND p.pack_chat_id = ts.chat_id
-		WHERE ts.chat_id = $1
+		WHERE ts.chat_id = $1%s
 		  AND (
 		        ($2 > 0 AND ts.user_id = $2)
 		     OR ts.username ILIKE $3
@@ -56,7 +95,7 @@ func (d *Database) SearchPackUsersForAdmin(packChatID int64, rawQuery string, li
 		  )
 		ORDER BY ts.is_deleted ASC, ts.cups_earned DESC, ts.user_id ASC
 		LIMIT $4
-	`
+	`, statusClause)
 	rows, err := d.db.Query(query, packChatID, exactID, pattern, limit)
 	if err != nil {
 		return nil, fmt.Errorf("search pack users: %w", err)
@@ -100,15 +139,48 @@ type AdminPaywallPaymentRow struct {
 }
 
 func (d *Database) CountPackUsersForAdmin(packChatID int64) (int, error) {
+	counts, err := d.CountPackUsersBreakdownForAdmin(packChatID)
+	if err != nil {
+		return 0, err
+	}
+	return counts.Total, nil
+}
+
+func (d *Database) CountPackUsersBreakdownForAdmin(packChatID int64) (AdminPackUserCounts, error) {
+	var out AdminPackUserCounts
+	if packChatID == 0 {
+		return out, nil
+	}
+	err := d.db.QueryRow(`
+		SELECT COUNT(*),
+		       COUNT(*) FILTER (WHERE is_deleted = FALSE),
+		       COUNT(*) FILTER (WHERE is_deleted = TRUE)
+		FROM training_state
+		WHERE chat_id = $1
+	`, packChatID).Scan(&out.Total, &out.Active, &out.Kicked)
+	return out, err
+}
+
+func (d *Database) CountPackUsersForAdminFiltered(packChatID int64, filter PackUserAdminFilter) (int, error) {
 	if packChatID == 0 {
 		return 0, nil
 	}
-	var n int
-	err := d.db.QueryRow(`SELECT COUNT(*) FROM training_state WHERE chat_id = $1`, packChatID).Scan(&n)
-	return n, err
+	filter = NormalizePackUserAdminFilter(string(filter))
+	switch filter {
+	case PackUserAdminFilterActive:
+		var n int
+		err := d.db.QueryRow(`SELECT COUNT(*) FROM training_state WHERE chat_id = $1 AND is_deleted = FALSE`, packChatID).Scan(&n)
+		return n, err
+	case PackUserAdminFilterKicked:
+		var n int
+		err := d.db.QueryRow(`SELECT COUNT(*) FROM training_state WHERE chat_id = $1 AND is_deleted = TRUE`, packChatID).Scan(&n)
+		return n, err
+	default:
+		return d.CountPackUsersForAdmin(packChatID)
+	}
 }
 
-func (d *Database) ListPackUsersForAdmin(packChatID int64, offset, limit int) ([]AdminPackUserListRow, error) {
+func (d *Database) ListPackUsersForAdmin(packChatID int64, offset, limit int, filter PackUserAdminFilter) ([]AdminPackUserListRow, error) {
 	if packChatID == 0 {
 		return nil, nil
 	}
@@ -118,7 +190,8 @@ func (d *Database) ListPackUsersForAdmin(packChatID int64, offset, limit int) ([
 	if offset < 0 {
 		offset = 0
 	}
-	const query = `
+	statusClause := packUserAdminFilterClause(filter)
+	query := fmt.Sprintf(`
 		SELECT ts.user_id,
 		       COALESCE(NULLIF(BTRIM(ts.username), ''), ''),
 		       COALESCE(NULLIF(BTRIM(p.display_name), ''), ''),
@@ -136,10 +209,10 @@ func (d *Database) ListPackUsersForAdmin(packChatID int64, offset, limit int) ([
 		FROM training_state ts
 		LEFT JOIN miniapp_user_profile p
 			ON p.user_id = ts.user_id AND p.pack_chat_id = ts.chat_id
-		WHERE ts.chat_id = $1
+		WHERE ts.chat_id = $1%s
 		ORDER BY ts.is_deleted ASC, ts.cups_earned DESC, ts.user_id ASC
 		OFFSET $2 LIMIT $3
-	`
+	`, statusClause)
 	rows, err := d.db.Query(query, packChatID, offset, limit)
 	if err != nil {
 		return nil, err

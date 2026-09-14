@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"leo-bot/internal/database"
 	"leo-bot/internal/domain"
 
 	initdata "github.com/telegram-mini-apps/init-data-golang"
@@ -19,11 +20,23 @@ var (
 // MiniappAdminOverview — счётчики для главной админки в мини-аппе.
 type MiniappAdminOverview struct {
 	Users          int `json:"users"`
+	UsersActive    int `json:"users_active"`
+	UsersKicked    int `json:"users_kicked"`
 	ReportsOpen    int `json:"reports_open"`
 	SupportWaiting int `json:"support_waiting"`
 	Hidden         int `json:"hidden"`
 	Payments       int `json:"payments"`
 	AccessPriceRub int `json:"access_price_rub"`
+}
+
+// MiniappAdminUsersPage — страница списка/поиска участников стаи.
+type MiniappAdminUsersPage struct {
+	Users       []MiniappAdminUserRow `json:"users"`
+	Total       int                   `json:"total"`
+	Offset      int                   `json:"offset"`
+	Limit       int                   `json:"limit"`
+	UsersActive int                   `json:"users_active"`
+	UsersKicked int                   `json:"users_kicked"`
 }
 
 // MiniappAdminPaywallPrice — текущая цена доступа, которую админ может поменять.
@@ -102,8 +115,10 @@ func (b *Bot) MiniappAdminOverview(viewerUserID int64, initD initdata.InitData) 
 	if err != nil {
 		return out, err
 	}
-	if n, e := b.db.CountPackUsersForAdmin(packID); e == nil {
-		out.Users = n
+	if counts, e := b.db.CountPackUsersBreakdownForAdmin(packID); e == nil {
+		out.Users = counts.Total
+		out.UsersActive = counts.Active
+		out.UsersKicked = counts.Kicked
 	} else {
 		return out, e
 	}
@@ -315,45 +330,60 @@ func (b *Bot) MiniappAdminUnhide(viewerUserID int64, initD initdata.InitData, ki
 	return nil
 }
 
-func (b *Bot) MiniappAdminSearchUsers(viewerUserID int64, initD initdata.InitData, query string) ([]MiniappAdminUserRow, error) {
+func (b *Bot) MiniappAdminUsers(viewerUserID int64, initD initdata.InitData, query string, offset, limit int, filter string) (MiniappAdminUsersPage, error) {
+	var out MiniappAdminUsersPage
 	packID, err := b.requireMiniappAdmin(viewerUserID, initD)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	hits, err := b.db.SearchPackUsersForAdmin(packID, query, 20)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]MiniappAdminUserRow, 0, len(hits))
-	for _, h := range hits {
-		out = append(out, MiniappAdminUserRow{
-			UserID:      h.UserID,
-			Username:    h.Username,
-			DisplayName: h.DisplayName,
-			IsDeleted:   h.IsDeleted,
-		})
-	}
-	return out, nil
-}
-
-func (b *Bot) MiniappAdminListUsers(viewerUserID int64, initD initdata.InitData, offset, limit int) ([]MiniappAdminUserRow, error) {
-	packID, err := b.requireMiniappAdmin(viewerUserID, initD)
-	if err != nil {
-		return nil, err
-	}
+	statusFilter := database.NormalizePackUserAdminFilter(filter)
 	if limit <= 0 || limit > 40 {
 		limit = 20
 	}
 	if offset < 0 {
 		offset = 0
 	}
-	rows, err := b.db.ListPackUsersForAdmin(packID, offset, limit)
+	out.Offset = offset
+	out.Limit = limit
+
+	counts, err := b.db.CountPackUsersBreakdownForAdmin(packID)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	out := make([]MiniappAdminUserRow, 0, len(rows))
+	out.UsersActive = counts.Active
+	out.UsersKicked = counts.Kicked
+
+	q := strings.TrimSpace(query)
+	if q != "" {
+		hits, err := b.db.SearchPackUsersForAdmin(packID, q, limit, statusFilter)
+		if err != nil {
+			return out, err
+		}
+		out.Total = len(hits)
+		out.Users = make([]MiniappAdminUserRow, 0, len(hits))
+		for _, h := range hits {
+			out.Users = append(out.Users, MiniappAdminUserRow{
+				UserID:      h.UserID,
+				Username:    h.Username,
+				DisplayName: h.DisplayName,
+				IsDeleted:   h.IsDeleted,
+			})
+		}
+		return out, nil
+	}
+
+	total, err := b.db.CountPackUsersForAdminFiltered(packID, statusFilter)
+	if err != nil {
+		return out, err
+	}
+	out.Total = total
+	rows, err := b.db.ListPackUsersForAdmin(packID, offset, limit, statusFilter)
+	if err != nil {
+		return out, err
+	}
+	out.Users = make([]MiniappAdminUserRow, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, MiniappAdminUserRow{
+		out.Users = append(out.Users, MiniappAdminUserRow{
 			UserID:           r.UserID,
 			Username:         r.Username,
 			DisplayName:      r.DisplayName,

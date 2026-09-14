@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"leo-bot/internal/database"
 	"leo-bot/internal/game/leopardmoney"
 	"leo-bot/internal/utils"
 
@@ -671,7 +672,7 @@ func (b *Bot) resolveAdminUserSearch(chatID int64, query string) {
 		return
 	}
 
-	hits, err := b.db.SearchPackUsersForAdmin(packChatID, query, 10)
+	hits, err := b.db.SearchPackUsersForAdmin(packChatID, query, 10, database.PackUserAdminFilterAll)
 	if err != nil {
 		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Ошибка поиска: "+err.Error()))
 		return

@@ -29,6 +29,7 @@ import {
   type AdminStatField,
   type AdminUserAction,
   type AdminUserCard,
+  type AdminUserFilter,
   type AdminUserRow,
 } from "../lib/adminApi";
 import { AdminDashboardScreen } from "./AdminDashboardScreen";
@@ -86,12 +87,16 @@ type Props = {
 
 const EMPTY_OVERVIEW: AdminOverview = {
   users: 0,
+  users_active: 0,
+  users_kicked: 0,
   reports_open: 0,
   support_waiting: 0,
   hidden: 0,
   payments: 0,
   access_price_rub: 0,
 };
+
+const USERS_PAGE_SIZE = 20;
 
 function clip(text: string, n: number) {
   const t = text.trim();
@@ -180,6 +185,11 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose }: Props)
 
   const [users, setUsers] = useState<AdminUserRow[]>([]);
   const [userQuery, setUserQuery] = useState("");
+  const [userFilter, setUserFilter] = useState<AdminUserFilter>("all");
+  const [userOffset, setUserOffset] = useState(0);
+  const [usersTotal, setUsersTotal] = useState(0);
+  const [usersActive, setUsersActive] = useState(0);
+  const [usersKicked, setUsersKicked] = useState(0);
   const [card, setCard] = useState<AdminUserCard | null>(null);
 
   const [announce, setAnnounce] = useState("");
@@ -326,10 +336,14 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose }: Props)
     }
   };
 
-  const loadUsers = async (query = userQuery) => {
+  const loadUsers = async (query = userQuery, offset = userOffset, filter = userFilter) => {
     try {
-      const j = await fetchAdminUsers(initData, query.trim());
+      const j = await fetchAdminUsers(initData, query.trim(), offset, filter);
       setUsers(j.users ?? []);
+      setUsersTotal(j.total ?? 0);
+      setUsersActive(j.users_active ?? 0);
+      setUsersKicked(j.users_kicked ?? 0);
+      setUserOffset(j.offset ?? offset);
     } catch (e) {
       showAlert(e instanceof Error ? e.message : "Не удалось загрузить пользователей");
     }
@@ -337,7 +351,16 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose }: Props)
 
   const openUsers = async () => {
     setPage("users");
-    await loadUsers("");
+    setUserQuery("");
+    setUserFilter("all");
+    setUserOffset(0);
+    await loadUsers("", 0, "all");
+  };
+
+  const setUsersFilter = (filter: AdminUserFilter) => {
+    setUserFilter(filter);
+    setUserOffset(0);
+    void loadUsers(userQuery, 0, filter);
   };
 
   // Поля показателей всегда показывают текущее состояние: правишь цифру и
@@ -430,6 +453,9 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose }: Props)
       const j = await fetchAdminUserCard(initData, card.user_id);
       setCard(j.user);
       void loadOverview();
+      if (page === "users" || page === "card") {
+        void loadUsers();
+      }
     } catch (e) {
       showAlert(e instanceof Error ? e.message : "Не удалось выполнить действие");
     } finally {
@@ -446,6 +472,7 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose }: Props)
       const j = await fetchAdminUserCard(initData, card.user_id);
       setCard(j.user);
       void loadOverview();
+      void loadUsers();
     } catch (e) {
       showAlert(e instanceof Error ? e.message : "Не удалось выполнить действие");
     } finally {
@@ -527,6 +554,7 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose }: Props)
     }
     if (page === "card") {
       setPage("users");
+      void loadUsers();
       return;
     }
     setPage("home");
@@ -703,8 +731,12 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose }: Props)
             <>
               <div className="admin__stats">
                 <div className="admin__stat">
-                  <strong>{overview.users}</strong>
-                  <span>в стае</span>
+                  <strong>{overview.users_active}</strong>
+                  <span>активных</span>
+                </div>
+                <div className="admin__stat">
+                  <strong>{overview.users_kicked}</strong>
+                  <span>кикнутых</span>
                 </div>
                 <div className="admin__stat">
                   <strong>{overview.support_waiting}</strong>
@@ -745,7 +777,10 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose }: Props)
                   <span className="admin__tile-ico">👥</span>
                   <span className="admin__tile-text">
                     <b>Участники</b>
-                    <small>поиск, больничный, кик</small>
+                    <small>
+                      {overview.users} за всю историю · {overview.users_active} активных · {overview.users_kicked}{" "}
+                      кикнутых
+                    </small>
                   </span>
                 </button>
                 <button type="button" className="admin__tile" onClick={() => setPage("announce")}>
@@ -1067,11 +1102,45 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose }: Props)
 
       {page === "users" && (
         <div className="admin__body">
+          <p className="admin__users-summary">
+            За всю историю: <strong>{usersActive + usersKicked}</strong> · активных {usersActive} · кикнутых{" "}
+            {usersKicked}
+          </p>
+          <div className="admin__filters" role="tablist" aria-label="Фильтр участников">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={userFilter === "all"}
+              className={userFilter === "all" ? "on" : ""}
+              onClick={() => setUsersFilter("all")}
+            >
+              Все ({usersActive + usersKicked})
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={userFilter === "active"}
+              className={userFilter === "active" ? "on" : ""}
+              onClick={() => setUsersFilter("active")}
+            >
+              Активные ({usersActive})
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={userFilter === "kicked"}
+              className={userFilter === "kicked" ? "on" : ""}
+              onClick={() => setUsersFilter("kicked")}
+            >
+              Кикнутые ({usersKicked})
+            </button>
+          </div>
           <form
             className="admin__search"
             onSubmit={(e) => {
               e.preventDefault();
-              void loadUsers(userQuery);
+              setUserOffset(0);
+              void loadUsers(userQuery, 0, userFilter);
             }}
           >
             <input
@@ -1084,22 +1153,45 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose }: Props)
           {users.length === 0 ? (
             <p className="admin__muted">Никого не нашли</p>
           ) : (
-            <ul className="admin__list">
-              {users.map((u) => (
-                <li key={u.user_id}>
-                  <button type="button" className="admin__row" onClick={() => void openCard(u.user_id)}>
-                    <div className="admin__row-top">
-                      <b>{userLabel(u.display_name, u.username, u.user_id)}</b>
-                      {u.is_deleted ? <span className="admin__badge admin__badge--muted">кикнут</span> : null}
-                    </div>
-                    <p className="admin__row-meta">
-                      {u.cups} кубков · стрик {u.streak_days}
-                      {u.has_active_paywall ? " · доступ есть" : ""}
-                    </p>
+            <>
+              <ul className="admin__list">
+                {users.map((u) => (
+                  <li key={u.user_id}>
+                    <button type="button" className="admin__row" onClick={() => void openCard(u.user_id)}>
+                      <div className="admin__row-top">
+                        <b>{userLabel(u.display_name, u.username, u.user_id)}</b>
+                        {u.is_deleted ? <span className="admin__badge admin__badge--muted">кикнут</span> : null}
+                      </div>
+                      <p className="admin__row-meta">
+                        {u.cups} кубков · стрик {u.streak_days}
+                        {u.has_active_paywall ? " · доступ есть" : ""}
+                      </p>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {!userQuery.trim() && usersTotal > USERS_PAGE_SIZE ? (
+                <div className="admin__pager">
+                  <button
+                    type="button"
+                    disabled={userOffset === 0}
+                    onClick={() => void loadUsers(userQuery, Math.max(0, userOffset - USERS_PAGE_SIZE), userFilter)}
+                  >
+                    ◀ Назад
                   </button>
-                </li>
-              ))}
-            </ul>
+                  <span className="admin__muted">
+                    {userOffset + 1}–{userOffset + users.length} из {usersTotal}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={userOffset + users.length >= usersTotal}
+                    onClick={() => void loadUsers(userQuery, userOffset + USERS_PAGE_SIZE, userFilter)}
+                  >
+                    Вперёд ▶
+                  </button>
+                </div>
+              ) : null}
+            </>
           )}
         </div>
       )}

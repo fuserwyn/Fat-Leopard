@@ -2,12 +2,16 @@ const api = (import.meta.env.VITE_MINIAPP_API_URL as string | undefined)?.replac
 
 export type AdminOverview = {
   users: number;
+  users_active: number;
+  users_kicked: number;
   reports_open: number;
   support_waiting: number;
   hidden: number;
   payments: number;
   access_price_rub: number;
 };
+
+export type AdminUserFilter = "all" | "active" | "kicked";
 
 export type AdminPaywallPrice = {
   amount_rub: number;
@@ -198,8 +202,20 @@ export function restoreAdminHidden(initData: string, kind: string, id: number) {
   return post("/api/miniapp/admin/hidden/restore", initData, { kind, id });
 }
 
-export function fetchAdminUsers(initData: string, query = "", offset = 0) {
-  return post<{ users: AdminUserRow[] }>("/api/miniapp/admin/users", initData, { query, offset });
+export function fetchAdminUsers(
+  initData: string,
+  query = "",
+  offset = 0,
+  filter: AdminUserFilter = "all",
+) {
+  return post<{
+    users: AdminUserRow[];
+    total: number;
+    offset: number;
+    limit: number;
+    users_active: number;
+    users_kicked: number;
+  }>("/api/miniapp/admin/users", initData, { query, offset, filter });
 }
 
 export function fetchAdminUserCard(initData: string, targetUserId: number) {

@@ -303,6 +303,64 @@ html.app-keyboard-open .admin {
   gap: 8px;
 }
 
+.admin__users-summary {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.admin__users-summary strong {
+  color: var(--text);
+}
+
+.admin__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.admin__filters button {
+  padding: 7px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--card-inner);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.admin__filters button.on {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, var(--card-inner));
+  color: var(--text);
+  font-weight: 600;
+}
+
+.admin__pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.admin__pager button {
+  padding: 8px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--card-inner);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.admin__pager button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .admin__search {
   margin-bottom: 12px;
 }
