@@ -624,3 +624,26 @@ func (d *Database) ListTrackerTasksAwaitingApprovalReminder() ([]TrackerTask, er
 	}
 	return out, rows.Err()
 }
+
+// ClaimTrackerStep атомарно дописывает шаг, если его ещё нет. true — шаг
+// поставил именно этот вызов. При выкатке ms_leo старый и новый контейнеры
+// работают одновременно, и проверка «шаг уже есть» в Go у обоих проходит.
+func (d *Database) ClaimTrackerStep(id int64, step string) (bool, error) {
+	if d == nil || d.trackerDB() == nil {
+		return false, fmt.Errorf("база недоступна")
+	}
+	res, err := d.trackerDB().Exec(`
+		UPDATE pack_tracker_tasks
+		SET steps = (
+		      CASE WHEN jsonb_typeof(steps) = 'array' THEN steps ELSE '[]'::jsonb END
+		    ) || jsonb_build_array($2::text),
+		    updated_at = NOW()
+		WHERE id = $1
+		  AND NOT (CASE WHEN jsonb_typeof(steps) = 'array' THEN steps ELSE '[]'::jsonb END) ? $2::text
+	`, id, step)
+	if err != nil {
+		return false, err
+	}
+	n, _ := res.RowsAffected()
+	return n > 0, nil
+}

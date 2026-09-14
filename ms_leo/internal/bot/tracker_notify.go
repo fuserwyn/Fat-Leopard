@@ -419,7 +419,29 @@ func (b *Bot) notifyTrackerShippedOnce(t database.TrackerTask) {
 		return
 	}
 	note := trackerFullyDoneNote(t)
-	appendTrackerStep(&t, trackerShipNotifiedStep)
+	// Отметку ставим атомарно в базе: при выкатке ms_leo старый и новый
+	// контейнеры оба дожимают сборку, sync.Map живёт в одном процессе, и
+	// автор получал два «выполнена» (#105).
+	if b.db != nil {
+		claimed, err := b.db.ClaimTrackerStep(t.ID, trackerShipNotifiedStep)
+		if err != nil {
+			if b.logger != nil {
+				b.logger.Warnf("трекер: не отметить уведомление о выкате #%d: %v", trackerDueNum(t), err)
+			}
+			return
+		}
+		if !claimed {
+			return
+		}
+		// Шаг уже в базе — перечитываем, чтобы сохранение ниже его не стёрло.
+		if fresh, err := b.db.GetTrackerTask(t.ID); err == nil && fresh.ID > 0 {
+			t = fresh
+		} else {
+			appendTrackerStep(&t, trackerShipNotifiedStep)
+		}
+	} else {
+		appendTrackerStep(&t, trackerShipNotifiedStep)
+	}
 	if !strings.Contains(t.Result, note) {
 		t.Result = strings.TrimSpace(strings.TrimSpace(t.Result) + "\n\n" + note)
 	}
