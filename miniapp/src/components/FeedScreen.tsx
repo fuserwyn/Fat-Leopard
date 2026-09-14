@@ -33,8 +33,8 @@ import { streakStreakAriaLabel } from "../lib/streakLabel";
 import {
   PACK_WEEKLY_GOAL_DEFAULT,
   PACK_WEEKLY_GOAL_HINT,
-  packWeeklyProgressBarPct,
   packWeeklyProgressLabel,
+  packWeeklyStepFillPcts,
 } from "../lib/packWeeklyGoal";
 import { applyScrollY, feedFilterEpoch } from "../lib/tabScrollRestore";
 import {
@@ -1720,17 +1720,22 @@ export function FeedScreen({
               className={`feed__pack-progress${packGoalReached ? " is-complete" : ""}${packBonusThemeActive ? " is-bonus" : ""}`}
               aria-label={`Стая: ${packWeeklyProgressLabel(packWorkoutsWeek, packWorkoutsGoal)} тренировок за неделю`}
             >
-              <div className="feed__pack-progress-head">
-                <span className="feed__pack-progress-title">Неделя стаи</span>
-                <span className="feed__pack-progress-count">{packWeeklyProgressLabel(packWorkoutsWeek, packWorkoutsGoal)}</span>
-              </div>
               <div className="feed__pack-progress-row">
-                <div className="feed__pack-progress-bar">
-                  <div
-                    className="feed__pack-progress-fill"
-                    style={{ width: `${packWeeklyProgressBarPct(packWorkoutsWeek, packWorkoutsGoal)}%` }}
-                  />
+                <span className="feed__pack-progress-title">Неделя стаи</span>
+                <div
+                  className="feed__pack-progress-bar"
+                  role="progressbar"
+                  aria-valuenow={Math.max(0, Math.floor(packWorkoutsWeek))}
+                  aria-valuemin={0}
+                  aria-valuemax={packWorkoutsGoal > 0 ? packWorkoutsGoal : PACK_WEEKLY_GOAL_DEFAULT}
+                >
+                  {packWeeklyStepFillPcts(packWorkoutsWeek, packWorkoutsGoal).map((fillPct, i) => (
+                    <div key={i} className="feed__pack-progress-segment">
+                      <div className="feed__pack-progress-segment-fill" style={{ width: `${fillPct}%` }} />
+                    </div>
+                  ))}
                 </div>
+                <span className="feed__pack-progress-count">{packWeeklyProgressLabel(packWorkoutsWeek, packWorkoutsGoal)}</span>
                 <button
                   type="button"
                   className="feed__pack-progress-help"
