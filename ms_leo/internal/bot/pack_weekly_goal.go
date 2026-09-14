@@ -6,7 +6,7 @@ import (
 	"leo-bot/internal/utils"
 )
 
-// PackWeeklyWorkoutGoal — цель тренировок стаи за неделю (сброс каждое воскресенье).
+// PackWeeklyWorkoutGoal — цель тренировок стаи за неделю (сброс каждый понедельник 00:00 МСК).
 const PackWeeklyWorkoutGoal = 100
 
 // PackBonusThemeDuration — эксклюзивная тема на сутки после достижения цели.
@@ -23,15 +23,15 @@ type MiniappPackWeeklyProgress struct {
 	BonusActiveUntil   string // RFC3339; пусто, если бонус не активен
 }
 
-// GetMiniappPackWeeklyProgressForAPI — суммарные тренировки стаи с воскресенья по сегодня (МСК).
+// GetMiniappPackWeeklyProgressForAPI — суммарные тренировки стаи с понедельника по сегодня (МСК).
 func (b *Bot) GetMiniappPackWeeklyProgressForAPI(packChatID int64) MiniappPackWeeklyProgress {
 	out := MiniappPackWeeklyProgress{Goal: PackWeeklyWorkoutGoal}
 	if b == nil || b.db == nil || packChatID == 0 {
 		return out
 	}
 	now := utils.GetMoscowTime()
-	out.WeekStart = utils.WeekStartSundayMSK(now)
-	out.WeekEnd = utils.WeekEndSaturdayMSK(now)
+	out.WeekStart = utils.WeekStartMondayMSK(now)
+	out.WeekEnd = utils.WeekEndSundayMSK(now)
 	today := now.Format("2006-01-02")
 	count, err := b.db.CountPackTrainingSessionsInDateRange(packChatID, out.WeekStart, today)
 	if err != nil {
@@ -62,7 +62,7 @@ func (b *Bot) MaybeGrantPackWeeklyGoalBonus(packChatID int64) {
 		return
 	}
 	now := utils.GetMoscowTime()
-	weekStart := utils.WeekStartSundayMSK(now)
+	weekStart := utils.WeekStartMondayMSK(now)
 	today := now.Format("2006-01-02")
 	count, err := b.db.CountPackTrainingSessionsInDateRange(packChatID, weekStart, today)
 	if err != nil {

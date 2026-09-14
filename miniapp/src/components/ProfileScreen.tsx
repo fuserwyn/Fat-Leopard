@@ -1672,7 +1672,7 @@ export function ProfileScreen({
           <p className="profile__theme-lock muted">Дикая тема — стрик 365 дней или 1000 тренировок</p>
         ) : null}
         {!packUnlocked ? (
-          <p className="profile__theme-lock muted">Тема «Стая» — 100 тренировок стаи за неделю (сброс по воскресеньям)</p>
+          <p className="profile__theme-lock muted">Тема «Стая» — 100 тренировок стаи за неделю (сброс по понедельникам, 00:00 МСК)</p>
         ) : null}
         </>
         )}
