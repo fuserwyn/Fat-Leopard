@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"leo-tracker/internal/config"
@@ -82,10 +83,25 @@ func pythonBin() string {
 }
 
 func cursorCmd(ctx context.Context, script string) *exec.Cmd {
+	var cmd *exec.Cmd
 	if strings.HasSuffix(strings.ToLower(script), ".py") {
-		return exec.CommandContext(ctx, pythonBin(), script)
+		cmd = exec.CommandContext(ctx, pythonBin(), script)
+	} else {
+		cmd = exec.CommandContext(ctx, script)
 	}
-	return exec.CommandContext(ctx, script)
+	// Своя группа процессов: python поднимает node-bridge, тот — шеллы агента.
+	// По таймауту убиваем всю группу, иначе внуки переживают python и копятся.
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Cancel = func() error { return killCursorGroup(cmd) }
+	cmd.WaitDelay = 10 * time.Second
+	return cmd
+}
+
+func killCursorGroup(cmd *exec.Cmd) error {
+	if cmd == nil || cmd.Process == nil {
+		return nil
+	}
+	return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 }
 
 func runCursorLocal(cfg config.Config, job store.Job, repoDir, branch string) (string, error) {
@@ -114,6 +130,8 @@ func runCursorLocal(cfg config.Config, job store.Job, repoDir, branch string) (s
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	runErr := cmd.Run()
+	// python вышел, но node-bridge мог остаться — добиваем группу.
+	_ = killCursorGroup(cmd)
 	var out cursorLocalOut
 	if raw := bytes.TrimSpace(stdout.Bytes()); len(raw) > 0 {
 		if jerr := json.Unmarshal(raw, &out); jerr != nil {
