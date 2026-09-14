@@ -12,9 +12,21 @@ import (
 	"leo-tracker/internal/store"
 )
 
+// Прогон агента ограничен 20 минутами, плюс clone и push. Всё, что висит
+// в running дольше часа, уже никто не доделает.
+const (
+	staleAfter = time.Hour
+	staleTick  = 10 * time.Minute
+)
+
 func Loop(cfg config.Config, st *store.Store, stop <-chan struct{}) {
 	tick := time.NewTicker(10 * time.Second)
 	defer tick.Stop()
+	stale := time.NewTicker(staleTick)
+	defer stale.Stop()
+	// Процесс только поднялся: running из базы остались от прошлого
+	// контейнера, их горутины умерли вместе с ним.
+	sweepStale(cfg, st, time.Now())
 	runOnce(cfg, st)
 	for {
 		select {
@@ -22,6 +34,23 @@ func Loop(cfg config.Config, st *store.Store, stop <-chan struct{}) {
 			return
 		case <-tick.C:
 			runOnce(cfg, st)
+		case <-stale.C:
+			sweepStale(cfg, st, time.Now().Add(-staleAfter))
+		}
+	}
+}
+
+func sweepStale(cfg config.Config, st *store.Store, cutoff time.Time) {
+	jobs, err := st.FailStale(cutoff, "Агент завис: задача висела в работе без исполнителя")
+	if err != nil {
+		log.Printf("трекер: не снять зависшие задачи: %v", err)
+		return
+	}
+	for _, job := range jobs {
+		log.Printf("трекер: задача #%d зависла, сняли (source=%d)", job.ID, job.SourceTaskID)
+		text := fmt.Sprintf("⚠️ %s: агент завис, задача снята с ошибкой. Доска запустит агента заново.", jobNotifyLabel(job))
+		if err := notify.JobDone(cfg, job, text); err != nil {
+			log.Printf("трекер: не уведомить #%d: %v", job.ID, err)
 		}
 	}
 }

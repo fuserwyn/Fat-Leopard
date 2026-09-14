@@ -18,6 +18,10 @@ var (
 // Как часто смотрим, не пора ли снять карточку с «Ожидает».
 const trackerDueTick = 15 * time.Second
 
+// Раз в сутки перезапускаем застрявших агентов в обход лимита попыток:
+// карточка, у которой сгорели все 5 попыток, иначе висит «В работе» вечно.
+const trackerStuckDailyKick = 24 * time.Hour
+
 // trackerTaskDueForStart — та же развилка, что в ClaimDueTrackerTasks:
 // только очередь и только если when_at уже наступил.
 func trackerTaskDueForStart(t database.TrackerTask, now time.Time) bool {
@@ -64,12 +68,18 @@ func (b *Bot) startTrackerDueScheduler(ctx context.Context) {
 	b.runDueTrackerTasks()
 	ticker := time.NewTicker(trackerDueTick)
 	defer ticker.Stop()
+	daily := time.NewTicker(trackerStuckDailyKick)
+	defer daily.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
 			b.runDueTrackerTasks()
+		case <-daily.C:
+			if n := b.kickStuckTrackerAgents(true); n > 0 && b.logger != nil {
+				b.logger.Infof("трекер: суточный перезапуск застрявших агентов: %d", n)
+			}
 		}
 	}
 }

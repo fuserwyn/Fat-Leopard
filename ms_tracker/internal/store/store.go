@@ -297,3 +297,32 @@ func AppendStep(j *Job, step string) {
 		j.Steps = j.Steps[len(j.Steps)-80:]
 	}
 }
+
+// FailStale снимает задачи, зависшие в running дольше cutoff. Исполнитель
+// берёт новую задачу только когда running нет, поэтому одна потерянная
+// при рестарте задача иначе держала бы всю очередь навсегда.
+func (s *Store) FailStale(cutoff time.Time, reason string) ([]Job, error) {
+	rows, err := s.db.Query(`
+		UPDATE ms_tracker_jobs
+		SET status = 'error', error = $2, updated_at = NOW(),
+		    steps = (
+		      CASE WHEN jsonb_typeof(steps) = 'array' THEN steps ELSE '[]'::jsonb END
+		    ) || jsonb_build_array('Сняли как зависшую')
+		WHERE status = 'running' AND updated_at < $1
+		RETURNING id, source_task_id, source_num, author_id, prompt, phase, when_at, when_label,
+		          status, error, result, steps, model, auto_push, branch, created_at, updated_at
+	`, cutoff, reason)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Job
+	for rows.Next() {
+		j, err := scanJob(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, j)
+	}
+	return out, rows.Err()
+}
