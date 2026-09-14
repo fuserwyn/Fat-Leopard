@@ -34,6 +34,13 @@ func (b *Bot) packVoters(in []database.Voter, initDataRaw string) []PackVoter {
 	}
 	out := make([]PackVoter, len(in))
 	for i, v := range in {
+		if v.UserID == 0 {
+			out[i] = PackVoter{
+				Name:     v.Name,
+				PhotoURL: packFeedLeoAvatarURL(publicBase),
+			}
+			continue
+		}
 		out[i] = PackVoter{
 			Name:     v.Name,
 			PhotoURL: packFeedResolveAuthorPhoto(v.PhotoURL, publicBase, v.UserID, initDataRaw),

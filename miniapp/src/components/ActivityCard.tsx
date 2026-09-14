@@ -18,9 +18,15 @@ function votersToLikers(voters?: VoterDTO[] | string[]): Liker[] {
     if (typeof v === "string") {
       return { name: v, photoUrl: undefined };
     }
+    const leoVoter = (v.name || "").trim() === "Лео";
+    const photoUrl = v.photo_url
+      ? resolveFeedAvatarUrl(v.photo_url)
+      : leoVoter
+        ? LEO_AVATAR_URL
+        : undefined;
     return {
       name: v.name,
-      photoUrl: v.photo_url ? resolveFeedAvatarUrl(v.photo_url) : undefined,
+      photoUrl,
     };
   });
 }
