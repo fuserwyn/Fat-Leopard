@@ -142,6 +142,12 @@ func (b *Bot) MiniappLeoSprint(
 	return reply, theme, tasks, nil
 }
 
+// LeoTaskVariant — один из вариантов задачи после обсуждения с админом.
+type LeoTaskVariant struct {
+	Title string `json:"title"`
+	Task  string `json:"task"`
+}
+
 const leoProposeSystemPrompt = `Ты — Лео, суровый и остроумный леопард, тренер стаи Fat Leopard.
 Ты сам решаешь, что улучшить в приложении стаи (мини-апп: лента тренировок,
 комментарии, стрики, ачивки, чат, админка, оплата доступа), и приносишь идею
@@ -156,17 +162,39 @@ task — формулировка разработчику одним абзац
 зачем, без эмодзи и без обращения к человеку.
 Не повторяй задачи, которые уже есть на доске, — их список придёт в сообщении.`
 
+const leoProposeDiscussSystemPrompt = `Ты — Лео, суровый и остроумный леопард, тренер стаи Fat Leopard.
+Админ обсуждает с тобой задачу, которую ты предложил: хочет понять, что ты
+имел в виду, уточнить детали или попросить другие формулировки.
+
+Ответь JSON без обрамления и пояснений:
+{"reply": "...", "variants": [{"title": "...", "task": "..."}]}
+
+reply — 2–5 предложений твоим голосом: объясни что имел в виду, ответь на вопрос,
+уточни детали. Будь конкретен.
+variants — от 1 до 3 вариантов задачи после обсуждения. Если смысл один —
+верни один вариант. Если есть разные трактовки — покажи 2–3 варианта.
+title — короткое название до 60 символов, без эмодзи.
+task — формулировка разработчику одним абзацем до 400 символов: что сделать и
+зачем, без эмодзи и без обращения к человеку.`
+
 // MiniappLeoProposeTask — Лео сам придумывает задачу; админ решает, брать ли.
 // busy — что уже на доске и что админ только что отклонил: чтобы он не
 // предлагал по кругу одно и то же.
+// feedback + previous — обсуждение черновика: Лео уточняет и может вернуть
+// несколько вариантов формулировки.
 func (b *Bot) MiniappLeoProposeTask(
 	viewerUserID int64, initD initdata.InitData, hint string, busy []string,
-) (reply string, title string, task string, err error) {
+	feedback string, previousTitle string, previousTask string,
+) (reply string, title string, task string, variants []LeoTaskVariant, err error) {
 	if _, err := b.requireMiniappAdmin(viewerUserID, initD); err != nil {
-		return "", "", "", err
+		return "", "", "", nil, err
 	}
 	if b.aiClient == nil {
-		return "", "", "", fmt.Errorf("Лео сейчас недоступен: не настроен OpenRouter")
+		return "", "", "", nil, fmt.Errorf("Лео сейчас недоступен: не настроен OpenRouter")
+	}
+	feedback = strings.TrimSpace(feedback)
+	if feedback != "" {
+		return b.miniappLeoProposeDiscuss(hint, feedback, previousTitle, previousTask)
 	}
 	var sb strings.Builder
 	// Тема — необязательна: без неё Лео сам решает, что важнее.
@@ -199,7 +227,7 @@ func (b *Bot) MiniappLeoProposeTask(
 		{Role: "user", Content: sb.String()},
 	}, "")
 	if err != nil {
-		return "", "", "", fmt.Errorf("Лео не ответил: %w", err)
+		return "", "", "", nil, fmt.Errorf("Лео не ответил: %w", err)
 	}
 	var parsed struct {
 		Reply string `json:"reply"`
@@ -218,5 +246,70 @@ func (b *Bot) MiniappLeoProposeTask(
 	if len([]rune(task)) > 600 {
 		task = string([]rune(task)[:600])
 	}
-	return reply, title, task, nil
+	return reply, title, task, nil, nil
+}
+
+func (b *Bot) miniappLeoProposeDiscuss(
+	hint string, feedback string, previousTitle string, previousTask string,
+) (reply string, title string, task string, variants []LeoTaskVariant, err error) {
+	if len([]rune(feedback)) > 500 {
+		feedback = string([]rune(feedback)[:500])
+	}
+	previousTitle = strings.TrimSpace(previousTitle)
+	previousTask = strings.TrimSpace(previousTask)
+	if previousTitle == "" && previousTask == "" {
+		return "", "", "", nil, fmt.Errorf("нет задачи для обсуждения")
+	}
+	var sb strings.Builder
+	sb.WriteString("Обсуждаем задачу, которую ты предложил.\n\n")
+	if previousTitle != "" {
+		sb.WriteString("Название: " + previousTitle + "\n")
+	}
+	if previousTask != "" {
+		sb.WriteString("Формулировка: " + previousTask + "\n")
+	}
+	if topic := strings.TrimSpace(hint); topic != "" {
+		if len([]rune(topic)) > 300 {
+			topic = string([]rune(topic)[:300])
+		}
+		sb.WriteString("\nИсходная тема: " + topic + "\n")
+	}
+	sb.WriteString("\nКомментарий админа: " + feedback)
+	raw, err := b.aiClient.Chat([]ai.ChatMessage{
+		{Role: "system", Content: leoProposeDiscussSystemPrompt},
+		{Role: "user", Content: sb.String()},
+	}, "")
+	if err != nil {
+		return "", "", "", nil, fmt.Errorf("Лео не ответил: %w", err)
+	}
+	var parsed struct {
+		Reply    string           `json:"reply"`
+		Variants []LeoTaskVariant `json:"variants"`
+	}
+	if block := leoJSONBlock.FindString(raw); block != "" {
+		_ = json.Unmarshal([]byte(block), &parsed)
+	}
+	reply = strings.TrimSpace(parsed.Reply)
+	if reply == "" {
+		reply = strings.TrimSpace(raw)
+	}
+	for _, v := range parsed.Variants {
+		v.Title = strings.TrimSpace(v.Title)
+		v.Task = strings.TrimSpace(v.Task)
+		if v.Task == "" {
+			continue
+		}
+		if len([]rune(v.Task)) > 600 {
+			v.Task = string([]rune(v.Task)[:600])
+		}
+		variants = append(variants, v)
+		if len(variants) >= 3 {
+			break
+		}
+	}
+	if len(variants) > 0 {
+		title = variants[0].Title
+		task = variants[0].Task
+	}
+	return reply, title, task, variants, nil
 }

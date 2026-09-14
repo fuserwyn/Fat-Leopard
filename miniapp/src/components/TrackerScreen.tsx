@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   leoAutonomy,
   leoProposeTask,
+  type LeoProposeResult,
   leoSprint,
   sprintApply,
   sprintGenerate,
@@ -288,7 +289,9 @@ export function TrackerScreen({ initData, showAlert }: Props) {
   const [deploy, setDeploy] = useState<TrackerDeploy | null>(null);
   const [deployBusy, setDeployBusy] = useState(false);
   /** Задача от Лео на утверждении: он предлагает — админ решает. */
-  const [proposal, setProposal] = useState<{ reply: string; title: string; task: string } | null>(null);
+  const [proposal, setProposal] = useState<LeoProposeResult | null>(null);
+  const [selectedVariant, setSelectedVariant] = useState(0);
+  const [discussFeedback, setDiscussFeedback] = useState("");
   const [rejected, setRejected] = useState<string[]>([]);
   const [proposeBusy, setProposeBusy] = useState(false);
   const [editorFor, setEditorFor] = useState<"new" | number | null>(null);
@@ -395,6 +398,17 @@ export function TrackerScreen({ initData, showAlert }: Props) {
       : t.status === "running" || t.status === "reviewing" || t.steps_running,
   ).length;
 
+  /** Выбранный вариант после обсуждения с Лео или единственная формулировка. */
+  const activeProposal = useMemo(() => {
+    if (!proposal) return null;
+    const variants = proposal.variants?.filter((v) => v.task.trim()) ?? [];
+    if (variants.length > 0) {
+      const v = variants[selectedVariant] ?? variants[0];
+      return { ...proposal, title: v.title, task: v.task };
+    }
+    return proposal;
+  }, [proposal, selectedVariant]);
+
   const createTask = async () => {
     await createTaskWith(prompt.trim());
   };
@@ -458,6 +472,31 @@ export function TrackerScreen({ initData, showAlert }: Props) {
       ];
       const j = await leoProposeTask(initData, leoTopic.trim(), busy);
       setProposal(j);
+      setSelectedVariant(0);
+      setDiscussFeedback("");
+    } catch (e) {
+      showAlert(e instanceof Error ? e.message : "Лео промолчал");
+    } finally {
+      setProposeBusy(false);
+    }
+  };
+
+  const discussWithLeo = async () => {
+    const fb = discussFeedback.trim();
+    if (!fb || !activeProposal?.task) return;
+    setProposeBusy(true);
+    try {
+      const busy = [
+        ...tasks.slice(0, 12).map((t) => parsePrompt(t.prompt).text.slice(0, 160)),
+        ...rejected,
+      ];
+      const j = await leoProposeTask(initData, leoTopic.trim(), busy, {
+        feedback: fb,
+        previous: { title: activeProposal.title, task: activeProposal.task },
+      });
+      setProposal(j);
+      setSelectedVariant(0);
+      setDiscussFeedback("");
     } catch (e) {
       showAlert(e instanceof Error ? e.message : "Лео промолчал");
     } finally {
@@ -534,9 +573,11 @@ export function TrackerScreen({ initData, showAlert }: Props) {
   };
 
   const approveProposal = async () => {
-    if (!proposal?.task) return;
-    const text = proposal.task;
+    if (!activeProposal?.task) return;
+    const text = activeProposal.task;
     setProposal(null);
+    setSelectedVariant(0);
+    setDiscussFeedback("");
     await createTaskWith(text, { leo: true, needsApproval: leoNeedsApproval });
   };
 
@@ -1022,8 +1063,8 @@ export function TrackerScreen({ initData, showAlert }: Props) {
               <b>Задача от Лео</b>
             </div>
             <p className="tracker__hint">
-              Напиши тему — или оставь пусто, тогда Лео решит сам. Понравилось — выноси на доску: сначала аппрув
-              всех админов, потом в работу.
+              Напиши тему — или оставь пусто, тогда Лео решит сам. Можно обсудить детали и выбрать вариант
+              формулировки, а потом зафиксировать задачу на доске.
             </p>
             <div className="tracker__new-row">
               <input
@@ -1035,8 +1076,46 @@ export function TrackerScreen({ initData, showAlert }: Props) {
             {proposal ? (
               <>
                 <p className="tracker__leo-reply">{proposal.reply}</p>
-                {proposal.title ? <p className="tracker__leo-title">{proposal.title}</p> : null}
-                <p className="tracker__leo-task">{proposal.task}</p>
+                {proposal.variants && proposal.variants.length > 1 ? (
+                  <div className="tracker__ideas">
+                    <h3 className="tracker__subtitle">Варианты</h3>
+                    {proposal.variants.map((v, i) => {
+                      const on = selectedVariant === i;
+                      return (
+                        <button
+                          type="button"
+                          key={`${v.title}-${i}`}
+                          className={`tracker-idea${on ? " on" : ""}`}
+                          onClick={() => setSelectedVariant(i)}
+                        >
+                          <b>{v.title || `Вариант ${i + 1}`}</b>
+                          <small>{v.task.slice(0, 220)}</small>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <>
+                    {activeProposal?.title ? <p className="tracker__leo-title">{activeProposal.title}</p> : null}
+                    <p className="tracker__leo-task">{activeProposal?.task}</p>
+                  </>
+                )}
+                <div className="tracker__leo-discuss">
+                  <textarea
+                    value={discussFeedback}
+                    onChange={(e) => setDiscussFeedback(e.target.value)}
+                    placeholder="Уточни у Лео: что он имел в виду, попроси другую формулировку…"
+                    rows={2}
+                  />
+                  <button
+                    type="button"
+                    className="tracker__attach"
+                    disabled={proposeBusy || !discussFeedback.trim()}
+                    onClick={() => void discussWithLeo()}
+                  >
+                    {proposeBusy ? "Лео отвечает…" : "Обсудить с Лео"}
+                  </button>
+                </div>
                 <div className="tracker__new-row">
                   <select value={when} onChange={(e) => setWhen(e.target.value)}>
                     {WHEN_PRESETS.map((p) => (
@@ -1067,19 +1146,21 @@ export function TrackerScreen({ initData, showAlert }: Props) {
                   <button
                     type="button"
                     className="tracker__primary"
-                    disabled={busy || proposeBusy || !proposal.task}
+                    disabled={busy || proposeBusy || !activeProposal?.task}
                     onClick={() => void approveProposal()}
                   >
-                    {leoNeedsApproval ? "На доску (аппрув)" : "На доску"}
+                    {leoNeedsApproval ? "Зафиксировать (аппрув)" : "Зафиксировать на доске"}
                   </button>
                   <button
                     type="button"
                     className="tracker__attach"
                     disabled={proposeBusy}
                     onClick={() => {
-                      const reject = proposal.title || proposal.task;
+                      const reject = activeProposal?.title || activeProposal?.task || "";
                       setRejected((prev) => [...prev, reject].slice(-10));
                       setProposal(null);
+                      setSelectedVariant(0);
+                      setDiscussFeedback("");
                       void proposeFromLeo(reject);
                     }}
                   >
