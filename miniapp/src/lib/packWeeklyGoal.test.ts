@@ -3,14 +3,14 @@ import { packWeeklyProgressBarPct, packWeeklyProgressLabel } from "./packWeeklyG
 
 describe("packWeeklyGoal", () => {
   it("computes progress bar percentage capped at 100", () => {
-    expect(packWeeklyProgressBarPct(0, 100)).toBe(0);
-    expect(packWeeklyProgressBarPct(50, 100)).toBe(50);
-    expect(packWeeklyProgressBarPct(100, 100)).toBe(100);
-    expect(packWeeklyProgressBarPct(150, 100)).toBe(100);
+    expect(packWeeklyProgressBarPct(0, 50)).toBe(0);
+    expect(packWeeklyProgressBarPct(25, 50)).toBe(50);
+    expect(packWeeklyProgressBarPct(50, 50)).toBe(100);
+    expect(packWeeklyProgressBarPct(75, 50)).toBe(100);
   });
 
   it("formats label", () => {
-    expect(packWeeklyProgressLabel(42, 100)).toBe("42/100");
-    expect(packWeeklyProgressLabel(-1, 0)).toBe("0/100");
+    expect(packWeeklyProgressLabel(42, 50)).toBe("42/50");
+    expect(packWeeklyProgressLabel(-1, 0)).toBe("0/50");
   });
 });
