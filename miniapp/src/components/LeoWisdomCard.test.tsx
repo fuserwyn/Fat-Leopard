@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { ActivityCard } from "./ActivityCard";
 
 class ROStub {
@@ -39,5 +39,23 @@ describe("Карточка Лео в ленте", () => {
   it("прочие длинные посты Лео по-прежнему сворачиваются", () => {
     render(<ActivityCard {...leoProps} activity="Лео" comment={wisdom} />);
     expect(screen.getByText("Показать полностью")).toBeTruthy();
+  });
+
+  it("под мудростью дня можно оставить комментарий", () => {
+    render(
+      <ActivityCard
+        {...leoProps}
+        comment={wisdom}
+        commentAlwaysFull
+        threadComposer={{
+          draft: "",
+          onDraftChange: () => {},
+          onSubmit: () => {},
+          posting: false,
+        }}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Комментарии/i }));
+    expect(screen.getByPlaceholderText("Написать комментарий…")).toBeTruthy();
   });
 });
