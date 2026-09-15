@@ -1996,7 +1996,8 @@ export function FeedScreen({
                   it.type === "sick_leave" ||
                   it.type === "healthy" ||
                   it.type === "admin_post" ||
-                  it.type === "admin_poll";
+                  it.type === "admin_poll" ||
+                  it.type === "daily_wisdom";
                 // Сообщение общего чата в единой ленте: реакции есть, тред (комменты) — Фаза 4.
                 const isMessage = isFeedMessage(it);
                 const supportsReactions =

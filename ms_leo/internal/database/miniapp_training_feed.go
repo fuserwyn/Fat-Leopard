@@ -40,6 +40,19 @@ func (d *Database) GetUserMessageTypeByIDForChat(id, chatID int64) (messageType 
 	return messageType, true, nil
 }
 
+// GetUserMessageUsernameByIDForChat — отображаемое имя автора карточки ленты.
+func (d *Database) GetUserMessageUsernameByIDForChat(id, chatID int64) (string, error) {
+	var u string
+	err := d.db.QueryRow(
+		`SELECT username FROM user_messages WHERE id = $1 AND chat_id = $2`,
+		id, chatID,
+	).Scan(&u)
+	if err != nil {
+		return "", err
+	}
+	return u, nil
+}
+
 // GetUserMessageTextByIDForChat — текст отчёта (user_messages) для контекста ответа Лео в треде.
 func (d *Database) GetUserMessageTextByIDForChat(id, chatID int64) (string, error) {
 	var t string
