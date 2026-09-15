@@ -1973,13 +1973,14 @@ export function FeedScreen({
                 const isAdminAnnouncement = it.type === "admin_post" || it.type === "admin_poll";
                 const isPinnedAnnouncement = Boolean(it.is_pinned) && isAdminAnnouncement;
                 const canPinCard = isAdmin && isAdminAnnouncement;
-                // Объявление Лео: полный текст в карточке, свёрнут до первой строки
-                // (разворачивается по «Показать полностью», без внутреннего скролла).
                 const adminPostText = it.type === "admin_post" ? it.text.trim() : undefined;
-                const adminPostCollapsible = it.type === "admin_post";
+                // Объявление от Лео (и закреплённое — тоже голос Лео): полный текст без сворачивания.
+                const isLeoAnnouncementPost =
+                  it.type === "admin_post" &&
+                  ((it.username || "").trim() === "Лео" || isPinnedAnnouncement);
                 // Мудрость дня читают целиком: это короткий текст дня, и «Показать
                 // полностью» на нём — лишний шаг ради двух строк.
-                const alwaysFullComment = it.type === "daily_wisdom";
+                const alwaysFullComment = it.type === "daily_wisdom" || isLeoAnnouncementPost;
                 // Закреп — исключительно голос Лео: единый аватар/имя независимо от автора поста.
                 const pinnedLeoProps: Partial<ActivityCardProps> = isPinnedAnnouncement
                   ? {
@@ -2164,7 +2165,6 @@ export function FeedScreen({
                         {...postEditProps}
                         comment={adminPostText ?? base.comment}
                         pinned={isPinnedAnnouncement}
-                        commentCollapsible={adminPostCollapsible}
                         commentAlwaysFull={alwaysFullComment}
                         onTogglePin={canPinCard ? () => void setFeedPostPinned(it.id, !it.is_pinned) : undefined}
                         pinPosting={feedPinPosting[it.id] ?? false}
@@ -2207,7 +2207,6 @@ export function FeedScreen({
                       {...postEditProps}
                       comment={adminPostText ?? base.comment}
                       pinned={isPinnedAnnouncement}
-                      commentCollapsible={adminPostCollapsible}
                       commentAlwaysFull={alwaysFullComment}
                       onTogglePin={canPinCard ? () => void setFeedPostPinned(it.id, !it.is_pinned) : undefined}
                       pinPosting={feedPinPosting[it.id] ?? false}
