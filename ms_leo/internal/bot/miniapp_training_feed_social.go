@@ -42,8 +42,20 @@ var (
 
 func packFeedSupportsThread(messageType string) bool {
 	switch messageType {
-	case "training_done", "sick_leave", "healthy", userMessageTypeAdminPost, userMessageTypeAdminPoll:
+	case "training_done", "sick_leave", "healthy", userMessageTypeAdminPost, userMessageTypeAdminPoll, userMessageTypeDailyWisdom:
 		return true
+	default:
+		return false
+	}
+}
+
+// packFeedPostIsLeo — карточка ленты опубликована от имени Лео (мудрость дня или объявление/опрос).
+func packFeedPostIsLeo(messageType, username string) bool {
+	switch messageType {
+	case userMessageTypeDailyWisdom:
+		return true
+	case userMessageTypeAdminPost, userMessageTypeAdminPoll:
+		return strings.TrimSpace(username) == "Лео"
 	default:
 		return false
 	}
@@ -57,12 +69,12 @@ func trainingThreadParentIsLeo(row database.TrainingFeedThreadRow) bool {
 	return strings.EqualFold(strings.TrimSpace(row.PostedAs), "leo")
 }
 
-// shouldLeoReplyInFeedThread — как в отчётах: ответ на Лео или @leo в любом треде ленты.
-func shouldLeoReplyInFeedThread(typ string, officialVoice, replyingToLeo, mentionsLeo bool) bool {
+// shouldLeoReplyInFeedThread — ответ на Лео, @leo или комментарий под постом Лео.
+func shouldLeoReplyInFeedThread(typ string, officialVoice, replyingToLeo, mentionsLeo, commentingOnLeoPost bool) bool {
 	if officialVoice {
 		return false
 	}
-	if !replyingToLeo && !mentionsLeo {
+	if !replyingToLeo && !mentionsLeo && !commentingOnLeoPost {
 		return false
 	}
 	return packFeedSupportsThread(typ)
@@ -76,6 +88,8 @@ func feedThreadLeoPromptKind(typ string) string {
 		return "сообщением о возвращении с больничного"
 	case userMessageTypeAdminPost, userMessageTypeAdminPoll:
 		return "объявлением стаи"
+	case userMessageTypeDailyWisdom:
+		return "мудростью дня"
 	default:
 		return "отчётом о тренировке"
 	}
@@ -261,6 +275,13 @@ func (b *Bot) PackTrainingFeedThreadPost(viewerUserID int64, initD initdata.Init
 		botName = b.api.Self.UserName
 	}
 	mentionsLeo := textMentionsLeoForPackGroup(text, botName)
+	parentUsername := ""
+	if packFeedPostIsLeo(typ, "") || typ == userMessageTypeAdminPost || typ == userMessageTypeAdminPoll {
+		if u, uerr := b.db.GetUserMessageUsernameByIDForChat(userMessageID, chatID); uerr == nil {
+			parentUsername = u
+		}
+	}
+	commentingOnLeoPost := packFeedPostIsLeo(typ, parentUsername)
 	uname := displayNameFromInitData(initD)
 	// Голоса leo/admin сохраняют реального автора (from_user_id), чтобы другие
 	// админы видели, кто комментил; отображение голоса решает posted_as.
@@ -271,8 +292,8 @@ func (b *Bot) PackTrainingFeedThreadPost(viewerUserID int64, initD initdata.Init
 	b.afterPackTrainingThreadInserted(chatID, userMessageID, viewerUserID, uname, text, threadID, replyToThreadID, typ)
 	b.trackFeedCommentPosted(viewerUserID, utf8.RuneCountInString(text))
 	// Автоответ Лео не нужен, если комментарий уже опубликован официальным голосом.
-	// Как в отчётах: ответ на Лео / @leo в любом треде ленты (тренировка, больничный, объявление).
-	if shouldLeoReplyInFeedThread(typ, officialVoice, replyingToLeo, mentionsLeo) && threadID != 0 {
+	// Ответ на Лео / @leo / комментарий под постом Лео (мудрость дня, объявление от Лео).
+	if shouldLeoReplyInFeedThread(typ, officialVoice, replyingToLeo, mentionsLeo, commentingOnLeoPost) && threadID != 0 {
 		txt := text
 		uid := viewerUserID
 		tid := threadID
@@ -280,6 +301,7 @@ func (b *Bot) PackTrainingFeedThreadPost(viewerUserID int64, initD initdata.Init
 		cid := chatID
 		rtt := replyToThreadID
 		mention := mentionsLeo
+		onLeoPost := commentingOnLeoPost
 		parentTyp := typ
 		go func() {
 			defer func() {
@@ -287,7 +309,7 @@ func (b *Bot) PackTrainingFeedThreadPost(viewerUserID int64, initD initdata.Init
 					b.logger.Errorf("leo feed thread reply panic: %v", r)
 				}
 			}()
-			b.LeoReplyInFeedThread(cid, umid, tid, uid, txt, rtt, mention, parentTyp)
+			b.LeoReplyInFeedThread(cid, umid, tid, uid, txt, rtt, mention, onLeoPost, parentTyp)
 		}()
 	}
 	return nil

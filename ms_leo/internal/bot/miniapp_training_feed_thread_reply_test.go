@@ -22,25 +22,47 @@ func TestTrainingThreadParentIsLeo(t *testing.T) {
 	}
 }
 
+func TestPackFeedPostIsLeo(t *testing.T) {
+	t.Parallel()
+	if !packFeedPostIsLeo(userMessageTypeDailyWisdom, "") {
+		t.Fatal("daily wisdom is Leo's post")
+	}
+	if !packFeedPostIsLeo(userMessageTypeAdminPost, "Лео") {
+		t.Fatal("admin post from Leo")
+	}
+	if packFeedPostIsLeo(userMessageTypeAdminPost, "Админ") {
+		t.Fatal("admin post from Admin is not Leo's")
+	}
+	if packFeedPostIsLeo("training_done", "Лео") {
+		t.Fatal("training report is never Leo's post")
+	}
+}
+
 func TestShouldLeoReplyInFeedThread(t *testing.T) {
 	t.Parallel()
-	if !shouldLeoReplyInFeedThread("training_done", false, true, false) {
+	if !shouldLeoReplyInFeedThread("training_done", false, true, false, false) {
 		t.Fatal("reply to Leo under a report")
 	}
-	if !shouldLeoReplyInFeedThread("sick_leave", false, true, false) {
+	if !shouldLeoReplyInFeedThread("sick_leave", false, true, false, false) {
 		t.Fatal("reply to Leo in a non-report thread")
 	}
-	if !shouldLeoReplyInFeedThread("admin_post", false, false, true) {
+	if !shouldLeoReplyInFeedThread("admin_post", false, false, true, false) {
 		t.Fatal("@leo mention in an announcement thread")
 	}
-	if shouldLeoReplyInFeedThread("training_done", true, true, true) {
+	if !shouldLeoReplyInFeedThread(userMessageTypeDailyWisdom, false, false, false, true) {
+		t.Fatal("comment under Leo's daily wisdom post")
+	}
+	if !shouldLeoReplyInFeedThread(userMessageTypeAdminPost, false, false, false, true) {
+		t.Fatal("comment under Leo's announcement")
+	}
+	if shouldLeoReplyInFeedThread("training_done", true, true, true, true) {
 		t.Fatal("official voice must not trigger Leo AI")
 	}
-	if shouldLeoReplyInFeedThread("pack_join", false, true, true) {
+	if shouldLeoReplyInFeedThread("pack_join", false, true, true, true) {
 		t.Fatal("cards without a thread must not trigger Leo")
 	}
-	if shouldLeoReplyInFeedThread("training_done", false, false, false) {
-		t.Fatal("plain comment without @leo / reply-to-Leo")
+	if shouldLeoReplyInFeedThread("training_done", false, false, false, false) {
+		t.Fatal("plain comment without @leo / reply-to-Leo / Leo post")
 	}
 }
 
@@ -51,6 +73,9 @@ func TestFeedThreadLeoPromptKind(t *testing.T) {
 	}
 	if got := feedThreadLeoPromptKind("training_done"); got != "отчётом о тренировке" {
 		t.Fatalf("training_done: %q", got)
+	}
+	if got := feedThreadLeoPromptKind(userMessageTypeDailyWisdom); got != "мудростью дня" {
+		t.Fatalf("daily_wisdom: %q", got)
 	}
 }
 

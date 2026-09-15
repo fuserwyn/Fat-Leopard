@@ -668,9 +668,10 @@ func (b *Bot) buildFeedThreadTranscript(trainingUserMessageID, triggerThreadRepl
 // LeoReplyInFeedThread — ответ Лео в треде комментариев под карточкой ленты
 // (отчёт, больничный, объявление — как reply в отчётах).
 // Срабатывает, когда участник явно позвал Лео через @leo (даже если реплай был на сообщение
-// другого участника) ИЛИ ответил на сообщение самого Лео. Лео подхватывает контекст ВСЕГО
-// треда, а не только сообщения-родителя. Реплика Лео привязывается к комментарию, который её
-// вызвал. Вызывается асинхронно из PackTrainingFeedThreadPost; личку шлёт через unread-бейдж.
+// другого участника), ответил на сообщение самого Лео или прокомментировал пост Лео.
+// Лео подхватывает контекст ВСЕГО треда, а не только сообщения-родителя. Реплика Лео
+// привязывается к комментарию, который её вызвал. Вызывается асинхронно из
+// PackTrainingFeedThreadPost; личку шлёт через unread-бейдж.
 func (b *Bot) LeoReplyInFeedThread(
 	packChatID, trainingUserMessageID int64,
 	triggerThreadReplyID int64,
@@ -678,6 +679,7 @@ func (b *Bot) LeoReplyInFeedThread(
 	triggerText string,
 	replyToThreadID int64,
 	calledByMention bool,
+	commentOnLeoPost bool,
 	parentType string,
 ) {
 	if b == nil || b.db == nil || b.aiClient == nil {
@@ -694,7 +696,7 @@ func (b *Bot) LeoReplyInFeedThread(
 	authorUserID, _, _ := b.db.GetUserMessageAuthorUserID(packChatID, trainingUserMessageID)
 	commenterIsAuthor := authorUserID != 0 && authorUserID == viewerTelegramUserID
 	authorName := ""
-	if !commenterIsAuthor {
+	if !commenterIsAuthor && !commentOnLeoPost {
 		an, _ := b.LeoUserProfileForFeedPrompt(authorUserID)
 		authorName = strings.TrimSpace(an)
 		if authorName == "" {
@@ -735,6 +737,8 @@ func (b *Bot) LeoReplyInFeedThread(
 	qb.WriteString("Ты Лео — Fat Leopard. Ты участвуешь в комментариях под " + kind + " в ленте стаи (мини-апп).\n\n")
 	if calledByMention {
 		qb.WriteString("Участник «" + commenterName + "» позвал тебя через @leo в комментарии. Ответь именно ему, опираясь на весь разговор в треде ниже.\n\n")
+	} else if commentOnLeoPost {
+		qb.WriteString("Участник «" + commenterName + "» прокомментировал твой пост в ленте. Ответь ему, опираясь на весь разговор в треде ниже.\n\n")
 	} else {
 		qb.WriteString("Участник «" + commenterName + "» ответил на твоё сообщение в треде. Продолжи диалог, опираясь на весь разговор в треде ниже.\n\n")
 	}
@@ -745,7 +749,7 @@ func (b *Bot) LeoReplyInFeedThread(
 			"С тобой сейчас разговаривает ДРУГОЙ участник — «" + commenterName + "». " +
 			"Собеседник НЕ делал эту тренировку, он лишь комментирует чужой отчёт. " +
 			"Не приписывай тренировку, цифры и вид активности из отчёта собеседнику.\n\n")
-	} else if !commenterIsAuthor && authorName != "" {
+	} else if !commentOnLeoPost && !commenterIsAuthor && authorName != "" {
 		qb.WriteString("Автор карточки — «" + authorName + "», собеседник — «" + commenterName + "». Не путай их.\n\n")
 	}
 	qb.WriteString("Весь тред комментариев (по порядку; строка с пометкой «← на это ответь» — последняя реплика, на которую нужно ответить):\n")
