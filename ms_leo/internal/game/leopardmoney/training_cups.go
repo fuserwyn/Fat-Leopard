@@ -205,6 +205,23 @@ func parseTrainingDoneReport(text string) (durationMin, intensity int, categoryI
 	return dur, intensity, parseCategoryIDs(m[1]), true
 }
 
+// AggregateTrainingCategoryCounts — сколько раз каждый вид встретился в отчётах стаи за всё время.
+// Мультивыбор «бег + плавание» увеличивает оба счётчика; нераспознанный формат → other.
+func AggregateTrainingCategoryCounts(texts []string) map[string]int {
+	counts := make(map[string]int)
+	for _, text := range texts {
+		_, _, cats, ok := parseTrainingDoneReport(text)
+		if !ok {
+			counts["other"]++
+			continue
+		}
+		for _, id := range cats {
+			counts[id]++
+		}
+	}
+	return counts
+}
+
 // ParseTrainingDoneReportCategories — все виды из отчёта (порядок — как ввёл пользователь).
 // Для мультивыбора «бег + плавание» вернёт ["run","swim"].
 func ParseTrainingDoneReportCategories(text string) (durationMin, intensity int, categoryIDs []string, ok bool) {

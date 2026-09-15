@@ -447,6 +447,12 @@
   text-overflow: ellipsis;
 }
 
+.feed__filter-chip-cnt {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 /* Каретка у чипа «Все типы» — намёк на разворачиваемый список. */
 .feed__filter-chip--all {
   gap: 4px;
@@ -551,6 +557,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.feed__cat-list-cnt {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .feed__cat-list-check {

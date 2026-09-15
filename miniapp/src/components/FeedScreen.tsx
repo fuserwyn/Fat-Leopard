@@ -40,9 +40,9 @@ import {
 import { applyScrollY, feedFilterEpoch } from "../lib/tabScrollRestore";
 import {
   sortWorkoutCategoryIds,
+  sortWorkoutCategoriesByCountDesc,
   trainingDoneMatchesAnyCategory,
-  WORKOUT_CATEGORY_OPTIONS_ALPHABETICAL,
-  WORKOUT_CATEGORY_OPTIONS_ALPHABETICAL_OTHER_LAST,
+  WORKOUT_CATEGORY_OPTIONS,
   type WorkoutCategoryId,
 } from "../lib/workoutCategories";
 import "./FeedScreen.css";
@@ -292,6 +292,8 @@ export function FeedScreen({
   const [feedCategoryIds, setFeedCategoryIds] = useState<WorkoutCategoryId[]>([]);
   /** Развёрнут ли вертикальный список всех типов (открывается повторным тапом по «Все типы»). */
   const [catListOpen, setCatListOpen] = useState(false);
+  /** Число training_done по видам спорта за всё время стаи (с бэкенда). */
+  const [workoutTypeCounts, setWorkoutTypeCounts] = useState<Partial<Record<WorkoutCategoryId, number>>>({});
   const [viewportStyle, setViewportStyle] = useState<FeedViewportStyle>({});
   const feedHeaderRef = useRef<HTMLDivElement>(null);
   /** Самое свежее created_at в окне — курсор «новее» (since_ts) для инкрементального синка. */
@@ -311,6 +313,20 @@ export function FeedScreen({
   const [sentinelVisible, setSentinelVisible] = useState(false);
 
   const categoryFilterSet = useMemo(() => new Set(feedCategoryIds), [feedCategoryIds]);
+  const feedCategoryOptionsByFrequency = useMemo(
+    () => sortWorkoutCategoriesByCountDesc(WORKOUT_CATEGORY_OPTIONS, workoutTypeCounts),
+    [workoutTypeCounts],
+  );
+  const feedCategoryChipsVisible = useMemo(() => {
+    const withWorkouts = feedCategoryOptionsByFrequency.filter((c) => (workoutTypeCounts[c.id] ?? 0) > 0);
+    for (const id of feedCategoryIds) {
+      if (!withWorkouts.some((c) => c.id === id)) {
+        const opt = WORKOUT_CATEGORY_OPTIONS.find((o) => o.id === id);
+        if (opt) withWorkouts.push(opt);
+      }
+    }
+    return withWorkouts;
+  }, [feedCategoryOptionsByFrequency, workoutTypeCounts, feedCategoryIds]);
   const filterEpoch = feedFilterEpoch(feedScope, feedTypeFilter, feedCategoryIds);
   const filterEpochRef = useRef(filterEpoch);
   const [listSwapClass, setListSwapClass] = useState("");
@@ -363,10 +379,10 @@ export function FeedScreen({
         const next = new Set(prev);
         if (next.has(id)) next.delete(id);
         else next.add(id);
-        return sortWorkoutCategoryIds([...next]);
+        return sortWorkoutCategoryIds([...next], workoutTypeCounts);
       });
     },
-    [hapticLight],
+    [hapticLight, workoutTypeCounts],
   );
 
   const clearFeedCategories = useCallback(() => {
@@ -505,7 +521,13 @@ export function FeedScreen({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ init_data: initData, ...(sinceTs ? { since_ts: sinceTs } : {}) }),
         });
-        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; items?: PackFeedItemDTO[]; pinned?: PackFeedItemDTO[]; error?: string };
+        const j = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          items?: PackFeedItemDTO[];
+          pinned?: PackFeedItemDTO[];
+          workout_type_counts?: Partial<Record<WorkoutCategoryId, number>>;
+          error?: string;
+        };
         if (!res.ok) {
           if (res.status === 403) {
             setErr("Нет доступа к ленте стаи: нужна подписка/участие в группе, как в боте.");
@@ -522,6 +544,7 @@ export function FeedScreen({
         setErr(null);
         const incoming = j.items ?? [];
         const pinned = j.pinned ?? [];
+        if (j.workout_type_counts) setWorkoutTypeCounts(j.workout_type_counts);
         if (full || sinceTs === "") {
           const reconciled = reconcilePinnedFeed(incoming, pinned);
           if (opts?.reset) {
@@ -1815,8 +1838,9 @@ export function FeedScreen({
                   </span>
                 </div>
                 {!catListOpen &&
-                  WORKOUT_CATEGORY_OPTIONS_ALPHABETICAL.map((c) => {
+                  feedCategoryChipsVisible.map((c) => {
                     const active = feedCategoryIds.includes(c.id);
+                    const count = workoutTypeCounts[c.id] ?? 0;
                     return (
                       <div
                         key={c.id}
@@ -1831,12 +1855,17 @@ export function FeedScreen({
                             toggleFeedCategory(c.id);
                           }
                         }}
-                        title={c.label}
+                        title={count > 0 ? `${c.label}: ${count}` : c.label}
                       >
                         <span className="feed__filter-chip-emoji" aria-hidden>
                           {c.emoji}
                         </span>
                         <span className="feed__filter-chip-label">{c.label}</span>
+                        {count > 0 && (
+                          <span className="feed__filter-chip-cnt" aria-hidden>
+                            {count}
+                          </span>
+                        )}
                       </div>
                     );
                   })}
@@ -1861,8 +1890,9 @@ export function FeedScreen({
                       </span>
                     )}
                   </button>
-                  {WORKOUT_CATEGORY_OPTIONS_ALPHABETICAL_OTHER_LAST.map((c) => {
+                  {feedCategoryOptionsByFrequency.map((c) => {
                     const active = feedCategoryIds.includes(c.id);
+                    const count = workoutTypeCounts[c.id] ?? 0;
                     return (
                       <button
                         key={c.id}
@@ -1876,6 +1906,11 @@ export function FeedScreen({
                           {c.emoji}
                         </span>
                         <span className="feed__cat-list-label">{c.label}</span>
+                        {count > 0 && (
+                          <span className="feed__cat-list-cnt" aria-hidden>
+                            {count}
+                          </span>
+                        )}
                         {active && (
                           <span className="feed__cat-list-check" aria-hidden>
                             ✓

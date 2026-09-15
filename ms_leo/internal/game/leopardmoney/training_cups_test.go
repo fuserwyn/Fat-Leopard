@@ -68,6 +68,18 @@ func TestParseTrainingDoneReport_multiSport(t *testing.T) {
 	}
 }
 
+func TestAggregateTrainingCategoryCounts(t *testing.T) {
+	texts := []string{
+		"бег, 15 мин, инт. 2/5",
+		"бег + плавание, 30 мин, инт. 3/5",
+		"просто текст без формата",
+	}
+	got := AggregateTrainingCategoryCounts(texts)
+	if got["run"] != 2 || got["swim"] != 1 || got["other"] != 1 {
+		t.Fatalf("counts=%v want run=2 swim=1 other=1", got)
+	}
+}
+
 func TestLevelFromTotalCups(t *testing.T) {
 	if LevelFromTotalCups(0) != 1 || LevelFromTotalCups(419) != 1 {
 		t.Fatal("L1")

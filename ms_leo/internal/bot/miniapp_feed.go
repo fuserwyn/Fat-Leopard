@@ -11,6 +11,7 @@ import (
 
 	"leo-bot/internal/database"
 	"leo-bot/internal/domain"
+	"leo-bot/internal/game/leopardmoney"
 )
 
 // ErrPackFeedForbidden — смотрящему нельзя видеть ленту (нет в стае / не оплачено).
@@ -127,6 +128,22 @@ type PackFeedItem struct {
 	IsPinned bool   `json:"is_pinned,omitempty"`
 	PinnedAt string `json:"pinned_at,omitempty"`
 	EditedAt string `json:"edited_at,omitempty"`
+}
+
+// PackWorkoutTypeCountsForViewer — число training_done по видам спорта за всё время стаи.
+func (b *Bot) PackWorkoutTypeCountsForViewer(viewerUserID int64, initD initdata.InitData) (map[string]int, error) {
+	if err := b.PackFeedAssertViewerAccess(viewerUserID, initD); err != nil {
+		return nil, err
+	}
+	chatID := b.config.MonetizedChatID
+	if chatID == 0 {
+		return map[string]int{}, nil
+	}
+	texts, err := b.db.ListPackTrainingDoneTexts(chatID)
+	if err != nil {
+		return nil, err
+	}
+	return leopardmoney.AggregateTrainingCategoryCounts(texts), nil
 }
 
 // PackFeedForViewer — объединённая лента стаи: тренировки/системные карточки

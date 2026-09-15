@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   parseTrainingDoneCategory,
   parseTrainingDoneCategories,
+  sortWorkoutCategoriesByCountDesc,
   trainingDoneCategoryDisplayLabel,
   trainingDoneMatchesCategory,
   trainingDoneMatchesAnyCategory,
+  WORKOUT_CATEGORY_OPTIONS,
 } from "./workoutCategories";
 
 describe("parseTrainingDoneCategories — мультивыбор", () => {
@@ -72,6 +74,19 @@ describe("фильтр ленты по нескольким видам", () => {
     expect(trainingDoneMatchesAnyCategory(text, new Set(["swim"]))).toBe(true);
     expect(trainingDoneMatchesAnyCategory(text, new Set(["yoga", "bike"]))).toBe(false);
     expect(trainingDoneMatchesAnyCategory(text, new Set())).toBe(true);
+  });
+});
+
+describe("sortWorkoutCategoriesByCountDesc", () => {
+  it("сортирует по убыванию частоты, «Другое» — в конце при равных счётчиках", () => {
+    const sorted = sortWorkoutCategoriesByCountDesc(WORKOUT_CATEGORY_OPTIONS, {
+      run: 5,
+      yoga: 2,
+      swim: 1,
+      other: 0,
+    });
+    expect(sorted.slice(0, 3).map((o) => o.id)).toEqual(["run", "yoga", "swim"]);
+    expect(sorted[sorted.length - 1]?.id).toBe("other");
   });
 });
 

@@ -662,8 +662,19 @@ func (s *Server) handlePostFeed(w http.ResponseWriter, r *http.Request) {
 		}
 		pinned = p
 	}
+	workoutTypeCounts := map[string]int{}
+	if counts, cErr := s.bot.PackWorkoutTypeCountsForViewer(parsed.User.ID, parsed); cErr != nil {
+		s.logger.Warnf("pack workout type counts: %v", cErr)
+	} else if counts != nil {
+		workoutTypeCounts = counts
+	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "items": items, "pinned": pinned})
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"ok":                  true,
+		"items":               items,
+		"pinned":              pinned,
+		"workout_type_counts": workoutTypeCounts,
+	})
 }
 
 func (s *Server) handlePostFeedPin(w http.ResponseWriter, r *http.Request) {
