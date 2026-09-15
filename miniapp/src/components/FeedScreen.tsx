@@ -17,6 +17,7 @@ import {
   extractEditableFeedPostText,
   buildFeedPostTextForSave,
   feedPostEditable,
+  feedSupportsThread,
   feedItemKey,
   isFeedMessage,
   packMessageCommentReplyToId,
@@ -1991,13 +1992,7 @@ export function FeedScreen({
                       hideStreak: true,
                     }
                   : {};
-                const supportsThread =
-                  it.type === "training_done" ||
-                  it.type === "sick_leave" ||
-                  it.type === "healthy" ||
-                  it.type === "admin_post" ||
-                  it.type === "admin_poll" ||
-                  it.type === "daily_wisdom";
+                const supportsThread = feedSupportsThread(it.type);
                 // Сообщение общего чата в единой ленте: реакции есть, тред (комменты) — Фаза 4.
                 const isMessage = isFeedMessage(it);
                 const supportsReactions =

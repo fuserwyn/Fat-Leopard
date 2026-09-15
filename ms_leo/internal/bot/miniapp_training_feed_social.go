@@ -411,6 +411,8 @@ func (b *Bot) afterPackTrainingThreadInserted(packChatID, userMessageID, comment
 			what = "пост админа"
 		} else if parentType == userMessageTypeAdminPoll {
 			what = "опрос админа"
+		} else if parentType == userMessageTypeDailyWisdom {
+			what = "мудрость дня"
 		}
 		verb := ""
 		switch commenterGender {

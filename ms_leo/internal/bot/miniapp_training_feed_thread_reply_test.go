@@ -22,6 +22,19 @@ func TestTrainingThreadParentIsLeo(t *testing.T) {
 	}
 }
 
+func TestPackFeedSupportsThread(t *testing.T) {
+	t.Parallel()
+	if !packFeedSupportsThread(userMessageTypeDailyWisdom) {
+		t.Fatal("daily wisdom must accept thread comments")
+	}
+	if !packFeedSupportsThread("training_done") {
+		t.Fatal("training_done must accept thread comments")
+	}
+	if packFeedSupportsThread("pack_join") {
+		t.Fatal("pack_join must not accept thread comments")
+	}
+}
+
 func TestPackFeedPostIsLeo(t *testing.T) {
 	t.Parallel()
 	if !packFeedPostIsLeo(userMessageTypeDailyWisdom, "") {

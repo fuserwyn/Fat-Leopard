@@ -244,6 +244,18 @@ export function feedPostEditable(type: string, isYou: boolean): boolean {
   return isYou && (type === "training_done" || type === "healthy" || type === "pack_message");
 }
 
+/** Типы карточек ленты с тредом комментариев (совпадает с packFeedSupportsThread на бэкенде). */
+export function feedSupportsThread(type: string): boolean {
+  return (
+    type === "training_done" ||
+    type === "sick_leave" ||
+    type === "healthy" ||
+    type === "admin_post" ||
+    type === "admin_poll" ||
+    type === "daily_wisdom"
+  );
+}
+
 /** Стабильный ключ записи единой ленты: id уникален только внутри источника,
  *  поэтому ключуем/дедупим как `${source}:${id}` ("feed" по умолчанию). */
 export function feedItemKey(d: Pick<PackFeedItemDTO, "id" | "source">): string {

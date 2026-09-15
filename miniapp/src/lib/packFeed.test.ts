@@ -4,6 +4,7 @@ import {
   extractEditableFeedPostText,
   feedItemKey,
   feedPostEditable,
+  feedSupportsThread,
   isFeedMessage,
   packMessageCommentReplyToId,
   mapFeedThreadQuote,
@@ -38,6 +39,16 @@ describe("feedPostEditable", () => {
     expect(feedPostEditable("pack_message", true)).toBe(true);
     expect(feedPostEditable("training_done", false)).toBe(false);
     expect(feedPostEditable("sick_leave", true)).toBe(false);
+  });
+});
+
+describe("feedSupportsThread", () => {
+  it("includes daily_wisdom and other social cards", () => {
+    expect(feedSupportsThread("daily_wisdom")).toBe(true);
+    expect(feedSupportsThread("training_done")).toBe(true);
+    expect(feedSupportsThread("admin_post")).toBe(true);
+    expect(feedSupportsThread("pack_join")).toBe(false);
+    expect(feedSupportsThread("pack_message")).toBe(false);
   });
 });
 
