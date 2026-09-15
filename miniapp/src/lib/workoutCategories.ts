@@ -71,8 +71,44 @@ export const WORKOUT_CATEGORY_OPTIONS_ALPHABETICAL_OTHER_LAST: WorkoutCategoryOp
 
 const FEED_CAT_ORDER = new Map(WORKOUT_CATEGORY_OPTIONS_ALPHABETICAL.map((o, i) => [o.id, i]));
 
-/** Порядок id как в алфавитном списке фильтра (для чипов «выбрано»). */
-export function sortWorkoutCategoryIds(ids: readonly WorkoutCategoryId[]): WorkoutCategoryId[] {
+function workoutCategoryCount(
+  counts: Readonly<Partial<Record<WorkoutCategoryId, number>>> | undefined,
+  id: WorkoutCategoryId,
+): number {
+  return counts?.[id] ?? 0;
+}
+
+function compareWorkoutCategoriesByCountDesc(
+  a: WorkoutCategoryId,
+  b: WorkoutCategoryId,
+  counts: Readonly<Partial<Record<WorkoutCategoryId, number>>>,
+): number {
+  const ca = workoutCategoryCount(counts, a);
+  const cb = workoutCategoryCount(counts, b);
+  if (cb !== ca) return cb - ca;
+  if (a === "other") return 1;
+  if (b === "other") return -1;
+  const la = WORKOUT_CATEGORY_OPTIONS.find((o) => o.id === a)?.label ?? a;
+  const lb = WORKOUT_CATEGORY_OPTIONS.find((o) => o.id === b)?.label ?? b;
+  return la.localeCompare(lb, "ru", { sensitivity: "base" });
+}
+
+/** Сортировка видов по убыванию частоты в стае; «Другое» — в конце при равных счётчиках. */
+export function sortWorkoutCategoriesByCountDesc(
+  options: readonly WorkoutCategoryOption[],
+  counts: Readonly<Partial<Record<WorkoutCategoryId, number>>>,
+): WorkoutCategoryOption[] {
+  return [...options].sort((a, b) => compareWorkoutCategoriesByCountDesc(a.id, b.id, counts));
+}
+
+/** Порядок id в фильтре: по частоте (если есть counts), иначе по алфавиту. */
+export function sortWorkoutCategoryIds(
+  ids: readonly WorkoutCategoryId[],
+  counts?: Readonly<Partial<Record<WorkoutCategoryId, number>>>,
+): WorkoutCategoryId[] {
+  if (counts && Object.keys(counts).length > 0) {
+    return [...ids].sort((a, b) => compareWorkoutCategoriesByCountDesc(a, b, counts));
+  }
   return [...ids].sort((a, b) => (FEED_CAT_ORDER.get(a) ?? 0) - (FEED_CAT_ORDER.get(b) ?? 0));
 }
 

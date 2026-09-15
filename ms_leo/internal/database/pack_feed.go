@@ -301,6 +301,41 @@ func (d *Database) UserInPackOrPaid(userID, chatID int64, entryRequiresPayment b
 	return d.UserHasActiveMessageLogInChat(userID, chatID)
 }
 
+// ListPackTrainingDoneTexts — тексты всех зачтённых training_done стаи (для агрегации видов).
+func (d *Database) ListPackTrainingDoneTexts(chatID int64) ([]string, error) {
+	if chatID == 0 {
+		return []string{}, nil
+	}
+	const q = `
+		SELECT um.message_text
+		FROM user_messages um
+		WHERE um.chat_id = $1
+		  AND um.message_type = 'training_done'
+		  AND COALESCE(um.is_hidden, FALSE) = FALSE
+		  AND NULLIF(BTRIM(um.message_text), '') IS NOT NULL
+	`
+	rows, err := d.db.Query(q, chatID)
+	if err != nil {
+		return nil, fmt.Errorf("pack training done texts: %w", err)
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var text string
+		if err := rows.Scan(&text); err != nil {
+			return nil, err
+		}
+		out = append(out, text)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if out == nil {
+		out = []string{}
+	}
+	return out, nil
+}
+
 // PackMemberTgUsernames — настоящие TG-ники («@nick») участников по user_id.
 // В training_state.username лежит «@ник», если он у юзера есть, иначе имя —
 // отдаём только значения с «@», по ним фронт строит ссылку t.me для лички.
