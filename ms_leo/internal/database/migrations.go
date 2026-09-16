@@ -1625,6 +1625,12 @@ var Migrations = []Migration{
 		UpSQL:        `-- data backfill in RunMigrations after SQL`,
 		DownSQL:      ``,
 	},
+	{
+		Version:     84,
+		Description: "Training feed reactions: backfill missing Leo reactions on training_done",
+		UpSQL:        `-- data backfill in RunMigrations after SQL`,
+		DownSQL:      ``,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции
@@ -1740,6 +1746,14 @@ func (d *Database) RunMigrations() error {
 					return fmt.Errorf("failed to backfill training feed reactions (migration 83): %w", err)
 				}
 				fmt.Printf("Backfilled %d training feed reaction emoji(s)\n", n)
+			}
+
+			if migration.Version == 84 {
+				n, err := d.BackfillMissingLeoTrainingFeedReactions()
+				if err != nil {
+					return fmt.Errorf("failed to backfill missing leo training feed reactions (migration 84): %w", err)
+				}
+				fmt.Printf("Backfilled %d missing Leo training feed reaction(s)\n", n)
 			}
 
 			fmt.Printf("Successfully applied migration %d\n", migration.Version)

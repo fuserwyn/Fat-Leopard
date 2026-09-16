@@ -50,3 +50,50 @@ func (d *Database) BackfillTrainingFeedReactionEmojis() (updated int, err error)
 	}
 	return updated, nil
 }
+
+// BackfillMissingLeoTrainingFeedReactions — ставит реакцию Лео (user_id=0) на отчёты training_done,
+// где её ещё нет. Эмодзи — одобряющее и подходящее виду спорта (стабильно по id поста).
+func (d *Database) BackfillMissingLeoTrainingFeedReactions() (inserted int, err error) {
+	rows, err := d.db.Query(`
+		SELECT um.id, um.chat_id, um.message_text
+		FROM user_messages um
+		WHERE um.message_type = 'training_done'
+		  AND NOT EXISTS (
+		    SELECT 1 FROM miniapp_training_feed_reactions r
+		    WHERE r.user_message_id = um.id AND r.user_id = 0
+		  )
+	`)
+	if err != nil {
+		return 0, fmt.Errorf("backfill missing leo training feed reactions select: %w", err)
+	}
+	defer rows.Close()
+
+	type row struct {
+		userMessageID int64
+		packChatID    int64
+		reportText    string
+	}
+	var batch []row
+	for rows.Next() {
+		var r row
+		if err := rows.Scan(&r.userMessageID, &r.packChatID, &r.reportText); err != nil {
+			return inserted, fmt.Errorf("backfill missing leo training feed reactions scan: %w", err)
+		}
+		batch = append(batch, r)
+	}
+	if err := rows.Err(); err != nil {
+		return inserted, err
+	}
+
+	for _, r := range batch {
+		emoji := trainingfeed.LeoReactionEmojiForReport(r.userMessageID, r.reportText)
+		added, err := d.SetTrainingFeedReaction(r.packChatID, r.userMessageID, 0, "Лео", emoji)
+		if err != nil {
+			return inserted, fmt.Errorf("backfill missing leo training feed reactions insert id=%d: %w", r.userMessageID, err)
+		}
+		if added {
+			inserted++
+		}
+	}
+	return inserted, nil
+}
