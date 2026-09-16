@@ -37,15 +37,16 @@ func TestPackFeedLeoAvatarURL(t *testing.T) {
 }
 
 func TestLeoTrainingFeedReactionEmojiVariesByPost(t *testing.T) {
-	a := leoTrainingFeedReactionEmoji(101)
-	b := leoTrainingFeedReactionEmoji(202)
+	report := "бег, 15 мин, инт. 3/5"
+	a := leoTrainingFeedReactionEmoji(101, report)
+	b := leoTrainingFeedReactionEmoji(202, report)
 	if a == "" || b == "" {
 		t.Fatal("expected non-empty emoji")
 	}
 	if a == b {
 		t.Fatalf("expected different emojis for different posts, both %q", a)
 	}
-	if leoTrainingFeedReactionEmoji(101) != a {
+	if leoTrainingFeedReactionEmoji(101, report) != a {
 		t.Fatal("emoji must be stable for the same post id")
 	}
 }

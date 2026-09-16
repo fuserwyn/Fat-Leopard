@@ -15,6 +15,7 @@ import {
   optimisticToggleThreadReplyLike,
   reconcilePinnedFeed,
   sortPackFeedItemsDesc,
+  trainingFeedAllowedEmojisForReport,
   type PackFeedItemDTO,
   type PackFeedThreadReplyDTO,
 } from "./packFeed";
@@ -134,6 +135,13 @@ describe("reactions", () => {
 
   it("votersToLikers maps Leo string voter to avatar", () => {
     expect(votersToLikers(["Лео"])).toEqual([{ name: "Лео", photoUrl: expect.stringMatching(/leo-avatar\.png$/) }]);
+  });
+
+  it("trainingFeedAllowedEmojisForReport includes sport from report only", () => {
+    const allowed = trainingFeedAllowedEmojisForReport("бег, 15 мин, инт. 3/5");
+    expect(allowed).toContain("🏃");
+    expect(allowed).not.toContain("🏊");
+    expect(allowed).toContain("💪");
   });
 
   it("mergePackFeedReactions puts mine first", () => {

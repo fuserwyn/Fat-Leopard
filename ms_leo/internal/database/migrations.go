@@ -1619,6 +1619,12 @@ var Migrations = []Migration{
 			DROP TABLE IF EXISTS release_notes_log;
 		`,
 	},
+	{
+		Version:     83,
+		Description: "Training feed reactions: backfill approving sport-matching emojis",
+		UpSQL:        `-- data backfill in RunMigrations after SQL`,
+		DownSQL:      ``,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции
@@ -1726,6 +1732,14 @@ func (d *Database) RunMigrations() error {
 
 			if err := d.ApplyMigration(migration); err != nil {
 				return fmt.Errorf("failed to apply migration %d: %w", migration.Version, err)
+			}
+
+			if migration.Version == 83 {
+				n, err := d.BackfillTrainingFeedReactionEmojis()
+				if err != nil {
+					return fmt.Errorf("failed to backfill training feed reactions (migration 83): %w", err)
+				}
+				fmt.Printf("Backfilled %d training feed reaction emoji(s)\n", n)
 			}
 
 			fmt.Printf("Successfully applied migration %d\n", migration.Version)
