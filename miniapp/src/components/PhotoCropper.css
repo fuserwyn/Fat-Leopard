@@ -77,7 +77,10 @@
 
 .ph-crop__actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
+  align-items: center;
+  gap: 8px 12px;
   padding: 0 16px 12px;
 }
 

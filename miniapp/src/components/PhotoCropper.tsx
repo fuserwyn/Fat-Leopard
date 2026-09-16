@@ -12,13 +12,16 @@ type Props = {
   file: File;
   onCancel: () => void;
   onConfirm: (cropped: File) => void;
+  /** Пользователь выбрал другое фото. */
+  onReplace?: (newFile: File) => void;
 };
 
 const MIN_CROP_PX = 32;
 
-export function PhotoCropper({ file, onCancel, onConfirm }: Props) {
+export function PhotoCropper({ file, onCancel, onConfirm, onReplace }: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
+  const replaceRef = useRef<HTMLInputElement>(null);
   const [imgUrl, setImgUrl] = useState<string>("");
   /** Размер отображения картинки внутри сцены (px). */
   const [displayed, setDisplayed] = useState<{ w: number; h: number } | null>(null);
@@ -295,7 +298,32 @@ export function PhotoCropper({ file, onCancel, onConfirm }: Props) {
         >
           {busy ? "…" : "Готово"}
         </button>
+        {onReplace ? (
+          <button
+            type="button"
+            className="ph-crop__btn ph-crop__btn--ghost"
+            onClick={() => replaceRef.current?.click()}
+            disabled={busy}
+          >
+            Загрузить другое фото
+          </button>
+        ) : null}
       </div>
+      {onReplace ? (
+        <input
+          ref={replaceRef}
+          type="file"
+          accept="image/*"
+          hidden
+          tabIndex={-1}
+          aria-hidden
+          onChange={(e) => {
+            const f = e.target.files?.[0] ?? null;
+            e.target.value = "";
+            if (f) onReplace(f);
+          }}
+        />
+      ) : null}
       <p className="ph-crop__hint">Передвигай рамку, тяни за углы.</p>
     </div>
   );
