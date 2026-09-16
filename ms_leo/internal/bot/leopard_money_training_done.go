@@ -560,7 +560,7 @@ func (b *Bot) handleLeopardMoneyTrainingDone(msg *tgbotapi.Message, personalRepl
 	}
 
 	if trainingUserMessageID > 0 && b.config.MonetizedChatID != 0 {
-		b.ensureLeoDefaultTrainingFeedReaction(b.config.MonetizedChatID, trainingUserMessageID)
+		b.ensureLeoDefaultTrainingFeedReaction(b.config.MonetizedChatID, trainingUserMessageID, text)
 		uid := msg.From.ID
 		packID := b.config.MonetizedChatID
 		un := username

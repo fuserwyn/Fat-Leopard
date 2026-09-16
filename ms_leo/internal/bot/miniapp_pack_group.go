@@ -750,7 +750,7 @@ func (b *Bot) enrichPackGroupChatReactions(msgs []*domain.PackGroupChatMessage, 
 			for i, a := range aggs {
 				feedAggs[i] = database.TrainingFeedReactionAgg{Emoji: a.Emoji, Count: a.Count, Voters: a.Voters}
 			}
-			for _, a := range database.SortReactionAggsForDisplay(feedAggs, trainingFeedAllowedEmojis) {
+			for _, a := range database.SortReactionAggsForDisplay(feedAggs, trainingFeedGeneralReactionEmojis) {
 				pv := b.packVoters(a.Voters, initDataRaw)
 				voters := make([]domain.PackGroupChatVoter, len(pv))
 				for i, v := range pv {

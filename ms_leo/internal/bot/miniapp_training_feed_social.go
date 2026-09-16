@@ -7,6 +7,7 @@ import (
 	"unicode/utf8"
 
 	"leo-bot/internal/database"
+	"leo-bot/internal/trainingfeed"
 
 	"leo-bot/internal/moderation"
 
@@ -14,11 +15,11 @@ import (
 	initdata "github.com/telegram-mini-apps/init-data-golang"
 )
 
-// Допустимые реакции по типам карточек в ленте мини-аппа (порядок — отображение).
-var trainingFeedAllowedEmojis = []string{
-	"🔥", "💪", "👏", "❤️", "🎉", "🦁", "⭐", "👍", "🙌", "✨", "🤝", "⚡", "🎯", "😤", "👀", "🙏", "😱",
-	"🏆", "💯", "🥳", "🤩", "😮", "💦", "🤗", "👌", "🫶", "🧡", "💜", "🤙", "🫡", "🤘", "🏃", "🧘", "🤯", "💤",
-}
+// Допустимые реакции на тренировки: одобряющие + виды спорта (см. trainingfeed).
+var trainingFeedAllowedEmojis = trainingfeed.TrainingFeedAllowedEmojis
+
+// Реакции без привязки к виду спорта — чат стаи, мудрость дня и т.п.
+var trainingFeedGeneralReactionEmojis = trainingfeed.TrainingFeedApprovingEmojis
 var sickLeaveAllowedEmojis = []string{"😢", "😔", "🥺", "🤒", "🫂", "🙏", "❤️", "💙", "🌧️", "💤"}
 var healthyAllowedEmojis = []string{"🎉", "🥳", "😄", "💚", "❤️", "👏", "🙌", "✨", "🌟", "💪"}
 var packJoinAllowedEmojis = []string{"👋", "🎉", "❤️", "👏", "🙌"}
@@ -108,7 +109,7 @@ func packFeedSupportsReactions(messageType string) bool {
 
 func allowedTrainingFeedEmoji(s string) (string, bool) {
 	s = strings.TrimSpace(s)
-	for _, e := range trainingFeedAllowedEmojis {
+	for _, e := range trainingFeedGeneralReactionEmojis {
 		if s == e {
 			return e, true
 		}
@@ -120,8 +121,10 @@ func allowedEmojiForType(messageType, emoji string) (string, bool) {
 	emoji = strings.TrimSpace(emoji)
 	var allowed []string
 	switch messageType {
-	case "training_done", userMessageTypeDailyWisdom:
+	case "training_done":
 		allowed = trainingFeedAllowedEmojis
+	case userMessageTypeDailyWisdom:
+		allowed = trainingFeedGeneralReactionEmojis
 	case userMessageTypePackJoin, userMessageTypePackRejoin:
 		allowed = packJoinAllowedEmojis
 	case "sick_leave":
@@ -137,6 +140,14 @@ func allowedEmojiForType(messageType, emoji string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func allowedEmojiForTrainingReport(reportText, emoji string) (string, bool) {
+	emoji = strings.TrimSpace(emoji)
+	if !trainingfeed.IsEmojiAllowedForReport(emoji, reportText) {
+		return "", false
+	}
+	return emoji, true
 }
 
 func (b *Bot) assertPackFeedSocialViewer(viewerUserID int64) error {
@@ -160,27 +171,17 @@ func (b *Bot) assertPackFeedSocialViewer(viewerUserID int64) error {
 	return nil
 }
 
-// leoTrainingFeedReactionEmoji — эмодзи реакции Лео на отчёт: стабильно для одного поста,
-// но разное для разных тренировок (из trainingFeedAllowedEmojis).
-func leoTrainingFeedReactionEmoji(userMessageID int64) string {
-	list := trainingFeedAllowedEmojis
-	n := len(list)
-	if n == 0 {
-		return "👍"
-	}
-	if userMessageID < 0 {
-		userMessageID = -userMessageID
-	}
-	idx := int((userMessageID*7919 + 104729) % int64(n))
-	return list[idx]
+// leoTrainingFeedReactionEmoji — одобряющая реакция Лео: стабильна для поста, подходит виду спорта.
+func leoTrainingFeedReactionEmoji(userMessageID int64, reportText string) string {
+	return trainingfeed.LeoReactionEmojiForReport(userMessageID, reportText)
 }
 
 // ensureLeoDefaultTrainingFeedReaction — автоматическая реакция от Лео на отчёт о тренировке в ленте стаи.
-func (b *Bot) ensureLeoDefaultTrainingFeedReaction(packChatID, userMessageID int64) {
+func (b *Bot) ensureLeoDefaultTrainingFeedReaction(packChatID, userMessageID int64, reportText string) {
 	if b == nil || b.db == nil || packChatID == 0 || userMessageID == 0 {
 		return
 	}
-	emoji := leoTrainingFeedReactionEmoji(userMessageID)
+	emoji := leoTrainingFeedReactionEmoji(userMessageID, reportText)
 	if _, err := b.db.SetTrainingFeedReaction(packChatID, userMessageID, 0, "Лео", emoji); err != nil {
 		b.logger.Warnf("training feed leo default reaction: %v", err)
 	}
@@ -205,6 +206,16 @@ func (b *Bot) PackTrainingFeedReact(viewerUserID int64, initD initdata.InitData,
 	em, ok := allowedEmojiForType(typ, emoji)
 	if !ok {
 		return ErrTrainingFeedInvalidEmoji
+	}
+	if typ == "training_done" {
+		reportText, err := b.db.GetUserMessageTextByIDForChat(userMessageID, chatID)
+		if err != nil {
+			return err
+		}
+		em, ok = allowedEmojiForTrainingReport(reportText, em)
+		if !ok {
+			return ErrTrainingFeedInvalidEmoji
+		}
 	}
 	uname := displayNameFromInitData(initD)
 	added, err := b.db.SetTrainingFeedReaction(chatID, userMessageID, viewerUserID, uname, em)
@@ -810,8 +821,10 @@ func (b *Bot) PackFeedThreadRepliesForViewer(viewerUserID, userMessageID int64, 
 
 func allowedEmojiListForFeedType(messageType string) []string {
 	switch messageType {
-	case "training_done", userMessageTypeDailyWisdom:
+	case "training_done":
 		return trainingFeedAllowedEmojis
+	case userMessageTypeDailyWisdom:
+		return trainingFeedGeneralReactionEmojis
 	case userMessageTypePackJoin, userMessageTypePackRejoin:
 		return packJoinAllowedEmojis
 	case "sick_leave":

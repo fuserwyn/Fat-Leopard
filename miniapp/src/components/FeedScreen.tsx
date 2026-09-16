@@ -2199,7 +2199,11 @@ export function FeedScreen({
                         commentAlwaysFull={alwaysFullComment}
                         onTogglePin={canPinCard ? () => void setFeedPostPinned(it.id, !it.is_pinned) : undefined}
                         pinPosting={feedPinPosting[it.id] ?? false}
-                        reactions={supportsReactions ? mergeFeedReactionsForType(it.type, it.reactions) : undefined}
+                        reactions={
+                          supportsReactions
+                            ? mergeFeedReactionsForType(it.type, it.reactions, it.type === "training_done" ? it.text : undefined)
+                            : undefined
+                        }
                         onReactionClick={
                           supportsReactions
                             ? (emoji) =>
@@ -2254,7 +2258,7 @@ export function FeedScreen({
                             }
                           : undefined
                       }
-                      reactions={mergeFeedReactionsForType(it.type, it.reactions)}
+                      reactions={mergeFeedReactionsForType(it.type, it.reactions, it.type === "training_done" ? it.text : undefined)}
                       onReactionClick={(emoji) => void postTrainingReact(it.id, emoji)}
                       hasUnreadThread={unreadFeedCardIds.has(it.id)}
                       onThreadOpened={() => markFeedCardThreadRead(it.id)}

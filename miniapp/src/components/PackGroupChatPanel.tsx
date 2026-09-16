@@ -21,8 +21,9 @@ import { LEO_AVATAR_URL } from "../lib/leoAvatar";
 import { moderationUserMessage, isModerationError } from "../lib/moderationMessages";
 import { clearPackGroupUnread, fetchPackGroupUnreadSummary } from "../lib/packGroupUnread";
 import {
-  mergeTrainingFeedReactions,
+  mergePackFeedReactions,
   optimisticTogglePackFeedReaction,
+  TRAINING_FEED_APPROVING_EMOJIS,
   votersToLikers,
   resolveFeedAvatarUrl,
   resolveTrainingPhotoUrl,
@@ -1242,7 +1243,7 @@ export function PackGroupChatPanel({
           const rowTone = m.is_leo ? "packroom__row--leo" : mine ? "packroom__row--me" : "packroom__row--oth";
           const isUnread = unreadMessageIds.has(m.id);
           const canReport = !mine && !m.is_leo;
-          const reactions = mergeTrainingFeedReactions(m.reactions);
+          const reactions = mergePackFeedReactions(TRAINING_FEED_APPROVING_EMOJIS, m.reactions);
           const activeReactions = reactions.filter((r) => r.count > 0);
           const avatarUrl = resolveFeedAvatarUrl(m.author_photo_url);
           const photoUrl = m.photo_url ? resolveTrainingPhotoUrl(m.photo_url) : undefined;

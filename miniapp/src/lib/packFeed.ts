@@ -1,9 +1,12 @@
 import { LEO_AVATAR_URL } from "./leoAvatar";
 import { formatLocalDateTime } from "./timeAgo";
 import {
+  parseTrainingDoneCategories,
   stripLeadingCategoryFromTrainingReport,
   trainingDoneCategoryDisplayLabel,
   trainingDoneCategoryEmoji,
+  WORKOUT_CATEGORY_OPTIONS,
+  type WorkoutCategoryId,
 } from "./workoutCategories";
 import type { ActivityCardProps } from "../components/ActivityCard";
 
@@ -44,43 +47,61 @@ export function resolveFeedAvatarUrl(stored: string | undefined): string {
   return raw;
 }
 
-/** Совпадает с ms_leo trainingFeedAllowedEmojis (порядок отображения). */
-export const TRAINING_FEED_EMOJIS = [
+/** Совпадает с ms_leo TrainingFeedApprovingEmojis. */
+export const TRAINING_FEED_APPROVING_EMOJIS = [
   "🔥",
   "💪",
   "👏",
   "❤️",
   "🎉",
-  "🦁",
-  "⭐",
-  "👍",
   "🙌",
   "✨",
   "🤝",
-  "⚡",
-  "🎯",
-  "😤",
-  "👀",
-  "🙏",
-  "😱",
   "🏆",
-  "💯",
   "🥳",
   "🤩",
-  "😮",
-  "💦",
   "🤗",
   "👌",
   "🫶",
   "🧡",
   "💜",
-  "🤙",
-  "🫡",
   "🤘",
-  "🏃",
-  "🧘",
-  "🤯",
-  "💤",
+] as const;
+
+/** Эмодзи вида спорта для реакций (совпадает с ms_leo TrainingCategoryReactionEmoji). */
+export const TRAINING_CATEGORY_REACTION_EMOJI: Record<WorkoutCategoryId, string> = {
+  run: "🏃",
+  walk: "🚶",
+  bike: "🚴",
+  swim: "🏊",
+  yoga: "🧘",
+  rowing: "🚣",
+  workout: "🔥",
+  crossfit: "🎯",
+  stretch: "🧎",
+  dance: "💃",
+  hiit: "⚡",
+  cardio: "💓",
+  kettlebell: "🏋️",
+  strength: "🏋️",
+  jump_rope: "🪢",
+  pole: "🤸",
+  rollerblade: "🛼",
+  basketball: "🏀",
+  football: "⚽",
+  volleyball: "🏐",
+  tennis: "🎾",
+  padel: "🏏",
+  gymnastics: "🙆",
+  other: "✨",
+};
+
+/** Совпадает с ms_leo trainingFeedAllowedEmojis (порядок отображения). */
+export const TRAINING_FEED_EMOJIS = [
+  ...TRAINING_FEED_APPROVING_EMOJIS,
+  ...WORKOUT_CATEGORY_OPTIONS.map((o) => TRAINING_CATEGORY_REACTION_EMOJI[o.id]).filter(
+    (e, i, arr) => arr.indexOf(e) === i && !TRAINING_FEED_APPROVING_EMOJIS.includes(e as (typeof TRAINING_FEED_APPROVING_EMOJIS)[number]),
+  ),
 ] as const;
 
 /** Совпадает с ms_leo sickLeaveAllowedEmojis. */
@@ -335,18 +356,43 @@ export function reconcilePinnedFeed(
   return sortPackFeedItemsDesc(next);
 }
 
+/** Допустимые реакции на отчёт: одобряющие + виды из текста тренировки. */
+export function trainingFeedAllowedEmojisForReport(reportText?: string): readonly string[] {
+  const cats = reportText?.trim() ? parseTrainingDoneCategories(reportText) : (["other"] as WorkoutCategoryId[]);
+  const seen = new Set<string>();
+  const out: string[] = [];
+  const add = (e: string) => {
+    if (!e || seen.has(e)) return;
+    seen.add(e);
+    out.push(e);
+  };
+  for (const e of TRAINING_FEED_APPROVING_EMOJIS) add(e);
+  for (const id of cats.length > 0 ? cats : (["other"] as WorkoutCategoryId[])) {
+    add(TRAINING_CATEGORY_REACTION_EMOJI[id] ?? TRAINING_CATEGORY_REACTION_EMOJI.other);
+  }
+  return out;
+}
+
 /** Полная строка эмодзи для кнопок реакций (с нулевыми счётчиками). Собственная реакция (`me`) показывается первой — в т.ч. если её выбрали в меню «⋯». */
-export function mergeTrainingFeedReactions(fromServer?: PackFeedReactionDTO[]): { emoji: string; count: number; me: boolean; voters?: VoterDTO[] | string[] }[] {
-  return mergePackFeedReactions(TRAINING_FEED_EMOJIS, fromServer);
+export function mergeTrainingFeedReactions(
+  fromServer?: PackFeedReactionDTO[],
+  reportText?: string,
+): { emoji: string; count: number; me: boolean; voters?: VoterDTO[] | string[] }[] {
+  const allowed = reportText != null ? trainingFeedAllowedEmojisForReport(reportText) : TRAINING_FEED_EMOJIS;
+  return mergePackFeedReactions(allowed, fromServer);
 }
 
 /** Реакции по типу карточки ленты (совпадает с allowedEmojiForType на бэкенде). */
 export function mergeFeedReactionsForType(
   type: string,
   fromServer?: PackFeedReactionDTO[],
+  reportText?: string,
 ): { emoji: string; count: number; me: boolean; voters?: VoterDTO[] | string[] }[] {
-  if (type === "training_done" || type === "daily_wisdom" || type === "pack_message") {
-    return mergeTrainingFeedReactions(fromServer);
+  if (type === "training_done") {
+    return mergeTrainingFeedReactions(fromServer, reportText);
+  }
+  if (type === "daily_wisdom" || type === "pack_message") {
+    return mergePackFeedReactions(TRAINING_FEED_APPROVING_EMOJIS, fromServer);
   }
   if (type === "pack_join" || type === "pack_rejoin") {
     return mergePackFeedReactions(PACK_JOIN_FEED_EMOJIS, fromServer);
