@@ -200,7 +200,7 @@ function mockFallback(streak: number, reason: MockFeedReason): ActivityCardProps
           details: "40 мин · инт. 3/5",
           comment: "Накаталась по набережной на закате.",
           reactions: [
-            { emoji: "😍", count: 9, me: true },
+            { emoji: "🛼", count: 9, me: true },
             { emoji: "🔥", count: 2, me: false },
           ],
         },
