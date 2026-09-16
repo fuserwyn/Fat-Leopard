@@ -485,6 +485,21 @@ button.nwo__photo-add.fl-cam-btn {
   color: var(--text-muted);
 }
 
+.nwo__photo-edit--icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+}
+
+.nwo__photo-crop-icon {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
 .nwo__note-block {
   flex: 0 0 auto;
   min-height: 0;
