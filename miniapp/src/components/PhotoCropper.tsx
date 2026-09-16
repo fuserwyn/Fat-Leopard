@@ -200,7 +200,13 @@ export function PhotoCropper({ file, onCancel, onConfirm }: Props) {
   };
 
   return (
-    <div className="ph-crop" role="dialog" aria-modal="true">
+    <div
+      className="ph-crop"
+      role="dialog"
+      aria-modal="true"
+      onTouchStart={(e) => e.stopPropagation()}
+      onTouchMove={(e) => e.stopPropagation()}
+    >
       <header className="ph-crop__head">
         <button type="button" className="ph-crop__btn ph-crop__btn--ghost" onClick={onCancel} disabled={busy}>
           Отмена

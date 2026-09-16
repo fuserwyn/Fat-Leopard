@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { WORKOUT_TYPES as TYPES, type WorkoutCategoryId } from "../lib/workoutCategories";
 import { orderWorkoutTypes } from "../lib/workoutSuggest";
 import { PhotoConfirm } from "./PhotoConfirm";
@@ -321,6 +322,8 @@ export function NewWorkoutScreen({
       const target = e.target as HTMLElement | null;
       // Из полей ввода жест не начинаем (там выделение текста/каретка).
       if (target?.closest("textarea, input, select")) return;
+      // Обрезка/подтверждение фото — свой жест перетаскивания, не закрывать шторку.
+      if (target?.closest(".ph-crop, .ph-confirm")) return;
       // Из тела формы — только когда оно у самого верха (иначе это обычный скролл).
       if (body?.contains(target) && (body?.scrollTop ?? 0) > 1) return;
       startY = t.clientY;
@@ -686,30 +689,36 @@ export function NewWorkoutScreen({
           </button>
         </div>
       ) : null}
-      {PHOTO_ENABLED && pendingPhoto && !pendingCrop ? (
-        <PhotoConfirm
-          file={pendingPhoto}
-          onCancel={() => setPendingPhoto(null)}
-          onConfirm={(prepared) => {
-            setPhoto(prepared);
-            setPendingPhoto(null);
-          }}
-          onCrop={() => setPendingCrop(pendingPhoto)}
-          onReplace={(newFile) => setPendingPhoto(newFile)}
-        />
-      ) : null}
-      {PHOTO_ENABLED && pendingCrop ? (
-        <PhotoCropper
-          file={pendingCrop}
-          onCancel={() => setPendingCrop(null)}
-          onConfirm={(cropped) => {
-            setPhoto(cropped);
-            setPendingCrop(null);
-            setPendingPhoto(null);
-          }}
-        />
-      ) : null}
       </div>
+      {PHOTO_ENABLED && pendingPhoto && !pendingCrop
+        ? createPortal(
+            <PhotoConfirm
+              file={pendingPhoto}
+              onCancel={() => setPendingPhoto(null)}
+              onConfirm={(prepared) => {
+                setPhoto(prepared);
+                setPendingPhoto(null);
+              }}
+              onCrop={() => setPendingCrop(pendingPhoto)}
+              onReplace={(newFile) => setPendingPhoto(newFile)}
+            />,
+            document.body,
+          )
+        : null}
+      {PHOTO_ENABLED && pendingCrop
+        ? createPortal(
+            <PhotoCropper
+              file={pendingCrop}
+              onCancel={() => setPendingCrop(null)}
+              onConfirm={(cropped) => {
+                setPhoto(cropped);
+                setPendingCrop(null);
+                setPendingPhoto(null);
+              }}
+            />,
+            document.body,
+          )
+        : null}
     </>
   );
 }
