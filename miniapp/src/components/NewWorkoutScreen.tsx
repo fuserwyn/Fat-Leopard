@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { WORKOUT_TYPES as TYPES, type WorkoutCategoryId } from "../lib/workoutCategories";
 import { orderWorkoutTypes } from "../lib/workoutSuggest";
+import { PhotoConfirm } from "./PhotoConfirm";
 import { PhotoCropper } from "./PhotoCropper";
 import { CameraButton } from "./CameraButton";
 import { hapticImpact, hapticNotification } from "../lib/haptics";
@@ -198,6 +199,8 @@ export function NewWorkoutScreen({
   const [otherLabel, setOtherLabel] = useState("");
   const [busy, setBusy] = useState(false);
   const [photo, setPhoto] = useState<File | null>(null);
+  /** Выбранное фото на экране подтверждения (кроп — по желанию). */
+  const [pendingPhoto, setPendingPhoto] = useState<File | null>(null);
   const [pendingCrop, setPendingCrop] = useState<File | null>(null);
 
   /** Только если низ поля ушёл под низ скролла — чуть увеличить scrollTop. Без scrollIntoView(start): иначе прыжок к началу формы. */
@@ -449,12 +452,12 @@ export function NewWorkoutScreen({
             autoCorrect="on"
             spellCheck
             onPaste={(e) => {
-              // Картинка из буфера — фото тренировки: сразу в кроп, как из галереи.
+              // Картинка из буфера — фото тренировки: сначала экран подтверждения.
               if (!PHOTO_ENABLED) return;
               const pasted = clipboardImageFile(e.clipboardData);
               if (!pasted) return;
               e.preventDefault();
-              setPendingCrop(pasted);
+              setPendingPhoto(pasted);
             }}
             onFocus={() => {
               noteFocusedRef.current = true;
@@ -485,7 +488,7 @@ export function NewWorkoutScreen({
                     title="Необязательно — стая увидит снимок в ленте"
                     onChange={(e) => {
                       const f = e.target.files?.[0] ?? null;
-                      if (f) setPendingCrop(f);
+                      if (f) setPendingPhoto(f);
                       e.target.value = "";
                     }}
                   />
@@ -500,7 +503,7 @@ export function NewWorkoutScreen({
                   title="Снять фото камерой прямо сейчас"
                   onChange={(e) => {
                     const f = e.target.files?.[0] ?? null;
-                    if (f) setPendingCrop(f);
+                    if (f) setPendingPhoto(f);
                   }}
                 >
                   <span className="nwo__photo-add-ico" aria-hidden>
@@ -683,6 +686,18 @@ export function NewWorkoutScreen({
           </button>
         </div>
       ) : null}
+      {PHOTO_ENABLED && pendingPhoto && !pendingCrop ? (
+        <PhotoConfirm
+          file={pendingPhoto}
+          onCancel={() => setPendingPhoto(null)}
+          onConfirm={(prepared) => {
+            setPhoto(prepared);
+            setPendingPhoto(null);
+          }}
+          onCrop={() => setPendingCrop(pendingPhoto)}
+          onReplace={(newFile) => setPendingPhoto(newFile)}
+        />
+      ) : null}
       {PHOTO_ENABLED && pendingCrop ? (
         <PhotoCropper
           file={pendingCrop}
@@ -690,6 +705,7 @@ export function NewWorkoutScreen({
           onConfirm={(cropped) => {
             setPhoto(cropped);
             setPendingCrop(null);
+            setPendingPhoto(null);
           }}
         />
       ) : null}
