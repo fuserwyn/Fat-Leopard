@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { WORKOUT_TYPES as TYPES, type WorkoutCategoryId } from "../lib/workoutCategories";
 import { orderWorkoutTypes } from "../lib/workoutSuggest";
-import { PhotoConfirm } from "./PhotoConfirm";
 import { PhotoCropper } from "./PhotoCropper";
 import { CameraButton } from "./CameraButton";
 import { hapticImpact, hapticNotification } from "../lib/haptics";
@@ -200,8 +199,7 @@ export function NewWorkoutScreen({
   const [otherLabel, setOtherLabel] = useState("");
   const [busy, setBusy] = useState(false);
   const [photo, setPhoto] = useState<File | null>(null);
-  /** Выбранное фото на экране подтверждения (кроп — по желанию). */
-  const [pendingPhoto, setPendingPhoto] = useState<File | null>(null);
+  /** Выбранное фото на экране обрезки (кроп — по желанию). */
   const [pendingCrop, setPendingCrop] = useState<File | null>(null);
 
   /** Только если низ поля ушёл под низ скролла — чуть увеличить scrollTop. Без scrollIntoView(start): иначе прыжок к началу формы. */
@@ -322,8 +320,8 @@ export function NewWorkoutScreen({
       const target = e.target as HTMLElement | null;
       // Из полей ввода жест не начинаем (там выделение текста/каретка).
       if (target?.closest("textarea, input, select")) return;
-      // Обрезка/подтверждение фото — свой жест перетаскивания, не закрывать шторку.
-      if (target?.closest(".ph-crop, .ph-confirm")) return;
+      // Обрезка фото — свой жест перетаскивания, не закрывать шторку.
+      if (target?.closest(".ph-crop")) return;
       // Из тела формы — только когда оно у самого верха (иначе это обычный скролл).
       if (body?.contains(target) && (body?.scrollTop ?? 0) > 1) return;
       startY = t.clientY;
@@ -455,12 +453,12 @@ export function NewWorkoutScreen({
             autoCorrect="on"
             spellCheck
             onPaste={(e) => {
-              // Картинка из буфера — экран подтверждения (обрезка по желанию).
+              // Картинка из буфера — сразу экран обрезки (можно принять без изменений).
               if (!PHOTO_ENABLED) return;
               const pasted = clipboardImageFile(e.clipboardData);
               if (!pasted) return;
               e.preventDefault();
-              setPendingPhoto(pasted);
+              setPendingCrop(pasted);
             }}
             onFocus={() => {
               noteFocusedRef.current = true;
@@ -491,7 +489,7 @@ export function NewWorkoutScreen({
                     title="Необязательно — стая увидит снимок в ленте"
                     onChange={(e) => {
                       const f = e.target.files?.[0] ?? null;
-                      if (f) setPendingPhoto(f);
+                      if (f) setPendingCrop(f);
                       e.target.value = "";
                     }}
                   />
@@ -506,7 +504,7 @@ export function NewWorkoutScreen({
                   title="Снять фото камерой прямо сейчас"
                   onChange={(e) => {
                     const f = e.target.files?.[0] ?? null;
-                    if (f) setPendingPhoto(f);
+                    if (f) setPendingCrop(f);
                   }}
                 >
                   <span className="nwo__photo-add-ico" aria-hidden>
@@ -694,21 +692,6 @@ export function NewWorkoutScreen({
         </div>
       ) : null}
       </div>
-      {PHOTO_ENABLED && pendingPhoto && !pendingCrop
-        ? createPortal(
-            <PhotoConfirm
-              file={pendingPhoto}
-              onCancel={() => setPendingPhoto(null)}
-              onConfirm={(prepared) => {
-                setPhoto(prepared);
-                setPendingPhoto(null);
-              }}
-              onCrop={() => setPendingCrop(pendingPhoto)}
-              onReplace={(newFile) => setPendingPhoto(newFile)}
-            />,
-            document.body,
-          )
-        : null}
       {PHOTO_ENABLED && pendingCrop
         ? createPortal(
             <PhotoCropper
@@ -717,7 +700,6 @@ export function NewWorkoutScreen({
               onConfirm={(cropped) => {
                 setPhoto(cropped);
                 setPendingCrop(null);
-                setPendingPhoto(null);
               }}
               onReplace={(newFile) => setPendingCrop(newFile)}
             />,
