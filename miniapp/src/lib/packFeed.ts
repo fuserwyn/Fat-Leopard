@@ -397,7 +397,9 @@ export function mergeFeedReactionsForType(
   if (type === "pack_join" || type === "pack_rejoin") {
     return mergePackFeedReactions(PACK_JOIN_FEED_EMOJIS, fromServer);
   }
-  if (type === "sick_leave") return mergePackFeedReactions(SICK_LEAVE_FEED_EMOJIS, fromServer);
+  if (type === "sick_leave" || type === "pack_removed") {
+    return mergePackFeedReactions(SICK_LEAVE_FEED_EMOJIS, fromServer);
+  }
   if (type === "healthy" || type === "admin_post" || type === "admin_poll") {
     return mergePackFeedReactions(HEALTHY_FEED_EMOJIS, fromServer);
   }

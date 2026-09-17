@@ -35,6 +35,23 @@ func TestPackFeedSupportsThread(t *testing.T) {
 	}
 }
 
+func TestPackFeedSupportsReactions(t *testing.T) {
+	t.Parallel()
+	if !packFeedSupportsReactions(userMessageTypePackRemoved) {
+		t.Fatal("pack_removed must accept reactions")
+	}
+	if !packFeedSupportsReactions(userMessageTypePackJoin) {
+		t.Fatal("pack_join must accept reactions")
+	}
+	if packFeedSupportsReactions("inactive_notice") {
+		t.Fatal("inactive_notice must not accept reactions")
+	}
+	em, ok := allowedEmojiForType(userMessageTypePackRemoved, "🫂")
+	if !ok || em != "🫂" {
+		t.Fatalf("pack_removed emoji: got %q ok=%v", em, ok)
+	}
+}
+
 func TestPackFeedPostIsLeo(t *testing.T) {
 	t.Parallel()
 	if !packFeedPostIsLeo(userMessageTypeDailyWisdom, "") {
