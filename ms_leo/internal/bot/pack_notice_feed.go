@@ -27,7 +27,7 @@ func PackRemovedFeedNotice(p prompts.Bundle, displayName string) string {
 	if raw != "" {
 		return strings.ReplaceAll(raw, "{{name}}", d)
 	}
-	return fmt.Sprintf("%s исключён", d)
+	return fmt.Sprintf("%s, не двигался 7 дней подряд и я его съел..", d)
 }
 
 // saveInactiveNoticePackFeed — короткая отметка в общей ленте (дубликат темы предупреждения Лео в ЛС).
