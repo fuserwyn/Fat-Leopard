@@ -2035,6 +2035,7 @@ export function FeedScreen({
                   isMessage ||
                   it.type === "pack_join" ||
                   it.type === "pack_rejoin" ||
+                  it.type === "pack_removed" ||
                   it.type === "daily_wisdom";
                 const isLeoSystemFeed =
                   it.type === "pack_join" ||

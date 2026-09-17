@@ -100,7 +100,8 @@ func packFeedSupportsReactions(messageType string) bool {
 	switch messageType {
 	case "training_done", "sick_leave", "healthy",
 		userMessageTypeAdminPost, userMessageTypeAdminPoll,
-		userMessageTypePackJoin, userMessageTypePackRejoin, userMessageTypeDailyWisdom:
+		userMessageTypePackJoin, userMessageTypePackRejoin, userMessageTypeDailyWisdom,
+		userMessageTypePackRemoved:
 		return true
 	default:
 		return false
@@ -127,7 +128,7 @@ func allowedEmojiForType(messageType, emoji string) (string, bool) {
 		allowed = trainingFeedGeneralReactionEmojis
 	case userMessageTypePackJoin, userMessageTypePackRejoin:
 		allowed = packJoinAllowedEmojis
-	case "sick_leave":
+	case "sick_leave", userMessageTypePackRemoved:
 		allowed = sickLeaveAllowedEmojis
 	case "healthy", userMessageTypeAdminPost, userMessageTypeAdminPoll:
 		allowed = healthyAllowedEmojis
@@ -827,7 +828,7 @@ func allowedEmojiListForFeedType(messageType string) []string {
 		return trainingFeedGeneralReactionEmojis
 	case userMessageTypePackJoin, userMessageTypePackRejoin:
 		return packJoinAllowedEmojis
-	case "sick_leave":
+	case "sick_leave", userMessageTypePackRemoved:
 		return sickLeaveAllowedEmojis
 	case "healthy", userMessageTypeAdminPost, userMessageTypeAdminPoll:
 		return healthyAllowedEmojis
