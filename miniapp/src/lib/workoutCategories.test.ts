@@ -3,6 +3,7 @@ import {
   parseTrainingDoneCategory,
   parseTrainingDoneCategories,
   sortWorkoutCategoriesByCountDesc,
+  stripLeadingCategoryFromTrainingReport,
   trainingDoneCategoryDisplayLabel,
   trainingDoneMatchesCategory,
   trainingDoneMatchesAnyCategory,
@@ -107,5 +108,17 @@ describe("заголовок карточки", () => {
 
   it("показывает гимнастику как отдельную подпись", () => {
     expect(trainingDoneCategoryDisplayLabel("гимнастика, 45 мин, инт. 3/5")).toBe("Гимнастика");
+  });
+});
+
+describe("expandTrainingIntensityLabel / stripLeadingCategoryFromTrainingReport", () => {
+  it("раскрывает устаревшее «инт.» в теле карточки", () => {
+    expect(stripLeadingCategoryFromTrainingReport("бег, 15 мин, инт. 3/5")).toBe("15 мин, интенсивность 3/5");
+  });
+
+  it("оставляет новый формат без изменений", () => {
+    expect(stripLeadingCategoryFromTrainingReport("бег, 15 мин, интенсивность 3/5")).toBe(
+      "15 мин, интенсивность 3/5",
+    );
   });
 });
