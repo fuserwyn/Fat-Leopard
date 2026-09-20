@@ -100,9 +100,9 @@ func ActivityCoeff(categoryID string) float64 {
 }
 
 var (
-	// Мини-апп: «бег, 15 мин, инт. 3/5». Старые записи в ленте могли начинаться с #training_done — префикс опционален при разборе.
+	// Мини-апп: «бег, 15 мин, интенсивность 3/5» (старые — «инт.»). Записи с #training_done — префикс опционален.
 	reTrainingHeader = regexp.MustCompile(`(?i)^(?:#training_done\s*[—–\-]\s*)?([^,]+),\s*(\d+)\s*мин`)
-	reIntensity      = regexp.MustCompile(`(?i)инт\.?\s*(\d+)`)
+	reIntensity      = regexp.MustCompile(`(?i)(?:интенсивность|инт\.?)\s*(\d+)`)
 	// Несколько видов в одном отчёте: «бег + плавание». Разделитель «+» (или «/») между видами.
 	reKindSplit = regexp.MustCompile(`\s*[+/]\s*`)
 )
@@ -228,7 +228,7 @@ func ParseTrainingDoneReportCategories(text string) (durationMin, intensity int,
 	return parseTrainingDoneReport(text)
 }
 
-// ParseTrainingDoneReport — первая строка отчёта мини-аппа, например «бег, 15 мин, инт. 3/5».
+// ParseTrainingDoneReport — первая строка отчёта мини-аппа, например «бег, 15 мин, интенсивность 3/5».
 // При нескольких видах возвращает самый «дорогой» (с максимальным коэффициентом) — кубки начисляются за него.
 // Возвращает ok=false, если нет распознанного заголовка (тогда начисление — минимум 1 кубок снаружи).
 func ParseTrainingDoneReport(text string) (durationMin, intensity int, categoryID string, ok bool) {

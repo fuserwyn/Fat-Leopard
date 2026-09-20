@@ -641,7 +641,7 @@ export function App() {
             const kind = types
               .map((t) => (t === "other" && otherLabel?.trim() ? otherLabel.trim() : labels[t] ?? t))
               .join(" + ");
-            const base = `${kind}, ${min} мин, инт. ${intensity}/5`;
+            const base = `${kind}, ${min} мин, интенсивность ${intensity}/5`;
             const line = note ? `${base}\n\n${note}` : base;
             tg?.HapticFeedback?.impactOccurred?.("medium");
             // Отчёт: сервер отдаёт reply_text сразу (стрик, кубки, ачивки).

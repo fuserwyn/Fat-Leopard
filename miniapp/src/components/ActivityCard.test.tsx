@@ -21,7 +21,7 @@ const baseProps = {
   timeAgo: "5 мин назад",
   emoji: "🏃",
   activity: "Бег",
-  details: "15 мин, инт. 3/5",
+  details: "15 мин, интенсивность 3/5",
 };
 
 describe("ActivityCard streak pill", () => {

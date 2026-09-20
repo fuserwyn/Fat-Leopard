@@ -160,7 +160,7 @@ function rawKindToCategory(raw: string): WorkoutCategoryId {
 }
 
 /**
- * Первая строка отчёта: «бег, 15 мин, инт. 3/5» (старые — с префиксом #training_done).
+ * Первая строка отчёта: «бег, 15 мин, интенсивность 3/5» (старые — «инт.»; префикс #training_done опционален).
  * При мультивыборе возвращает первый вид; для полного списка — {@link parseTrainingDoneCategories}.
  */
 export function parseTrainingDoneCategory(text: string): WorkoutCategoryId | null {
@@ -185,9 +185,14 @@ export function parseTrainingDoneCategories(text: string): WorkoutCategoryId[] {
   return ids;
 }
 
+/** В ленте показываем полное слово вместо устаревшего «инт.». */
+export function expandTrainingIntensityLabel(text: string): string {
+  return text.replace(/инт\.\s*/gi, "интенсивность ");
+}
+
 /**
  * Убирает ведущее «бег, » / «плавание, » из тела поста — тип уже в заголовке карточки.
- * Формат: «вид, N мин, инт. …» (+ опциональный комментарий на следующих строках).
+ * Формат: «вид, N мин, интенсивность …» (+ опциональный комментарий на следующих строках).
  */
 export function stripLeadingCategoryFromTrainingReport(text: string): string {
   const trimmed = text.trim();
@@ -204,7 +209,7 @@ export function stripLeadingCategoryFromTrainingReport(text: string): string {
   if (!/\d+\s*мин/i.test(afterKind)) return trimmed;
 
   const body = rest ? `${afterKind}\n${rest}` : afterKind;
-  return body.trim();
+  return expandTrainingIntensityLabel(body.trim());
 }
 
 /** Совпадение с выбранным фильтром категории (для `training_done`). Пост с несколькими видами матчится по любому из них. */

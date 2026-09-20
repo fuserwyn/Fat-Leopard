@@ -42,6 +42,11 @@ func TestParseTrainingDoneReport(t *testing.T) {
 	if !ok2 || d2 != 15 || in2 != 2 || cat2 != "run" {
 		t.Fatalf("legacy parse: ok=%v d=%d in=%d cat=%q", ok2, d2, in2, cat2)
 	}
+	full := "бег, 15 мин, интенсивность 3/5"
+	d3, in3, cat3, ok3 := ParseTrainingDoneReport(full)
+	if !ok3 || d3 != 15 || in3 != 3 || cat3 != "run" {
+		t.Fatalf("full intensity label: ok=%v d=%d in=%d cat=%q", ok3, d3, in3, cat3)
+	}
 }
 
 func TestParseTrainingDoneReport_multiSport(t *testing.T) {
