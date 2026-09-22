@@ -554,9 +554,31 @@ func (b *Bot) SendPaywallProviderInvoice(userID, reqID int64) error {
 // Сообщение пользователю НЕ отправляет — это нужно для нового флоу с editMessage в callback'е,
 // где URL-кнопка ставится прямо в исходное сообщение «Выбери способ оплаты», без второго экрана
 // «вот тебе ещё одна кнопка Оплатить» (см. требование пользователя).
+//
+// Если у заявки уже есть yookassa_payment_id и он succeeded — новый платёж не создаём
+// (иначе затрём id успешной оплаты и sync/вебхук потеряют след: кейс redraych 2026-09-22).
 func (b *Bot) paywallCreateYookassaPayment(userID, reqID int64) (string, error) {
 	if b.config.YookassaShopID == "" || b.config.YookassaSecretKey == "" {
 		return "", fmt.Errorf("yookassa credentials empty")
+	}
+	if existing, err := b.db.GetPaywallAccessRequestByID(reqID); err == nil && existing != nil {
+		if existing.YookassaPaymentID.Valid {
+			oldID := strings.TrimSpace(existing.YookassaPaymentID.String)
+			if oldID != "" {
+				info, gerr := yookassa.GetPayment(b.config.YookassaShopID, b.config.YookassaSecretKey, oldID)
+				if gerr == nil && info != nil {
+					st := strings.ToLower(strings.TrimSpace(info.Status))
+					if st == "succeeded" && info.Paid {
+						return "", fmt.Errorf("yookassa payment already succeeded (id=%s); sync instead of new link", oldID)
+					}
+					// pending / waiting_for_capture — не плодим второй счёт, отдаём ошибку
+					// вызывающему: пусть сначала дожмёт sync или покажет «оплата ещё в обработке».
+					if st == "pending" || st == "waiting_for_capture" {
+						return "", fmt.Errorf("yookassa payment still %s (id=%s); wait or /start sync", st, oldID)
+					}
+				}
+			}
+		}
 	}
 	returnURL := strings.TrimSpace(b.config.YookassaReturnURL)
 	if returnURL == "" {
@@ -704,8 +726,18 @@ func (b *Bot) handlePaywallPayYookassaCallback(callback *tgbotapi.CallbackQuery)
 
 	confirmURL, err := b.paywallCreateYookassaPayment(uid, reqID)
 	if err != nil {
+		// Уже оплаченный / ещё обрабатываемый платёж на этой заявке — не создаём второй счёт.
+		if b.paywallTrySyncYookassaPayment(uid) {
+			_, _ = b.api.Request(tgbotapi.NewCallback(callback.ID, "Оплата уже учтена. Нажми /start."))
+			return
+		}
 		b.logger.Errorf("paywall yookassa create payment: %v", err)
 		h := paywallYookassaShortHintForUser(err)
+		if strings.Contains(err.Error(), "already succeeded") {
+			h = "Оплата уже прошла. Нажми /start — доступ должен открыться."
+		} else if strings.Contains(err.Error(), "still pending") || strings.Contains(err.Error(), "waiting_for_capture") {
+			h = "Оплата ещё обрабатывается. Подожди минуту и нажми /start."
+		}
 		if len(h) > 180 {
 			h = h[:177] + "…"
 		}
@@ -811,12 +843,20 @@ func (b *Bot) handlePaywallReturnToPackCallback(callback *tgbotapi.CallbackQuery
 // paywallDecideNeedsPayment — вся таблица решений «кто платит» в одном месте, без обращений к БД.
 //
 //	админ                                  → никогда не платит;
-//	выбыл за неактивность (kicked)          → платит всегда, даже при бесплатном входе:
+//	есть активная оплата                   → не платит (даже если ещё is_deleted: кик
+//	                                          обнуляет access_expires_at, поэтому active access
+//	                                          после кика бывает только в окне «оплата прошла,
+//	                                          ReactivateReturnedUser ещё не доехал» — тогда
+//	                                          paywallTryFinishPaidAccessDelivery дожимает доступ);
+//	выбыл за неактивность (kicked)          → платит, даже при бесплатном входе:
 //	                                          это единственная платная точка продукта;
 //	бесплатный вход (entryFree)             → новичок не платит;
 //	платный вход (PAYWALL_ENTRY_FREE=false) → нужна активная (не истёкшая) оплата.
 func paywallDecideNeedsPayment(entryFree, isAdmin, kicked, hasActiveAccess bool) bool {
 	if isAdmin {
+		return false
+	}
+	if hasActiveAccess {
 		return false
 	}
 	if kicked {
@@ -825,7 +865,7 @@ func paywallDecideNeedsPayment(entryFree, isAdmin, kicked, hasActiveAccess bool)
 	if entryFree {
 		return false
 	}
-	return !hasActiveAccess
+	return true
 }
 
 // paywallPrivateNeedsPayFirst — нужно ли платить перед доступом к мини-аппу.
@@ -847,10 +887,11 @@ func (b *Bot) paywallPrivateNeedsPayFirst(userID int64) bool {
 		b.logger.Errorf("paywall deletion check: %v", err)
 		return true
 	}
-	// Активную оплату спрашиваем только когда она может что-то изменить: при бесплатном
-	// входе решение зависит лишь от kicked, и лишний запрос в БД не нужен.
+	// Активную оплату спрашиваем всегда, когда kick/платный вход могут зависеть от неё:
+	// после успешной оплаты ЮKassa заявка уже completed, а is_deleted ещё true, пока outbox
+	// не вызвал ReactivateReturnedUser — без этой проверки юзер снова видит экран оплаты.
 	hasActiveAccess := false
-	if !b.freeEntryActive() && !kicked {
+	if !b.freeEntryActive() || kicked {
 		ok, err := b.db.UserHasActivePaywallAccess(userID, b.config.MonetizedChatID)
 		if err != nil {
 			b.logger.Errorf("paywall access check: %v", err)
@@ -986,8 +1027,10 @@ func (b *Bot) paywallTryFinishPaidAccessDelivery(userID int64) {
 	if !welcomeSent {
 		needDeliver = true
 	}
-	ml, mlErr := b.db.GetMessageLog(userID, b.config.MonetizedChatID)
-	if mlErr != nil || ml == nil || ml.TimerStartTime == nil || strings.TrimSpace(*ml.TimerStartTime) == "" {
+	// GetMessageLog — только активные; для кикнутых берём AnyState: иначе после оплаты
+	// при is_deleted=true «нет таймера» не видим и не дожимаем ReactivateReturnedUser.
+	ml, mlErr := b.db.GetMessageLogAnyState(userID, b.config.MonetizedChatID)
+	if mlErr != nil || ml == nil || ml.IsDeleted || ml.TimerStartTime == nil || strings.TrimSpace(*ml.TimerStartTime) == "" {
 		needDeliver = true
 	}
 	if !needDeliver {

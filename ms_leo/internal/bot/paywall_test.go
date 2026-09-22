@@ -63,8 +63,9 @@ func TestPaywallDecideNeedsPayment(t *testing.T) {
 		hasActiveAccess bool
 		want            bool
 	}{
-		// Платный вход (прежнее поведение).
-		{name: "paid entry: deleted overrides active access", kicked: true, hasActiveAccess: true, want: true},
+		// Платный вход.
+		// kicked+hasActiveAccess = окно после оплаты до ReactivateReturnedUser — не просим платить снова.
+		{name: "paid entry: paid but not yet reactivated", kicked: true, hasActiveAccess: true, want: false},
 		{name: "paid entry: deleted without active access", kicked: true, want: true},
 		{name: "paid entry: active access keeps user in pack", hasActiveAccess: true, want: false},
 		{name: "paid entry: no access requires payment", want: true},
@@ -72,7 +73,7 @@ func TestPaywallDecideNeedsPayment(t *testing.T) {
 		// Бесплатный вход: платит только выбывший за неактивность.
 		{name: "free entry: newcomer pays nothing", entryFree: true, want: false},
 		{name: "free entry: kicked must pay to return", entryFree: true, kicked: true, want: true},
-		{name: "free entry: kicked with restored access still gated", entryFree: true, kicked: true, hasActiveAccess: true, want: true},
+		{name: "free entry: kicked after payment before reactivate", entryFree: true, kicked: true, hasActiveAccess: true, want: false},
 
 		{name: "admin never pays", entryFree: false, isAdmin: true, kicked: true, want: false},
 	}
