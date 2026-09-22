@@ -84,7 +84,7 @@ func LevelFromTotalCups(total int) int {
 // ActivityCoeff — тип-коэффициент по id активности (как в miniapp workoutCategories).
 func ActivityCoeff(categoryID string) float64 {
 	switch strings.ToLower(strings.TrimSpace(categoryID)) {
-	case "yoga", "stretch":
+	case "yoga", "stretch", "morning_exercise":
 		return 0.8
 	case "walk":
 		return 0.8
@@ -132,6 +132,7 @@ var labelToCategoryID = map[string]string{
 	"теннис":    "tennis",
 	"падел":       "padel",
 	"гимнастика":  "gymnastics",
+	"зарядка":     "morning_exercise",
 	"другое":      "other",
 	"отжимания": "other",
 	"отжимание": "other",

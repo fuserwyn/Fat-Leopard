@@ -16,7 +16,7 @@ type WorkoutSessionHint struct {
 var DefaultWorkoutTypeOrder = []string{
 	"run", "walk", "bike", "swim", "yoga", "rowing", "workout", "crossfit", "stretch", "dance",
 	"hiit", "cardio", "kettlebell", "strength", "jump_rope", "pole", "rollerblade",
-	"basketball", "football", "volleyball", "tennis", "padel", "gymnastics", "other",
+	"basketball", "football", "volleyball", "tennis", "padel", "gymnastics", "morning_exercise", "other",
 }
 
 var defaultWorkoutTypeIndex = func() map[string]int {

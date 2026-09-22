@@ -93,6 +93,7 @@ export const TRAINING_CATEGORY_REACTION_EMOJI: Record<WorkoutCategoryId, string>
   tennis: "🎾",
   padel: "🏏",
   gymnastics: "🙆",
+  morning_exercise: "☀️",
   other: "✨",
 };
 

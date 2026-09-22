@@ -10,7 +10,7 @@ import (
 var trainingCategoryDisplayOrder = []string{
 	"run", "walk", "bike", "swim", "yoga", "rowing", "workout", "crossfit", "stretch", "dance",
 	"hiit", "cardio", "kettlebell", "strength", "jump_rope", "pole", "rollerblade",
-	"basketball", "football", "volleyball", "tennis", "padel", "gymnastics", "other",
+	"basketball", "football", "volleyball", "tennis", "padel", "gymnastics", "morning_exercise", "other",
 }
 
 // TrainingFeedApprovingEmojis — одобряющие реакции без привязки к виду спорта.
@@ -43,8 +43,9 @@ var TrainingCategoryReactionEmoji = map[string]string{
 	"volleyball":  "🏐",
 	"tennis":      "🎾",
 	"padel":       "🏏",
-	"gymnastics":  "🙆",
-	"other":       "✨",
+	"gymnastics":       "🙆",
+	"morning_exercise": "☀️",
+	"other":            "✨",
 }
 
 // TrainingFeedAllowedEmojis — полный список для UI: одобряющие + все виды спорта (порядок отображения).
