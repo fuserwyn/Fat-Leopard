@@ -53,6 +53,14 @@ describe("parseTrainingDoneCategories — мультивыбор", () => {
     ]);
   });
 
+  it("разбирает зарядку как отдельный вид", () => {
+    expect(parseTrainingDoneCategories("зарядка, 15 мин, инт. 2/5")).toEqual(["morning_exercise"]);
+    expect(parseTrainingDoneCategories("зарядка + йога, 30 мин, инт. 2/5")).toEqual([
+      "morning_exercise",
+      "yoga",
+    ]);
+  });
+
   it("нераспознанный формат → пустой массив", () => {
     expect(parseTrainingDoneCategories("просто текст")).toEqual([]);
   });
@@ -108,6 +116,10 @@ describe("заголовок карточки", () => {
 
   it("показывает гимнастику как отдельную подпись", () => {
     expect(trainingDoneCategoryDisplayLabel("гимнастика, 45 мин, инт. 3/5")).toBe("Гимнастика");
+  });
+
+  it("показывает зарядку как отдельную подпись", () => {
+    expect(trainingDoneCategoryDisplayLabel("зарядка, 15 мин, инт. 2/5")).toBe("Зарядка");
   });
 });
 
