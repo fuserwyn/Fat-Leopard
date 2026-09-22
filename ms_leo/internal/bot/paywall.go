@@ -938,7 +938,19 @@ func (b *Bot) paywallTrySyncYookassaPayment(userID int64) bool {
 		)
 		return false
 	}
-	info, err := yookassa.GetPayment(b.config.YookassaShopID, b.config.YookassaSecretKey, pending.YookassaPaymentID.String)
+	return b.paywallSyncYookassaPendingRequest(pending)
+}
+
+// paywallSyncYookassaPendingRequest — сверка одной pending-заявки с API ЮKassa: succeeded → закрываем
+// заявку и выдаём доступ. Вызывается и по действию пользователя (paywallTrySyncYookassaPayment: /start,
+// кнопки оплаты), и фоновым сверщиком (paywall_reconciler.go), которому важно дожать оплату без юзера.
+// Заявку передаём готовой: у фонового прохода она приходит из списка, а не по user_id.
+func (b *Bot) paywallSyncYookassaPendingRequest(pending *database.PaywallAccessRequest) bool {
+	if pending == nil {
+		return false
+	}
+	userID := pending.UserID
+	info, err := yookassa.GetPayment(b.config.YookassaShopID, b.config.YookassaSecretKey, strings.TrimSpace(pending.YookassaPaymentID.String))
 	if err != nil {
 		b.logger.Warnf("paywall yookassa sync GetPayment: %v", err)
 		return false

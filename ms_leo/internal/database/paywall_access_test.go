@@ -4,6 +4,7 @@ import (
 	"errors"
 	"regexp"
 	"testing"
+	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 )
@@ -143,4 +144,102 @@ func TestExpirePaywallAccessForUser_QueryShape(t *testing.T) {
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("sqlmock expectations: %v", err)
 	}
+}
+
+// Фоновая сверка с ЮKassa (bot/paywall_reconciler.go) берёт заявки этим запросом. Кейс redraych
+// 2026-09-22: вебхук ms_payments не дошёл, и оплата висела в pending, пока доступ не выдали руками.
+// Здесь фиксируем форму запроса — брать только незакрытые заявки с уже созданным счётом и только
+// свежие, — и то, что строки раскладываются в структуру без сдвига колонок.
+func TestListPendingPaywallRequestsWithYookassaPayment(t *testing.T) {
+	const listQueryShape = `SELECT\s+id,\s*user_id,\s*monetized_chat_id.*FROM\s+paywall_access_requests\s+` +
+		`WHERE\s+status\s*=\s*'pending'\s+` +
+		`AND\s+yookassa_payment_id\s+IS\s+NOT\s+NULL\s+` +
+		`AND\s+btrim\(yookassa_payment_id\)\s*<>\s*''\s+` +
+		`AND\s+created_at\s*>\s*NOW\(\)\s*-\s*\$1::interval`
+
+	newRows := func() *sqlmock.Rows {
+		return sqlmock.NewRows([]string{
+			"id", "user_id", "monetized_chat_id", "status", "created_at", "completed_at", "access_expires_at",
+			"telegram_payment_charge_id", "total_amount_minor", "currency", "yookassa_payment_id",
+			"post_payment_welcome_sent_at",
+		})
+	}
+
+	t.Run("maps rows and passes age window as interval seconds", func(t *testing.T) {
+		db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+		if err != nil {
+			t.Fatalf("sqlmock.New: %v", err)
+		}
+		defer db.Close()
+		d := &Database{db: db}
+
+		created := time.Now().Add(-2 * time.Hour)
+		mock.ExpectQuery(listQueryShape).
+			WithArgs("7200 seconds", 10).
+			WillReturnRows(newRows().
+				AddRow(int64(77), int64(1001), int64(-100500), "pending", created, nil, nil, nil, nil, nil, "2f0a-succeeded", nil).
+				AddRow(int64(76), int64(1002), int64(-100500), "pending", created, nil, nil, nil, nil, nil, "2f0a-canceled", nil))
+
+		rows, err := d.ListPendingPaywallRequestsWithYookassaPayment(2*time.Hour, 10)
+		if err != nil {
+			t.Fatalf("ListPendingPaywallRequestsWithYookassaPayment: %v", err)
+		}
+		if len(rows) != 2 {
+			t.Fatalf("ожидали 2 заявки, получили %d", len(rows))
+		}
+		if rows[0].ID != 77 || rows[0].UserID != 1001 {
+			t.Fatalf("первая заявка разложилась неверно: %+v", rows[0])
+		}
+		if !rows[0].YookassaPaymentID.Valid || rows[0].YookassaPaymentID.String != "2f0a-succeeded" {
+			t.Fatalf("payment id потерян: %+v", rows[0].YookassaPaymentID)
+		}
+		if rows[0].Status != "pending" {
+			t.Fatalf("сверщик должен получать только pending, got %q", rows[0].Status)
+		}
+		if err := mock.ExpectationsWereMet(); err != nil {
+			t.Fatalf("sqlmock expectations: %v", err)
+		}
+	})
+
+	t.Run("no pending payments is not an error", func(t *testing.T) {
+		db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+		if err != nil {
+			t.Fatalf("sqlmock.New: %v", err)
+		}
+		defer db.Close()
+		d := &Database{db: db}
+
+		mock.ExpectQuery(listQueryShape).WillReturnRows(newRows())
+
+		rows, err := d.ListPendingPaywallRequestsWithYookassaPayment(time.Hour, 5)
+		if err != nil {
+			t.Fatalf("пустая очередь — штатный тик сверщика: %v", err)
+		}
+		if len(rows) != 0 {
+			t.Fatalf("ожидали пусто, получили %d", len(rows))
+		}
+		if err := mock.ExpectationsWereMet(); err != nil {
+			t.Fatalf("sqlmock expectations: %v", err)
+		}
+	})
+
+	t.Run("falls back to defaults on non-positive limit and age", func(t *testing.T) {
+		db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+		if err != nil {
+			t.Fatalf("sqlmock.New: %v", err)
+		}
+		defer db.Close()
+		d := &Database{db: db}
+
+		mock.ExpectQuery(listQueryShape).
+			WithArgs("259200 seconds", 25).
+			WillReturnRows(newRows())
+
+		if _, err := d.ListPendingPaywallRequestsWithYookassaPayment(0, 0); err != nil {
+			t.Fatalf("ListPendingPaywallRequestsWithYookassaPayment(0,0): %v", err)
+		}
+		if err := mock.ExpectationsWereMet(); err != nil {
+			t.Fatalf("sqlmock expectations: %v", err)
+		}
+	})
 }

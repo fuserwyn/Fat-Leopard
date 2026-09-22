@@ -97,6 +97,51 @@ func (d *Database) GetLatestCompletedPaywallAccessRequest(userID, monetizedChatI
 	return &r, nil
 }
 
+// ListPendingPaywallRequestsWithYookassaPayment — заявки, по которым счёт в ЮKassa уже создан,
+// а оплата так и не зачтена. Фоновая сверка (bot/paywall_reconciler.go) опрашивает по ним
+// GET /v3/payments/{id}, когда вебхук ms_payments не дошёл. Свежие первыми; maxAge отсекает
+// брошенные заявки, по которым юзер просто закрыл форму оплаты.
+func (d *Database) ListPendingPaywallRequestsWithYookassaPayment(maxAge time.Duration, limit int) ([]PaywallAccessRequest, error) {
+	if limit <= 0 {
+		limit = 25
+	}
+	if maxAge <= 0 {
+		maxAge = 72 * time.Hour
+	}
+	const q = `
+		SELECT id, user_id, monetized_chat_id, status, created_at, completed_at, access_expires_at,
+		       telegram_payment_charge_id, total_amount_minor, currency, yookassa_payment_id,
+		       post_payment_welcome_sent_at
+		FROM paywall_access_requests
+		WHERE status = 'pending'
+		  AND yookassa_payment_id IS NOT NULL
+		  AND btrim(yookassa_payment_id) <> ''
+		  AND created_at > NOW() - $1::interval
+		ORDER BY id DESC
+		LIMIT $2`
+	rows, err := d.db.Query(q, fmt.Sprintf("%d seconds", int64(maxAge.Seconds())), limit)
+	if err != nil {
+		return nil, fmt.Errorf("list pending paywall requests: %w", err)
+	}
+	defer rows.Close()
+	var out []PaywallAccessRequest
+	for rows.Next() {
+		var r PaywallAccessRequest
+		if err := rows.Scan(
+			&r.ID, &r.UserID, &r.MonetizedChatID, &r.Status, &r.CreatedAt, &r.CompletedAt, &r.AccessExpiresAt,
+			&r.TelegramPaymentChargeID, &r.TotalAmountMinor, &r.Currency, &r.YookassaPaymentID,
+			&r.PostPaymentWelcomeSentAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan pending paywall request: %w", err)
+		}
+		out = append(out, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows pending paywall requests: %w", err)
+	}
+	return out, nil
+}
+
 func (d *Database) GetPaywallAccessRequestByID(id int64) (*PaywallAccessRequest, error) {
 	const q = `
 		SELECT id, user_id, monetized_chat_id, status, created_at, completed_at, access_expires_at,
