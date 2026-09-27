@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildFeedPostTextForSave,
+  dtoToCard,
   extractEditableFeedPostText,
   feedItemKey,
   feedPostEditable,
@@ -46,10 +47,28 @@ describe("feedPostEditable", () => {
 describe("feedSupportsThread", () => {
   it("includes daily_wisdom and other social cards", () => {
     expect(feedSupportsThread("daily_wisdom")).toBe(true);
+    expect(feedSupportsThread("pack_roar")).toBe(true);
     expect(feedSupportsThread("training_done")).toBe(true);
     expect(feedSupportsThread("admin_post")).toBe(true);
     expect(feedSupportsThread("pack_join")).toBe(false);
     expect(feedSupportsThread("pack_message")).toBe(false);
+  });
+});
+
+describe("dtoToCard pack roar", () => {
+  it("общее достижение стаи — рык стаи, не мудрость дня", () => {
+    const card = dtoToCard(
+      item({
+        id: 9,
+        type: "pack_roar",
+        text: "Цель недели стаи достигнута — 50 тренировок за неделю!",
+        username: "Лео",
+        user_id: 0,
+      }),
+    );
+    expect(card.activity).toBe("Рык стаи");
+    expect(card.name).toBe("Лео");
+    expect(card.comment).toContain("Цель недели");
   });
 });
 

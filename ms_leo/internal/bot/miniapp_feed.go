@@ -517,7 +517,7 @@ func (b *Bot) PackFeedAdminSetPin(viewerUserID int64, initD initdata.InitData, u
 
 func packFeedIsLeoNoticeType(t string) bool {
 	switch t {
-	case "pack_join", "pack_rejoin", "daily_wisdom", "pack_removed", "admin_post", "admin_poll":
+	case "pack_join", "pack_rejoin", "daily_wisdom", "pack_roar", "pack_removed", "admin_post", "admin_poll":
 		return true
 	default:
 		return false

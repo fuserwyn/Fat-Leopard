@@ -43,7 +43,7 @@ var (
 
 func packFeedSupportsThread(messageType string) bool {
 	switch messageType {
-	case "training_done", "sick_leave", "healthy", userMessageTypeAdminPost, userMessageTypeAdminPoll, userMessageTypeDailyWisdom:
+	case "training_done", "sick_leave", "healthy", userMessageTypeAdminPost, userMessageTypeAdminPoll, userMessageTypeDailyWisdom, userMessageTypePackRoar:
 		return true
 	default:
 		return false
@@ -53,7 +53,7 @@ func packFeedSupportsThread(messageType string) bool {
 // packFeedPostIsLeo — карточка ленты опубликована от имени Лео (мудрость дня или объявление/опрос).
 func packFeedPostIsLeo(messageType, username string) bool {
 	switch messageType {
-	case userMessageTypeDailyWisdom:
+	case userMessageTypeDailyWisdom, userMessageTypePackRoar:
 		return true
 	case userMessageTypeAdminPost, userMessageTypeAdminPoll:
 		return strings.TrimSpace(username) == "Лео"
@@ -91,6 +91,8 @@ func feedThreadLeoPromptKind(typ string) string {
 		return "объявлением стаи"
 	case userMessageTypeDailyWisdom:
 		return "мудростью дня"
+	case userMessageTypePackRoar:
+		return "рыком стаи"
 	default:
 		return "отчётом о тренировке"
 	}
@@ -100,7 +102,7 @@ func packFeedSupportsReactions(messageType string) bool {
 	switch messageType {
 	case "training_done", "sick_leave", "healthy",
 		userMessageTypeAdminPost, userMessageTypeAdminPoll,
-		userMessageTypePackJoin, userMessageTypePackRejoin, userMessageTypeDailyWisdom,
+		userMessageTypePackJoin, userMessageTypePackRejoin, userMessageTypeDailyWisdom, userMessageTypePackRoar,
 		userMessageTypePackRemoved:
 		return true
 	default:
@@ -124,7 +126,7 @@ func allowedEmojiForType(messageType, emoji string) (string, bool) {
 	switch messageType {
 	case "training_done":
 		allowed = trainingFeedAllowedEmojis
-	case userMessageTypeDailyWisdom:
+	case userMessageTypeDailyWisdom, userMessageTypePackRoar:
 		allowed = trainingFeedGeneralReactionEmojis
 	case userMessageTypePackJoin, userMessageTypePackRejoin:
 		allowed = packJoinAllowedEmojis
@@ -425,6 +427,8 @@ func (b *Bot) afterPackTrainingThreadInserted(packChatID, userMessageID, comment
 			what = "опрос админа"
 		} else if parentType == userMessageTypeDailyWisdom {
 			what = "мудрость дня"
+		} else if parentType == userMessageTypePackRoar {
+			what = "рык стаи"
 		}
 		verb := ""
 		switch commenterGender {
@@ -824,7 +828,7 @@ func allowedEmojiListForFeedType(messageType string) []string {
 	switch messageType {
 	case "training_done":
 		return trainingFeedAllowedEmojis
-	case userMessageTypeDailyWisdom:
+	case userMessageTypeDailyWisdom, userMessageTypePackRoar:
 		return trainingFeedGeneralReactionEmojis
 	case userMessageTypePackJoin, userMessageTypePackRejoin:
 		return packJoinAllowedEmojis

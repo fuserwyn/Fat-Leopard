@@ -27,6 +27,9 @@ func TestPackFeedSupportsThread(t *testing.T) {
 	if !packFeedSupportsThread(userMessageTypeDailyWisdom) {
 		t.Fatal("daily wisdom must accept thread comments")
 	}
+	if !packFeedSupportsThread(userMessageTypePackRoar) {
+		t.Fatal("pack roar must accept thread comments")
+	}
 	if !packFeedSupportsThread("training_done") {
 		t.Fatal("training_done must accept thread comments")
 	}
@@ -56,6 +59,9 @@ func TestPackFeedPostIsLeo(t *testing.T) {
 	t.Parallel()
 	if !packFeedPostIsLeo(userMessageTypeDailyWisdom, "") {
 		t.Fatal("daily wisdom is Leo's post")
+	}
+	if !packFeedPostIsLeo(userMessageTypePackRoar, "") {
+		t.Fatal("pack roar is Leo's post")
 	}
 	if !packFeedPostIsLeo(userMessageTypeAdminPost, "Лео") {
 		t.Fatal("admin post from Leo")
@@ -106,6 +112,9 @@ func TestFeedThreadLeoPromptKind(t *testing.T) {
 	}
 	if got := feedThreadLeoPromptKind(userMessageTypeDailyWisdom); got != "мудростью дня" {
 		t.Fatalf("daily_wisdom: %q", got)
+	}
+	if got := feedThreadLeoPromptKind(userMessageTypePackRoar); got != "рыком стаи" {
+		t.Fatalf("pack_roar: %q", got)
 	}
 }
 

@@ -35,7 +35,7 @@ const packActivityFeedSelect = `
 		ON p.user_id = um.user_id AND p.pack_chat_id = um.chat_id
 	WHERE um.chat_id = $1
 	  AND COALESCE(um.is_hidden, FALSE) = FALSE
-	  AND um.message_type IN ('training_done', 'pack_join', 'pack_rejoin', 'daily_wisdom', 'pack_removed', 'admin_post', 'admin_poll')
+	  AND um.message_type IN ('training_done', 'pack_join', 'pack_rejoin', 'daily_wisdom', 'pack_roar', 'pack_removed', 'admin_post', 'admin_poll')
 `
 
 func scanPackActivityRows(d *Database, q string, args ...interface{}) ([]*domain.PackActivityRow, error) {

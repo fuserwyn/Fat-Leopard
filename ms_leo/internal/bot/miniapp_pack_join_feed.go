@@ -14,6 +14,7 @@ const (
 	userMessageTypePackJoin     = "pack_join"
 	userMessageTypePackRejoin   = "pack_rejoin"
 	userMessageTypeDailyWisdom  = "daily_wisdom"
+	userMessageTypePackRoar     = "pack_roar"
 	userMessageTypePackRemoved  = "pack_removed"
 	userMessageTypeAdminPost    = "admin_post"
 	userMessageTypeAdminPoll    = "admin_poll"
@@ -115,6 +116,31 @@ func (b *Bot) saveDailyWisdomPackFeed(wisdom string) {
 	}
 	if err := b.db.SaveUserMessage(um); err != nil {
 		b.logger.Warnf("miniapp pack feed daily_wisdom: %v", err)
+	}
+}
+
+// savePackRoarPackFeed — «рык стаи»: общее достижение стаи в ленту (не мудрость дня).
+func (b *Bot) savePackRoarPackFeed(text string) {
+	if b == nil || b.db == nil {
+		return
+	}
+	chatID := b.config.MonetizedChatID
+	if chatID == 0 {
+		return
+	}
+	t := strings.TrimSpace(text)
+	if t == "" {
+		return
+	}
+	um := &domain.UserMessage{
+		UserID:      0,
+		ChatID:      chatID,
+		Username:    "Лео",
+		MessageText: t,
+		MessageType: userMessageTypePackRoar,
+	}
+	if err := b.db.SaveUserMessage(um); err != nil {
+		b.logger.Warnf("miniapp pack feed pack_roar: %v", err)
 	}
 }
 

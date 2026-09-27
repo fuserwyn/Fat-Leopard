@@ -274,7 +274,8 @@ export function feedSupportsThread(type: string): boolean {
     type === "healthy" ||
     type === "admin_post" ||
     type === "admin_poll" ||
-    type === "daily_wisdom"
+    type === "daily_wisdom" ||
+    type === "pack_roar"
   );
 }
 
@@ -392,7 +393,7 @@ export function mergeFeedReactionsForType(
   if (type === "training_done") {
     return mergeTrainingFeedReactions(fromServer, reportText);
   }
-  if (type === "daily_wisdom" || type === "pack_message") {
+  if (type === "daily_wisdom" || type === "pack_roar" || type === "pack_message") {
     return mergePackFeedReactions(TRAINING_FEED_APPROVING_EMOJIS, fromServer);
   }
   if (type === "pack_join" || type === "pack_rejoin") {
@@ -487,6 +488,8 @@ function typeMeta(t: string): { emoji: string; activity: string; details: string
       return { emoji: "🐆", activity: "Лео · приветствие", details: "" };
     case "daily_wisdom":
       return { emoji: "🌅", activity: "Мудрость дня", details: "" };
+    case "pack_roar":
+      return { emoji: "🐆", activity: "Рык стаи", details: "" };
     case "pack_removed":
       return { emoji: "🐆", activity: "Лео · стая", details: "Выбыл за неактивность" };
     case "admin_post":
@@ -536,6 +539,7 @@ export function dtoToCard(d: PackFeedItemDTO): ActivityCardProps {
     d.type === "pack_join" ||
     d.type === "pack_rejoin" ||
     d.type === "daily_wisdom" ||
+    d.type === "pack_roar" ||
     d.type === "pack_removed";
   const isAdminPost = d.type === "admin_post";
   const isAdminPoll = d.type === "admin_poll";
@@ -552,6 +556,7 @@ export function dtoToCard(d: PackFeedItemDTO): ActivityCardProps {
   const maxComment =
     d.type === "training_done" ||
     d.type === "daily_wisdom" ||
+    d.type === "pack_roar" ||
     d.type === "pack_join" ||
     d.type === "pack_rejoin"
       ? 2000
