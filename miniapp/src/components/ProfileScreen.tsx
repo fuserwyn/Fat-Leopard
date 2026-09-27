@@ -29,6 +29,7 @@ import {
   type DonateOptions,
 } from "../lib/donate";
 import { DonateThanksToast } from "./DonateThanksToast";
+import { CupsHistorySheet } from "./CupsHistorySheet";
 import "./ProfileScreen.css";
 
 const api = (import.meta.env.VITE_MINIAPP_API_URL as string | undefined)?.replace(/\/$/, "") ?? "";
@@ -206,6 +207,7 @@ export function ProfileScreen({
   const [donateModalOpen, setDonateModalOpen] = useState(false);
   // Тема свёрнута по умолчанию: четыре кнопки и подсказки занимают место, меняют редко.
   const [themeOpen, setThemeOpen] = useState(false);
+  const [cupsHistoryOpen, setCupsHistoryOpen] = useState(false);
   const [friendBusyId, setFriendBusyId] = useState<number | null>(null);
   // Глобальный тумблер «Тренировки друзей» (центр уведомлений): DM о тренировке
   // друга по всем подпискам сразу. Состояние — bool_or по notify_workouts подписок.
@@ -1024,9 +1026,11 @@ export function ProfileScreen({
             После выхода с больничного до удаления: {removalRemaining.text}
           </p>
         ) : null}
-        <div
+        <button
+          type="button"
           className="profile__xp"
-          aria-label={`Кубки: ${cupProgressLabel}, уровень ${level}`}
+          aria-label={`Кубки: ${cupProgressLabel}, уровень ${level}. История начислений`}
+          onClick={() => setCupsHistoryOpen(true)}
         >
           <div className="profile__xp-meter">
             <span className="profile__xp-caption" aria-hidden>
@@ -1037,7 +1041,7 @@ export function ProfileScreen({
             </div>
           </div>
           <span className="profile__xp-txt">{cupProgressLabel}</span>
-        </div>
+        </button>
       </header>
 
       <div className="profile__grid3">
@@ -1784,6 +1788,10 @@ export function ProfileScreen({
 
       {donateThanks ? (
         <DonateThanksToast onDone={() => setDonateThanks(false)} />
+      ) : null}
+
+      {cupsHistoryOpen ? (
+        <CupsHistorySheet apiUrl={api} initData={initData} onClose={() => setCupsHistoryOpen(false)} />
       ) : null}
 
       <div className="profile__support">

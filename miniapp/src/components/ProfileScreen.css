@@ -177,7 +177,20 @@
   gap: 6px;
   text-align: left;
   max-width: 320px;
+  width: 100%;
   margin: 0 auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.profile__xp:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 8px;
 }
 
 .profile__xp-meter {

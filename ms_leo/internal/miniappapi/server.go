@@ -131,6 +131,8 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		s.handlePostProfileLoad(w, r)
 	case path == "/api/miniapp/profile/save" && r.Method == http.MethodPost:
 		s.handlePostProfileSave(w, r)
+	case path == "/api/miniapp/profile/cups-history" && r.Method == http.MethodPost:
+		s.handlePostProfileCupsHistory(w, r)
 	case path == "/api/miniapp/reminders/load" && r.Method == http.MethodPost:
 		s.handlePostReminderLoad(w, r)
 	case path == "/api/miniapp/reminders/save" && r.Method == http.MethodPost:
@@ -2422,6 +2424,59 @@ func (s *Server) handlePostProfileLoad(w http.ResponseWriter, r *http.Request) {
 		out["age"] = nil
 	}
 	_ = json.NewEncoder(w).Encode(out)
+}
+
+func (s *Server) handlePostProfileCupsHistory(w http.ResponseWriter, r *http.Request) {
+	corsWriteHeaders(w, r)
+	if s.bot == nil || s.token == "" {
+		s.jsonErr(w, http.StatusServiceUnavailable, "server_unavailable")
+		return
+	}
+	var body struct {
+		InitData string `json:"init_data"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		s.jsonErr(w, http.StatusBadRequest, "invalid_json")
+		return
+	}
+	if body.InitData == "" {
+		s.jsonErr(w, http.StatusBadRequest, "missing_init_data")
+		return
+	}
+	if err := s.validateInit(body.InitData); err != nil {
+		s.jsonErr(w, http.StatusUnauthorized, "invalid_init_data")
+		return
+	}
+	parsed, err := s.parseInit(body.InitData)
+	if err != nil {
+		s.jsonErr(w, http.StatusBadRequest, "parse_init_data")
+		return
+	}
+	if parsed.User.ID == 0 {
+		s.jsonErr(w, http.StatusBadRequest, "user_missing")
+		return
+	}
+	if err := s.bot.AssertMiniAppPackChatAligns(parsed); err != nil {
+		if errors.Is(err, bot.ErrMiniAppChatMismatch) {
+			s.jsonErr(w, http.StatusConflict, "chat_mismatch")
+			return
+		}
+		s.jsonErr(w, http.StatusInternalServerError, "assert_chat_error")
+		return
+	}
+	packID := s.bot.MonetizedChatID()
+	if packID == 0 {
+		s.jsonErr(w, http.StatusServiceUnavailable, "pack_not_configured")
+		return
+	}
+	history := s.bot.GetMiniappCupsHistoryForAPI(parsed.User.ID, packID)
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"ok":          true,
+		"limit":       history.Limit,
+		"workouts":    history.Workouts,
+		"pack_weekly": history.PackWeekly,
+	})
 }
 
 func (s *Server) handlePostProfileSave(w http.ResponseWriter, r *http.Request) {
