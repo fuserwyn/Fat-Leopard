@@ -27,6 +27,37 @@ def _text(result: object) -> str:
     return str(raw or "").strip()
 
 
+FALLBACK_MODEL = "default"
+
+
+def _run(api_key: str, model: str, cwd: str, prompt: str) -> object:
+    if SendOptions is None:
+        opts = AgentOptions(
+            api_key=api_key,
+            model=model,
+            local=LocalAgentOptions(cwd=cwd, setting_sources=[]),
+        )
+        return Agent.prompt(prompt, opts)
+    with Agent.create(
+        model=model,
+        api_key=api_key,
+        local=LocalAgentOptions(cwd=cwd, setting_sources=[]),
+    ) as agent:
+        run = agent.send(prompt, SendOptions(mode="agent"))
+        result = run.wait()
+        if not _text(result) and hasattr(run, "text"):
+            try:
+                result = type("R", (), {"status": getattr(result, "status", ""), "result": run.text()})()
+            except Exception:  # noqa: BLE001
+                pass
+        return result
+
+
+def _failed_silently(result: object) -> bool:
+    status = str(getattr(result, "status", "") or "").lower()
+    return status == "error" and not _text(result)
+
+
 def main() -> int:
     try:
         payload = json.load(sys.stdin)
@@ -48,27 +79,13 @@ def main() -> int:
         print(json.dumps({"ok": False, "error": "пустой промпт"}), flush=True)
         return 1
 
-    opts = AgentOptions(
-        api_key=api_key,
-        model=model,
-        local=LocalAgentOptions(cwd=cwd, setting_sources=[]),
-    )
     try:
-        if SendOptions is not None:
-            with Agent.create(
-                model=model,
-                api_key=api_key,
-                local=LocalAgentOptions(cwd=cwd, setting_sources=[]),
-            ) as agent:
-                run = agent.send(prompt, SendOptions(mode="agent"))
-                result = run.wait()
-                if not _text(result) and hasattr(run, "text"):
-                    try:
-                        result = type("R", (), {"status": getattr(result, "status", ""), "result": run.text()})()
-                    except Exception:  # noqa: BLE001
-                        pass
-        else:
-            result = Agent.prompt(prompt, opts)
+        result = _run(api_key, model, cwd, prompt)
+        # Модель вне лимита тарифа Cursor сдаётся молча: status=error без
+        # текста за пару секунд (сентябрь 2026, composer-2.5). Auto
+        # («default») при этом работает — пробуем её, а не валим задачу.
+        if _failed_silently(result) and model != FALLBACK_MODEL:
+            result = _run(api_key, FALLBACK_MODEL, cwd, prompt)
     except CursorAgentError as err:
         print(
             json.dumps(
@@ -91,7 +108,7 @@ def main() -> int:
     if status == "error":
         print(
             json.dumps(
-                {"ok": False, "error": text or "cursor run error", "status": status},
+                {"ok": False, "error": text or f"cursor run error (model {model})", "status": status},
                 ensure_ascii=False,
             ),
             flush=True,
