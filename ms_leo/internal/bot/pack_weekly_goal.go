@@ -84,7 +84,7 @@ func (b *Bot) MaybeGrantPackWeeklyGoalBonus(packChatID int64) {
 	}
 	if granted {
 		b.grantPackWeeklyGoalMemberCups(packChatID)
-		b.saveDailyWisdomPackFeed(packWeeklyGoalAchievedFeedMessage())
+		b.savePackRoarPackFeed(packWeeklyGoalAchievedFeedMessage())
 		b.logger.Infof("pack weekly goal reached pack=%d week=%s count=%d bonus_until=%s cups=%d",
 			packChatID, weekStart, count, bonusUntil.Format(time.RFC3339), PackWeeklyGoalCupsBonus)
 	}

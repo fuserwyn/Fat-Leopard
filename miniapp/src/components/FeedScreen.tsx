@@ -2016,7 +2016,8 @@ export function FeedScreen({
                   ((it.username || "").trim() === "Лео" || isPinnedAnnouncement);
                 // Мудрость дня читают целиком: это короткий текст дня, и «Показать
                 // полностью» на нём — лишний шаг ради двух строк.
-                const alwaysFullComment = it.type === "daily_wisdom" || isLeoAnnouncementPost;
+                const alwaysFullComment =
+                  it.type === "daily_wisdom" || it.type === "pack_roar" || isLeoAnnouncementPost;
                 // Закреп — исключительно голос Лео: единый аватар/имя независимо от автора поста.
                 const pinnedLeoProps: Partial<ActivityCardProps> = isPinnedAnnouncement
                   ? {
@@ -2036,11 +2037,13 @@ export function FeedScreen({
                   it.type === "pack_join" ||
                   it.type === "pack_rejoin" ||
                   it.type === "pack_removed" ||
-                  it.type === "daily_wisdom";
+                  it.type === "daily_wisdom" ||
+                  it.type === "pack_roar";
                 const isLeoSystemFeed =
                   it.type === "pack_join" ||
                   it.type === "pack_rejoin" ||
                   it.type === "daily_wisdom" ||
+                  it.type === "pack_roar" ||
                   it.type === "pack_removed" ||
                   it.type === "admin_post" ||
                   it.type === "admin_poll" ||
