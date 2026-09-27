@@ -155,3 +155,45 @@ func (d *Database) ListRecentTrainingSessions(userID int64, chatIDs []int64, lim
 	}
 	return out, rows.Err()
 }
+
+// CupsHistorySessionRow — тренировка для истории начислений кубков в профиле.
+type CupsHistorySessionRow struct {
+	SessionDate string
+	MessageText string
+	CupsAdded   int
+	CreatedAt   time.Time
+}
+
+// ListRecentCupsHistorySessions — последние зачтённые тренировки (без бонусных строк), новые сверху.
+func (d *Database) ListRecentCupsHistorySessions(userID int64, chatIDs []int64, limit int) ([]CupsHistorySessionRow, error) {
+	if d == nil || userID == 0 || len(chatIDs) == 0 {
+		return nil, nil
+	}
+	if limit <= 0 || limit > 200 {
+		limit = 42
+	}
+	ids := uniqInt64PreserveOrder(chatIDs)
+	query := `
+		SELECT to_char(session_date, 'YYYY-MM-DD'), COALESCE(message_text, ''), cups_added, created_at
+		FROM training_sessions
+		WHERE user_id = $1
+		  AND chat_id = ANY($2)
+		  AND is_bonus = FALSE
+		  AND trainings_count > 0
+		ORDER BY created_at DESC, id DESC
+		LIMIT $3`
+	rows, err := d.db.Query(query, userID, pq.Array(ids), limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []CupsHistorySessionRow
+	for rows.Next() {
+		var row CupsHistorySessionRow
+		if err := rows.Scan(&row.SessionDate, &row.MessageText, &row.CupsAdded, &row.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, row)
+	}
+	return out, rows.Err()
+}

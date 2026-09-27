@@ -1622,14 +1622,42 @@ var Migrations = []Migration{
 	{
 		Version:     83,
 		Description: "Training feed reactions: backfill approving sport-matching emojis",
-		UpSQL:        `-- data backfill in RunMigrations after SQL`,
-		DownSQL:      ``,
+		UpSQL:       `-- data backfill in RunMigrations after SQL`,
+		DownSQL:     ``,
 	},
 	{
 		Version:     84,
 		Description: "Training feed reactions: backfill missing Leo reactions on training_done",
-		UpSQL:        `-- data backfill in RunMigrations after SQL`,
-		DownSQL:      ``,
+		UpSQL:       `-- data backfill in RunMigrations after SQL`,
+		DownSQL:     ``,
+	},
+	{
+		Version:     85,
+		Description: "pack_weekly_goal_member_cups — кубки участнику за неделю стаи",
+		UpSQL: `
+			CREATE TABLE IF NOT EXISTS pack_weekly_goal_member_cups (
+				user_id         BIGINT NOT NULL,
+				pack_chat_id    BIGINT NOT NULL,
+				week_start_date DATE NOT NULL,
+				cups            INTEGER NOT NULL,
+				created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+				PRIMARY KEY (user_id, pack_chat_id, week_start_date)
+			);
+			CREATE INDEX IF NOT EXISTS pack_weekly_goal_member_cups_user_idx
+				ON pack_weekly_goal_member_cups (user_id, pack_chat_id, created_at DESC);
+
+			INSERT INTO pack_weekly_goal_member_cups (user_id, pack_chat_id, week_start_date, cups, created_at)
+			SELECT ts.user_id, b.pack_chat_id, b.week_start_date, 50, b.created_at
+			FROM pack_weekly_goal_bonus b
+			JOIN training_state ts
+			  ON ts.chat_id = b.pack_chat_id
+			 AND ts.is_deleted = FALSE
+			 AND (ts.created_at IS NULL OR ts.created_at <= b.created_at)
+			ON CONFLICT (user_id, pack_chat_id, week_start_date) DO NOTHING;
+		`,
+		DownSQL: `
+			DROP TABLE IF EXISTS pack_weekly_goal_member_cups;
+		`,
 	},
 }
 

@@ -2,6 +2,7 @@ package database
 
 import (
 	"database/sql"
+	"strings"
 	"time"
 )
 
@@ -61,4 +62,60 @@ func (d *Database) GetActivePackWeeklyGoalBonusUntil(packChatID int64, now time.
 		return time.Time{}, false, err
 	}
 	return until, true, nil
+}
+
+// InsertPackWeeklyGoalMemberCups фиксирует кубки, выданные участнику за неделю стаи.
+// Повтор той же недели не задваивает запись.
+func (d *Database) InsertPackWeeklyGoalMemberCups(userID, packChatID int64, weekStart string, cups int, createdAt time.Time) error {
+	if d == nil || userID == 0 || packChatID == 0 || cups == 0 || strings.TrimSpace(weekStart) == "" {
+		return nil
+	}
+	if createdAt.IsZero() {
+		createdAt = time.Now().UTC()
+	}
+	query := `
+		INSERT INTO pack_weekly_goal_member_cups (user_id, pack_chat_id, week_start_date, cups, created_at)
+		VALUES ($1, $2, $3::date, $4, $5)
+		ON CONFLICT (user_id, pack_chat_id, week_start_date) DO NOTHING
+	`
+	_, err := d.db.Exec(query, userID, packChatID, weekStart, cups, createdAt.UTC())
+	return err
+}
+
+// PackWeeklyGoalMemberCupsRow — одно начисление кубков за недельное достижение стаи.
+type PackWeeklyGoalMemberCupsRow struct {
+	Cups      int
+	CreatedAt time.Time
+}
+
+// ListPackWeeklyGoalMemberCups — начисления кубков за недели стаи, новые сверху.
+func (d *Database) ListPackWeeklyGoalMemberCups(userID, packChatID int64, limit int) ([]PackWeeklyGoalMemberCupsRow, error) {
+	if d == nil || userID == 0 || packChatID == 0 {
+		return nil, nil
+	}
+	if limit <= 0 || limit > 200 {
+		limit = 200
+	}
+	query := `
+		SELECT cups, created_at
+		FROM pack_weekly_goal_member_cups
+		WHERE user_id = $1
+		  AND pack_chat_id = $2
+		ORDER BY created_at DESC
+		LIMIT $3
+	`
+	rows, err := d.db.Query(query, userID, packChatID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []PackWeeklyGoalMemberCupsRow
+	for rows.Next() {
+		var row PackWeeklyGoalMemberCupsRow
+		if err := rows.Scan(&row.Cups, &row.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, row)
+	}
+	return out, rows.Err()
 }

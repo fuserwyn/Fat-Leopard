@@ -18,13 +18,13 @@ const PackBonusThemeDuration = 24 * time.Hour
 
 // MiniappPackWeeklyProgress — недельный прогресс стаи для мини-аппа.
 type MiniappPackWeeklyProgress struct {
-	WorkoutsWeek       int
-	Goal               int
-	WeekStart          string
-	WeekEnd            string
-	GoalReached        bool
-	BonusActive        bool
-	BonusActiveUntil   string // RFC3339; пусто, если бонус не активен
+	WorkoutsWeek     int
+	Goal             int
+	WeekStart        string
+	WeekEnd          string
+	GoalReached      bool
+	BonusActive      bool
+	BonusActiveUntil string // RFC3339; пусто, если бонус не активен
 }
 
 // GetMiniappPackWeeklyProgressForAPI — суммарные тренировки стаи с понедельника по сегодня (МСК).
@@ -83,7 +83,7 @@ func (b *Bot) MaybeGrantPackWeeklyGoalBonus(packChatID int64) {
 		return
 	}
 	if granted {
-		b.grantPackWeeklyGoalMemberCups(packChatID)
+		b.grantPackWeeklyGoalMemberCups(packChatID, weekStart)
 		b.savePackRoarPackFeed(packWeeklyGoalAchievedFeedMessage())
 		b.logger.Infof("pack weekly goal reached pack=%d week=%s count=%d bonus_until=%s cups=%d",
 			packChatID, weekStart, count, bonusUntil.Format(time.RFC3339), PackWeeklyGoalCupsBonus)
@@ -98,7 +98,7 @@ func packWeeklyGoalAchievedFeedMessage() string {
 	)
 }
 
-func (b *Bot) grantPackWeeklyGoalMemberCups(packChatID int64) {
+func (b *Bot) grantPackWeeklyGoalMemberCups(packChatID int64, weekStart string) {
 	if b == nil || b.db == nil || packChatID == 0 {
 		return
 	}
@@ -107,12 +107,17 @@ func (b *Bot) grantPackWeeklyGoalMemberCups(packChatID int64) {
 		b.logger.Warnf("pack weekly cups members pack=%d: %v", packChatID, err)
 		return
 	}
+	awardedAt := time.Now().UTC()
 	for _, user := range users {
 		if user == nil || user.UserID == 0 {
 			continue
 		}
 		if err := b.db.AddCups(user.UserID, packChatID, PackWeeklyGoalCupsBonus); err != nil {
 			b.logger.Warnf("pack weekly cups user=%d pack=%d: %v", user.UserID, packChatID, err)
+			continue
+		}
+		if err := b.db.InsertPackWeeklyGoalMemberCups(user.UserID, packChatID, weekStart, PackWeeklyGoalCupsBonus, awardedAt); err != nil {
+			b.logger.Warnf("pack weekly cups history user=%d pack=%d: %v", user.UserID, packChatID, err)
 		}
 	}
 }
