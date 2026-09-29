@@ -17,12 +17,7 @@ type RuleSection = {
   body: ReactNode;
 };
 
-function formatAccessPrice(rub: number) {
-  if (!Number.isFinite(rub) || rub <= 0) return "99₽";
-  return `${Math.round(rub)}₽`;
-}
-
-function rulesSections(priceLabel: string): RuleSection[] {
+function rulesSections(): RuleSection[] {
   return [
   {
     id: "why",
@@ -257,8 +252,8 @@ function rulesSections(priceLabel: string): RuleSection[] {
         </p>
         <p>
           <strong>Как вернуться.</strong> Напиши <code className="rules__code">/start</code> боту. Система опознает
-          тебя по Telegram ID. Новый вход — {priceLabel} (та же цена). Сразу вернутся рекорд стрика, число тренировок и
-          trophy case. С нуля начнутся кубки, стрик, уровень и попытки. Стая не спрашивает, почему ты пропал.
+          тебя по Telegram ID. Сразу вернутся рекорд стрика, число тренировок и trophy case. С нуля начнутся кубки,
+          стрик, уровень и попытки. Стая не спрашивает, почему ты пропал.
         </p>
         <p className="rules__note">
           Lifetime-статус первых 100 участников сохраняется при удалении — это историческая отметка, не привилегия
@@ -334,8 +329,6 @@ function rulesSections(priceLabel: string): RuleSection[] {
         </dd>
         <dt>Куда писать, если что-то сломалось?</dt>
         <dd>Кнопка «Поддержка» — она есть и в боте, и в профиле в мини-аппе.</dd>
-        <dt>Сколько стоит вход?</dt>
-        <dd>{priceLabel} — один платёж, без подписки. Действует, пока ты в Стае. Вернуться после удаления — снова {priceLabel}.</dd>
       </dl>
     ),
   },
@@ -375,8 +368,8 @@ function RuleAccordionItem({
   );
 }
 
-export function RulesScreen({ accessPriceRub = 99 }: { accessPriceRub?: number }) {
-  const sections = rulesSections(formatAccessPrice(accessPriceRub));
+export function RulesScreen() {
+  const sections = rulesSections();
   const [openId, setOpenId] = useState<string | null>(null);
 
   return (
