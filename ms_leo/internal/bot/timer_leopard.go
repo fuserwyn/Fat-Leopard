@@ -121,7 +121,7 @@ func (b *Bot) scheduleLeopardMilestones(userID, chatID int64, username string, r
 	}
 	ms := []milestone{
 		{
-			at: removalAt.Add(-72 * time.Hour),
+			at: inactiveWarningAtLocal(removalAt, 72, loc),
 			ch: ch72,
 			fn: func() {
 				b.sendInactiveRemovalWarning(userID, chatID, username, 72, removalAt, loc)
@@ -129,7 +129,7 @@ func (b *Bot) scheduleLeopardMilestones(userID, chatID int64, username string, r
 			removal: false,
 		},
 		{
-			at: removalAt.Add(-48 * time.Hour),
+			at: inactiveWarningAtLocal(removalAt, 48, loc),
 			ch: ch48,
 			fn: func() {
 				b.sendInactiveRemovalWarning(userID, chatID, username, 48, removalAt, loc)
@@ -137,7 +137,7 @@ func (b *Bot) scheduleLeopardMilestones(userID, chatID int64, username string, r
 			removal: false,
 		},
 		{
-			at: removalAt.Add(-24 * time.Hour),
+			at: inactiveWarningAtLocal(removalAt, 24, loc),
 			ch: ch24,
 			fn: func() {
 				b.sendInactiveRemovalWarning(userID, chatID, username, 24, removalAt, loc)
@@ -196,7 +196,7 @@ func (b *Bot) cancelTimer(userID int64) {
 	}
 }
 
-// sendInactiveRemovalWarning — предупреждение за 72 ч (день 5), 48 ч (день 6) или 24 ч (день 7) до кика в 00:00 локального TZ юзера.
+// sendInactiveRemovalWarning — предупреждение за 72 ч (день 5), 48 ч (день 6) или 24 ч (день 7) до кика; пуш в 9:00 локального TZ юзера.
 func (b *Bot) sendInactiveRemovalWarning(userID, chatID int64, username string, hoursBefore int, removalAt time.Time, loc *time.Location) {
 	who := normalizeUserDisplayName(username)
 	deadlineHuman := formatRemovalAtLocalHuman(removalAt, loc)

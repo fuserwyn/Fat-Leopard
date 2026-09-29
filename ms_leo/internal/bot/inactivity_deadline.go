@@ -8,9 +8,19 @@ import (
 	"leo-bot/internal/utils"
 )
 
+// inactiveWarningLocalHour — локальный час отправки предупреждений о неактивности (день 5/6/7).
+const inactiveWarningLocalHour = 9
+
 // userLocalLoc — фиксированная зона юзера: UTC+3 (МСК) + смещение относительно МСК.
 func userLocalLoc(tzOffsetFromMoscow int) *time.Location {
 	return time.FixedZone("UserLocal", (3+tzOffsetFromMoscow)*3600)
+}
+
+// inactiveWarningAtLocal — 9:00 локального TZ в календарный день, за hoursBefore до кика в полночь.
+func inactiveWarningAtLocal(removalAt time.Time, hoursBefore int, loc *time.Location) time.Time {
+	t := removalAt.Add(-time.Duration(hoursBefore) * time.Hour).In(loc)
+	y, m, d := t.Date()
+	return time.Date(y, m, d, inactiveWarningLocalHour, 0, 0, 0, loc)
 }
 
 // removalDeadlineLocal — момент кика за неактивность: 00:00 локального TZ юзера
