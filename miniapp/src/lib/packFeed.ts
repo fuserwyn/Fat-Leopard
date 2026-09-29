@@ -279,6 +279,16 @@ export function feedSupportsThread(type: string): boolean {
   );
 }
 
+/** Официальные посты ленты, где админ может комментировать от Лео/Админ (post_as). */
+export function feedAllowsAdminCommentVoice(type: string): boolean {
+  return (
+    type === "admin_post" ||
+    type === "admin_poll" ||
+    type === "daily_wisdom" ||
+    type === "pack_roar"
+  );
+}
+
 /** Стабильный ключ записи единой ленты: id уникален только внутри источника,
  *  поэтому ключуем/дедупим как `${source}:${id}` ("feed" по умолчанию). */
 export function feedItemKey(d: Pick<PackFeedItemDTO, "id" | "source">): string {
