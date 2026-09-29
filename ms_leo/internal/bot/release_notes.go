@@ -24,6 +24,7 @@ var releaseNotesInternalPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)(зависш|перезапуск.*агент|ожид.*очеред|напоминан.*аппрув)`),
 	regexp.MustCompile(`(?i)(админк|adminscreen|admin_moderation|участник.*истори|кикнут|модерац)`),
 	regexp.MustCompile(`(?i)(доск.*трекер|трекер.*доск|tracker.*board|trackerapprove|leo-propose|придумыван.*задач)`),
+	regexp.MustCompile(`(?i)(дизайн\s|ui/ux|ui[\s-]?change|redesign|ревёрст|верстк|оформлени.{0,20}интерф|внешн.{0,12}вид|css\b|\.css|tailwind|стил[ья].{0,30}(экран|кноп|карточ|лент|профил)|иконк|шрифт|отступ|padding|margin|цвет.{0,20}(кноп|фон|текст)|причесать\s+ui)`),
 }
 
 var releaseNotesUserFacingHints = []string{

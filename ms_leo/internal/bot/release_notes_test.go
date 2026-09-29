@@ -74,6 +74,15 @@ func TestTrackerTaskAffectsUserExperience(t *testing.T) {
 	if !trackerTaskAffectsUserExperience(reaction) {
 		t.Fatal("training feed reaction is user-facing")
 	}
+	designOnly := database.TrackerTask{
+		Num:    138,
+		Prompt: "Подправить отступы и цвет кнопок на экране профиля, без новых функций",
+		Result: "Обновили CSS профиля: padding и цвет кнопок.",
+		Steps:  []string{"сделано: вёрстка ProfileScreen"},
+	}
+	if trackerTaskAffectsUserExperience(designOnly) {
+		t.Fatal("pure UI design tweaks are not release-note features")
+	}
 }
 
 func TestCollectReleaseNoteFeaturesDedup(t *testing.T) {
