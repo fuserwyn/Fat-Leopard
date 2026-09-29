@@ -50,6 +50,17 @@ func packFeedSupportsThread(messageType string) bool {
 	}
 }
 
+// packFeedAllowsAdminOfficialCommentVoice — админ может писать комментарий от Лео/Админ
+// только под официальными постами ленты (объявления, опросы, мудрость дня, рык стаи).
+func packFeedAllowsAdminOfficialCommentVoice(messageType string) bool {
+	switch messageType {
+	case userMessageTypeAdminPost, userMessageTypeAdminPoll, userMessageTypeDailyWisdom, userMessageTypePackRoar:
+		return true
+	default:
+		return false
+	}
+}
+
 // packFeedPostIsLeo — карточка ленты опубликована от имени Лео (мудрость дня или объявление/опрос).
 func packFeedPostIsLeo(messageType, username string) bool {
 	switch messageType {
@@ -236,7 +247,7 @@ func (b *Bot) PackTrainingFeedReact(viewerUserID int64, initD initdata.InitData,
 // replyToThreadID — id строки miniapp_training_feed_thread, на которую отвечаем (как Reply в Telegram).
 // photoURL — опциональное фото к комментарию (пусто, если без фото). При наличии фото текст может быть пустым.
 // postAs — голос комментария: "self" (обычный), "leo" (от имени Лео) или "admin"
-// (от имени админов). Голоса leo/admin доступны только админам в админских постах.
+// (от имени админов). Голоса leo/admin доступны только админам под официальными постами ленты.
 func (b *Bot) PackTrainingFeedThreadPost(viewerUserID int64, initD initdata.InitData, userMessageID int64, text string, replyToThreadID int64, photoURL string, postAs string) error {
 	if err := b.AssertMiniAppPackChatAligns(initD); err != nil {
 		return err
@@ -257,11 +268,10 @@ func (b *Bot) PackTrainingFeedThreadPost(viewerUserID int64, initD initdata.Init
 	if !has || !packFeedSupportsThread(typ) {
 		return ErrTrainingFeedParentNotFound
 	}
-	// Голоса leo/admin — только админ и только в админских постах (объявление/опрос).
 	postAs = strings.TrimSpace(strings.ToLower(postAs))
 	officialVoice := (postAs == "leo" || postAs == "admin") &&
 		b.isAdminTelegramUser(viewerUserID) &&
-		(typ == userMessageTypeAdminPost || typ == userMessageTypeAdminPoll)
+		packFeedAllowsAdminOfficialCommentVoice(typ)
 	if !officialVoice {
 		postAs = "self"
 	}

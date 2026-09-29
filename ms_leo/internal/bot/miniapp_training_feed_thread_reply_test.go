@@ -22,6 +22,18 @@ func TestTrainingThreadParentIsLeo(t *testing.T) {
 	}
 }
 
+func TestPackFeedAllowsAdminOfficialCommentVoice(t *testing.T) {
+	t.Parallel()
+	for _, typ := range []string{userMessageTypeAdminPost, userMessageTypeAdminPoll, userMessageTypeDailyWisdom, userMessageTypePackRoar} {
+		if !packFeedAllowsAdminOfficialCommentVoice(typ) {
+			t.Fatalf("%q must allow admin official comment voice", typ)
+		}
+	}
+	if packFeedAllowsAdminOfficialCommentVoice("training_done") {
+		t.Fatal("training_done must not allow admin official comment voice")
+	}
+}
+
 func TestPackFeedSupportsThread(t *testing.T) {
 	t.Parallel()
 	if !packFeedSupportsThread(userMessageTypeDailyWisdom) {

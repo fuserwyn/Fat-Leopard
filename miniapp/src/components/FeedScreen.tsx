@@ -17,6 +17,7 @@ import {
   extractEditableFeedPostText,
   buildFeedPostTextForSave,
   feedPostEditable,
+  feedAllowsAdminCommentVoice,
   feedSupportsThread,
   feedItemKey,
   isFeedMessage,
@@ -2280,7 +2281,7 @@ export function FeedScreen({
                       }}
                       threadReplyDeleting={threadReplyDeleting}
                       isAdmin={isAdmin}
-                      adminVoiceAvailable={isAdmin && isAdminAnnouncement}
+                      adminVoiceAvailable={isAdmin && feedAllowsAdminCommentVoice(it.type)}
                       threadReplyIntent={threadReplyTargets[it.id] ?? null}
                       onCancelThreadReplyIntent={() =>
                         setThreadReplyTargets((r) => ({ ...r, [it.id]: undefined }))

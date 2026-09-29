@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, fireEvent } from "@testing-library/react";
 import { ActivityCard, avatarFallbackGlyph, trainingReactionVisibleCount } from "./ActivityCard";
 
@@ -232,6 +232,27 @@ describe("ActivityCard thread reply", () => {
     fireEvent.click(buttons[1]);
     expect(calls[0]).toMatchObject({ replyToThreadId: 11, authorLabel: "Лео" });
     expect(calls[1]).toMatchObject({ replyToThreadId: 12, authorLabel: "Аня" });
+  });
+
+  it("shows admin comment voice switcher when enabled", () => {
+    const onSubmit = vi.fn();
+    render(
+      <ActivityCard
+        {...baseProps}
+        streak={2}
+        hideStreak
+        comment="Объявление"
+        threadComposer={{ ...composer, onSubmit }}
+        adminVoiceAvailable
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Комментарии/ }));
+    expect(screen.getByRole("group", { name: "От чьего имени комментировать" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "🐆 Лео" }));
+    const input = screen.getByPlaceholderText("Написать комментарий…");
+    fireEvent.change(input, { target: { value: "Привет стае" } });
+    fireEvent.click(screen.getByRole("button", { name: "Отправить" }));
+    expect(onSubmit).toHaveBeenCalledWith("Привет стае", null, "leo");
   });
 
   it("shows the reply intent banner like on a report card", () => {

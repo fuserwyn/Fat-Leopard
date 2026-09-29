@@ -5,6 +5,7 @@ import {
   extractEditableFeedPostText,
   feedItemKey,
   feedPostEditable,
+  feedAllowsAdminCommentVoice,
   feedSupportsThread,
   isFeedMessage,
   packMessageCommentReplyToId,
@@ -52,6 +53,16 @@ describe("feedSupportsThread", () => {
     expect(feedSupportsThread("admin_post")).toBe(true);
     expect(feedSupportsThread("pack_join")).toBe(false);
     expect(feedSupportsThread("pack_message")).toBe(false);
+  });
+});
+
+describe("feedAllowsAdminCommentVoice", () => {
+  it("matches official feed posts only", () => {
+    expect(feedAllowsAdminCommentVoice("admin_post")).toBe(true);
+    expect(feedAllowsAdminCommentVoice("admin_poll")).toBe(true);
+    expect(feedAllowsAdminCommentVoice("daily_wisdom")).toBe(true);
+    expect(feedAllowsAdminCommentVoice("pack_roar")).toBe(true);
+    expect(feedAllowsAdminCommentVoice("training_done")).toBe(false);
   });
 });
 
@@ -122,6 +133,18 @@ describe("feed keys / message detection", () => {
         reply_to_username: "",
       }),
     ).toEqual({ author: "Лео", text: "", isLeo: true, isAdmin: false });
+  });
+
+  it("mapFeedThreadQuote keeps a reply to admin voice", () => {
+    expect(
+      mapFeedThreadQuote({
+        user_id: 3,
+        reply_to_id: 88,
+        reply_to_is_admin: true,
+        reply_to_text: "важно",
+        reply_to_username: "",
+      }),
+    ).toEqual({ author: "Админ", text: "важно", isLeo: false, isAdmin: true });
   });
 
   it("mapFeedThreadQuote keeps a reply to a participant", () => {
