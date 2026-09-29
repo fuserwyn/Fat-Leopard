@@ -503,7 +503,7 @@ func (b *Bot) handleLeopardMoneyTrainingDone(msg *tgbotapi.Message, personalRepl
 		newStreak, daysWordForm(newStreak),
 		cupsAdd, ruCupsWord(cupsAdd), totalCups,
 	)
-	inactiveBlock := "⏰ Неактивность: 8 дней без отчёта — удаление в 00:00 вашего часового пояса; предупреждения на 5-й, 6-й и 7-й день."
+	inactiveBlock := "⏰ Неактивность: 8 дней без отчёта — удаление в 00:00 вашего часового пояса; предупреждения в 9:00 на 5-й, 6-й и 7-й день."
 	messageTextMiniapp := statsBlock
 	messageTextPrivate := statsBlock + "\n\n" + inactiveBlock
 

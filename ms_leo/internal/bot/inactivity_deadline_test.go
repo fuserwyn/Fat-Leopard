@@ -266,3 +266,20 @@ func TestNextCalendarMidnightAfterMoscow(t *testing.T) {
 		t.Fatalf("got %v", got)
 	}
 }
+
+func TestInactiveWarningAtLocal_NineAMNotMidnight(t *testing.T) {
+	moscow := time.FixedZone("MSK", 3*3600)
+	removalAt := time.Date(2026, 7, 9, 0, 0, 0, 0, moscow)
+	loc := moscow
+
+	for _, hoursBefore := range []int{72, 48, 24} {
+		got := inactiveWarningAtLocal(removalAt, hoursBefore, loc)
+		if got.Hour() != 9 || got.Minute() != 0 {
+			t.Fatalf("hoursBefore=%d: want 9:00 local, got %v", hoursBefore, got.In(loc))
+		}
+	}
+	day5 := inactiveWarningAtLocal(removalAt, 72, loc)
+	if day5.Day() != 6 {
+		t.Fatalf("day 5 warning: want 6 July, got %v", day5.In(loc))
+	}
+}
