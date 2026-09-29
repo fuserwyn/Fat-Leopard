@@ -85,7 +85,6 @@ export function App() {
   const [inactivityRemovalAt, setInactivityRemovalAt] = useState("");
   const [accessGateStatus, setAccessGateStatus] = useState<AccessGateStatus>("checking");
   const [isAdmin, setIsAdmin] = useState(false);
-  const [accessPriceRub, setAccessPriceRub] = useState(99);
   const [packWorkoutsWeek, setPackWorkoutsWeek] = useState(0);
   const [packWorkoutsGoal, setPackWorkoutsGoal] = useState(PACK_WEEKLY_GOAL_DEFAULT);
   const [packGoalReached, setPackGoalReached] = useState(false);
@@ -243,7 +242,6 @@ export function App() {
         days_in_pack?: number;
         last_training_date?: string;
         is_admin?: boolean;
-        access_price_rub?: number;
         theme?: string;
         suggested_workout_types?: unknown;
         pack_workouts_week?: number;
@@ -253,9 +251,6 @@ export function App() {
       };
       if (!res.ok || !j.ok) return;
       setIsAdmin(Boolean(j.is_admin));
-      if (typeof j.access_price_rub === "number" && j.access_price_rub > 0) {
-        setAccessPriceRub(j.access_price_rub);
-      }
       setProfileDisplayName((j.display_name ?? "").trim());
       setDaysSinceLastTraining(typeof j.days_since_last_training === "number" ? j.days_since_last_training : -1);
       setLastTrainingDate(typeof j.last_training_date === "string" ? j.last_training_date.trim() : "");
@@ -473,7 +468,7 @@ export function App() {
           />
         </TabKeepAlive>
         <TabKeepAlive active={tab === "rules"} hidden={!tabsVisible}>
-          <RulesScreen accessPriceRub={accessPriceRub} />
+          <RulesScreen />
         </TabKeepAlive>
         <TabKeepAlive active={tab === "profile"} hidden={!tabsVisible}>
           <ProfileScreen
