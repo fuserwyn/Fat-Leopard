@@ -68,6 +68,12 @@ func TestClaudeEnvPrefersSubscription(t *testing.T) {
 	if !strings.Contains(env, "CLAUDE_CODE_OAUTH_TOKEN=tok") || strings.Contains(env, "ANTHROPIC_API_KEY=") {
 		t.Fatal("подписка должна вытеснять API-ключ")
 	}
+	t.Setenv("ANTHROPIC_BASE_URL", "https://openrouter.ai/api")
+	t.Setenv("ANTHROPIC_AUTH_TOKEN", "sk-or-x")
+	env = strings.Join(claudeEnv(config.Config{ClaudeOAuthToken: "tok"}), "\n")
+	if strings.Contains(env, "ANTHROPIC_BASE_URL=") || strings.Contains(env, "ANTHROPIC_AUTH_TOKEN=") {
+		t.Fatal("переменные чужого провайдера не должны доходить до CLI")
+	}
 	env = strings.Join(claudeEnv(config.Config{AnthropicAPIKey: "key"}), "\n")
 	if !strings.Contains(env, "ANTHROPIC_API_KEY=key") {
 		t.Fatal("без токена — ключ API")

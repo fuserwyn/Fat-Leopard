@@ -217,13 +217,32 @@ func runClaudeLocal(cfg config.Config, job store.Job, repoDir, branch string) (s
 	return note, nil
 }
 
+// claudeForeignEnv — что не должно протечь в CLI Claude из окружения сервиса.
+var claudeForeignEnv = map[string]bool{
+	"ANTHROPIC_API_KEY":              true,
+	"CLAUDE_CODE_OAUTH_TOKEN":        true,
+	"ANTHROPIC_AUTH_TOKEN":           true,
+	"ANTHROPIC_BASE_URL":             true,
+	"ANTHROPIC_MODEL":                true,
+	"ANTHROPIC_DEFAULT_OPUS_MODEL":   true,
+	"ANTHROPIC_DEFAULT_SONNET_MODEL": true,
+	"ANTHROPIC_DEFAULT_HAIKU_MODEL":  true,
+	"CLAUDE_CODE_SUBAGENT_MODEL":     true,
+}
+
 // claudeEnv — окружение для CLI Claude. Если есть токен подписки, ключ API
 // из окружения убираем: CLI предпочитает ANTHROPIC_API_KEY и иначе пойдёт
 // в платный API, а не по подписке.
+//
+// Переменные чужого провайдера (OpenRouter и т.п. — ANTHROPIC_BASE_URL,
+// ANTHROPIC_AUTH_TOKEN, подмена моделей), заданные в Railway на проект,
+// тоже убираем, как в myvibelab: с ними CLI идёт не в Anthropic и падает
+// «401 API key is invalid».
 func claudeEnv(cfg config.Config) []string {
 	env := make([]string, 0, len(os.Environ())+3)
 	for _, kv := range os.Environ() {
-		if strings.HasPrefix(kv, "ANTHROPIC_API_KEY=") || strings.HasPrefix(kv, "CLAUDE_CODE_OAUTH_TOKEN=") {
+		name, _, _ := strings.Cut(kv, "=")
+		if claudeForeignEnv[name] {
 			continue
 		}
 		env = append(env, kv)
