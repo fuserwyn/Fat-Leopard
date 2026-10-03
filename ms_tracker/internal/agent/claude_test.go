@@ -22,7 +22,9 @@ func TestAgentEngine(t *testing.T) {
 		{"job composer beats env", config.Config{TrackerAgent: "claude"}, store.Job{Model: "composer-2.5"}, engineCursor},
 		{"env claude", config.Config{TrackerAgent: "claude", CursorAPIKey: "c"}, store.Job{Model: "cursor-composer"}, engineClaude},
 		{"only anthropic key", config.Config{AnthropicAPIKey: "a"}, store.Job{}, engineClaude},
-		{"env cursor", config.Config{TrackerAgent: "cursor", AnthropicAPIKey: "a"}, store.Job{}, engineCursor},
+		{"cursor without key falls to claude", config.Config{TrackerAgent: "cursor", ClaudeOAuthToken: "o"}, store.Job{}, engineClaude},
+		{"composer without key falls to claude", config.Config{ClaudeOAuthToken: "o"}, store.Job{Model: "composer-2.5"}, engineClaude},
+		{"env cursor", config.Config{TrackerAgent: "cursor", CursorAPIKey: "c", ClaudeOAuthToken: "o"}, store.Job{}, engineCursor},
 	}
 	for _, c := range cases {
 		if got := agentEngine(c.cfg, c.job); got != c.want {
@@ -46,9 +48,9 @@ func TestClaudeModelID(t *testing.T) {
 	}
 }
 
-func TestApplyDoingRequiresAnthropicKey(t *testing.T) {
+func TestApplyDoingRequiresClaudeToken(t *testing.T) {
 	_, err := applyDoing(config.Config{GithubToken: "t", Repo: "o/r", TrackerAgent: "claude"}, store.Job{Prompt: "x"})
-	if err == nil || !strings.Contains(err.Error(), "ANTHROPIC_API_KEY") {
+	if err == nil || !strings.Contains(err.Error(), "CLAUDE_CODE_OAUTH_TOKEN") {
 		t.Fatalf("%v", err)
 	}
 }
@@ -57,5 +59,17 @@ func TestClaudeDoingPrompt(t *testing.T) {
 	p := claudeDoingPrompt(store.Job{Prompt: "Почини кнопку"}, "tracker/25-74")
 	if !strings.Contains(p, "Почини кнопку") || !strings.Contains(p, "tracker/25-74") {
 		t.Fatal(p)
+	}
+}
+
+func TestClaudeEnvPrefersSubscription(t *testing.T) {
+	t.Setenv("ANTHROPIC_API_KEY", "from-env")
+	env := strings.Join(claudeEnv(config.Config{ClaudeOAuthToken: "tok", AnthropicAPIKey: "key"}), "\n")
+	if !strings.Contains(env, "CLAUDE_CODE_OAUTH_TOKEN=tok") || strings.Contains(env, "ANTHROPIC_API_KEY=") {
+		t.Fatal("подписка должна вытеснять API-ключ")
+	}
+	env = strings.Join(claudeEnv(config.Config{AnthropicAPIKey: "key"}), "\n")
+	if !strings.Contains(env, "ANTHROPIC_API_KEY=key") {
+		t.Fatal("без токена — ключ API")
 	}
 }

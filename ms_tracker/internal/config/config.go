@@ -14,11 +14,13 @@ type Config struct {
 	CursorAPIKey    string
 	CursorAPI       string
 	CursorModel     string
-	// Claude Agent SDK — второй исполнитель задач (claude_run.py).
-	AnthropicAPIKey string
-	ClaudeModel     string
-	// TrackerAgent — исполнитель по умолчанию: "cursor" или "claude".
-	// Пусто — cursor, если есть CURSOR_API_KEY, иначе claude.
+	// Claude Agent SDK — запасной исполнитель задач (claude_run.py).
+	// Основной доступ — токен подписки Claude Code (`claude setup-token`).
+	ClaudeOAuthToken string
+	AnthropicAPIKey  string
+	ClaudeModel      string
+	// TrackerAgent — с кого начинать: "cursor" (по умолчанию) или "claude".
+	// Claude подхватывает задачу, если Cursor недоступен.
 	TrackerAgent     string
 	GithubToken      string
 	GithubAPI        string
@@ -45,17 +47,18 @@ func Load() Config {
 		repo = "fuserwyn/Fat-Leopard"
 	}
 	return Config{
-		Port:            port,
-		DatabaseURL:     strings.TrimSpace(os.Getenv("DATABASE_URL")),
-		TrackerSecret:   firstEnv("TRACKER_SECRET", "BOARD_SSO_SECRET"),
-		OpenRouterKey:   strings.TrimSpace(os.Getenv("OPENROUTER_API_KEY")),
-		OpenRouterModel: model,
-		CursorAPIKey:    firstEnv("CURSOR_API_KEY"),
-		CursorAPI:       strings.TrimSpace(os.Getenv("CURSOR_API")),
-		CursorModel:     firstEnv("CURSOR_MODEL", "BOARD_MODEL"),
-		AnthropicAPIKey: firstEnv("ANTHROPIC_API_KEY"),
-		ClaudeModel:     firstEnv("CLAUDE_MODEL"),
-		TrackerAgent:    strings.ToLower(firstEnv("TRACKER_AGENT")),
+		Port:             port,
+		DatabaseURL:      strings.TrimSpace(os.Getenv("DATABASE_URL")),
+		TrackerSecret:    firstEnv("TRACKER_SECRET", "BOARD_SSO_SECRET"),
+		OpenRouterKey:    strings.TrimSpace(os.Getenv("OPENROUTER_API_KEY")),
+		OpenRouterModel:  model,
+		CursorAPIKey:     firstEnv("CURSOR_API_KEY"),
+		CursorAPI:        strings.TrimSpace(os.Getenv("CURSOR_API")),
+		CursorModel:      firstEnv("CURSOR_MODEL", "BOARD_MODEL"),
+		ClaudeOAuthToken: firstEnv("CLAUDE_CODE_OAUTH_TOKEN"),
+		AnthropicAPIKey:  firstEnv("ANTHROPIC_API_KEY"),
+		ClaudeModel:      firstEnv("CLAUDE_MODEL"),
+		TrackerAgent:     strings.ToLower(firstEnv("TRACKER_AGENT")),
 		// Личный PAT fuserwyn из MyVibeLab — Fat-Leopard его репозиторий.
 		// Орговый GITHUB_TOKEN клонирует публичное репо, а push падает.
 		GithubToken:      firstEnv("GITHUB_PERSONAL_TOKEN", "GITHUB_TOKEN", "GH_TOKEN"),

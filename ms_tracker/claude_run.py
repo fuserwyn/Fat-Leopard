@@ -65,8 +65,10 @@ def main() -> int:
     cwd = str(payload.get("cwd") or "").strip()
     prompt = str(payload.get("prompt") or "").strip()
     model = str(payload.get("model") or DEFAULT_MODEL).strip() or DEFAULT_MODEL
-    if not (os.environ.get("ANTHROPIC_API_KEY") or "").strip():
-        _emit({"ok": False, "error": "нет ANTHROPIC_API_KEY"})
+    # Claude Agent SDK берёт доступ из окружения: токен подписки Claude Code
+    # (CLAUDE_CODE_OAUTH_TOKEN) или, если его нет, ANTHROPIC_API_KEY.
+    if not any((os.environ.get(k) or "").strip() for k in ("CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_API_KEY")):
+        _emit({"ok": False, "error": "нет CLAUDE_CODE_OAUTH_TOKEN"})
         return 1
     if not cwd or not os.path.isdir(cwd):
         _emit({"ok": False, "error": "нет каталога репозитория"})

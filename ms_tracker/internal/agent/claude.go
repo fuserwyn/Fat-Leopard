@@ -37,39 +37,49 @@ func isCursorModel(m string) bool {
 	return m == "cursor" || strings.HasPrefix(m, "cursor") || strings.HasPrefix(m, "composer")
 }
 
-// agentEngine выбирает исполнителя задачи:
-//  1. модель карточки: claude-* → Claude, composer-*/cursor-* → Cursor;
-//  2. TRACKER_AGENT=claude|cursor;
-//  3. есть только один ключ — тот исполнитель; оба — Cursor (как было).
-func agentEngine(cfg config.Config, job store.Job) string {
-	if isClaudeModel(job.Model) {
-		return engineClaude
-	}
-	explicitCursor := isCursorModel(job.Model) && !strings.EqualFold(strings.TrimSpace(job.Model), "cursor-composer")
-	if explicitCursor {
-		return engineCursor
-	}
-	switch strings.ToLower(strings.TrimSpace(cfg.TrackerAgent)) {
-	case engineClaude:
-		return engineClaude
-	case engineCursor:
-		return engineCursor
-	}
-	if strings.TrimSpace(cfg.CursorAPIKey) == "" && strings.TrimSpace(cfg.AnthropicAPIKey) != "" {
-		return engineClaude
-	}
-	return engineCursor
+// claudeReady — есть доступ к Claude Agent SDK. Основной путь — токен
+// подписки Claude Code (CLAUDE_CODE_OAUTH_TOKEN, `claude setup-token`);
+// ANTHROPIC_API_KEY — запасной, если токена нет.
+func claudeReady(cfg config.Config) bool {
+	return strings.TrimSpace(cfg.ClaudeOAuthToken) != "" || strings.TrimSpace(cfg.AnthropicAPIKey) != ""
 }
 
-// agentKeyError — нет ключа у выбранного исполнителя.
+func cursorReady(cfg config.Config) bool {
+	return strings.TrimSpace(cfg.CursorAPIKey) != ""
+}
+
+// agentEngine — с кого начинать задачу:
+//  1. модель карточки: claude-* → Claude, composer-*/cursor-* → Cursor;
+//  2. TRACKER_AGENT=claude|cursor;
+//  3. по умолчанию Cursor, а если у Cursor нет ключа — Claude.
+//
+// Если начали с Cursor и он недоступен (ошибка, таймаут, лимит, сдал
+// пустоту) — runAgentLocal сам передаёт задачу Claude.
+func agentEngine(cfg config.Config, job store.Job) string {
+	pick := engineCursor
+	switch {
+	case isClaudeModel(job.Model):
+		pick = engineClaude
+	case isCursorModel(job.Model) && !strings.EqualFold(strings.TrimSpace(job.Model), "cursor-composer"):
+		pick = engineCursor
+	case strings.EqualFold(strings.TrimSpace(cfg.TrackerAgent), engineClaude):
+		pick = engineClaude
+	}
+	if pick == engineCursor && !cursorReady(cfg) && claudeReady(cfg) {
+		return engineClaude
+	}
+	return pick
+}
+
+// agentKeyError — ни у одного подходящего исполнителя нет доступа.
 func agentKeyError(cfg config.Config, job store.Job) error {
 	if agentEngine(cfg, job) == engineClaude {
-		if strings.TrimSpace(cfg.AnthropicAPIKey) == "" {
-			return fmt.Errorf("нет ANTHROPIC_API_KEY")
+		if !claudeReady(cfg) {
+			return fmt.Errorf("нет CLAUDE_CODE_OAUTH_TOKEN для Claude Agent SDK")
 		}
 		return nil
 	}
-	if strings.TrimSpace(cfg.CursorAPIKey) == "" {
+	if !cursorReady(cfg) {
 		return fmt.Errorf("нет CURSOR_API_KEY")
 	}
 	return nil
@@ -79,7 +89,26 @@ func runAgentLocal(cfg config.Config, job store.Job, repoDir, branch string) (st
 	if agentEngine(cfg, job) == engineClaude {
 		return runClaudeLocal(cfg, job, repoDir, branch)
 	}
-	return runCursorLocal(cfg, job, repoDir, branch)
+	note, err := runCursorLocal(cfg, job, repoDir, branch)
+	if !claudeReady(cfg) {
+		return note, err
+	}
+	if err == nil {
+		// Cursor «сдал», но в репо нет правок и нет JSON с файлами —
+		// считаем, что он не справился, и отдаём задачу Claude.
+		if dirtyHasImpl(repoDir) || len(parseImplReply(note).Files) > 0 {
+			return note, nil
+		}
+		err = fmt.Errorf("cursor sdk сдал задачу без правок")
+	}
+	// Откатываем недоделки Cursor, чтобы Claude начал с чистой ветки.
+	_ = run(repoDir, "git", "reset", "--hard", "HEAD")
+	_ = run(repoDir, "git", "clean", "-fd")
+	cnote, cerr := runClaudeLocal(cfg, job, repoDir, branch)
+	if cerr != nil {
+		return "", fmt.Errorf("%v; запасной Claude: %v", err, cerr)
+	}
+	return "Cursor недоступен (" + clip(err.Error(), 160) + "), задачу сделал Claude.\n\n" + cnote, nil
 }
 
 func claudeModelID(cfg config.Config, job store.Job) string {
@@ -130,8 +159,8 @@ func claudeRunPath() string {
 }
 
 func runClaudeLocal(cfg config.Config, job store.Job, repoDir, branch string) (string, error) {
-	if strings.TrimSpace(cfg.AnthropicAPIKey) == "" {
-		return "", fmt.Errorf("нет ANTHROPIC_API_KEY")
+	if !claudeReady(cfg) {
+		return "", fmt.Errorf("нет CLAUDE_CODE_OAUTH_TOKEN для Claude Agent SDK")
 	}
 	repoDir = strings.TrimSpace(repoDir)
 	if repoDir == "" {
@@ -151,10 +180,7 @@ func runClaudeLocal(cfg config.Config, job store.Job, repoDir, branch string) (s
 	// тоже плодит шеллы), по таймауту убивается вся группа.
 	cmd := cursorCmd(ctx, claudeRunPath())
 	cmd.Dir = repoDir
-	cmd.Env = append(os.Environ(),
-		"ANTHROPIC_API_KEY="+strings.TrimSpace(cfg.AnthropicAPIKey),
-		"CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1",
-	)
+	cmd.Env = claudeEnv(cfg)
 	cmd.Stdin = bytes.NewReader(payload)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -189,6 +215,25 @@ func runClaudeLocal(cfg config.Config, job store.Job, repoDir, branch string) (s
 		note = "Claude сдал задачу."
 	}
 	return note, nil
+}
+
+// claudeEnv — окружение для CLI Claude. Если есть токен подписки, ключ API
+// из окружения убираем: CLI предпочитает ANTHROPIC_API_KEY и иначе пойдёт
+// в платный API, а не по подписке.
+func claudeEnv(cfg config.Config) []string {
+	env := make([]string, 0, len(os.Environ())+3)
+	for _, kv := range os.Environ() {
+		if strings.HasPrefix(kv, "ANTHROPIC_API_KEY=") || strings.HasPrefix(kv, "CLAUDE_CODE_OAUTH_TOKEN=") {
+			continue
+		}
+		env = append(env, kv)
+	}
+	if tok := strings.TrimSpace(cfg.ClaudeOAuthToken); tok != "" {
+		env = append(env, "CLAUDE_CODE_OAUTH_TOKEN="+tok)
+	} else {
+		env = append(env, "ANTHROPIC_API_KEY="+strings.TrimSpace(cfg.AnthropicAPIKey))
+	}
+	return append(env, "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1")
 }
 
 // lastJSONLine — последняя непустая строка stdout (вдруг SDK что-то напечатал раньше).

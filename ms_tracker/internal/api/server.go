@@ -48,7 +48,7 @@ func (s *Server) health(w http.ResponseWriter, _ *http.Request) {
 			"railway": strings.TrimSpace(s.cfg.RailwayToken) != "" && strings.TrimSpace(s.cfg.RailwayProjectID) != "",
 			"github":  strings.TrimSpace(s.cfg.GithubToken) != "",
 			"cursor":  strings.TrimSpace(s.cfg.CursorAPIKey) != "",
-			"claude":  strings.TrimSpace(s.cfg.AnthropicAPIKey) != "",
+			"claude":  strings.TrimSpace(s.cfg.ClaudeOAuthToken) != "" || strings.TrimSpace(s.cfg.AnthropicAPIKey) != "",
 		},
 	})
 }
