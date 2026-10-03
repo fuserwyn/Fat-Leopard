@@ -8,7 +8,22 @@ import (
 )
 
 // PackWeeklyWorkoutGoal — цель тренировок стаи за неделю (сброс каждый понедельник 00:00 МСК).
-const PackWeeklyWorkoutGoal = 50
+const PackWeeklyWorkoutGoal = 75
+
+// packWeeklyWorkoutGoalLegacy — прежняя цель, действует для недель до PackWeeklyWorkoutGoalSince.
+const packWeeklyWorkoutGoalLegacy = 50
+
+// PackWeeklyWorkoutGoalSince — понедельник (МСК), с которого действует новая цель:
+// текущая неделя досчитывается по старой цели, новая — со следующего пересчёта.
+const PackWeeklyWorkoutGoalSince = "2026-10-05"
+
+// PackWeeklyWorkoutGoalForWeek — цель стаи для недели, начинающейся weekStart (YYYY-MM-DD).
+func PackWeeklyWorkoutGoalForWeek(weekStart string) int {
+	if weekStart != "" && weekStart < PackWeeklyWorkoutGoalSince {
+		return packWeeklyWorkoutGoalLegacy
+	}
+	return PackWeeklyWorkoutGoal
+}
 
 // PackWeeklyGoalCupsBonus — кубки каждому участнику стаи при достижении недельной цели.
 const PackWeeklyGoalCupsBonus = 50
@@ -36,6 +51,7 @@ func (b *Bot) GetMiniappPackWeeklyProgressForAPI(packChatID int64) MiniappPackWe
 	now := utils.GetMoscowTime()
 	out.WeekStart = utils.WeekStartMondayMSK(now)
 	out.WeekEnd = utils.WeekEndSundayMSK(now)
+	out.Goal = PackWeeklyWorkoutGoalForWeek(out.WeekStart)
 	today := now.Format("2006-01-02")
 	count, err := b.db.CountPackTrainingSessionsInDateRange(packChatID, out.WeekStart, today)
 	if err != nil {
@@ -73,7 +89,8 @@ func (b *Bot) MaybeGrantPackWeeklyGoalBonus(packChatID int64) {
 		b.logger.Warnf("pack weekly bonus count pack=%d: %v", packChatID, err)
 		return
 	}
-	if count < PackWeeklyWorkoutGoal {
+	goal := PackWeeklyWorkoutGoalForWeek(weekStart)
+	if count < goal {
 		return
 	}
 	bonusUntil := time.Now().UTC().Add(PackBonusThemeDuration)
@@ -84,16 +101,16 @@ func (b *Bot) MaybeGrantPackWeeklyGoalBonus(packChatID int64) {
 	}
 	if granted {
 		b.grantPackWeeklyGoalMemberCups(packChatID, weekStart)
-		b.savePackRoarPackFeed(packWeeklyGoalAchievedFeedMessage())
+		b.savePackRoarPackFeed(packWeeklyGoalAchievedFeedMessage(goal))
 		b.logger.Infof("pack weekly goal reached pack=%d week=%s count=%d bonus_until=%s cups=%d",
 			packChatID, weekStart, count, bonusUntil.Format(time.RFC3339), PackWeeklyGoalCupsBonus)
 	}
 }
 
-func packWeeklyGoalAchievedFeedMessage() string {
+func packWeeklyGoalAchievedFeedMessage(goal int) string {
 	return fmt.Sprintf(
 		"Цель недели стаи достигнута — %d тренировок за неделю! Каждому участнику начислено по %d кубков. Так держать, леопарды!",
-		PackWeeklyWorkoutGoal,
+		goal,
 		PackWeeklyGoalCupsBonus,
 	)
 }

@@ -1,12 +1,17 @@
 /** Прогресс недельной цели стаи (сброс каждый понедельник 00:00 МСК). */
-export const PACK_WEEKLY_GOAL_DEFAULT = 50;
+export const PACK_WEEKLY_GOAL_DEFAULT = 75;
 
 /** Сегментов в прогресс-баре «Неделя стаи». */
 export const PACK_WEEKLY_PROGRESS_STEPS = 5;
 
+/** Подсказка к недельной цели стаи для конкретной цели (берётся с сервера). */
+export function packWeeklyGoalHint(goal: number = PACK_WEEKLY_GOAL_DEFAULT): string {
+  const safeGoal = Number.isFinite(goal) && goal > 0 ? Math.floor(goal) : PACK_WEEKLY_GOAL_DEFAULT;
+  return `Если стая выполнит за неделю ${safeGoal} тренировок, каждый получит 50 дополнительных кубков.`;
+}
+
 /** Подсказка к недельной цели стаи (иконка «?» у прогресс-бара). */
-export const PACK_WEEKLY_GOAL_HINT =
-  "Если стая выполнит за неделю 50 тренировок, каждый получит 50 дополнительных кубков.";
+export const PACK_WEEKLY_GOAL_HINT = packWeeklyGoalHint(PACK_WEEKLY_GOAL_DEFAULT);
 
 export function packWeeklyProgressBarPct(completed: number, goal: number): number {
   if (!Number.isFinite(completed) || !Number.isFinite(goal) || goal <= 0) return 0;

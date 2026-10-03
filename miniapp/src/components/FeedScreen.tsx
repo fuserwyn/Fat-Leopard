@@ -34,7 +34,7 @@ import { formatLocalDateTime } from "../lib/timeAgo";
 import { streakStreakAriaLabel } from "../lib/streakLabel";
 import {
   PACK_WEEKLY_GOAL_DEFAULT,
-  PACK_WEEKLY_GOAL_HINT,
+  packWeeklyGoalHint,
   packWeeklyProgressLabel,
   packWeeklyStepFillPcts,
 } from "../lib/packWeeklyGoal";
@@ -1967,7 +1967,7 @@ export function FeedScreen({
                 aria-label="Подсказка о недельной цели стаи"
                 onClick={() => {
                   hapticLight();
-                  showAlert(PACK_WEEKLY_GOAL_HINT);
+                  showAlert(packWeeklyGoalHint(packWorkoutsGoal));
                 }}
               >
                 ?

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   PACK_WEEKLY_GOAL_HINT,
+  packWeeklyGoalHint,
   packWeeklyProgressBarPct,
   packWeeklyProgressLabel,
   packWeeklyStepFillPcts,
@@ -16,7 +17,7 @@ describe("packWeeklyGoal", () => {
 
   it("formats label", () => {
     expect(packWeeklyProgressLabel(42, 50)).toBe("42/50");
-    expect(packWeeklyProgressLabel(-1, 0)).toBe("0/50");
+    expect(packWeeklyProgressLabel(-1, 50)).toBe("0/50");
   });
 
   it("computes 5-step segment fills", () => {
@@ -29,7 +30,16 @@ describe("packWeeklyGoal", () => {
   });
 
   it("describes weekly goal reward in hint", () => {
-    expect(PACK_WEEKLY_GOAL_HINT).toMatch(/50 тренировок/i);
+    expect(PACK_WEEKLY_GOAL_HINT).toMatch(/75 тренировок/i);
     expect(PACK_WEEKLY_GOAL_HINT).toMatch(/50 дополнительных кубков/i);
+  });
+
+  it("uses server goal in hint", () => {
+    expect(packWeeklyGoalHint(50)).toMatch(/50 тренировок/i);
+    expect(packWeeklyGoalHint(0)).toMatch(/75 тренировок/i);
+  });
+
+  it("defaults to 75 when goal is missing", () => {
+    expect(packWeeklyProgressLabel(0, 0)).toBe("0/75");
   });
 });
