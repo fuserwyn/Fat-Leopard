@@ -64,18 +64,40 @@ func TestClaudeDoingPrompt(t *testing.T) {
 
 func TestClaudeEnvPrefersSubscription(t *testing.T) {
 	t.Setenv("ANTHROPIC_API_KEY", "from-env")
-	env := strings.Join(claudeEnv(config.Config{ClaudeOAuthToken: "tok", AnthropicAPIKey: "key"}), "\n")
-	if !strings.Contains(env, "CLAUDE_CODE_OAUTH_TOKEN=tok") || strings.Contains(env, "ANTHROPIC_API_KEY=") {
-		t.Fatal("подписка должна вытеснять API-ключ")
-	}
 	t.Setenv("ANTHROPIC_BASE_URL", "https://openrouter.ai/api")
 	t.Setenv("ANTHROPIC_AUTH_TOKEN", "sk-or-x")
-	env = strings.Join(claudeEnv(config.Config{ClaudeOAuthToken: "tok"}), "\n")
-	if strings.Contains(env, "ANTHROPIC_BASE_URL=") || strings.Contains(env, "ANTHROPIC_AUTH_TOKEN=") {
+	creds := claudeCreds(config.Config{ClaudeOAuthToken: "sk-ant-oat01-tok", AnthropicAPIKey: "sk-ant-api03-key"})
+	if len(creds) != 2 || !creds[0].oauth || creds[1].oauth {
+		t.Fatalf("сначала подписка, потом ключ: %+v", creds)
+	}
+	env := strings.Join(claudeEnv(creds[0]), "\n")
+	if !strings.Contains(env, "CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-tok") || strings.Contains(env, "ANTHROPIC_API_KEY=") {
+		t.Fatal("подписка должна вытеснять API-ключ")
+	}
+	if strings.Contains(env, "openrouter") || strings.Contains(env, "ANTHROPIC_AUTH_TOKEN=") {
 		t.Fatal("переменные чужого провайдера не должны доходить до CLI")
 	}
-	env = strings.Join(claudeEnv(config.Config{AnthropicAPIKey: "key"}), "\n")
-	if !strings.Contains(env, "ANTHROPIC_API_KEY=key") {
-		t.Fatal("без токена — ключ API")
+	env = strings.Join(claudeEnv(creds[1]), "\n")
+	if !strings.Contains(env, "ANTHROPIC_API_KEY=sk-ant-api03-key") || strings.Contains(env, "CLAUDE_CODE_OAUTH_TOKEN=") {
+		t.Fatal("ключ API — без токена подписки")
+	}
+}
+
+func TestClaudeCredsSortByShape(t *testing.T) {
+	// Токен подписки в ANTHROPIC_API_KEY, порванный переносом строки.
+	creds := claudeCreds(config.Config{AnthropicAPIKey: "\"sk-ant-oat01-ab\n cd\""})
+	if len(creds) != 1 || !creds[0].oauth || creds[0].value != "sk-ant-oat01-abcd" || creds[0].label() != "подписка" {
+		t.Fatalf("%+v", creds)
+	}
+	creds = claudeCreds(config.Config{ClaudeOAuthToken: "CLAUDE_CODE_OAUTH_TOKEN=sk-ant-api03-k"})
+	if len(creds) != 1 || creds[0].oauth || creds[0].value != "sk-ant-api03-k" {
+		t.Fatalf("%+v", creds)
+	}
+	odd := claudeCreds(config.Config{ClaudeOAuthToken: "mvl_abc"})
+	if len(odd) != 1 || !strings.Contains(odd[0].label(), "не похож") {
+		t.Fatalf("%+v", odd)
+	}
+	if !isClaudeAuthError("Failed to authenticate. API Error: 401 API key is invalid.") || isClaudeAuthError("claude sdk timeout") {
+		t.Fatal("auth error detection")
 	}
 }

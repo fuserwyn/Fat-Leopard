@@ -41,7 +41,7 @@ func isCursorModel(m string) bool {
 // подписки Claude Code (CLAUDE_CODE_OAUTH_TOKEN, `claude setup-token`);
 // ANTHROPIC_API_KEY — запасной, если токена нет.
 func claudeReady(cfg config.Config) bool {
-	return strings.TrimSpace(cfg.ClaudeOAuthToken) != "" || strings.TrimSpace(cfg.AnthropicAPIKey) != ""
+	return len(claudeCreds(cfg)) > 0
 }
 
 func cursorReady(cfg config.Config) bool {
@@ -159,13 +159,32 @@ func claudeRunPath() string {
 }
 
 func runClaudeLocal(cfg config.Config, job store.Job, repoDir, branch string) (string, error) {
-	if !claudeReady(cfg) {
+	creds := claudeCreds(cfg)
+	if len(creds) == 0 {
 		return "", fmt.Errorf("нет CLAUDE_CODE_OAUTH_TOKEN для Claude Agent SDK")
 	}
 	repoDir = strings.TrimSpace(repoDir)
 	if repoDir == "" {
 		return "", fmt.Errorf("нет каталога репозитория")
 	}
+	var errs []string
+	for _, cred := range creds {
+		note, err := runClaudeOnce(cfg, job, repoDir, branch, cred)
+		if err == nil {
+			return note, nil
+		}
+		errs = append(errs, err.Error())
+		// Дальше пробуем второй доступ только если этот не пустили:
+		// протухший токен подписки не должен ронять задачу при живом ключе API.
+		if !isClaudeAuthError(err.Error()) {
+			break
+		}
+	}
+	return "", fmt.Errorf("%s", strings.Join(errs, "; "))
+}
+
+func runClaudeOnce(cfg config.Config, job store.Job, repoDir, branch string, cred claudeCred) (string, error) {
+	tag := "claude sdk (" + cred.label() + ")"
 	payload, err := json.Marshal(map[string]string{
 		"cwd":    repoDir,
 		"prompt": claudeDoingPrompt(job, branch),
@@ -180,7 +199,7 @@ func runClaudeLocal(cfg config.Config, job store.Job, repoDir, branch string) (s
 	// тоже плодит шеллы), по таймауту убивается вся группа.
 	cmd := cursorCmd(ctx, claudeRunPath())
 	cmd.Dir = repoDir
-	cmd.Env = claudeEnv(cfg)
+	cmd.Env = claudeEnv(cred)
 	cmd.Stdin = bytes.NewReader(payload)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -190,31 +209,104 @@ func runClaudeLocal(cfg config.Config, job store.Job, repoDir, branch string) (s
 	var out cursorLocalOut
 	if raw := lastJSONLine(stdout.Bytes()); len(raw) > 0 {
 		if jerr := json.Unmarshal(raw, &out); jerr != nil {
-			return "", fmt.Errorf("claude sdk: %s", clip(string(raw)+" "+stderr.String(), 240))
+			return "", fmt.Errorf("%s: %s", tag, clip(string(raw)+" "+stderr.String(), 240))
 		}
 	}
 	if runErr != nil && !out.OK && strings.TrimSpace(out.Error) == "" {
 		if ctx.Err() != nil {
-			return "", fmt.Errorf("claude sdk timeout")
+			return "", fmt.Errorf("%s timeout", tag)
 		}
 		msg := strings.TrimSpace(stderr.String())
 		if msg == "" {
 			msg = runErr.Error()
 		}
-		return "", fmt.Errorf("claude sdk: %s", clip(msg, 240))
+		return "", fmt.Errorf("%s: %s", tag, clip(msg, 240))
 	}
 	if !out.OK {
 		errText := strings.TrimSpace(out.Error)
 		if errText == "" {
 			errText = "claude sdk не сдал задачу"
 		}
-		return "", fmt.Errorf("claude sdk: %s", clip(errText, 240))
+		return "", fmt.Errorf("%s: %s", tag, clip(errText, 240))
 	}
 	note := strings.TrimSpace(out.Result)
 	if note == "" {
 		note = "Claude сдал задачу."
 	}
 	return note, nil
+}
+
+// claudeCred — один способ авторизации CLI Claude.
+type claudeCred struct {
+	oauth bool // токен подписки Claude Code, иначе ключ API
+	value string
+}
+
+// label — что именно пробовали, чтобы по ошибке на доске было видно,
+// какой доступ не пустили и похож ли он вообще на нужный.
+func (c claudeCred) label() string {
+	if c.oauth {
+		if !strings.HasPrefix(c.value, claudeOAuthPrefix) {
+			return "подписка, токен не похож на " + claudeOAuthPrefix + "…"
+		}
+		return "подписка"
+	}
+	if !strings.HasPrefix(c.value, "sk-ant-") {
+		return "ключ API, не похож на sk-ant-…"
+	}
+	return "ключ API"
+}
+
+const claudeOAuthPrefix = "sk-ant-oat"
+
+// claudeSecret чистит значение из Railway: токен из `claude setup-token`
+// длинный и при копировании из терминала рвётся переносом строки, а ещё
+// его вставляют вместе с именем переменной и кавычками.
+func claudeSecret(v string) string {
+	v = strings.Join(strings.Fields(v), "")
+	v = strings.Trim(v, "\"'")
+	if i := strings.Index(v, "="); i > 0 {
+		if left := v[:i]; left == "CLAUDE_CODE_OAUTH_TOKEN" || left == "ANTHROPIC_API_KEY" {
+			v = strings.Trim(v[i+1:], "\"'")
+		}
+	}
+	return v
+}
+
+// claudeCreds — доступы по порядку: сначала подписка, потом ключ API.
+// Значение раскладываем по виду, а не по имени переменной: токен подписки,
+// положенный в ANTHROPIC_API_KEY (или наоборот), даёт «401 API key is invalid».
+func claudeCreds(cfg config.Config) []claudeCred {
+	var oauth, key []claudeCred
+	for i, raw := range []string{cfg.ClaudeOAuthToken, cfg.AnthropicAPIKey} {
+		v := claudeSecret(raw)
+		if v == "" {
+			continue
+		}
+		isOAuth := i == 0
+		switch {
+		case strings.HasPrefix(v, claudeOAuthPrefix):
+			isOAuth = true
+		case strings.HasPrefix(v, "sk-ant-api"):
+			isOAuth = false
+		}
+		if isOAuth {
+			oauth = append(oauth, claudeCred{oauth: true, value: v})
+		} else {
+			key = append(key, claudeCred{value: v})
+		}
+	}
+	return append(oauth, key...)
+}
+
+func isClaudeAuthError(msg string) bool {
+	low := strings.ToLower(msg)
+	for _, s := range []string{"401", "403", "authenticate", "api key", "oauth", "unauthorized", "/login"} {
+		if strings.Contains(low, s) {
+			return true
+		}
+	}
+	return false
 }
 
 // claudeForeignEnv — что не должно протечь в CLI Claude из окружения сервиса.
@@ -230,15 +322,15 @@ var claudeForeignEnv = map[string]bool{
 	"CLAUDE_CODE_SUBAGENT_MODEL":     true,
 }
 
-// claudeEnv — окружение для CLI Claude. Если есть токен подписки, ключ API
-// из окружения убираем: CLI предпочитает ANTHROPIC_API_KEY и иначе пойдёт
-// в платный API, а не по подписке.
+// claudeEnv — окружение для CLI Claude под один доступ. Второй из окружения
+// убираем: CLI предпочитает ANTHROPIC_API_KEY и при токене подписки иначе
+// пошёл бы в платный API.
 //
 // Переменные чужого провайдера (OpenRouter и т.п. — ANTHROPIC_BASE_URL,
 // ANTHROPIC_AUTH_TOKEN, подмена моделей), заданные в Railway на проект,
 // тоже убираем, как в myvibelab: с ними CLI идёт не в Anthropic и падает
 // «401 API key is invalid».
-func claudeEnv(cfg config.Config) []string {
+func claudeEnv(cred claudeCred) []string {
 	env := make([]string, 0, len(os.Environ())+3)
 	for _, kv := range os.Environ() {
 		name, _, _ := strings.Cut(kv, "=")
@@ -247,11 +339,13 @@ func claudeEnv(cfg config.Config) []string {
 		}
 		env = append(env, kv)
 	}
-	if tok := strings.TrimSpace(cfg.ClaudeOAuthToken); tok != "" {
-		env = append(env, "CLAUDE_CODE_OAUTH_TOKEN="+tok)
+	if cred.oauth {
+		env = append(env, "CLAUDE_CODE_OAUTH_TOKEN="+cred.value)
 	} else {
-		env = append(env, "ANTHROPIC_API_KEY="+strings.TrimSpace(cfg.AnthropicAPIKey))
+		env = append(env, "ANTHROPIC_API_KEY="+cred.value)
 	}
+	// Как в myvibelab: адрес API задаём явно, а не полагаемся на умолчание.
+	env = append(env, "ANTHROPIC_BASE_URL=https://api.anthropic.com")
 	return append(env, "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1")
 }
 
