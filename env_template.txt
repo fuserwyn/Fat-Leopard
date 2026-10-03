@@ -58,6 +58,16 @@ OPENROUTER_VISION_MODEL=openai/gpt-4o-mini
 #   NOTIFY_SECRET=...   # тот же, что TRACKER_SECRET
 #   TRACKER_SECRET=...
 #
+# Исполнитель задач трекера (ms_tracker): Cursor SDK или Claude Agent SDK.
+#   CURSOR_API_KEY=...        # Cursor (как раньше)
+#   ANTHROPIC_API_KEY=...     # Claude Agent SDK (claude_run.py)
+#   TRACKER_AGENT=claude      # исполнитель по умолчанию: cursor | claude
+#                             # (пусто: cursor, а если есть только ANTHROPIC_API_KEY — claude)
+#   CLAUDE_MODEL=claude-opus-5-5   # модель Claude по умолчанию
+#   CLAUDE_MAX_TURNS=80       # лимит ходов агента на одну задачу
+# На отдельную задачу: модель карточки (model_key / BOARD_MODEL у ms_leo)
+#   claude-*  (напр. claude-sonnet-5-5) → Claude, composer-* → Cursor.
+#
 # Автодеплой трекера на Railway — как в myvibelab: после пуша в main ms_tracker
 # сам заказывает сборку (serviceInstanceDeploy + latestCommit), не ждёт вебхук.
 # Нужны на ms_tracker и на ms_leo:

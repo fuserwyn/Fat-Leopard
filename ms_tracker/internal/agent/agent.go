@@ -133,8 +133,10 @@ func applyDoing(cfg config.Config, job store.Job) (Result, error) {
 	if strings.TrimSpace(cfg.GithubToken) == "" || strings.TrimSpace(cfg.Repo) == "" {
 		return Result{}, fmt.Errorf("нет GitHub")
 	}
-	if shouldRunCursor(job.Prompt, 0) && strings.TrimSpace(cfg.CursorAPIKey) == "" {
-		return Result{}, fmt.Errorf("нет CURSOR_API_KEY")
+	if shouldRunCursor(job.Prompt, 0) {
+		if kerr := agentKeyError(cfg, job); kerr != nil {
+			return Result{}, kerr
+		}
 	}
 	dir, err := os.MkdirTemp("", "leo-tracker-doing-*")
 	if err != nil {
@@ -154,11 +156,11 @@ func applyDoing(cfg config.Config, job store.Job) (Result, error) {
 			note = "Номинал уже есть в config.go."
 		}
 	} else if n == 0 {
-		if strings.TrimSpace(cfg.CursorAPIKey) == "" {
-			return Result{Branch: branch}, fmt.Errorf("нет CURSOR_API_KEY")
+		if kerr := agentKeyError(cfg, job); kerr != nil {
+			return Result{Branch: branch}, kerr
 		}
 		var err error
-		note, err = runCursorLocal(cfg, job, repoDir, branch)
+		note, err = runAgentLocal(cfg, job, repoDir, branch)
 		if err != nil {
 			if fallback, fn, ferr := applyKnownTask(repoDir, job.Prompt); ferr == nil && fn > 0 {
 				note = fallback
