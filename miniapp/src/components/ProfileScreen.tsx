@@ -1042,6 +1042,9 @@ export function ProfileScreen({
             <div className="profile__xp-bar">
               <div className="profile__xp-fill" style={{ width: `${barPct}%` }} />
             </div>
+            <svg className="profile__xp-chevron" viewBox="0 0 8 14" width="8" height="14" aria-hidden focusable="false">
+              <path d="M1.5 1.5 6.5 7l-5 5.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </div>
           <span className="profile__xp-txt">{cupProgressLabel}</span>
         </button>
