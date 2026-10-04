@@ -16,15 +16,17 @@ func TestAgentEngine(t *testing.T) {
 		job  store.Job
 		want string
 	}{
-		{"default cursor", both, store.Job{}, engineCursor},
+		{"default claude", both, store.Job{}, engineClaude},
+		{"board default model", both, store.Job{Model: "cursor-composer"}, engineClaude},
 		{"job claude", both, store.Job{Model: "claude-sonnet-5-5"}, engineClaude},
 		{"job claude alias", both, store.Job{Model: "Claude"}, engineClaude},
-		{"job composer beats env", config.Config{TrackerAgent: "claude"}, store.Job{Model: "composer-2.5"}, engineCursor},
-		{"env claude", config.Config{TrackerAgent: "claude", CursorAPIKey: "c"}, store.Job{Model: "cursor-composer"}, engineClaude},
+		{"job composer beats default", both, store.Job{Model: "composer-2.5"}, engineCursor},
+		{"env cursor", config.Config{TrackerAgent: "cursor", CursorAPIKey: "c", ClaudeOAuthToken: "o"}, store.Job{}, engineCursor},
+		{"env cursor, board default model", config.Config{TrackerAgent: "cursor", CursorAPIKey: "c", ClaudeOAuthToken: "o"}, store.Job{Model: "cursor-composer"}, engineCursor},
+		{"only cursor key", config.Config{CursorAPIKey: "c"}, store.Job{}, engineCursor},
 		{"only anthropic key", config.Config{AnthropicAPIKey: "a"}, store.Job{}, engineClaude},
 		{"cursor without key falls to claude", config.Config{TrackerAgent: "cursor", ClaudeOAuthToken: "o"}, store.Job{}, engineClaude},
 		{"composer without key falls to claude", config.Config{ClaudeOAuthToken: "o"}, store.Job{Model: "composer-2.5"}, engineClaude},
-		{"env cursor", config.Config{TrackerAgent: "cursor", CursorAPIKey: "c", ClaudeOAuthToken: "o"}, store.Job{}, engineCursor},
 	}
 	for _, c := range cases {
 		if got := agentEngine(c.cfg, c.job); got != c.want {

@@ -14,7 +14,7 @@ import (
 	"leo-tracker/internal/store"
 )
 
-// Claude Agent SDK — второй исполнитель задач рядом с Cursor SDK.
+// Claude Agent SDK — основной исполнитель задач; Cursor SDK — запасной.
 // Запускается так же: python-скрипт в клоне репо, JSON через stdin/stdout.
 
 const (
@@ -51,22 +51,25 @@ func cursorReady(cfg config.Config) bool {
 // agentEngine — с кого начинать задачу:
 //  1. модель карточки: claude-* → Claude, composer-*/cursor-* → Cursor;
 //  2. TRACKER_AGENT=claude|cursor;
-//  3. по умолчанию Cursor, а если у Cursor нет ключа — Claude.
+//  3. по умолчанию Claude, а если у Claude нет доступа — Cursor.
 //
-// Если начали с Cursor и он недоступен (ошибка, таймаут, лимит, сдал
-// пустоту) — runAgentLocal сам передаёт задачу Claude.
+// Если первый исполнитель недоступен (нет токенов, лимит, ошибка, таймаут) —
+// runAgentLocal сам передаёт задачу второму.
 func agentEngine(cfg config.Config, job store.Job) string {
-	pick := engineCursor
+	pick := engineClaude
 	switch {
 	case isClaudeModel(job.Model):
 		pick = engineClaude
 	case isCursorModel(job.Model) && !strings.EqualFold(strings.TrimSpace(job.Model), "cursor-composer"):
 		pick = engineCursor
-	case strings.EqualFold(strings.TrimSpace(cfg.TrackerAgent), engineClaude):
-		pick = engineClaude
+	case strings.EqualFold(strings.TrimSpace(cfg.TrackerAgent), engineCursor):
+		pick = engineCursor
 	}
 	if pick == engineCursor && !cursorReady(cfg) && claudeReady(cfg) {
 		return engineClaude
+	}
+	if pick == engineClaude && !claudeReady(cfg) && cursorReady(cfg) {
+		return engineCursor
 	}
 	return pick
 }
@@ -85,9 +88,20 @@ func agentKeyError(cfg config.Config, job store.Job) error {
 	return nil
 }
 
+// runAgentLocal запускает основного исполнителя, а при его сбое — запасного.
+// Кто именно сделал задачу, в заметку не пишем: на доске это шум.
 func runAgentLocal(cfg config.Config, job store.Job, repoDir, branch string) (string, error) {
 	if agentEngine(cfg, job) == engineClaude {
-		return runClaudeLocal(cfg, job, repoDir, branch)
+		note, err := runClaudeLocal(cfg, job, repoDir, branch)
+		if err == nil || !cursorReady(cfg) {
+			return note, err
+		}
+		resetWorktree(repoDir)
+		cnote, cerr := runCursorLocal(cfg, job, repoDir, branch)
+		if cerr != nil {
+			return "", fmt.Errorf("%v; запасной Cursor: %v", err, cerr)
+		}
+		return cnote, nil
 	}
 	note, err := runCursorLocal(cfg, job, repoDir, branch)
 	if !claudeReady(cfg) {
@@ -101,14 +115,19 @@ func runAgentLocal(cfg config.Config, job store.Job, repoDir, branch string) (st
 		}
 		err = fmt.Errorf("cursor sdk сдал задачу без правок")
 	}
-	// Откатываем недоделки Cursor, чтобы Claude начал с чистой ветки.
-	_ = run(repoDir, "git", "reset", "--hard", "HEAD")
-	_ = run(repoDir, "git", "clean", "-fd")
+	resetWorktree(repoDir)
 	cnote, cerr := runClaudeLocal(cfg, job, repoDir, branch)
 	if cerr != nil {
 		return "", fmt.Errorf("%v; запасной Claude: %v", err, cerr)
 	}
-	return "Cursor недоступен (" + clip(err.Error(), 160) + "), задачу сделал Claude.\n\n" + cnote, nil
+	return cnote, nil
+}
+
+// resetWorktree откатывает недоделки первого исполнителя, чтобы запасной
+// начал с чистой ветки.
+func resetWorktree(repoDir string) {
+	_ = run(repoDir, "git", "reset", "--hard", "HEAD")
+	_ = run(repoDir, "git", "clean", "-fd")
 }
 
 func claudeModelID(cfg config.Config, job store.Job) string {

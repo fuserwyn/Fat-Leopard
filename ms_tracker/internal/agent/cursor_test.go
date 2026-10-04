@@ -34,7 +34,7 @@ func TestCursorDoingPrompt(t *testing.T) {
 }
 
 func TestApplyDoingRequiresCursorKey(t *testing.T) {
-	_, err := applyDoing(config.Config{GithubToken: "t", Repo: "o/r"}, store.Job{Prompt: "x"})
+	_, err := applyDoing(config.Config{GithubToken: "t", Repo: "o/r", TrackerAgent: "cursor"}, store.Job{Prompt: "x"})
 	if err == nil || !strings.Contains(err.Error(), "CURSOR_API_KEY") {
 		t.Fatalf("%v", err)
 	}

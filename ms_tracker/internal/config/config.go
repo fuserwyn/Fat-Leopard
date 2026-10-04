@@ -14,13 +14,13 @@ type Config struct {
 	CursorAPIKey    string
 	CursorAPI       string
 	CursorModel     string
-	// Claude Agent SDK — запасной исполнитель задач (claude_run.py).
+	// Claude Agent SDK — основной исполнитель задач (claude_run.py).
 	// Основной доступ — токен подписки Claude Code (`claude setup-token`).
 	ClaudeOAuthToken string
 	AnthropicAPIKey  string
 	ClaudeModel      string
-	// TrackerAgent — с кого начинать: "cursor" (по умолчанию) или "claude".
-	// Claude подхватывает задачу, если Cursor недоступен.
+	// TrackerAgent — с кого начинать: "claude" (по умолчанию) или "cursor".
+	// Второй подхватывает задачу, если первый недоступен.
 	TrackerAgent     string
 	GithubToken      string
 	GithubAPI        string
