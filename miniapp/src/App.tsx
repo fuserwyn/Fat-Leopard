@@ -489,6 +489,7 @@ export function App() {
             lastTrainingDate={lastTrainingDate || undefined}
             inactivityRemovalAt={inactivityRemovalAt || undefined}
             showAlert={showAlert}
+            packWorkoutsGoal={packWorkoutsGoal}
             onProfileSaved={(displayName) => {
               setProfileDisplayName(displayName.trim());
             }}
@@ -526,6 +527,7 @@ export function App() {
           inTelegram={inTelegram}
           showAlert={showAlert}
           onClose={() => setAdminOpen(false)}
+          onPackGoalChange={setPackWorkoutsGoal}
         />
       ) : null}
 

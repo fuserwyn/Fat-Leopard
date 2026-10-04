@@ -486,6 +486,56 @@ func (s *Server) handlePostAdminPaywallPriceSet(w http.ResponseWriter, r *http.R
 	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "price": price})
 }
 
+func (s *Server) handlePostAdminPackGoal(w http.ResponseWriter, r *http.Request) {
+	corsWriteHeaders(w, r)
+	var body struct {
+		InitData string `json:"init_data"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		s.jsonErr(w, http.StatusBadRequest, "invalid_json")
+		return
+	}
+	parsed, ok := s.authMiniapp(w, body.InitData)
+	if !ok {
+		return
+	}
+	goal, err := s.bot.MiniappAdminPackGoal(parsed.User.ID, parsed)
+	if err != nil {
+		s.writeAdminErr(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "pack_goal": goal})
+}
+
+func (s *Server) handlePostAdminPackGoalSet(w http.ResponseWriter, r *http.Request) {
+	corsWriteHeaders(w, r)
+	var body struct {
+		InitData string `json:"init_data"`
+		Goal     int    `json:"goal"`
+		Reset    bool   `json:"reset"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		s.jsonErr(w, http.StatusBadRequest, "invalid_json")
+		return
+	}
+	parsed, ok := s.authMiniapp(w, body.InitData)
+	if !ok {
+		return
+	}
+	if err := s.bot.MiniappAdminSetPackGoal(parsed.User.ID, parsed, body.Goal, body.Reset); err != nil {
+		s.writeAdminErr(w, err)
+		return
+	}
+	goal, err := s.bot.MiniappAdminPackGoal(parsed.User.ID, parsed)
+	if err != nil {
+		s.writeAdminErr(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "pack_goal": goal})
+}
+
 // --- Разделы, переехавшие из чат-админки (bot/miniapp_admin_ops.go) --------
 
 // handlePostAdminUserStat — правка показателей участника из карточки.
@@ -526,6 +576,8 @@ func (s *Server) handlePostAdminAnalytics(w http.ResponseWriter, r *http.Request
 	var body struct {
 		InitData string `json:"init_data"`
 		Days     int    `json:"days"`
+		// Dashboard — досчитать ряды, когорты и сравнение для раздела «Дашборды».
+		Dashboard bool `json:"dashboard"`
 	}
 	corsWriteHeaders(w, r)
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -536,7 +588,7 @@ func (s *Server) handlePostAdminAnalytics(w http.ResponseWriter, r *http.Request
 	if !ok {
 		return
 	}
-	data, err := s.bot.MiniappAdminAnalyticsData(parsed.User.ID, parsed, body.Days)
+	data, err := s.bot.MiniappAdminAnalyticsData(parsed.User.ID, parsed, body.Days, body.Dashboard)
 	if err != nil {
 		s.writeAdminErr(w, err)
 		return

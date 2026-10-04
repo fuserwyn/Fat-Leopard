@@ -25,6 +25,39 @@ func PackWeeklyWorkoutGoalForWeek(weekStart string) int {
 	return PackWeeklyWorkoutGoal
 }
 
+const (
+	minPackWeeklyWorkoutGoal = 1
+	maxPackWeeklyWorkoutGoal = 10_000
+)
+
+func parsePackWeeklyWorkoutGoal(goal int) (int, error) {
+	if goal < minPackWeeklyWorkoutGoal || goal > maxPackWeeklyWorkoutGoal {
+		return 0, fmt.Errorf("цель должна быть от %d до %d тренировок", minPackWeeklyWorkoutGoal, maxPackWeeklyWorkoutGoal)
+	}
+	return goal, nil
+}
+
+// packWeeklyWorkoutGoalOverride — цель, которую админ выставил в мини-аппе (0 — не задана).
+func (b *Bot) packWeeklyWorkoutGoalOverride(packChatID int64) int {
+	if b == nil || b.db == nil || packChatID == 0 {
+		return 0
+	}
+	n, ok, err := b.db.GetPackWeeklyWorkoutGoal(packChatID)
+	if err != nil || !ok || n <= 0 {
+		return 0
+	}
+	return n
+}
+
+// packWeeklyWorkoutGoal — действующая цель стаи: оверрайд админа или значение по умолчанию.
+// Оверрайд действует сразу, в том числе на текущую неделю.
+func (b *Bot) packWeeklyWorkoutGoal(packChatID int64, weekStart string) int {
+	if n := b.packWeeklyWorkoutGoalOverride(packChatID); n > 0 {
+		return n
+	}
+	return PackWeeklyWorkoutGoalForWeek(weekStart)
+}
+
 // PackWeeklyGoalCupsBonus — кубки каждому участнику стаи при достижении недельной цели.
 const PackWeeklyGoalCupsBonus = 50
 
@@ -51,7 +84,7 @@ func (b *Bot) GetMiniappPackWeeklyProgressForAPI(packChatID int64) MiniappPackWe
 	now := utils.GetMoscowTime()
 	out.WeekStart = utils.WeekStartMondayMSK(now)
 	out.WeekEnd = utils.WeekEndSundayMSK(now)
-	out.Goal = PackWeeklyWorkoutGoalForWeek(out.WeekStart)
+	out.Goal = b.packWeeklyWorkoutGoal(packChatID, out.WeekStart)
 	today := now.Format("2006-01-02")
 	count, err := b.db.CountPackTrainingSessionsInDateRange(packChatID, out.WeekStart, today)
 	if err != nil {
@@ -89,7 +122,7 @@ func (b *Bot) MaybeGrantPackWeeklyGoalBonus(packChatID int64) {
 		b.logger.Warnf("pack weekly bonus count pack=%d: %v", packChatID, err)
 		return
 	}
-	goal := PackWeeklyWorkoutGoalForWeek(weekStart)
+	goal := b.packWeeklyWorkoutGoal(packChatID, weekStart)
 	if count < goal {
 		return
 	}

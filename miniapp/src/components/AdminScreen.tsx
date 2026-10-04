@@ -5,6 +5,7 @@ import { tgConfirm } from "../lib/tgConfirm";
 import {
   fetchAdminHidden,
   fetchAdminOverview,
+  fetchAdminPackGoal,
   fetchAdminPaywallPrice,
   fetchAdminReports,
   fetchAdminSupportInbox,
@@ -12,8 +13,10 @@ import {
   fetchAdminUserCard,
   fetchAdminUsers,
   publishAdminPost,
+  resetAdminPackGoal,
   resetAdminPaywallPrice,
   restoreAdminHidden,
+  saveAdminPackGoal,
   saveAdminPaywallPrice,
   sendAdminReportAction,
   sendAdminSupportReply,
@@ -22,6 +25,7 @@ import {
   setAdminUserStat,
   type AdminHiddenItem,
   type AdminOverview,
+  type AdminPackGoal,
   type AdminPaywallPrice,
   type AdminReport,
   type AdminSupportConv,
@@ -54,6 +58,7 @@ type Page =
   | "card"
   | "announce"
   | "price"
+  | "packgoal"
   | "leolab"
   | "prompts"
   | "dashboards"
@@ -83,6 +88,8 @@ type Props = {
   inTelegram: boolean;
   showAlert: (m: string) => void;
   onClose: () => void;
+  /** Админ поменял недельную цель стаи — обновить прогресс-бар в ленте без перезагрузки. */
+  onPackGoalChange?: (goal: number) => void;
 };
 
 const EMPTY_OVERVIEW: AdminOverview = {
@@ -134,7 +141,7 @@ function hiddenKind(kind: string) {
   }
 }
 
-export function AdminScreen({ initData, inTelegram, showAlert, onClose }: Props) {
+export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGoalChange }: Props) {
   const sheetRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -197,6 +204,8 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose }: Props)
 
   const [price, setPrice] = useState<AdminPaywallPrice | null>(null);
   const [priceInput, setPriceInput] = useState("");
+  const [packGoal, setPackGoal] = useState<AdminPackGoal | null>(null);
+  const [packGoalInput, setPackGoalInput] = useState("");
 
   const loadOverview = useCallback(async () => {
     if (!inTelegram || !initData) return;
@@ -480,6 +489,62 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose }: Props)
     }
   };
 
+  const applyPackGoal = (g: AdminPackGoal) => {
+    setPackGoal(g);
+    setPackGoalInput(String(g.goal));
+    onPackGoalChange?.(g.goal);
+  };
+
+  const openPackGoal = async () => {
+    setPage("packgoal");
+    try {
+      const j = await fetchAdminPackGoal(initData);
+      applyPackGoal(j.pack_goal);
+    } catch (e) {
+      showAlert(e instanceof Error ? e.message : "Не удалось загрузить цель");
+    }
+  };
+
+  const savePackGoal = async () => {
+    if (busy) return;
+    const n = Number.parseInt(packGoalInput.trim(), 10);
+    if (!Number.isFinite(n) || n < 1 || n > 10000) {
+      showAlert("Цель — целое число от 1 до 10000 тренировок");
+      return;
+    }
+    const done = packGoal?.workouts_week ?? 0;
+    const warn =
+      packGoal && !packGoal.goal_reached && n <= done
+        ? ` Стая уже сделала ${done} — бонус недели выдастся сразу.`
+        : "";
+    if (!(await tgConfirm(`Выставить цель стаи ${n} тренировок в неделю? Действует сразу, с текущей недели.${warn}`))) return;
+    setBusy(true);
+    try {
+      const j = await saveAdminPackGoal(initData, n);
+      applyPackGoal(j.pack_goal);
+      showAlert(`Цель стаи: ${j.pack_goal.goal} тренировок в неделю`);
+    } catch (e) {
+      showAlert(e instanceof Error ? e.message : "Не удалось сохранить цель");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resetPackGoal = async () => {
+    if (busy || !packGoal) return;
+    if (!(await tgConfirm(`Вернуть цель к значению по умолчанию (${packGoal.default_goal})?`))) return;
+    setBusy(true);
+    try {
+      const j = await resetAdminPackGoal(initData);
+      applyPackGoal(j.pack_goal);
+      showAlert(`Цель сброшена: ${j.pack_goal.goal} тренировок в неделю`);
+    } catch (e) {
+      showAlert(e instanceof Error ? e.message : "Не удалось сбросить цель");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const openPrice = async () => {
     setPage("price");
     try {
@@ -684,6 +749,8 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose }: Props)
                   ? userLabel(card?.display_name, card?.username, card?.user_id)
                   : page === "price"
                     ? "Цена доступа"
+                    : page === "packgoal"
+                      ? "Цель стаи"
                     : page === "dashboards"
                       ? "Дашборды"
                       : page === "analytics"
@@ -820,6 +887,13 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose }: Props)
                         ? `${overview.access_price_rub} ₽ · вход и возврат`
                         : "сколько платят за вход и возврат"}
                     </small>
+                  </span>
+                </button>
+                <button type="button" className="admin__tile" onClick={() => void openPackGoal()}>
+                  <span className="admin__tile-ico">🎯</span>
+                  <span className="admin__tile-text">
+                    <b>Цель стаи</b>
+                    <small>{packGoal ? `${packGoal.goal} тренировок в неделю` : "тренировок в неделю до бонуса"}</small>
                   </span>
                 </button>
               </div>
@@ -1437,6 +1511,44 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose }: Props)
           {price?.is_custom ? (
             <button type="button" className="admin__btn admin__btn--ghost admin__btn--wide" disabled={busy} onClick={() => void resetPrice()}>
               Сбросить к {price.default_amount_rub} ₽
+            </button>
+          ) : null}
+        </div>
+      )}
+      {page === "packgoal" && (
+        <div className="admin__body">
+          <p className="admin__muted admin__hint">
+            Сколько тренировок стая должна сделать за неделю (с понедельника 00:00 МСК), чтобы каждый получил бонусные
+            кубки и тему «Стая» на сутки. Новая цель действует сразу, с текущей недели.
+          </p>
+          <label className="admin__price">
+            <span>Цель, тренировок</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={10000}
+              step={1}
+              value={packGoalInput}
+              onChange={(e) => setPackGoalInput(e.target.value)}
+            />
+          </label>
+          {packGoal ? (
+            <p className="admin__row-meta">
+              Сейчас {packGoal.goal}
+              {packGoal.is_custom ? " · задана админом" : " · значение по умолчанию"}
+              {` · на этой неделе ${packGoal.workouts_week}/${packGoal.goal}`}
+              {packGoal.goal_reached ? " · цель достигнута" : ""}
+            </p>
+          ) : (
+            <p className="admin__muted">Загрузка…</p>
+          )}
+          <button type="button" className="admin__btn admin__btn--wide" disabled={busy || !packGoalInput.trim()} onClick={() => void savePackGoal()}>
+            Сохранить
+          </button>
+          {packGoal?.is_custom ? (
+            <button type="button" className="admin__btn admin__btn--ghost admin__btn--wide" disabled={busy} onClick={() => void resetPackGoal()}>
+              Сбросить к {packGoal.default_goal}
             </button>
           ) : null}
         </div>

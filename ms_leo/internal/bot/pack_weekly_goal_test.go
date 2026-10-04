@@ -24,3 +24,21 @@ func TestPackWeeklyGoalAchievedFeedMessageUsesGoal(t *testing.T) {
 		t.Fatalf("unexpected message: %s", msg)
 	}
 }
+
+func TestParsePackWeeklyWorkoutGoal(t *testing.T) {
+	for _, bad := range []int{-5, 0, maxPackWeeklyWorkoutGoal + 1} {
+		if _, err := parsePackWeeklyWorkoutGoal(bad); err == nil {
+			t.Errorf("goal %d должен отклоняться", bad)
+		}
+	}
+	if got, err := parsePackWeeklyWorkoutGoal(120); err != nil || got != 120 {
+		t.Fatalf("120: %d %v", got, err)
+	}
+}
+
+func TestPackWeeklyWorkoutGoalWithoutOverride(t *testing.T) {
+	var b *Bot
+	if got := b.packWeeklyWorkoutGoal(1, "2026-10-05"); got != PackWeeklyWorkoutGoal {
+		t.Fatalf("без базы — цель по умолчанию, got %d", got)
+	}
+}

@@ -1659,6 +1659,22 @@ var Migrations = []Migration{
 			DROP TABLE IF EXISTS pack_weekly_goal_member_cups;
 		`,
 	},
+	{
+		Version:     86,
+		Description: "Недельная цель стаи, которую админ задаёт из мини-аппа",
+		UpSQL: `
+			-- Одна строка на стаю: если её нет — действует цель по умолчанию из кода.
+			CREATE TABLE IF NOT EXISTS pack_weekly_goal_settings (
+				pack_chat_id BIGINT PRIMARY KEY,
+				goal         INTEGER NOT NULL CHECK (goal > 0 AND goal <= 100000),
+				updated_by   BIGINT  NOT NULL DEFAULT 0,
+				updated_at   TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+			);
+		`,
+		DownSQL: `
+			DROP TABLE IF EXISTS pack_weekly_goal_settings;
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции

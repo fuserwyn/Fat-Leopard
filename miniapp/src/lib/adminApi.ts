@@ -21,6 +21,15 @@ export type AdminPaywallPrice = {
   default_amount_rub: number;
 };
 
+export type AdminPackGoal = {
+  goal: number;
+  is_custom: boolean;
+  default_goal: number;
+  workouts_week: number;
+  week_start: string;
+  goal_reached: boolean;
+};
+
 export type AdminSupportConv = {
   user_id: number;
   display_name: string;
@@ -266,21 +275,71 @@ export function resetAdminPaywallPrice(initData: string) {
   });
 }
 
+export function fetchAdminPackGoal(initData: string) {
+  return post<{ pack_goal: AdminPackGoal }>("/api/miniapp/admin/pack-goal", initData);
+}
+
+export function saveAdminPackGoal(initData: string, goal: number) {
+  return post<{ pack_goal: AdminPackGoal }>("/api/miniapp/admin/pack-goal/set", initData, { goal });
+}
+
+export function resetAdminPackGoal(initData: string) {
+  return post<{ pack_goal: AdminPackGoal }>("/api/miniapp/admin/pack-goal/set", initData, {
+    reset: true,
+  });
+}
+
 /* Разделы, переехавшие из чат-админки: аналитика, посещения, оплаты, админы,
    отложенные посты, опросы и очистка ленты. Считает всё бэкенд теми же
    запросами, что и для чата, — здесь только показываем. */
 
+export type AdminTableKind = "kpi" | "funnel" | "retention" | "channels" | "events" | "visits";
+
 export type AdminTable = {
+  /** Что это за блок — по нему дашборд выбирает отрисовку. */
+  kind?: AdminTableKind;
   title: string;
   subtitle: string;
   columns: string[];
   rows: string[][];
 };
 
+export type AdminDashKpi = {
+  key: string;
+  label: string;
+  value: string;
+  /** Изменение к предыдущему периоду; пусто, если сравнивать не с чем. */
+  delta?: string;
+  trend?: "up" | "down" | "flat";
+  target?: string;
+  tone?: "good" | "bad";
+};
+
+export type AdminDashSeries = {
+  key: string;
+  label: string;
+  total: number;
+  points: { bucket: string; value: number }[];
+};
+
+export type AdminDashboard = {
+  compared: boolean;
+  kpis: AdminDashKpi[] | null;
+  series_bucket: "day" | "week";
+  series: AdminDashSeries[] | null;
+  active: { day: number; week: number; month: number; stickiness: string };
+  cohorts: { week_start: string; size: number; d1: string; d7: string; d30: string }[] | null;
+  money: { label: string; count: string; amount: string }[] | null;
+  pack_weeks: { week_start: string; workouts: number; goal: number; reached: boolean; current: boolean }[] | null;
+  channels: { source: string; started: number; paid: number; conv: string }[] | null;
+  visits: { visits: number; unique: number };
+};
+
 export type AdminAnalytics = {
   period: string;
   last_event_at: string;
   tables: AdminTable[];
+  dashboard?: AdminDashboard;
 };
 
 export type AdminPerson = {
@@ -304,8 +363,9 @@ export type AdminWipeCounts = {
   pack_chat_messages: number;
 };
 
-export function fetchAdminAnalytics(initData: string, days: number) {
-  return post<{ analytics: AdminAnalytics }>("/api/miniapp/admin/analytics", initData, { days });
+/** dashboard=true — сервер досчитает ряды, когорты и сравнение для раздела «Дашборды». */
+export function fetchAdminAnalytics(initData: string, days: number, dashboard = false) {
+  return post<{ analytics: AdminAnalytics }>("/api/miniapp/admin/analytics", initData, { days, dashboard });
 }
 
 export function fetchAdminVisits(initData: string) {

@@ -259,6 +259,10 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		s.handlePostAdminPaywallPrice(w, r)
 	case path == "/api/miniapp/admin/paywall-price/set" && r.Method == http.MethodPost:
 		s.handlePostAdminPaywallPriceSet(w, r)
+	case path == "/api/miniapp/admin/pack-goal" && r.Method == http.MethodPost:
+		s.handlePostAdminPackGoal(w, r)
+	case path == "/api/miniapp/admin/pack-goal/set" && r.Method == http.MethodPost:
+		s.handlePostAdminPackGoalSet(w, r)
 	case strings.HasPrefix(path, "/api/miniapp/media/") && r.Method == http.MethodGet:
 		s.handleGetMiniappMedia(w, r)
 	case path == "/" && r.Method == http.MethodGet:

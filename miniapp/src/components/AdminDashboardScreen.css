@@ -252,3 +252,162 @@
     grid-template-columns: repeat(3, 1fr);
   }
 }
+
+/* Изменение KPI к прошлому периоду */
+.dash-kpi__delta {
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.dash-kpi__delta--up {
+  color: #4cd06a;
+}
+
+.dash-kpi__delta--down {
+  color: #ff6b64;
+}
+
+.dash-stats--four {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+/* Ряды по дням и неделям — столбики без chart-библиотек */
+.dash-series-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 8px;
+}
+
+.dash-series__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.dash-series__head small {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.dash-series__bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 56px;
+  margin-top: 6px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.dash-series__bar {
+  flex: 1 1 0;
+  min-width: 0;
+  border-radius: 2px 2px 0 0;
+  background: color-mix(in srgb, var(--accent) 80%, transparent);
+}
+
+.dash-series__axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 3px;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+/* Таблицы: когорты и деньги */
+.dash-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dash-table th,
+.dash-table td {
+  padding: 6px 4px;
+  text-align: right;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.dash-table th {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.dash-table th:first-child,
+.dash-table td:first-child {
+  text-align: left;
+}
+
+.dash-table tr:last-child td {
+  border-bottom: 0;
+}
+
+/* Недельная цель стаи */
+.dash-pack {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.dash-pack__col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.dash-pack__col b {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dash-pack__col small {
+  font-size: 9.5px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.dash-pack__track {
+  position: relative;
+  width: 100%;
+  height: 72px;
+  display: flex;
+  align-items: flex-end;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.dash-pack__bar {
+  width: 100%;
+  border-radius: 3px 3px 0 0;
+  border: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
+  border-bottom: 0;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.dash-pack__bar.is-reached {
+  background: var(--accent);
+}
+
+.dash-pack__bar.is-current {
+  border-style: dashed;
+}
+
+.dash-pack__goal {
+  position: absolute;
+  left: -2px;
+  right: -2px;
+  height: 0;
+  border-top: 1px dashed var(--muted);
+}

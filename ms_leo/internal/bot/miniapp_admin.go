@@ -48,6 +48,16 @@ type MiniappAdminPaywallPrice struct {
 	DefaultAmountRub int    `json:"default_amount_rub"`
 }
 
+// MiniappAdminPackGoal — недельная цель стаи, которую админ может поменять.
+type MiniappAdminPackGoal struct {
+	Goal         int    `json:"goal"`
+	IsCustom     bool   `json:"is_custom"`
+	DefaultGoal  int    `json:"default_goal"`
+	WorkoutsWeek int    `json:"workouts_week"`
+	WeekStart    string `json:"week_start"`
+	GoalReached  bool   `json:"goal_reached"`
+}
+
 // MiniappAdminUserRow — строка списка/поиска пользователей.
 type MiniappAdminUserRow struct {
 	UserID           int64  `json:"user_id"`
@@ -180,6 +190,45 @@ func (b *Bot) MiniappAdminSetPaywallPrice(viewerUserID int64, initD initdata.Ini
 		return err
 	}
 	return b.db.SetPackPaywallAmountMinor(packID, minor, viewerUserID)
+}
+
+func (b *Bot) MiniappAdminPackGoal(viewerUserID int64, initD initdata.InitData) (MiniappAdminPackGoal, error) {
+	var out MiniappAdminPackGoal
+	packID, err := b.requireMiniappAdmin(viewerUserID, initD)
+	if err != nil {
+		return out, err
+	}
+	progress := b.GetMiniappPackWeeklyProgressForAPI(packID)
+	out = MiniappAdminPackGoal{
+		Goal:         progress.Goal,
+		IsCustom:     b.packWeeklyWorkoutGoalOverride(packID) > 0,
+		DefaultGoal:  PackWeeklyWorkoutGoalForWeek(progress.WeekStart),
+		WorkoutsWeek: progress.WorkoutsWeek,
+		WeekStart:    progress.WeekStart,
+		GoalReached:  progress.GoalReached,
+	}
+	return out, nil
+}
+
+func (b *Bot) MiniappAdminSetPackGoal(viewerUserID int64, initD initdata.InitData, goal int, reset bool) error {
+	packID, err := b.requireMiniappAdmin(viewerUserID, initD)
+	if err != nil {
+		return err
+	}
+	if reset {
+		err = b.db.ClearPackWeeklyWorkoutGoal(packID)
+	} else {
+		if goal, err = parsePackWeeklyWorkoutGoal(goal); err != nil {
+			return err
+		}
+		err = b.db.SetPackWeeklyWorkoutGoal(packID, goal, viewerUserID)
+	}
+	if err != nil {
+		return err
+	}
+	// Цель могли опустить ниже уже набранного — бонус недели выдаём сразу.
+	b.MaybeGrantPackWeeklyGoalBonus(packID)
+	return nil
 }
 
 func (b *Bot) MiniappAdminSupportInbox(viewerUserID int64, initD initdata.InitData) ([]*domain.MiniappSupportConversation, error) {

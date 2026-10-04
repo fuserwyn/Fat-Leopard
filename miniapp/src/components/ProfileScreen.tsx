@@ -97,6 +97,8 @@ type Props = {
   /** Ссылка на аватар из Telegram WebApp (initDataUnsafe.user.photo_url), если бот открыл мини-апп. */
   userPhotoUrl?: string;
   showAlert: (m: string) => void;
+  /** Недельная цель стаи с сервера (её может менять админ). */
+  packWorkoutsGoal?: number;
   onProfileSaved?: (displayName: string) => void;
   onStreakSaved?: () => void;
   onSupport?: () => void;
@@ -125,6 +127,7 @@ export function ProfileScreen({
   inTelegram,
   userPhotoUrl,
   showAlert,
+  packWorkoutsGoal = PACK_WEEKLY_GOAL_DEFAULT,
   onProfileSaved,
   onStreakSaved,
   onSupport,
@@ -1664,7 +1667,7 @@ export function ProfileScreen({
             aria-pressed={theme === "pack"}
             aria-disabled={!packUnlocked}
             disabled={!packUnlocked}
-            title={packUnlocked ? "Бонусная тема стаи на сутки" : `${PACK_WEEKLY_GOAL_DEFAULT} тренировок стаи за неделю`}
+            title={packUnlocked ? "Бонусная тема стаи на сутки" : `${packWorkoutsGoal} тренировок стаи за неделю`}
             onClick={() => changeTheme("pack")}
           >
             {THEME_LABELS.pack}
@@ -1677,7 +1680,7 @@ export function ProfileScreen({
           <p className="profile__theme-lock muted">Дикая тема — стрик 365 дней или 1000 тренировок</p>
         ) : null}
         {!packUnlocked ? (
-          <p className="profile__theme-lock muted">Тема «Стая» — {PACK_WEEKLY_GOAL_DEFAULT} тренировок стаи за неделю (сброс по понедельникам, 00:00 МСК)</p>
+          <p className="profile__theme-lock muted">Тема «Стая» — {packWorkoutsGoal} тренировок стаи за неделю (сброс по понедельникам, 00:00 МСК)</p>
         ) : null}
         </>
         )}

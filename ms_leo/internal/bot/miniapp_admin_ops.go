@@ -18,6 +18,9 @@ import (
 
 // MiniappAdminTable — таблица «как в чате»: заголовок, пояснение и строки.
 type MiniappAdminTable struct {
+	// Kind — что это за блок (kpi, funnel, retention, channels, events, visits):
+	// мини-апп выбирает отрисовку по нему, а не по тексту заголовка.
+	Kind     string     `json:"kind,omitempty"`
 	Title    string     `json:"title"`
 	Subtitle string     `json:"subtitle"`
 	Columns  []string   `json:"columns"`
@@ -28,18 +31,21 @@ type MiniappAdminAnalytics struct {
 	Period      string              `json:"period"`
 	LastEventAt string              `json:"last_event_at"`
 	Tables      []MiniappAdminTable `json:"tables"`
+	// Dashboard — данные для раздела «Дашборды»; считаются только по запросу.
+	Dashboard *MiniappAdminDashboard `json:"dashboard,omitempty"`
 }
 
 // MiniappAdminAnalyticsData — воронки, KPI, каналы и события за период.
+// days<=0 — за всё время. withDashboard добавляет данные раздела «Дашборды».
 func (b *Bot) MiniappAdminAnalyticsData(
-	viewerUserID int64, initD initdata.InitData, days int,
+	viewerUserID int64, initD initdata.InitData, days int, withDashboard bool,
 ) (MiniappAdminAnalytics, error) {
 	var out MiniappAdminAnalytics
 	if _, err := b.requireMiniappAdmin(viewerUserID, initD); err != nil {
 		return out, err
 	}
-	if days <= 0 {
-		days = 30
+	if days < 0 {
+		days = 0
 	}
 	counts, err := b.db.EventUniqueCounts(days)
 	if err != nil {
@@ -50,56 +56,49 @@ func (b *Bot) MiniappAdminAnalyticsData(
 		out.LastEventAt = last.In(time.FixedZone("MSK", 3*3600)).Format("02.01 15:04")
 	}
 
-	funnel := func(title, subtitle string, stages [][2]string) MiniappAdminTable {
-		tbl := MiniappAdminTable{Title: title, Subtitle: subtitle, Columns: []string{"Стадия", "Юзеры", "Конв"}}
-		var prev int64 = -1
-		for _, s := range stages {
-			n := counts[s[0]]
-			conv := "—"
-			if prev >= 0 {
-				conv = analyticsPct(n, prev)
+	kpis := b.dashKPIs(days)
+	kpiValue := func(key string) string {
+		for _, k := range kpis {
+			if k.Key == key {
+				return k.Value
 			}
-			tbl.Rows = append(tbl.Rows, []string{s[1], strconv.FormatInt(n, 10), conv})
-			prev = n
 		}
-		return tbl
+		return "—"
 	}
 
-	started := counts[database.EventBotStarted]
-	paywall := counts[database.EventPaywallViewed]
-	paid := counts[database.EventPaymentCompleted]
-	miniapp := counts[database.EventMiniappOpened]
-	logged := counts[database.EventWorkoutLogged]
+	funnel1, err := b.dashFunnelTable("1️⃣ Воронка: бот → оплата", days, [][2]string{
+		{database.EventBotStarted, "Старт бота"},
+		{database.EventPaywallViewed, "Пэйвол"},
+		{database.EventPaymentMethodSelected, "Выбор способа"},
+		{database.EventPaymentInitiated, "К оплате"},
+		{database.EventPaymentCompleted, "Оплатил"},
+		{database.EventMiniappOpened, "Открыл миниапп"},
+	}, func(c []int64) string {
+		return dashFunnelNote(fmt.Sprintf("⭐ пэйвол→оплата: %s · старт→оплата: %s", analyticsPct(c[4], c[1]), analyticsPct(c[4], c[0])))
+	})
+	if err != nil {
+		return out, err
+	}
+	out.Tables = append(out.Tables, funnel1)
 
-	out.Tables = append(out.Tables, funnel(
-		"1️⃣ Воронка: бот → оплата",
-		fmt.Sprintf("⭐ пэйвол→оплата: %s · старт→оплата: %s", analyticsPct(paid, paywall), analyticsPct(paid, started)),
-		[][2]string{
-			{database.EventBotStarted, "Старт бота"},
-			{database.EventPaywallViewed, "Пэйвол"},
-			{database.EventPaymentMethodSelected, "Выбор способа"},
-			{database.EventPaymentInitiated, "К оплате"},
-			{database.EventPaymentCompleted, "Оплатил"},
-			{database.EventMiniappOpened, "Открыл миниапп"},
-		},
-	))
-
-	out.Tables = append(out.Tables, funnel(
-		"2️⃣ Воронка: активация",
-		fmt.Sprintf("⭐ kill-метрика (первая трен./оплата): %s · таргет ≥35%%, kill <20%%", analyticsPct(logged, paid)),
-		[][2]string{
-			{database.EventMiniappOpened, "Открыл миниапп"},
-			{database.EventWorkoutLogStarted, "Открыл форму"},
-			{database.EventWorkoutLogged, "Залогал трен."},
-			{database.EventLeoCommentReceived, "Коммент Лео"},
-		},
-	))
+	funnel2, err := b.dashFunnelTable("2️⃣ Воронка: активация", days, [][2]string{
+		{database.EventMiniappOpened, "Открыл миниапп"},
+		{database.EventWorkoutLogStarted, "Открыл форму"},
+		{database.EventWorkoutLogged, "Залогал трен."},
+		{database.EventLeoCommentReceived, "Коммент Лео"},
+	}, func([]int64) string {
+		return dashFunnelNote(fmt.Sprintf("⭐ kill-метрика (первая трен./оплата): %s · таргет ≥35%%, kill <20%%", kpiValue("activation")))
+	})
+	if err != nil {
+		return out, err
+	}
+	out.Tables = append(out.Tables, funnel2)
 
 	retention := MiniappAdminTable{
+		Kind:  "retention",
 		Title: "3️⃣ Retention и серии",
 		Subtitle: fmt.Sprintf("Burn recovery: %s · Реактивация: %s",
-			analyticsPct(counts[database.EventBurnRecovered], counts[database.EventBurnWarningSent]),
-			analyticsPct(counts[database.EventAccountReactivated], counts[database.EventAccountDeletedInactivity])),
+			kpiValue("burn_recovery"), kpiValue("reactivation")),
 		Columns: []string{"Событие", "Юзеры"},
 	}
 	for _, r := range [][2]string{
@@ -120,22 +119,23 @@ func (b *Bot) MiniappAdminAnalyticsData(
 	out.Tables = append(out.Tables, retention)
 
 	kpi := MiniappAdminTable{
+		Kind:     "kpi",
 		Title:    "⭐ Сводка KPI",
-		Subtitle: "По уникальным юзерам. NSM, D7/D30 и Sean Ellis считаются когортно, не из events.",
+		Subtitle: "Доля тех, кто вошёл в шаг в этом периоде и дошёл до следующего. Удержание по когортам — в «Дашбордах».",
 		Columns:  []string{"Метрика", "Знач", "Цель", "Kill"},
 		Rows: [][]string{
-			{"Активация (трен/опл)", analyticsPct(logged, paid), ">35%", "<20%"},
-			{"Пэйвол→оплата", analyticsPct(paid, paywall), "—", "—"},
-			{"Старт→пэйвол", analyticsPct(paywall, started), "—", "—"},
-			{"Оплата→миниапп", analyticsPct(miniapp, paid), "—", "—"},
-			{"Burn recovery", analyticsPct(counts[database.EventBurnRecovered], counts[database.EventBurnWarningSent]), "—", "—"},
-			{"Реактивация", analyticsPct(counts[database.EventAccountReactivated], counts[database.EventAccountDeletedInactivity]), "—", "—"},
+			{"Активация (трен/опл)", kpiValue("activation"), ">35%", "<20%"},
+			{"Пэйвол→оплата", kpiValue("paywall_paid"), "—", "—"},
+			{"Старт→пэйвол", kpiValue("start_paywall"), "—", "—"},
+			{"Оплата→миниапп", kpiValue("paid_miniapp"), "—", "—"},
+			{"Burn recovery", kpiValue("burn_recovery"), "—", "—"},
+			{"Реактивация", kpiValue("reactivation"), "—", "—"},
 		},
 	}
 	out.Tables = append(out.Tables, kpi)
 
 	if channels, err := b.db.GetChannelAttribution(days); err == nil && len(channels) > 0 {
-		tbl := MiniappAdminTable{Title: "📣 Каналы", Subtitle: "Откуда пришли и сколько оплатили", Columns: []string{"Канал", "Старты", "Оплат"}}
+		tbl := MiniappAdminTable{Kind: "channels", Title: "📣 Каналы", Subtitle: "Откуда пришли и сколько оплатили", Columns: []string{"Канал", "Старты", "Оплат"}}
 		for _, c := range channels {
 			tbl.Rows = append(tbl.Rows, []string{c.Source, strconv.FormatInt(c.Started, 10), strconv.FormatInt(c.Paid, 10)})
 		}
@@ -143,13 +143,17 @@ func (b *Bot) MiniappAdminAnalyticsData(
 	}
 
 	if overview, err := b.db.GetEventOverview(days); err == nil && len(overview) > 0 {
-		tbl := MiniappAdminTable{Title: "📋 События", Subtitle: "Все события периода", Columns: []string{"Событие", "Всего", "Юзеры"}}
+		tbl := MiniappAdminTable{Kind: "events", Title: "📋 События", Subtitle: "Все события периода", Columns: []string{"Событие", "Всего", "Юзеры"}}
 		for _, e := range overview {
 			tbl.Rows = append(tbl.Rows, []string{e.Name, strconv.FormatInt(e.Total, 10), strconv.FormatInt(e.UniqueUsers, 10)})
 		}
 		out.Tables = append(out.Tables, tbl)
 	}
 
+	if withDashboard {
+		dash := b.buildAdminDashboard(days, kpis)
+		out.Dashboard = &dash
+	}
 	return out, nil
 }
 
@@ -163,6 +167,7 @@ func (b *Bot) MiniappAdminVisits(viewerUserID int64, initD initdata.InitData) ([
 		return nil, err
 	}
 	summary := MiniappAdminTable{
+		Kind:    "visits",
 		Title:   "📊 Посещения бота",
 		Columns: []string{"Метрика", "Значение"},
 		Rows: [][]string{
