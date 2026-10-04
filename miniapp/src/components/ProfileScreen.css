@@ -207,6 +207,19 @@
   overflow: hidden;
 }
 
+.profile__xp-chevron {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  opacity: 0.85;
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+.profile__xp:hover .profile__xp-chevron,
+.profile__xp:focus-visible .profile__xp-chevron {
+  color: var(--accent);
+  transform: translateX(2px);
+}
+
 .profile__xp-fill {
   height: 100%;
   border-radius: 999px;
