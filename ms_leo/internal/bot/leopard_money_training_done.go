@@ -84,6 +84,8 @@ func trainingCategoryLabelRu(categoryID string) string {
 		return "гимнастика"
 	case "morning_exercise":
 		return "зарядка"
+	case "climbing":
+		return "скалолазание"
 	default:
 		return "другое"
 	}
