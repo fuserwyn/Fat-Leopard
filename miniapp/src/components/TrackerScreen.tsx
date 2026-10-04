@@ -429,6 +429,8 @@ export function TrackerScreen({ initData, showAlert }: Props) {
   const [leoSprintReply, setLeoSprintReply] = useState("");
   /** Спринт сгенерирован Лео — перед стартом нужен аппрув админов. */
   const [fromLeoSprint, setFromLeoSprint] = useState(false);
+  /** Подвкладка «Спринтов»: загрузка спринтов или функционал Лео. */
+  const [sprintTab, setSprintTab] = useState<"load" | "leo">("load");
 
   const isQa = role === "tester";
   const detailRef = useRef<number | null>(null);
@@ -636,11 +638,9 @@ export function TrackerScreen({ initData, showAlert }: Props) {
   }, [initData]);
 
   useEffect(() => {
-    if (tab === "task") {
-      void loadAutonomy();
-      void loadDeploy();
-    }
-  }, [tab, loadAutonomy, loadDeploy]);
+    if (tab === "task") void loadDeploy();
+    if (tab === "sprint" && sprintTab === "leo") void loadAutonomy();
+  }, [tab, sprintTab, loadAutonomy, loadDeploy]);
 
   const switchDeploy = async (on: boolean) => {
     setDeployBusy(true);
@@ -1074,220 +1074,19 @@ export function TrackerScreen({ initData, showAlert }: Props) {
             Опиши, что сделать, когда запускать и приложи картинку, если так понятнее.
           </p>
 
-          {autonomy ? (
-            <div className="tracker__leo tracker__auto">
-              <div className="tracker__leo-head">
-                <span aria-hidden>🤖</span>
-                <b>Лео ведёт продукт сам</b>
-                <span className={`tracker__auto-state${autonomy.active ? " is-on" : ""}`}>
-                  {autonomy.active ? "включено" : "выключено"}
-                </span>
-              </div>
-              <p className="tracker__hint">
-                Раз в {autonomy.every_hours} ч Лео придумывает спринт своим голосом и выносит задачи
-                на доску — по {autonomy.tasks_per_run} за прогон. Сначала колонка «Аппрув», потом
-                работа. На карточках его аватарка.
-              </p>
-              {autonomy.active ? (
-                <p className="tracker__auto-facts">
-                  До {formatWhen(autonomy.active_until)} · следующий спринт{" "}
-                  {formatWhen(autonomy.next_run_at)}
-                </p>
-              ) : null}
-              {autonomy.last_note ? (
-                <p className="tracker__auto-facts">
-                  Прошлый раз ({formatWhen(autonomy.last_run_at)}): {autonomy.last_note}
-                </p>
-              ) : null}
-              <div className="tracker__new-row">
-                <select
-                  value={autonomyDays}
-                  onChange={(e) => setAutonomyDays(Number(e.target.value))}
-                  aria-label="Сколько дней Лео работает сам"
-                >
-                  {[1, 2, 3, 5, 7, 14]
-                    .filter((d) => d <= (autonomy.max_days || 14))
-                    .map((d) => (
-                      <option key={d} value={d}>
-                        {d} {plural(d, "день", "дня", "дней")}
-                      </option>
-                    ))}
-                </select>
-                <button
-                  type="button"
-                  className="tracker__primary"
-                  disabled={autonomyBusy}
-                  onClick={() => void switchAutonomy("start")}
-                >
-                  {autonomy.active ? "Продлить" : "Пусть работает сам"}
-                </button>
-                {autonomy.active ? (
-                  <button
-                    type="button"
-                    className="tracker__attach"
-                    disabled={autonomyBusy}
-                    onClick={() => void switchAutonomy("stop")}
-                  >
-                    Остановить
-                  </button>
-                ) : null}
-              </div>
-            </div>
-          ) : null}
-
           {deploy ? (
-            <div className="tracker__leo tracker__auto">
-              <div className="tracker__leo-head">
-                <span aria-hidden>🚀</span>
-                <b>Автодеплой на Railway</b>
-                <span className={`tracker__auto-state${deploy.enabled ? " is-on" : ""}`}>
-                  {deploy.enabled ? "включено" : "выключено"}
-                </span>
-              </div>
-              <p className="tracker__hint">
-                Задача прошла тест — трекер вливает её ветку в main и сам просит Railway собрать
-                прод, не надеясь на вебхук. «Выполнено» карточка получит, только когда сборка
-                действительно прошла.
-              </p>
-              {deploy.services?.length ? (
-                <p className="tracker__auto-facts">Пересобираем: {deploy.services.join(", ")}</p>
-              ) : null}
-              {deploy.hint ? <p className="tracker__auto-facts">{deploy.hint}</p> : null}
-              <div className="tracker__new-row">
-                <button
-                  type="button"
-                  className={deploy.enabled ? "tracker__attach" : "tracker__primary"}
-                  disabled={deployBusy}
-                  onClick={() => void switchDeploy(!deploy.enabled)}
-                >
-                  {deploy.enabled ? "Выключить" : "Включить автодеплой"}
-                </button>
-              </div>
-            </div>
-          ) : null}
-
-          <div className="tracker__leo">
-            <div className="tracker__leo-head">
-              <span aria-hidden>🐆</span>
-              <b>Задача от Лео</b>
-            </div>
-            <p className="tracker__hint">
-              Напиши тему — или оставь пусто, тогда Лео решит сам. Можно обсудить детали и выбрать вариант
-              формулировки, а потом зафиксировать задачу на доске.
-            </p>
-            <div className="tracker__new-row">
+            <label className="tracker-feat tracker__deploy-toggle">
               <input
-                value={leoTopic}
-                onChange={(e) => setLeoTopic(e.target.value)}
-                placeholder="Тема (необязательно): например, удержание новичков"
+                type="checkbox"
+                checked={deploy.enabled}
+                disabled={deployBusy}
+                onChange={(e) => void switchDeploy(e.target.checked)}
               />
-            </div>
-            {proposal ? (
-              <>
-                <p className="tracker__leo-reply">{proposal.reply}</p>
-                {proposal.variants && proposal.variants.length > 1 ? (
-                  <div className="tracker__ideas">
-                    <h3 className="tracker__subtitle">Варианты</h3>
-                    {proposal.variants.map((v, i) => {
-                      const on = selectedVariant === i;
-                      return (
-                        <button
-                          type="button"
-                          key={`${v.title}-${i}`}
-                          className={`tracker-idea${on ? " on" : ""}`}
-                          onClick={() => setSelectedVariant(i)}
-                        >
-                          <b>{v.title || `Вариант ${i + 1}`}</b>
-                          <small>{v.task.slice(0, 220)}</small>
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <>
-                    {activeProposal?.title ? <p className="tracker__leo-title">{activeProposal.title}</p> : null}
-                    <p className="tracker__leo-task">{activeProposal?.task}</p>
-                  </>
-                )}
-                <div className="tracker__leo-discuss">
-                  <textarea
-                    value={discussFeedback}
-                    onChange={(e) => setDiscussFeedback(e.target.value)}
-                    placeholder="Уточни у Лео: что он имел в виду, попроси другую формулировку…"
-                    rows={2}
-                  />
-                  <button
-                    type="button"
-                    className="tracker__attach"
-                    disabled={proposeBusy || !discussFeedback.trim()}
-                    onClick={() => void discussWithLeo()}
-                  >
-                    {proposeBusy ? "Лео отвечает…" : "Обсудить с Лео"}
-                  </button>
-                </div>
-                <div className="tracker__new-row">
-                  <select value={when} onChange={(e) => setWhen(e.target.value)}>
-                    {WHEN_PRESETS.map((p) => (
-                      <option key={p.value} value={p.value}>
-                        {p.label}
-                      </option>
-                    ))}
-                  </select>
-                  {when === "custom" ? (
-                    <input
-                      type="datetime-local"
-                      className="tracker__at"
-                      value={whenAt}
-                      onChange={(e) => setWhenAt(e.target.value)}
-                    />
-                  ) : null}
-                  <label className="tracker-feat">
-                    <input
-                      type="checkbox"
-                      checked={leoNeedsApproval}
-                      onChange={(e) => setLeoNeedsApproval(e.target.checked)}
-                    />
-                    <span>
-                      <b>Нужен аппрув всех админов</b>
-                      <small>Два аппрува (включая тебя) в Telegram или здесь — и задача уйдёт в работу</small>
-                    </span>
-                  </label>
-                  <button
-                    type="button"
-                    className="tracker__primary"
-                    disabled={busy || proposeBusy || !activeProposal?.task}
-                    onClick={() => void approveProposal()}
-                  >
-                    {leoNeedsApproval ? "Зафиксировать (аппрув)" : "Зафиксировать на доске"}
-                  </button>
-                  <button
-                    type="button"
-                    className="tracker__attach"
-                    disabled={proposeBusy}
-                    onClick={() => {
-                      const reject = activeProposal?.title || activeProposal?.task || "";
-                      setRejected((prev) => [...prev, reject].slice(-10));
-                      setProposal(null);
-                      setSelectedVariant(0);
-                      setDiscussFeedback("");
-                      void proposeFromLeo(reject);
-                    }}
-                  >
-                    Не то, давай другую
-                  </button>
-                </div>
-              </>
-            ) : (
-              <button
-                type="button"
-                className="tracker__attach"
-                disabled={proposeBusy}
-                onClick={() => void proposeFromLeo()}
-              >
-                {proposeBusy ? "Лео придумывает…" : "Пусть Лео придумает"}
-              </button>
-            )}
-          </div>
+              <span>
+                <b>Автодеплой</b>
+              </span>
+            </label>
+          ) : null}
 
           <div className="tracker__new">
               <textarea
@@ -1349,121 +1148,331 @@ export function TrackerScreen({ initData, showAlert }: Props) {
         </div>
       ) : (
         <div className="tracker__sprint">
-          <p className="tracker__hint">
-            Опиши тему спринта — Лео предложит идеи и нарежет задачи. Потом их можно поставить на доску.
-          </p>
-          <textarea
-            value={hint}
-            onChange={(e) => setHint(e.target.value)}
-            placeholder="Например: снизить отток участников стаи"
-          />
-          <div className="tracker__new-row">
-            <label className="tracker__num">
-              Спринтов
-              <input
-                type="number"
-                min={1}
-                max={8}
-                value={sprintCount}
-                onChange={(e) => setSprintCount(Math.min(8, Math.max(1, Number(e.target.value) || 1)))}
-              />
-            </label>
-            <label className="tracker__num">
-              Задач в спринте
-              <input
-                type="number"
-                min={1}
-                max={12}
-                value={tasksPerSprint}
-                onChange={(e) => setTasksPerSprint(Math.min(12, Math.max(1, Number(e.target.value) || 1)))}
-              />
-            </label>
+          <div className="tracker__roles tracker__subtabs" role="tablist">
             <button
               type="button"
-              className="tracker__primary"
-              disabled={sprintBusy !== ""}
-              onClick={() => void loadIdeas()}
+              role="tab"
+              aria-selected={sprintTab === "load"}
+              className={sprintTab === "load" ? "on" : ""}
+              onClick={() => setSprintTab("load")}
             >
-              {sprintBusy === "ideas" ? "Думаю…" : "Предложить идеи"}
+              Загрузка спринтов
             </button>
             <button
               type="button"
-              className="tracker__attach"
-              disabled={sprintBusy !== ""}
-              onClick={() => void askLeoSprint()}
+              role="tab"
+              aria-selected={sprintTab === "leo"}
+              className={sprintTab === "leo" ? "on" : ""}
+              onClick={() => setSprintTab("leo")}
             >
-              {sprintBusy === "leo" ? "Лео думает…" : "🐆 Спринт от Лео"}
+              Функционал Лео
             </button>
           </div>
-          {leoSprintReply ? <p className="tracker__leo-reply">🐆 {leoSprintReply}</p> : null}
+          {sprintTab === "load" ? (
+            <>
+              <p className="tracker__hint">
+                Опиши тему спринта — Лео предложит идеи и нарежет задачи. Потом их можно поставить на доску.
+              </p>
+              <textarea
+                value={hint}
+                onChange={(e) => setHint(e.target.value)}
+                placeholder="Например: снизить отток участников стаи"
+              />
+              <div className="tracker__new-row">
+                <label className="tracker__num">
+                  Спринтов
+                  <input
+                    type="number"
+                    min={1}
+                    max={8}
+                    value={sprintCount}
+                    onChange={(e) => setSprintCount(Math.min(8, Math.max(1, Number(e.target.value) || 1)))}
+                  />
+                </label>
+                <label className="tracker__num">
+                  Задач в спринте
+                  <input
+                    type="number"
+                    min={1}
+                    max={12}
+                    value={tasksPerSprint}
+                    onChange={(e) => setTasksPerSprint(Math.min(12, Math.max(1, Number(e.target.value) || 1)))}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="tracker__primary"
+                  disabled={sprintBusy !== ""}
+                  onClick={() => void loadIdeas()}
+                >
+                  {sprintBusy === "ideas" ? "Думаю…" : "Предложить идеи"}
+                </button>
+                <button
+                  type="button"
+                  className="tracker__attach"
+                  disabled={sprintBusy !== ""}
+                  onClick={() => void askLeoSprint()}
+                >
+                  {sprintBusy === "leo" ? "Лео думает…" : "🐆 Спринт от Лео"}
+                </button>
+              </div>
+              {leoSprintReply ? <p className="tracker__leo-reply">🐆 {leoSprintReply}</p> : null}
 
-          {ideas.length > 0 ? (
-            <div className="tracker__ideas">
-              <h3 className="tracker__subtitle">Идеи</h3>
-              {ideas.map((idea, i) => {
-                const id = String(idea.id ?? i);
-                const on = pickedIdea === id;
-                return (
+              {ideas.length > 0 ? (
+                <div className="tracker__ideas">
+                  <h3 className="tracker__subtitle">Идеи</h3>
+                  {ideas.map((idea, i) => {
+                    const id = String(idea.id ?? i);
+                    const on = pickedIdea === id;
+                    return (
+                      <button
+                        type="button"
+                        key={id}
+                        className={`tracker-idea${on ? " on" : ""}`}
+                        onClick={() => setPickedIdea(id)}
+                      >
+                        <b>{String(idea.title || idea.name || `Идея ${i + 1}`)}</b>
+                        <small>{String(idea.summary || idea.description || "")}</small>
+                      </button>
+                    );
+                  })}
                   <button
                     type="button"
-                    key={id}
-                    className={`tracker-idea${on ? " on" : ""}`}
-                    onClick={() => setPickedIdea(id)}
+                    className="tracker__primary tracker__primary--block"
+                    disabled={sprintBusy !== ""}
+                    onClick={() => void buildPlan()}
                   >
-                    <b>{String(idea.title || idea.name || `Идея ${i + 1}`)}</b>
-                    <small>{String(idea.summary || idea.description || "")}</small>
+                    {sprintBusy === "plan" ? "Собираю план…" : "Собрать план и задачи"}
                   </button>
-                );
-              })}
-              <button
-                type="button"
-                className="tracker__primary tracker__primary--block"
-                disabled={sprintBusy !== ""}
-                onClick={() => void buildPlan()}
-              >
-                {sprintBusy === "plan" ? "Собираю план…" : "Собрать план и задачи"}
-              </button>
-            </div>
-          ) : null}
-
-          {features.length > 0 ? (
-            <div className="tracker__feats">
-              <h3 className="tracker__subtitle">Задачи спринта</h3>
-              {fromLeoSprint ? (
-                <p className="tracker__hint">
-                  Спринт от Лео — задачи попадут в «Аппрув», старт после двух аппрувов админов.
-                </p>
+                </div>
               ) : null}
-              {features.map((f, i) => (
-                <label className="tracker-feat" key={`${f.title}-${i}`}>
+
+              {features.length > 0 ? (
+                <div className="tracker__feats">
+                  <h3 className="tracker__subtitle">Задачи спринта</h3>
+                  {fromLeoSprint ? (
+                    <p className="tracker__hint">
+                      Спринт от Лео — задачи попадут в «Аппрув», старт после двух аппрувов админов.
+                    </p>
+                  ) : null}
+                  {features.map((f, i) => (
+                    <label className="tracker-feat" key={`${f.title}-${i}`}>
+                      <input
+                        type="checkbox"
+                        checked={f._on}
+                        onChange={(e) =>
+                          setFeatures((prev) =>
+                            prev.map((item, idx) => (idx === i ? { ...item, _on: e.target.checked } : item)),
+                          )
+                        }
+                      />
+                      <span>
+                        <b>
+                          {f.sprint ? <span className="tracker-badge tracker-badge--sprint">Спринт {f.sprint}</span> : null}
+                          {String(f.title || "")}
+                        </b>
+                        <small>{String(f.prompt || "").slice(0, 220)}</small>
+                      </span>
+                    </label>
+                  ))}
+                  <button
+                    type="button"
+                    className="tracker__primary tracker__primary--block"
+                    disabled={sprintBusy !== ""}
+                    onClick={() => void applyPlan()}
+                  >
+                    {sprintBusy === "apply" ? "Ставлю…" : fromLeoSprint ? "На доску (аппрув)" : "Поставить задачи в план"}
+                  </button>
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <>
+              {autonomy ? (
+                <div className="tracker__leo tracker__auto">
+                  <div className="tracker__leo-head">
+                    <span aria-hidden>🤖</span>
+                    <b>Лео ведёт продукт сам</b>
+                    <span className={`tracker__auto-state${autonomy.active ? " is-on" : ""}`}>
+                      {autonomy.active ? "включено" : "выключено"}
+                    </span>
+                  </div>
+                  <p className="tracker__hint">
+                    Раз в {autonomy.every_hours} ч Лео придумывает спринт своим голосом и выносит задачи
+                    на доску — по {autonomy.tasks_per_run} за прогон. Сначала колонка «Аппрув», потом
+                    работа. На карточках его аватарка.
+                  </p>
+                  {autonomy.active ? (
+                    <p className="tracker__auto-facts">
+                      До {formatWhen(autonomy.active_until)} · следующий спринт{" "}
+                      {formatWhen(autonomy.next_run_at)}
+                    </p>
+                  ) : null}
+                  {autonomy.last_note ? (
+                    <p className="tracker__auto-facts">
+                      Прошлый раз ({formatWhen(autonomy.last_run_at)}): {autonomy.last_note}
+                    </p>
+                  ) : null}
+                  <div className="tracker__new-row">
+                    <select
+                      value={autonomyDays}
+                      onChange={(e) => setAutonomyDays(Number(e.target.value))}
+                      aria-label="Сколько дней Лео работает сам"
+                    >
+                      {[1, 2, 3, 5, 7, 14]
+                        .filter((d) => d <= (autonomy.max_days || 14))
+                        .map((d) => (
+                          <option key={d} value={d}>
+                            {d} {plural(d, "день", "дня", "дней")}
+                          </option>
+                        ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="tracker__primary"
+                      disabled={autonomyBusy}
+                      onClick={() => void switchAutonomy("start")}
+                    >
+                      {autonomy.active ? "Продлить" : "Пусть работает сам"}
+                    </button>
+                    {autonomy.active ? (
+                      <button
+                        type="button"
+                        className="tracker__attach"
+                        disabled={autonomyBusy}
+                        onClick={() => void switchAutonomy("stop")}
+                      >
+                        Остановить
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="tracker__leo">
+                <div className="tracker__leo-head">
+                  <span aria-hidden>🐆</span>
+                  <b>Задача от Лео</b>
+                </div>
+                <p className="tracker__hint">
+                  Напиши тему — или оставь пусто, тогда Лео решит сам. Можно обсудить детали и выбрать вариант
+                  формулировки, а потом зафиксировать задачу на доске.
+                </p>
+                <div className="tracker__new-row">
                   <input
-                    type="checkbox"
-                    checked={f._on}
-                    onChange={(e) =>
-                      setFeatures((prev) =>
-                        prev.map((item, idx) => (idx === i ? { ...item, _on: e.target.checked } : item)),
-                      )
-                    }
+                    value={leoTopic}
+                    onChange={(e) => setLeoTopic(e.target.value)}
+                    placeholder="Тема (необязательно): например, удержание новичков"
                   />
-                  <span>
-                    <b>
-                      {f.sprint ? <span className="tracker-badge tracker-badge--sprint">Спринт {f.sprint}</span> : null}
-                      {String(f.title || "")}
-                    </b>
-                    <small>{String(f.prompt || "").slice(0, 220)}</small>
-                  </span>
-                </label>
-              ))}
-              <button
-                type="button"
-                className="tracker__primary tracker__primary--block"
-                disabled={sprintBusy !== ""}
-                onClick={() => void applyPlan()}
-              >
-                {sprintBusy === "apply" ? "Ставлю…" : fromLeoSprint ? "На доску (аппрув)" : "Поставить задачи в план"}
-              </button>
-            </div>
-          ) : null}
+                </div>
+                {proposal ? (
+                  <>
+                    <p className="tracker__leo-reply">{proposal.reply}</p>
+                    {proposal.variants && proposal.variants.length > 1 ? (
+                      <div className="tracker__ideas">
+                        <h3 className="tracker__subtitle">Варианты</h3>
+                        {proposal.variants.map((v, i) => {
+                          const on = selectedVariant === i;
+                          return (
+                            <button
+                              type="button"
+                              key={`${v.title}-${i}`}
+                              className={`tracker-idea${on ? " on" : ""}`}
+                              onClick={() => setSelectedVariant(i)}
+                            >
+                              <b>{v.title || `Вариант ${i + 1}`}</b>
+                              <small>{v.task.slice(0, 220)}</small>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <>
+                        {activeProposal?.title ? <p className="tracker__leo-title">{activeProposal.title}</p> : null}
+                        <p className="tracker__leo-task">{activeProposal?.task}</p>
+                      </>
+                    )}
+                    <div className="tracker__leo-discuss">
+                      <textarea
+                        value={discussFeedback}
+                        onChange={(e) => setDiscussFeedback(e.target.value)}
+                        placeholder="Уточни у Лео: что он имел в виду, попроси другую формулировку…"
+                        rows={2}
+                      />
+                      <button
+                        type="button"
+                        className="tracker__attach"
+                        disabled={proposeBusy || !discussFeedback.trim()}
+                        onClick={() => void discussWithLeo()}
+                      >
+                        {proposeBusy ? "Лео отвечает…" : "Обсудить с Лео"}
+                      </button>
+                    </div>
+                    <div className="tracker__new-row">
+                      <select value={when} onChange={(e) => setWhen(e.target.value)}>
+                        {WHEN_PRESETS.map((p) => (
+                          <option key={p.value} value={p.value}>
+                            {p.label}
+                          </option>
+                        ))}
+                      </select>
+                      {when === "custom" ? (
+                        <input
+                          type="datetime-local"
+                          className="tracker__at"
+                          value={whenAt}
+                          onChange={(e) => setWhenAt(e.target.value)}
+                        />
+                      ) : null}
+                      <label className="tracker-feat">
+                        <input
+                          type="checkbox"
+                          checked={leoNeedsApproval}
+                          onChange={(e) => setLeoNeedsApproval(e.target.checked)}
+                        />
+                        <span>
+                          <b>Нужен аппрув всех админов</b>
+                          <small>Два аппрува (включая тебя) в Telegram или здесь — и задача уйдёт в работу</small>
+                        </span>
+                      </label>
+                      <button
+                        type="button"
+                        className="tracker__primary"
+                        disabled={busy || proposeBusy || !activeProposal?.task}
+                        onClick={() => void approveProposal()}
+                      >
+                        {leoNeedsApproval ? "Зафиксировать (аппрув)" : "Зафиксировать на доске"}
+                      </button>
+                      <button
+                        type="button"
+                        className="tracker__attach"
+                        disabled={proposeBusy}
+                        onClick={() => {
+                          const reject = activeProposal?.title || activeProposal?.task || "";
+                          setRejected((prev) => [...prev, reject].slice(-10));
+                          setProposal(null);
+                          setSelectedVariant(0);
+                          setDiscussFeedback("");
+                          void proposeFromLeo(reject);
+                        }}
+                      >
+                        Не то, давай другую
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    className="tracker__attach"
+                    disabled={proposeBusy}
+                    onClick={() => void proposeFromLeo()}
+                  >
+                    {proposeBusy ? "Лео придумывает…" : "Пусть Лео придумает"}
+                  </button>
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
 
