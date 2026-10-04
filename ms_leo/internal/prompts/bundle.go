@@ -22,6 +22,7 @@ type Bundle struct {
 	AchievementMilestone    string // milestone-ачивка: in_app_text + leo_message (Промт 5)
 	TrainingEvaluation      string // комментарий после тренировки JSON (Промт 1)
 	ReleaseNotes            string // Release Notes за две недели в ленту стаи
+	ContactJoinedPack       string // личка: контакт пользователя вступил в стаю
 	// PackFeedParticipantRemoved — карточка в ленте мини‑аппа, когда человек уже не видит её: текст для стаи.
 	PackFeedParticipantRemoved string
 }
@@ -71,6 +72,9 @@ var embeddedTrainingEvaluation string
 //go:embed data/release_notes.txt
 var embeddedReleaseNotes string
 
+//go:embed data/contact_joined_pack.txt
+var embeddedContactJoinedPack string
+
 // DefaultBundle возвращает встроенные тексты из каталога data/.
 func DefaultBundle() Bundle {
 	return Bundle{
@@ -88,6 +92,7 @@ func DefaultBundle() Bundle {
 		AchievementMilestone:       embeddedAchievementMilestone,
 		TrainingEvaluation:         embeddedTrainingEvaluation,
 		ReleaseNotes:               embeddedReleaseNotes,
+		ContactJoinedPack:          embeddedContactJoinedPack,
 		PackFeedParticipantRemoved: embeddedPackFeedParticipantRemoved,
 	}
 }

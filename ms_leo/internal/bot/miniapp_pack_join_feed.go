@@ -92,6 +92,10 @@ func (b *Bot) savePackJoinMiniappFeed(chatID, userID int64, username, msgType, f
 		return
 	}
 	b.sendPackWelcomeDM(userID, dmText)
+	if msgType == userMessageTypePackJoin {
+		// Тем, у кого вступивший в контактах, — личка от Лео (LLM, не блокируем онбординг).
+		go b.notifyContactsAboutPackJoin(chatID, userID, username)
+	}
 }
 
 // saveDailyWisdomPackFeed — «мудрость дня» в ленту мини-аппа (одна запись в чате стаи, автор Лео).

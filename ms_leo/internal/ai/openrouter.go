@@ -258,6 +258,31 @@ func (c *OpenRouterClient) GenerateReleaseNotes(features []ReleaseNoteFeature) (
 	return c.Chat(messages, "")
 }
 
+// GenerateContactJoinedPack — личка Лео: контакт пользователя вступил в стаю.
+// Системный промпт = характер Лео (answer_user_question) + задача (contact_joined_pack),
+// чтобы текст шёл в его tone of voice и правился из админки промптов.
+func (c *OpenRouterClient) GenerateContactJoinedPack(recipientName, contactName string) (string, error) {
+	live := c.bundle()
+	task := strings.TrimSpace(live.ContactJoinedPack)
+	if task == "" {
+		return "", fmt.Errorf("contact joined pack prompt empty")
+	}
+	systemPrompt := task
+	if character := strings.TrimSpace(live.AnswerUserQuestion); character != "" {
+		systemPrompt = character + "\n\n---\n\n" + task
+	}
+	var body strings.Builder
+	if n := strings.TrimSpace(recipientName); n != "" {
+		body.WriteString("Получатель сообщения: " + n + "\n")
+	}
+	body.WriteString("Контакт, который вступил в стаю: " + strings.TrimSpace(contactName) + "\n")
+	messages := []ChatMessage{
+		{Role: "system", Content: systemPrompt},
+		{Role: "user", Content: body.String()},
+	}
+	return c.Chat(messages, "")
+}
+
 // AnswerUserQuestion отвечает на вопрос пользователя.
 // userContext — либо полный structured user-message (с «Контекст для этого ответа»), либо legacy-плоский контекст + question.
 func (c *OpenRouterClient) AnswerUserQuestion(question string, userContext string) (string, error) {

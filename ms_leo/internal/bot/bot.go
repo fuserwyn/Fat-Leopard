@@ -346,6 +346,11 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 		return
 	}
 
+	// Карточка контакта в личке — пополняет список «сообщить, когда вступит в стаю».
+	if msg.Contact != nil && b.handleSharedContact(msg) {
+		return
+	}
+
 	b.dispatchTextMessageFromUser(msg, nil, "")
 }
 
