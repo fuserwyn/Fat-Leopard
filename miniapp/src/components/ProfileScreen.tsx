@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { STREAK_ACHIEVEMENTS, WORKOUT_ACHIEVEMENTS, workoutsWordRu } from "../lib/achievements";
 import { inactivityHighlight } from "../lib/inactivityHighlight";
 import { inactiveDaysFromRemovalRemaining, removalRemainingUntil } from "../lib/inactivityRemoval";
-import { cupsLevelProgressBarPct, formatCupsLevelProgressLabel, miniappCupsLevelProgress, miniappLevelFromCups, miniappLevelName } from "../lib/miniappLevel";
+import { cupsLevelProgressBarPct, formatCupsLevelProgressLabel, miniappCupsLevelProgress, miniappLevelFromCups } from "../lib/miniappLevel";
+import { LevelCarousel } from "./LevelCarousel";
 import {
   canUseStreakSave,
   effectiveStreakDays,
@@ -268,7 +269,6 @@ export function ProfileScreen({
   const cupProgress = miniappCupsLevelProgress(cups);
   const cupProgressLabel = formatCupsLevelProgressLabel(cupProgress);
   const level = miniappLevelFromCups(cups);
-  const levelTitle = miniappLevelName(level) || "—";
   const barPct = cupsLevelProgressBarPct(cupProgress);
   const leopardUnlocked = canUseLeopardTheme(level);
   const wildUnlocked = canUseWildTheme({
@@ -1009,9 +1009,7 @@ export function ProfileScreen({
         </div>
         <div>
           <h1 className="profile__name">{(profile.displayName || name).trim() || "Стая"}</h1>
-          <p className="profile__level muted">
-            Уровень {level} · {levelTitle}
-          </p>
+          <LevelCarousel currentLevel={level} />
           {showDaysWithoutTraining ? (
             <p
               className={`profile__kick profile__kick--inactive-${inactiveHighlight}`}
