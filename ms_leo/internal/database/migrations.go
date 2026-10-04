@@ -1675,6 +1675,44 @@ var Migrations = []Migration{
 			DROP TABLE IF EXISTS pack_weekly_goal_settings;
 		`,
 	},
+	{
+		Version:     87,
+		Description: "Контакты пользователя (карточки, присланные боту) + уведомление «контакт вступил в стаю»",
+		UpSQL: `
+			-- Telegram не отдаёт боту адресную книгу: пользователь сам присылает карточки контактов в личку.
+			CREATE TABLE IF NOT EXISTS user_contacts (
+				owner_user_id   BIGINT NOT NULL,
+				contact_user_id BIGINT NOT NULL,
+				contact_name    TEXT   NOT NULL DEFAULT '',
+				created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+				PRIMARY KEY (owner_user_id, contact_user_id)
+			);
+			CREATE INDEX IF NOT EXISTS user_contacts_contact_idx ON user_contacts (contact_user_id);
+
+			-- Настройка вкл/выкл; нет строки — включено.
+			CREATE TABLE IF NOT EXISTS miniapp_contact_join_notifications (
+				user_id      BIGINT NOT NULL,
+				pack_chat_id BIGINT NOT NULL,
+				enabled      BOOLEAN NOT NULL DEFAULT TRUE,
+				updated_at   TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+				PRIMARY KEY (user_id, pack_chat_id)
+			);
+
+			-- Одно уведомление на пару (владелец, контакт) в стае.
+			CREATE TABLE IF NOT EXISTS contact_join_notify_log (
+				owner_user_id   BIGINT NOT NULL,
+				contact_user_id BIGINT NOT NULL,
+				pack_chat_id    BIGINT NOT NULL,
+				created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+				PRIMARY KEY (owner_user_id, contact_user_id, pack_chat_id)
+			);
+		`,
+		DownSQL: `
+			DROP TABLE IF EXISTS contact_join_notify_log;
+			DROP TABLE IF EXISTS miniapp_contact_join_notifications;
+			DROP TABLE IF EXISTS user_contacts;
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции

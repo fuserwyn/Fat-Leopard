@@ -41,6 +41,14 @@
 
 API: `POST /api/miniapp/personal-chat/feed` с `{ init_data, since_id }` возвращает упорядоченный список сообщений в хронологическом порядке. Запись юзер-сообщений идёт в `ProcessMiniAppPrivateText`, ответов Лео — в `miniappPersonalPush`.
 
+### Миграция 87: контакты пользователя и уведомление «контакт вступил в стаю»
+
+Bot API не отдаёт адресную книгу, поэтому контакты — это карточки, которые пользователь сам присылает боту в личку.
+
+- `user_contacts (owner_user_id, contact_user_id, contact_name)` — кому из Telegram-пользователей сообщать о вступлении.
+- `miniapp_contact_join_notifications (user_id, pack_chat_id, enabled)` — переключатель в профиле мини-аппа; строки нет — включено.
+- `contact_join_notify_log (owner_user_id, contact_user_id, pack_chat_id)` — не больше одного уведомления на пару.
+
 ## Ручной запуск миграций
 
 Если нужно запустить миграции вручную:

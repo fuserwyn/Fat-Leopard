@@ -190,6 +190,10 @@ export function ProfileScreen({
   const [likeNotifyEnabled, setLikeNotifyEnabled] = useState(false);
   const [likeNotifyLoading, setLikeNotifyLoading] = useState(true);
   const [likeNotifyBusy, setLikeNotifyBusy] = useState(false);
+  const [contactJoinEnabled, setContactJoinEnabled] = useState(true);
+  const [contactJoinCount, setContactJoinCount] = useState(0);
+  const [contactJoinLoading, setContactJoinLoading] = useState(true);
+  const [contactJoinBusy, setContactJoinBusy] = useState(false);
 
   // Донат: добровольная поддержка проекта. Вход в стаю бесплатный, поэтому донат ничего
   // не открывает — номиналы и способы приходят с бэкенда (что настроено, то и показываем).
@@ -580,6 +584,69 @@ export function ProfileScreen({
     if (!active) return;
     void loadLikeNotify();
   }, [loadLikeNotify, active]);
+
+  const loadContactJoin = useCallback(async () => {
+    if (!api || !inTelegram || !initData?.trim()) {
+      setContactJoinLoading(false);
+      return;
+    }
+    setContactJoinLoading(true);
+    try {
+      const res = await fetch(`${api}/api/miniapp/contact-join-notifications/load`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ init_data: initData }),
+      });
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        enabled?: boolean;
+        contacts_count?: number;
+      };
+      if (res.ok && j.ok) {
+        setContactJoinEnabled(j.enabled !== false);
+        setContactJoinCount(typeof j.contacts_count === "number" ? j.contacts_count : 0);
+      }
+    } catch {
+      // тихо: не критично
+    } finally {
+      setContactJoinLoading(false);
+    }
+  }, [inTelegram, initData]);
+
+  const saveContactJoin = useCallback(
+    async (enabled: boolean) => {
+      if (!api || !inTelegram || !initData?.trim()) {
+        showAlert("Открой мини-апп из Telegram (нужен initData).");
+        return;
+      }
+      const prevEnabled = contactJoinEnabled;
+      setContactJoinEnabled(enabled);
+      setContactJoinBusy(true);
+      try {
+        const res = await fetch(`${api}/api/miniapp/contact-join-notifications/save`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ init_data: initData, enabled }),
+        });
+        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (!res.ok || !j.ok) {
+          setContactJoinEnabled(prevEnabled);
+          showAlert(j.error ?? `Контакты в стае: ошибка ${res.status}`);
+        }
+      } catch (e) {
+        setContactJoinEnabled(prevEnabled);
+        showAlert(e instanceof Error ? e.message : "Сеть");
+      } finally {
+        setContactJoinBusy(false);
+      }
+    },
+    [inTelegram, initData, contactJoinEnabled, showAlert],
+  );
+
+  useEffect(() => {
+    if (!active) return;
+    void loadContactJoin();
+  }, [loadContactJoin, active]);
 
   const loadDonateOptions = useCallback(async () => {
     if (!inTelegram || !initData?.trim()) return;
@@ -1489,6 +1556,24 @@ export function ProfileScreen({
           {likeNotifyEnabled
             ? "Лео напишет в личку, когда кто-то лайкнет твою тренировку или комментарий в ленте"
             : "Уведомления выключены — о лайках на твоих постах и комментариях писать не будем"}
+        </p>
+
+        <label className="profile__reminder-row">
+          <span className="profile__reminder-label">Контакты вступили в стаю</span>
+          <input
+            type="checkbox"
+            className="profile__reminder-toggle"
+            checked={contactJoinEnabled}
+            disabled={contactJoinLoading || contactJoinBusy}
+            onChange={(e) => void saveContactJoin(e.target.checked)}
+          />
+        </label>
+        <p className="profile__hint muted">
+          {!contactJoinEnabled
+            ? "Уведомления выключены — о вступлении твоих контактов в стаю писать не будем"
+            : contactJoinCount > 0
+              ? `Лео напишет в личку, когда кто-то из твоих контактов вступит в стаю (сохранено: ${contactJoinCount}). Добавить ещё — пришли боту контакт через скрепку → «Контакт»`
+              : "Пришли боту в личку контакт друга (скрепка → «Контакт») — Лео напишет, когда он вступит в стаю"}
         </p>
 
         <label className="profile__reminder-row">
