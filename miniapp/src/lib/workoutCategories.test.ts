@@ -61,6 +61,14 @@ describe("parseTrainingDoneCategories — мультивыбор", () => {
     ]);
   });
 
+  it("разбирает скалолазание как отдельный вид", () => {
+    expect(parseTrainingDoneCategories("скалолазание, 90 мин, инт. 4/5")).toEqual(["climbing"]);
+    expect(parseTrainingDoneCategories("скалолазание + растяжка, 100 мин, инт. 3/5")).toEqual([
+      "climbing",
+      "stretch",
+    ]);
+  });
+
   it("нераспознанный формат → пустой массив", () => {
     expect(parseTrainingDoneCategories("просто текст")).toEqual([]);
   });
