@@ -78,8 +78,20 @@ html.app-keyboard-open .tracker {
 }
 
 /* Автодеплой: один чекбокс без пояснений. */
-.tracker__deploy-toggle {
+.tracker__toggles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
   margin-bottom: 10px;
+}
+
+.tracker__toggles .tracker-feat {
+  margin-bottom: 0;
+  align-items: center;
+}
+
+.tracker__toggles .tracker-feat input {
+  margin-top: 0;
 }
 
 .tracker__refresh {

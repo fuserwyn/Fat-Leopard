@@ -1074,19 +1074,31 @@ export function TrackerScreen({ initData, showAlert }: Props) {
             Опиши, что сделать, когда запускать и приложи картинку, если так понятнее.
           </p>
 
-          {deploy ? (
-            <label className="tracker-feat tracker__deploy-toggle">
+          <div className="tracker__toggles">
+            {deploy ? (
+              <label className="tracker-feat">
+                <input
+                  type="checkbox"
+                  checked={deploy.enabled}
+                  disabled={deployBusy}
+                  onChange={(e) => void switchDeploy(e.target.checked)}
+                />
+                <span>
+                  <b>Автодеплой</b>
+                </span>
+              </label>
+            ) : null}
+            <label className="tracker-feat">
               <input
                 type="checkbox"
-                checked={deploy.enabled}
-                disabled={deployBusy}
-                onChange={(e) => void switchDeploy(e.target.checked)}
+                checked={needsApproval}
+                onChange={(e) => setNeedsApproval(e.target.checked)}
               />
               <span>
-                <b>Автодеплой</b>
+                <b>Аппрув команды</b>
               </span>
             </label>
-          ) : null}
+          </div>
 
           <div className="tracker__new">
               <textarea
@@ -1110,17 +1122,6 @@ export function TrackerScreen({ initData, showAlert }: Props) {
                   ))}
                 </div>
               ) : null}
-              <label className="tracker-feat">
-                <input
-                  type="checkbox"
-                  checked={needsApproval}
-                  onChange={(e) => setNeedsApproval(e.target.checked)}
-                />
-                <span>
-                  <b>Нужен аппрув других админов</b>
-                  <small>Два аппрува в Telegram или на доске — и задача уйдёт в работу</small>
-                </span>
-              </label>
               <div className="tracker__new-row">
                 <select value={when} onChange={(e) => setWhen(e.target.value)}>
                   {WHEN_PRESETS.map((p) => (
