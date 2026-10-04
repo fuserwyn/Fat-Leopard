@@ -5,6 +5,7 @@ import {
   PACK_WEEKLY_CUPS_LABEL,
   buildCupsHistoryRows,
   formatCupsHistoryDate,
+  sortCupsHistoryRows,
 } from "./cupsHistory";
 
 describe("formatCupsHistoryDate", () => {
@@ -41,7 +42,7 @@ describe("buildCupsHistoryRows", () => {
       ],
       [],
     );
-    expect(row?.line).toBe("27.09.2026 — бег + плавание — 4/5 — 40 мин — +22 кубка");
+    expect(row?.line).toBe("27.09.2026 бег + плавание 4/5 40 мин +22 кубка");
   });
 
   it("keeps every pack weekly bonus while the workout list is shorter than the limit", () => {
@@ -57,7 +58,7 @@ describe("buildCupsHistoryRows", () => {
       [{ date: "2026-09-01", cups: 50, createdAt: "2026-09-01T12:00:00Z" }],
     );
     expect(rows.filter((row) => row.kind === "pack_weekly")).toHaveLength(1);
-    expect(rows[1]?.line).toBe(`01.09.2026 — ${PACK_WEEKLY_CUPS_LABEL} — — — — — +50 кубков`);
+    expect(rows[1]?.line).toBe(`01.09.2026 ${PACK_WEEKLY_CUPS_LABEL} +50 кубков`);
   });
 
   it("drops a pack weekly bonus older than the last 42 workouts", () => {
@@ -85,6 +86,46 @@ describe("buildCupsHistoryRows", () => {
   it("shows weekly cups when there are no workouts yet", () => {
     const rows = buildCupsHistoryRows([], [{ date: "2026-09-22", cups: 1, createdAt: "2026-09-22T15:00:00Z" }]);
     expect(rows).toHaveLength(1);
-    expect(rows[0]?.line).toBe(`22.09.2026 — ${PACK_WEEKLY_CUPS_LABEL} — — — — — +1 кубок`);
+    expect(rows[0]?.line).toBe(`22.09.2026 ${PACK_WEEKLY_CUPS_LABEL} +1 кубок`);
+  });
+});
+
+describe("sortCupsHistoryRows", () => {
+  const rows = buildCupsHistoryRows(
+    [
+      { date: "2026-09-25", messageText: "силовая, 45 мин, интенсивность 5/5", cups: 45, createdAt: "2026-09-25T18:00:00Z" },
+      { date: "2026-09-27", messageText: "бег, 30 мин, интенсивность 3/5", cups: 12, createdAt: "2026-09-27T10:00:00Z" },
+      { date: "2026-09-26", messageText: "йога, 60 мин, интенсивность 2/5", cups: 20, createdAt: "2026-09-26T08:00:00Z" },
+    ],
+    [],
+  );
+
+  it("sorts by date both ways", () => {
+    expect(sortCupsHistoryRows(rows, "date", "desc").map((r) => r.dateLabel)).toEqual([
+      "27.09.2026",
+      "26.09.2026",
+      "25.09.2026",
+    ]);
+    expect(sortCupsHistoryRows(rows, "date", "asc").map((r) => r.dateLabel)).toEqual([
+      "25.09.2026",
+      "26.09.2026",
+      "27.09.2026",
+    ]);
+  });
+
+  it("sorts by cups, most first by default", () => {
+    expect(sortCupsHistoryRows(rows, "cups").map((r) => r.cups)).toEqual([45, 20, 12]);
+    expect(sortCupsHistoryRows(rows, "cups", "asc").map((r) => r.cups)).toEqual([12, 20, 45]);
+  });
+
+  it("sorts by sport type alphabetically by default", () => {
+    const types = sortCupsHistoryRows(rows, "type").map((r) => r.workoutType.toLowerCase());
+    expect(types).toEqual([...types].sort((a, b) => a.localeCompare(b, "ru")));
+  });
+
+  it("does not mutate the input", () => {
+    const before = rows.map((r) => r.dateLabel);
+    sortCupsHistoryRows(rows, "cups", "asc");
+    expect(rows.map((r) => r.dateLabel)).toEqual(before);
   });
 });

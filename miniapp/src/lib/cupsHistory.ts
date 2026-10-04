@@ -30,9 +30,27 @@ export type CupsHistoryRow = {
   intensity: string;
   duration: string;
   cupsLabel: string;
+  /** Начислено кубков (целое, >= 0) — для сортировки. */
+  cups: number;
+  /** Календарный день YYYY-MM-DD — для сортировки по дате. */
+  dateKey: string;
   line: string;
   sortAt: number;
 };
+
+export type CupsHistorySortKey = "date" | "type" | "cups";
+export type CupsHistorySortDir = "asc" | "desc";
+
+export const CUPS_HISTORY_SORT_OPTIONS: ReadonlyArray<{ key: CupsHistorySortKey; label: string }> = [
+  { key: "date", label: "Дата" },
+  { key: "type", label: "Вид спорта" },
+  { key: "cups", label: "Кубки" },
+];
+
+/** Направление по умолчанию при выборе ключа: дата и кубки — по убыванию, вид спорта — по алфавиту. */
+export function defaultCupsHistorySortDir(key: CupsHistorySortKey): CupsHistorySortDir {
+  return key === "type" ? "asc" : "desc";
+}
 
 function timeOf(iso: string): number {
   const t = Date.parse(iso);
@@ -68,7 +86,12 @@ function cupsLabel(n: number): string {
 }
 
 function historyLine(dateLabel: string, workoutType: string, intensity: string, duration: string, awarded: string): string {
-  return `${dateLabel} — ${workoutType} — ${intensity} — ${duration} — ${awarded}`;
+  return [dateLabel, workoutType, intensity, duration, awarded].filter((part) => part !== "").join(" ");
+}
+
+function dateKeyOf(ymd: string): string {
+  const m = /^(\d{4}-\d{2}-\d{2})/.exec(ymd.trim());
+  return m ? m[1] : "";
 }
 
 function workoutRow(input: CupsHistoryWorkoutInput): CupsHistoryRow {
@@ -76,8 +99,8 @@ function workoutRow(input: CupsHistoryWorkoutInput): CupsHistoryRow {
   const workoutType = trainingDoneCategoryDisplayLabel(input.messageText);
   const intensityN = parseIntensity(input.messageText);
   const durationN = parseDurationMin(input.messageText);
-  const intensity = intensityN == null ? "—" : `${intensityN}/5`;
-  const duration = durationN == null ? "—" : `${durationN} мин`;
+  const intensity = intensityN == null ? "" : `${intensityN}/5`;
+  const duration = durationN == null ? "" : `${durationN} мин`;
   const awarded = cupsLabel(input.cups);
   return {
     kind: "workout",
@@ -86,6 +109,8 @@ function workoutRow(input: CupsHistoryWorkoutInput): CupsHistoryRow {
     intensity,
     duration,
     cupsLabel: awarded,
+    cups: Math.max(0, Math.trunc(input.cups)),
+    dateKey: dateKeyOf(input.date),
     line: historyLine(dateLabel, workoutType, intensity, duration, awarded),
     sortAt: timeOf(input.createdAt),
   };
@@ -98,10 +123,12 @@ function weeklyRow(input: CupsHistoryWeeklyInput): CupsHistoryRow {
     kind: "pack_weekly",
     dateLabel,
     workoutType: PACK_WEEKLY_CUPS_LABEL,
-    intensity: "—",
-    duration: "—",
+    intensity: "",
+    duration: "",
     cupsLabel: awarded,
-    line: historyLine(dateLabel, PACK_WEEKLY_CUPS_LABEL, "—", "—", awarded),
+    cups: Math.max(0, Math.trunc(input.cups)),
+    dateKey: dateKeyOf(input.date),
+    line: historyLine(dateLabel, PACK_WEEKLY_CUPS_LABEL, "", "", awarded),
     sortAt: timeOf(input.createdAt),
   };
 }
@@ -133,4 +160,35 @@ export function buildCupsHistoryRows(
     return a.kind === "workout" ? -1 : 1;
   });
   return rows;
+}
+
+function compareChrono(a: CupsHistoryRow, b: CupsHistoryRow): number {
+  if (a.dateKey !== b.dateKey) return a.dateKey < b.dateKey ? -1 : 1;
+  if (a.sortAt !== b.sortAt) return a.sortAt < b.sortAt ? -1 : 1;
+  if (a.kind === b.kind) return 0;
+  return a.kind === "workout" ? 1 : -1;
+}
+
+/**
+ * Сортировка уже собранных строк истории. Не меняет исходный массив.
+ * При равенстве по ключу строки идут от новых к старым.
+ */
+export function sortCupsHistoryRows(
+  rows: readonly CupsHistoryRow[],
+  key: CupsHistorySortKey,
+  dir: CupsHistorySortDir = defaultCupsHistorySortDir(key),
+): CupsHistoryRow[] {
+  const sign = dir === "asc" ? 1 : -1;
+  return [...rows].sort((a, b) => {
+    let primary = 0;
+    if (key === "type") {
+      primary = a.workoutType.localeCompare(b.workoutType, "ru", { sensitivity: "base" });
+    } else if (key === "cups") {
+      primary = a.cups - b.cups;
+    } else {
+      primary = compareChrono(a, b);
+    }
+    if (primary !== 0) return sign * primary;
+    return -compareChrono(a, b);
+  });
 }

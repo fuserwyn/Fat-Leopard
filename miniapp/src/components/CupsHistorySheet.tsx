@@ -1,10 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   CUPS_HISTORY_CAPTION,
   CUPS_HISTORY_LIMIT,
+  CUPS_HISTORY_SORT_OPTIONS,
   buildCupsHistoryRows,
+  defaultCupsHistorySortDir,
+  sortCupsHistoryRows,
   type CupsHistoryRow,
+  type CupsHistorySortDir,
+  type CupsHistorySortKey,
 } from "../lib/cupsHistory";
 import "./CupsHistorySheet.css";
 
@@ -23,6 +28,22 @@ type HistoryResponse = {
 export function CupsHistorySheet({ apiUrl, initData, onClose }: Props) {
   const [rows, setRows] = useState<CupsHistoryRow[] | null>(null);
   const [error, setError] = useState("");
+  const [sortKey, setSortKey] = useState<CupsHistorySortKey>("date");
+  const [sortDir, setSortDir] = useState<CupsHistorySortDir>("desc");
+
+  const sortedRows = useMemo(
+    () => (rows == null ? null : sortCupsHistoryRows(rows, sortKey, sortDir)),
+    [rows, sortKey, sortDir],
+  );
+
+  const onSortClick = (key: CupsHistorySortKey) => {
+    if (key === sortKey) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortKey(key);
+    setSortDir(defaultCupsHistorySortDir(key));
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -91,33 +112,42 @@ export function CupsHistorySheet({ apiUrl, initData, onClose }: Props) {
           </button>
         </header>
         <p className="cups-history__caption">{CUPS_HISTORY_CAPTION}</p>
+        <div className="cups-history__sort" role="group" aria-label="Сортировка">
+          {CUPS_HISTORY_SORT_OPTIONS.map((opt) => {
+            const active = opt.key === sortKey;
+            return (
+              <button
+                key={opt.key}
+                type="button"
+                className={`cups-history__sort-btn${active ? " cups-history__sort-btn--active" : ""}`}
+                aria-pressed={active}
+                onClick={() => onSortClick(opt.key)}
+              >
+                {opt.label}
+                {active ? (
+                  <span className="cups-history__sort-arrow" aria-hidden>
+                    {sortDir === "asc" ? "↑" : "↓"}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
         <div className="cups-history__body">
-          {rows == null ? (
+          {sortedRows == null ? (
             <p className="cups-history__status">Загружаю…</p>
           ) : error ? (
             <p className="cups-history__status">{error}</p>
-          ) : rows.length === 0 ? (
+          ) : sortedRows.length === 0 ? (
             <p className="cups-history__status">Пока нет начислений кубков</p>
           ) : (
             <ul className="cups-history__list">
-              {rows.map((row, i) => (
+              {sortedRows.map((row, i) => (
                 <li key={`${row.kind}-${row.sortAt}-${i}`} className={`cups-history__row cups-history__row--${row.kind}`}>
                   <span className="cups-history__date">{row.dateLabel}</span>
-                  <span className="cups-history__sep" aria-hidden>
-                    —
-                  </span>
                   <span className="cups-history__type">{row.workoutType}</span>
-                  <span className="cups-history__sep" aria-hidden>
-                    —
-                  </span>
-                  <span className="cups-history__intensity">{row.intensity}</span>
-                  <span className="cups-history__sep" aria-hidden>
-                    —
-                  </span>
-                  <span className="cups-history__duration">{row.duration}</span>
-                  <span className="cups-history__sep" aria-hidden>
-                    —
-                  </span>
+                  {row.intensity ? <span className="cups-history__intensity">{row.intensity}</span> : null}
+                  {row.duration ? <span className="cups-history__duration">{row.duration}</span> : null}
                   <span className="cups-history__cups">{row.cupsLabel}</span>
                 </li>
               ))}

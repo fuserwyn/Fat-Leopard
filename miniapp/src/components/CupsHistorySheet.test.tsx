@@ -47,6 +47,13 @@ describe("CupsHistorySheet", () => {
     expect(getByText(PACK_WEEKLY_CUPS_LABEL)).toBeTruthy();
     expect(getByText("+50 кубков")).toBeTruthy();
 
+    expect(getByRole("button", { name: /Дата/ }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(getByRole("button", { name: /Кубки/ }));
+    expect(getByRole("button", { name: /Кубки/ }).getAttribute("aria-pressed")).toBe("true");
+    const cupsCells = Array.from(document.querySelectorAll(".cups-history__cups")).map((el) => el.textContent);
+    expect(cupsCells).toEqual(["+50 кубков", "+29 кубков"]);
+    expect(document.querySelector(".cups-history__sep")).toBeNull();
+
     fireEvent.click(getByRole("button", { name: "Закрыть" }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
