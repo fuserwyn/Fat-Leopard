@@ -71,6 +71,17 @@ html.app-keyboard-open .tracker {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
+/* Подвкладки «Спринтов»: загрузка спринтов и функционал Лео. */
+.tracker__subtabs {
+  flex: none;
+  margin-bottom: 10px;
+}
+
+/* Автодеплой: один чекбокс без пояснений. */
+.tracker__deploy-toggle {
+  margin-bottom: 10px;
+}
+
 .tracker__refresh {
   flex: none;
   min-height: 28px;
