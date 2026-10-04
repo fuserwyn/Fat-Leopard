@@ -8,10 +8,11 @@ function isNavComposeInput(el: Element | null): boolean {
   return el instanceof HTMLInputElement && el.classList.contains("bottom-nav__compose-input");
 }
 
-/** Fixed/in-flow компоузеры сами поднимаются через bottom: var(--app-keyboard-bottom). */
+/** Fixed/in-flow компоузеры сами поднимаются через bottom: var(--app-keyboard-bottom).
+ *  Трекер сам докручивает поле над клавиатурой (useKeepFocusedFieldVisible в TrackerScreen). */
 function shouldSkipScrollReveal(el: HTMLElement): boolean {
   return Boolean(
-    el.closest(".bottom-nav, .chat__form, .admin__composer, .packroom__form, .sup .chat__form"),
+    el.closest(".bottom-nav, .chat__form, .admin__composer, .packroom__form, .sup .chat__form, .tracker"),
   );
 }
 
