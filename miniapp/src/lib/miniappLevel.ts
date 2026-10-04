@@ -14,6 +14,25 @@ export const MAX_CUP_LEVEL = CUP_LEVEL_STARTS.length;
  */
 export const MINIAPP_LEVEL_NAMES: readonly string[] = ["", "Сурикат", "Газель", "Зебра", "Гепард", "Лев", "Слон"];
 
+/**
+ * Эмодзи-животные уровней (индекс = номер уровня 1-based, как в правилах Стаи).
+ * Отдельного эмодзи суриката нет — используется 🦫, как в таблице уровней в правилах.
+ */
+export const MINIAPP_LEVEL_EMOJI: readonly string[] = ["", "🦫", "🦌", "🦓", "🐆", "🦁", "🐘"];
+
+/** Эмодзи уровня по номеру 1-based. */
+export function miniappLevelEmoji(level: number): string {
+  if (level < 1) return "";
+  if (level >= MINIAPP_LEVEL_EMOJI.length) return MINIAPP_LEVEL_EMOJI[MINIAPP_LEVEL_EMOJI.length - 1] ?? "";
+  return MINIAPP_LEVEL_EMOJI[level] ?? "";
+}
+
+/** Минимум накопленных кубков для уровня (1-based). */
+export function miniappLevelMinCups(level: number): number {
+  const idx = Math.min(Math.max(1, Math.floor(level)), MAX_CUP_LEVEL) - 1;
+  return CUP_LEVEL_STARTS[idx] ?? 0;
+}
+
 /** Имя уровня по номеру 1-based. */
 export function miniappLevelName(level: number): string {
   if (level < 1) return "";
