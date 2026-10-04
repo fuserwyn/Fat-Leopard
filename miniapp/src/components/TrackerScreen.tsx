@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import {
   leoAutonomy,
   leoProposeTask,
@@ -263,7 +263,116 @@ function metaParts(t: TrackerTask, isQa: boolean): string[] {
   return parts;
 }
 
+function isTrackerTextField(el: Element | null): el is HTMLElement {
+  if (el instanceof HTMLTextAreaElement) return true;
+  if (el instanceof HTMLInputElement) {
+    return !["button", "submit", "reset", "checkbox", "radio", "file", "hidden", "image"].includes(el.type);
+  }
+  return false;
+}
+
+/** Нижняя граница реально видимой области (над клавиатурой) в координатах layout-вьюпорта. */
+function visibleViewportBottom(): number {
+  let bottom = window.innerHeight || document.documentElement.clientHeight;
+  const vv = window.visualViewport;
+  if (vv && vv.height > 0) bottom = Math.min(bottom, vv.offsetTop + vv.height);
+  const tgH = window.Telegram?.WebApp?.viewportHeight;
+  if (typeof tgH === "number" && tgH > 100) bottom = Math.min(bottom, tgH);
+  return bottom;
+}
+
+function scrollableAncestor(el: HTMLElement): HTMLElement | null {
+  let p = el.parentElement;
+  while (p && p !== document.body) {
+    const oy = window.getComputedStyle(p).overflowY;
+    if ((oy === "auto" || oy === "scroll") && p.scrollHeight > p.clientHeight) return p;
+    p = p.parentElement;
+  }
+  return null;
+}
+
+/**
+ * Поле ввода в трекере целиком над клавиатурой. Глобальный scrollIntoView
+ * срабатывает раньше, чем клавиатура доедет и обновится высота вьюпорта,
+ * поэтому, пока поле в фокусе, докручиваем его после каждого изменения вьюпорта.
+ */
+function useKeepFocusedFieldVisible(rootRef: RefObject<HTMLDivElement | null>) {
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    let field: HTMLElement | null = null;
+    const timers: number[] = [];
+    const MARGIN = 12;
+
+    const reveal = () => {
+      if (!field || document.activeElement !== field || !field.isConnected) return;
+      const rect = field.getBoundingClientRect();
+      const container = scrollableAncestor(field);
+      const containerTop = container ? Math.max(0, container.getBoundingClientRect().top) : 0;
+      const vv = window.visualViewport;
+      const top = Math.max(containerTop, vv ? vv.offsetTop : 0) + MARGIN;
+      const bottom = visibleViewportBottom() - MARGIN;
+      let delta = 0;
+      if (rect.height > bottom - top || rect.top < top) {
+        // Не влезает целиком или ушло вверх — выравниваем по верху видимой области.
+        delta = rect.top - top;
+      } else if (rect.bottom > bottom) {
+        delta = rect.bottom - bottom;
+      }
+      if (Math.abs(delta) < 1) return;
+      if (container) container.scrollTop += delta;
+      else window.scrollBy(0, delta);
+    };
+
+    const clearTimers = () => {
+      while (timers.length) window.clearTimeout(timers.pop());
+    };
+
+    const schedule = () => {
+      if (!field) return;
+      clearTimers();
+      for (const ms of [0, 120, 300, 500, 800]) timers.push(window.setTimeout(reveal, ms));
+    };
+
+    const onFocusIn = (e: FocusEvent) => {
+      const t = e.target as Element | null;
+      if (!isTrackerTextField(t)) return;
+      field = t;
+      schedule();
+    };
+
+    const onFocusOut = () => {
+      window.setTimeout(() => {
+        if (field && document.activeElement !== field) {
+          field = null;
+          clearTimers();
+        }
+      }, 0);
+    };
+
+    root.addEventListener("focusin", onFocusIn);
+    root.addEventListener("focusout", onFocusOut);
+    const vv = window.visualViewport;
+    vv?.addEventListener("resize", schedule);
+    window.addEventListener("resize", schedule);
+    const tg = window.Telegram?.WebApp as { onEvent?: (e: string, fn: () => void) => void } | undefined;
+    tg?.onEvent?.("viewportChanged", schedule);
+
+    return () => {
+      clearTimers();
+      root.removeEventListener("focusin", onFocusIn);
+      root.removeEventListener("focusout", onFocusOut);
+      vv?.removeEventListener("resize", schedule);
+      window.removeEventListener("resize", schedule);
+      const tgOff = window.Telegram?.WebApp as { offEvent?: (e: string, fn: () => void) => void } | undefined;
+      tgOff?.offEvent?.("viewportChanged", schedule);
+    };
+  }, [rootRef]);
+}
+
 export function TrackerScreen({ initData, showAlert }: Props) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  useKeepFocusedFieldVisible(rootRef);
   const [tab, setTab] = useState<"board" | "task" | "sprint">("board");
   /** author_id → как показать человека. Задачи знают только id. */
   const [authors, setAuthors] = useState<Record<number, string>>({});
@@ -820,7 +929,7 @@ export function TrackerScreen({ initData, showAlert }: Props) {
   };
 
   return (
-    <div className="tracker">
+    <div className="tracker" ref={rootRef}>
       <div className="tracker__tabs" role="tablist">
         <button
           type="button"
