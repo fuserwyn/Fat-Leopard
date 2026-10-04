@@ -4,7 +4,14 @@
 # Что поднимается:
 #   - postgres   : та же схема, что в проде (cmd/migrate применяется ботом на старте)
 #   - bot        : Go-сервис ms_leo + HTTP API мини-аппа на :8080 (PORT=8080)
-#   - tracker    : ms_tracker — агент доски, сдачи шлёт боту на /api/miniapp/board/notify
+#   - tracker    : ms_tracker — агент доски, сдачи шлёт боту на /api/miniapp/board/notify.
+#                  Задачи выполняет Claude Agent SDK, запасной — Cursor SDK.
+#
+# ВАЖНО про Claude: положи в .env CLAUDE_CODE_OAUTH_TOKEN (токен подписки из
+# `claude setup-token`, начинается с sk-ant-oat) или ANTHROPIC_API_KEY. Без них
+# трекер уйдёт на Cursor (нужен CURSOR_API_KEY). Модель — CLAUDE_MODEL
+# (по умолчанию claude-opus-5-5), TRACKER_AGENT=cursor — начинать с Cursor.
+# Для коммитов и пуша веток задач нужен GITHUB_PERSONAL_TOKEN.
 #   - miniapp    : статика Vite на :3000, VITE_MINIAPP_API_URL → http://localhost:8080
 #
 # ВАЖНО про токен: ms_leo при старте дёргает Telegram getMe, поэтому нужен НАСТОЯЩИЙ
@@ -63,6 +70,12 @@ services:
       - NOTIFY_SECRET=${TRACKER_SECRET:-dev-tracker-secret}
       - BOARD_REPO=${BOARD_REPO:-fuserwyn/Fat-Leopard}
       - BOARD_BRANCH=main
+      # Исполнитель задач: Claude Agent SDK (основной), Cursor SDK (запасной).
+      - TRACKER_AGENT=${TRACKER_AGENT:-claude}
+      - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - CLAUDE_MODEL=${CLAUDE_MODEL:-}
+      - CLAUDE_MAX_TURNS=${CLAUDE_MAX_TURNS:-80}
       - CURSOR_API_KEY=${CURSOR_API_KEY:-}
       - GITHUB_PERSONAL_TOKEN=${GITHUB_PERSONAL_TOKEN:-}
       - RAILWAY_API_TOKEN=${RAILWAY_API_TOKEN:-}
