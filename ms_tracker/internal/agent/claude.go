@@ -18,7 +18,9 @@ import (
 // Запускается так же: python-скрипт в клоне репо, JSON через stdin/stdout.
 
 const (
-	claudeWait         = 25 * time.Minute
+	// С запасным Cursor (20 мин) укладываемся в час, после которого задачу
+	// снимают как зависшую (worker.staleAfter).
+	claudeWait         = 35 * time.Minute
 	claudeDefaultModel = "claude-opus-5-5"
 )
 
@@ -153,7 +155,13 @@ func claudeDoingPrompt(job store.Job, branch string) string {
 	b.WriteString("Пуш на origin сделает трекер сам, в ветку ")
 	b.WriteString(branch)
 	b.WriteString(".\n")
-	b.WriteString("В конце кратко напиши по-русски, что сделал и какие файлы тронул. Без эмодзи.\n\n")
+	b.WriteString("В окружении есть Go, Node и Postgres. Перед сдачей проверь то, что менял:\n")
+	b.WriteString("- Go-сервис (ms_leo, ms_tracker): в его каталоге `go build ./... && go test ./...`;\n")
+	b.WriteString("- miniapp: `npm ci`, затем `npm run build` и `npx vitest run`;\n")
+	b.WriteString("- SQL-запросы и миграции ms_leo: `LEO_TEST_PG_DSN=$(leo-test-pg) go test ./internal/database/` — ")
+	b.WriteString("поднимет временную базу со всеми миграциями; на новый запрос добавь проверку в migrations_integration_test.go.\n")
+	b.WriteString("Свои ошибки исправь. Если тест падал и до твоих правок — не чини его, а назови в отчёте.\n")
+	b.WriteString("В конце кратко напиши по-русски, что сделал, какие файлы тронул и какие проверки прошли. Без эмодзи.\n\n")
 	b.WriteString(strings.TrimSpace(job.Prompt))
 	return b.String()
 }

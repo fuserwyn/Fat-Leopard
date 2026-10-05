@@ -1,0 +1,16 @@
+#!/bin/sh
+# Временный Postgres для проверки SQL агентом трекера. Печатает DSN:
+#   LEO_TEST_PG_DSN=$(leo-test-pg) go test ./internal/database/
+# Повторный вызов переиспользует уже поднятую базу. Данных боя здесь нет.
+set -e
+PGBIN=$(ls -d /usr/lib/postgresql/*/bin | tail -1)
+DIR=/tmp/leo-test-pg
+PORT=54329
+if ! su postgres -c "$PGBIN/pg_ctl -D $DIR status" >/dev/null 2>&1; then
+	rm -rf "$DIR"
+	mkdir -p "$DIR"
+	chown postgres "$DIR"
+	su postgres -c "$PGBIN/initdb -D $DIR -A trust -U postgres" >/dev/null
+	su postgres -c "$PGBIN/pg_ctl -D $DIR -o '-p $PORT -c listen_addresses=127.0.0.1' -l $DIR/server.log -w start" >/dev/null
+fi
+echo "postgres://postgres@127.0.0.1:$PORT/postgres?sslmode=disable&timezone=Europe/Moscow"

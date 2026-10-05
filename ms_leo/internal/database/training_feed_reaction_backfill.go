@@ -10,10 +10,10 @@ import (
 // (в т.ч. реакции Лео) на одобряющие и соответствующие виду спорта.
 func (d *Database) BackfillTrainingFeedReactionEmojis() (updated int, err error) {
 	rows, err := d.db.Query(`
-		SELECT r.id, r.user_message_id, r.emoji, um.text
+		SELECT r.id, r.user_message_id, r.emoji, um.message_text
 		FROM miniapp_training_feed_reactions r
 		INNER JOIN user_messages um ON um.id = r.user_message_id
-		WHERE um.type = 'training_done'
+		WHERE um.message_type = 'training_done'
 	`)
 	if err != nil {
 		return 0, fmt.Errorf("backfill training feed reactions select: %w", err)

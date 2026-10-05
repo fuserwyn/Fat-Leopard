@@ -22,7 +22,7 @@ from claude_agent_sdk import (
 )
 
 DEFAULT_MODEL = "claude-opus-5-5"
-MAX_TURNS = int(os.environ.get("CLAUDE_MAX_TURNS") or "80")
+MAX_TURNS = int(os.environ.get("CLAUDE_MAX_TURNS") or "150")
 
 # Инструменты, которые агент может звать без подтверждения: правка файлов
 # и шелл (тесты, сборка, локальный git commit). Пуш делает сам трекер.

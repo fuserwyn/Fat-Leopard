@@ -66,7 +66,7 @@ OPENROUTER_VISION_MODEL=openai/gpt-4o-mini
 #   CURSOR_API_KEY=...            # Cursor (запасной)
 #   TRACKER_AGENT=cursor          # начинать сразу с Cursor (по умолчанию claude)
 #   CLAUDE_MODEL=claude-opus-5-5   # модель Claude по умолчанию
-#   CLAUDE_MAX_TURNS=80       # лимит ходов агента на одну задачу
+#   CLAUDE_MAX_TURNS=150      # лимит ходов агента на одну задачу
 # На отдельную задачу: модель карточки (model_key / BOARD_MODEL у ms_leo)
 #   claude-*  (напр. claude-sonnet-5-5) → Claude, composer-* → Cursor.
 #
