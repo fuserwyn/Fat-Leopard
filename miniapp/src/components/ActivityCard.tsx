@@ -6,6 +6,7 @@ import { PhotoLightbox } from "./PhotoLightbox";
 import { CameraButton } from "./CameraButton";
 import { LEO_AVATAR_URL } from "../lib/leoAvatar";
 import { votersToLikers, type VoterDTO } from "../lib/packFeed";
+import { WORKOUT_CATEGORY_OPTIONS, type WorkoutCategoryId } from "../lib/workoutCategories";
 import { clipboardImageFile } from "../lib/clipboardImage";
 import { streakStreakAriaLabel } from "../lib/streakLabel";
 import { hapticImpact } from "../lib/haptics";
@@ -114,6 +115,10 @@ export type ActivityCardPostEdit = {
   onRemovePhoto?: () => void;
   /** Идёт загрузка/удаление фото. */
   photoBusy?: boolean;
+  /** Выбранные виды спорта (только training_done в распознаваемом формате). */
+  kinds?: WorkoutCategoryId[];
+  /** Сменить виды спорта поста (если выбрали не тот при публикации). */
+  onKindsChange?: (kinds: WorkoutCategoryId[]) => void;
 };
 
 /** До трёх типов реакций всегда показываем все чипы — без «⋯». */
@@ -828,6 +833,37 @@ export function ActivityCard({
         {details.trim() !== "" && <p className="act-card__details">{details}</p>}
         {postEdit ? (
           <div className="act-card__post-edit">
+            {postEdit.kinds && postEdit.onKindsChange && (
+              <div className="act-card__post-edit-kinds" role="group" aria-label="Вид спорта">
+                <div className="act-card__post-edit-kinds-title">Вид спорта</div>
+                <div className="act-card__post-edit-kinds-list">
+                  {WORKOUT_CATEGORY_OPTIONS.map((o) => {
+                    const selected = postEdit.kinds?.includes(o.id) ?? false;
+                    return (
+                      <button
+                        key={o.id}
+                        type="button"
+                        className={`act-card__post-edit-kind${selected ? " act-card__post-edit-kind--on" : ""}`}
+                        aria-pressed={selected}
+                        disabled={postEdit.posting}
+                        onClick={() => {
+                          const cur = postEdit.kinds ?? [];
+                          if (selected) {
+                            // Хотя бы один вид должен остаться.
+                            if (cur.length <= 1) return;
+                            postEdit.onKindsChange?.(cur.filter((k) => k !== o.id));
+                          } else {
+                            postEdit.onKindsChange?.([...cur, o.id]);
+                          }
+                        }}
+                      >
+                        {o.emoji} {o.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             <textarea
               className="act-card__post-edit-input"
               rows={4}

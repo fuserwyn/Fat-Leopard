@@ -233,8 +233,48 @@ export function extractEditableFeedPostText(raw: string, type: string): string {
   return t;
 }
 
-/** Собирает message_text для API из отредактированного текста пользователя. */
-export function buildFeedPostTextForSave(originalRaw: string, type: string, edited: string): string {
+const TRAINING_KIND_SPLIT_RE = /\s*[+/]\s*/;
+
+/**
+ * Виды спорта отчёта training_done для правки поста (мультивыбор «бег + плавание»).
+ * null — первая строка не в формате «вид, N мин», вид поменять нельзя.
+ */
+export function extractTrainingDoneKinds(raw: string): WorkoutCategoryId[] | null {
+  const ids = parseTrainingDoneCategories(raw);
+  return ids.length > 0 ? ids : null;
+}
+
+/**
+ * Подпись вида(ов) для первой строки отчёта — как при публикации (App.tsx): строчными, через « + ».
+ * Свои названия из «Другое» (например «сап») сохраняются, если «Другое» осталось выбранным.
+ */
+function buildTrainingDoneKindLabel(oldRawKind: string, kinds: readonly WorkoutCategoryId[]): string {
+  const known = new Set(WORKOUT_CATEGORY_OPTIONS.map((o) => o.label.trim().toLowerCase()));
+  const custom = oldRawKind
+    .split(TRAINING_KIND_SPLIT_RE)
+    .map((p) => p.trim())
+    .filter((p) => p !== "" && !known.has(p.toLowerCase()));
+  const parts: string[] = [];
+  for (const id of kinds) {
+    if (id === "other") {
+      if (custom.length > 0) parts.push(...custom);
+      else parts.push("другое");
+      continue;
+    }
+    const label = WORKOUT_CATEGORY_OPTIONS.find((o) => o.id === id)?.label;
+    if (label) parts.push(label.toLowerCase());
+  }
+  return parts.length > 0 ? parts.join(" + ") : oldRawKind;
+}
+
+/** Собирает message_text для API из отредактированного текста пользователя.
+ *  kinds — новые виды спорта для training_done (если пользователь их поменял). */
+export function buildFeedPostTextForSave(
+  originalRaw: string,
+  type: string,
+  edited: string,
+  kinds?: readonly WorkoutCategoryId[] | null,
+): string {
   const body = edited.trim();
   if (!body) return body;
   if (type === "healthy") {
@@ -252,11 +292,21 @@ export function buildFeedPostTextForSave(originalRaw: string, type: string, edit
     if (!kindMatch || !/\d+\s*мин/i.test(kindMatch[2])) {
       return `${prefix}${body}`;
     }
-    const kind = kindMatch[1];
+    const kind = kinds && kinds.length > 0 ? buildTrainingDoneKindLabel(kindMatch[1], kinds) : kindMatch[1];
     const editedNl = body.indexOf("\n");
     const editedFirst = editedNl >= 0 ? body.slice(0, editedNl).trim() : body.trim();
     const editedRest = editedNl >= 0 ? body.slice(editedNl + 1).trim() : "";
-    const newFirstLine = /^[^,]+,\s*.+\d+\s*мин/i.test(editedFirst) ? editedFirst : `${kind}, ${editedFirst}`;
+    let newFirstLine: string;
+    const fullLine = editedFirst.match(/^([^,]+),\s*(.+\d+\s*мин.*)$/i);
+    if (fullLine) {
+      // Пользователь сам вписал «вид, N мин» — при явном выборе видов подменяем подпись.
+      newFirstLine =
+        kinds && kinds.length > 0
+          ? `${buildTrainingDoneKindLabel(fullLine[1].trim(), kinds)}, ${fullLine[2]}`
+          : editedFirst;
+    } else {
+      newFirstLine = `${kind}, ${editedFirst}`;
+    }
     if (editedRest) return `${prefix}${newFirstLine}\n${editedRest}`;
     return `${prefix}${newFirstLine}`;
   }

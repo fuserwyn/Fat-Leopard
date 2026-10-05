@@ -15,6 +15,7 @@ import {
   resolveTrainingPhotoUrl,
   sortPackFeedItemsDesc,
   extractEditableFeedPostText,
+  extractTrainingDoneKinds,
   buildFeedPostTextForSave,
   feedPostEditable,
   feedAllowsAdminCommentVoice,
@@ -264,6 +265,8 @@ export function FeedScreen({
   const [threadReplyReporting, setThreadReplyReporting] = useState<Record<number, boolean>>({});
   const [postEditId, setPostEditId] = useState<number | null>(null);
   const [postEditDrafts, setPostEditDrafts] = useState<Record<number, string>>({});
+  /** Виды спорта в режиме правки training_done (поменять, если при публикации выбрали не тот). */
+  const [postEditKinds, setPostEditKinds] = useState<Record<number, WorkoutCategoryId[]>>({});
   const [postEditPosting, setPostEditPosting] = useState<Record<number, boolean>>({});
   const [postPhotoBusy, setPostPhotoBusy] = useState<Record<number, boolean>>({});
   const [threadEditTargets, setThreadEditTargets] = useState<
@@ -1116,7 +1119,7 @@ export function FeedScreen({
         return;
       }
       if (!apiBase || !initData) return;
-      const payloadText = buildFeedPostTextForSave(item.text, item.type, draft);
+      const payloadText = buildFeedPostTextForSave(item.text, item.type, draft, postEditKinds[item.id]);
       setPostEditPosting((p) => ({ ...p, [item.id]: true }));
       try {
         const res = await fetch(`${apiBase}/api/miniapp/feed/edit`, {
@@ -1151,6 +1154,11 @@ export function FeedScreen({
           delete next[item.id];
           return next;
         });
+        setPostEditKinds((k) => {
+          const next = { ...k };
+          delete next[item.id];
+          return next;
+        });
         setFeedItems((prev) =>
           prev.map((it) =>
             it.id === item.id
@@ -1165,7 +1173,7 @@ export function FeedScreen({
         setPostEditPosting((p) => ({ ...p, [item.id]: false }));
       }
     },
-    [apiBase, initData, postEditDrafts, showAlert, syncFeed],
+    [apiBase, initData, postEditDrafts, postEditKinds, showAlert, syncFeed],
   );
 
   const setFeedPostPhoto = useCallback(
@@ -2086,6 +2094,13 @@ export function FeedScreen({
                           ...d,
                           [it.id]: extractEditableFeedPostText(it.text, it.type),
                         }));
+                        const kinds = it.type === "training_done" ? extractTrainingDoneKinds(it.text) : null;
+                        setPostEditKinds((k) => {
+                          const next = { ...k };
+                          if (kinds) next[it.id] = kinds;
+                          else delete next[it.id];
+                          return next;
+                        });
                       },
                       commentEdited: Boolean(it.edited_at),
                       ...(postEditId === it.id
@@ -2095,11 +2110,23 @@ export function FeedScreen({
                                 postEditDrafts[it.id] ?? extractEditableFeedPostText(it.text, it.type),
                               onDraftChange: (v: string) =>
                                 setPostEditDrafts((d) => ({ ...d, [it.id]: v })),
+                              ...(postEditKinds[it.id]
+                                ? {
+                                    kinds: postEditKinds[it.id],
+                                    onKindsChange: (v: WorkoutCategoryId[]) =>
+                                      setPostEditKinds((k) => ({ ...k, [it.id]: v })),
+                                  }
+                                : {}),
                               onSave: () => void editFeedPost(it),
                               onCancel: () => {
                                 setPostEditId((cur) => (cur === it.id ? null : cur));
                                 setPostEditDrafts((d) => {
                                   const next = { ...d };
+                                  delete next[it.id];
+                                  return next;
+                                });
+                                setPostEditKinds((k) => {
+                                  const next = { ...k };
                                   delete next[it.id];
                                   return next;
                                 });
