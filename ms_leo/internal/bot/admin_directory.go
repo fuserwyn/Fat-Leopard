@@ -309,6 +309,11 @@ func adminPaymentStatusForKind(kind, status string, accessActive bool) string {
 }
 
 func adminBuildMoneyStatsTable(sums []database.AdminMoneyKindSum) MiniappAdminTable {
+	return adminBuildMoneyStatsTableForKind("", sums)
+}
+
+// adminBuildMoneyStatsTableForKind — сводка только по одному виду оплат ("" — по обоим).
+func adminBuildMoneyStatsTableForKind(kind string, sums []database.AdminMoneyKindSum) MiniappAdminTable {
 	tbl := MiniappAdminTable{
 		Title:    "📊 Сводка",
 		Subtitle: "Завершённые оплаты за всё время · доступ и донаты · звёзды и рубли",
@@ -326,6 +331,9 @@ func adminBuildMoneyStatsTable(sums []database.AdminMoneyKindSum) MiniappAdminTa
 		byKey[s.Kind+"|"+strings.ToUpper(s.Currency)] = s
 	}
 	for _, k := range order {
+		if kind != "" && k[0] != kind {
+			continue
+		}
 		key := k[0] + "|" + k[1]
 		s, ok := byKey[key]
 		if !ok {

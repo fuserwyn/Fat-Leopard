@@ -12,11 +12,21 @@ import {
   removeAdminPerson,
   wipePackFeed,
   type AdminPaymentsKind,
+  type AdminPaymentsOrder,
   type AdminPerson,
   type AdminScheduledPost,
   type AdminTable,
   type AdminWipeCounts,
 } from "../lib/adminApi";
+import {
+  PAYMENTS_PERIOD_MODES,
+  canShiftPaymentsForward,
+  paymentsPeriodRange,
+  paymentsPeriodTitle,
+  shiftPaymentsAnchor,
+  todayMsk,
+  type PaymentsPeriodMode,
+} from "../lib/adminPaymentsPeriod";
 import { tgConfirm } from "../lib/tgConfirm";
 import "./AdminOpsScreen.css";
 
@@ -42,6 +52,11 @@ const PAYMENT_KINDS: { kind: AdminPaymentsKind; label: string }[] = [
   { kind: "", label: "Все" },
   { kind: "access", label: "Платежи" },
   { kind: "donation", label: "Донаты" },
+];
+
+const PAYMENT_ORDERS: { order: AdminPaymentsOrder; label: string }[] = [
+  { order: "desc", label: "Сначала новые" },
+  { order: "asc", label: "Сначала старые" },
 ];
 
 function Table({ table }: { table: AdminTable }) {
@@ -85,6 +100,20 @@ export function AdminOpsScreen({ section, initData, showAlert }: Props) {
   const [paymentsTotal, setPaymentsTotal] = useState(0);
   const [paymentsKind, setPaymentsKind] = useState<AdminPaymentsKind>("");
   const [paymentsPaidOnly, setPaymentsPaidOnly] = useState(false);
+  const [paymentsOrder, setPaymentsOrder] = useState<AdminPaymentsOrder>("desc");
+  const [paymentsPeriodMode, setPaymentsPeriodMode] = useState<PaymentsPeriodMode>("all");
+  const [paymentsAnchor, setPaymentsAnchor] = useState(() => todayMsk());
+  const [paymentsCustomFrom, setPaymentsCustomFrom] = useState("");
+  const [paymentsCustomTo, setPaymentsCustomTo] = useState("");
+  const [paymentsQueryDraft, setPaymentsQueryDraft] = useState("");
+  const [paymentsQuery, setPaymentsQuery] = useState("");
+
+  const paymentsRange =
+    paymentsPeriodMode === "custom"
+      ? { from: paymentsCustomFrom, to: paymentsCustomTo }
+      : paymentsPeriodRange(paymentsPeriodMode, paymentsAnchor);
+  const paymentsFrom = paymentsRange.from;
+  const paymentsTo = paymentsRange.to;
 
   const [admins, setAdmins] = useState<AdminPerson[]>([]);
   const [adminQuery, setAdminQuery] = useState("");
@@ -119,7 +148,14 @@ export function AdminOpsScreen({ section, initData, showAlert }: Props) {
         const j = await fetchAdminVisits(initData);
         setTables(j.tables ?? []);
       } else if (section === "payments") {
-        const j = await fetchAdminPayments(initData, paymentsOffset, PAYMENTS_PAGE, paymentsKind, paymentsPaidOnly);
+        const j = await fetchAdminPayments(initData, paymentsOffset, PAYMENTS_PAGE, {
+          kind: paymentsKind,
+          completedOnly: paymentsPaidOnly,
+          query: paymentsQuery,
+          from: paymentsFrom,
+          to: paymentsTo,
+          order: paymentsOrder,
+        });
         const p = j.payments;
         const shown = p.table?.rows?.length ?? 0;
         setTables(
@@ -128,8 +164,10 @@ export function AdminOpsScreen({ section, initData, showAlert }: Props) {
             .map((t) => ({ ...t, rows: t.rows ?? [] })),
         );
         setPaymentsTotal(p.total);
-        const empty =
-          paymentsKind === "access" ? "Платежей пока нет" : paymentsKind === "donation" ? "Донатов пока нет" : "Оплат и донатов пока нет";
+        const filtered = Boolean(paymentsQuery || paymentsFrom || paymentsTo);
+        const what =
+          paymentsKind === "access" ? "Платежей" : paymentsKind === "donation" ? "Донатов" : "Оплат и донатов";
+        const empty = filtered ? `${what} по этим фильтрам нет` : `${what} пока нет`;
         setNote(p.total > 0 ? `Строки ${paymentsOffset + 1}–${paymentsOffset + shown} из ${p.total}` : empty);
       } else if (section === "admins") {
         const j = await fetchAdminAdmins(initData);
@@ -146,7 +184,19 @@ export function AdminOpsScreen({ section, initData, showAlert }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [section, initData, period, paymentsOffset, paymentsKind, paymentsPaidOnly, fail]);
+  }, [
+    section,
+    initData,
+    period,
+    paymentsOffset,
+    paymentsKind,
+    paymentsPaidOnly,
+    paymentsQuery,
+    paymentsFrom,
+    paymentsTo,
+    paymentsOrder,
+    fail,
+  ]);
 
   useEffect(() => {
     void load();
@@ -401,6 +451,120 @@ export function AdminOpsScreen({ section, initData, showAlert }: Props) {
             ))}
           </div>
           <div className="ops-periods">
+            {PAYMENTS_PERIOD_MODES.map((m) => (
+              <button
+                key={m.mode}
+                type="button"
+                className={paymentsPeriodMode === m.mode ? "on" : ""}
+                onClick={() => {
+                  if (m.mode === "custom" && paymentsPeriodMode !== "custom") {
+                    // Свой период начинаем с того, что было выбрано, — его удобно подправить.
+                    const r = paymentsPeriodRange(paymentsPeriodMode, paymentsAnchor);
+                    setPaymentsCustomFrom(r.from);
+                    setPaymentsCustomTo(r.to);
+                  }
+                  setPaymentsPeriodMode(m.mode);
+                  setPaymentsOffset(0);
+                }}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+          {paymentsPeriodMode === "day" || paymentsPeriodMode === "week" || paymentsPeriodMode === "month" ? (
+            <div className="ops-row ops-period-nav">
+              <button
+                type="button"
+                aria-label="Предыдущий период"
+                onClick={() => {
+                  setPaymentsAnchor(shiftPaymentsAnchor(paymentsPeriodMode, paymentsAnchor, -1));
+                  setPaymentsOffset(0);
+                }}
+              >
+                ◀
+              </button>
+              <span className="ops-period-nav__title">{paymentsPeriodTitle(paymentsPeriodMode, paymentsAnchor)}</span>
+              <button
+                type="button"
+                aria-label="Следующий период"
+                disabled={!canShiftPaymentsForward(paymentsPeriodMode, paymentsAnchor, todayMsk())}
+                onClick={() => {
+                  setPaymentsAnchor(shiftPaymentsAnchor(paymentsPeriodMode, paymentsAnchor, 1));
+                  setPaymentsOffset(0);
+                }}
+              >
+                ▶
+              </button>
+            </div>
+          ) : null}
+          {paymentsPeriodMode === "custom" ? (
+            <div className="ops-row">
+              <input
+                type="date"
+                aria-label="С даты"
+                value={paymentsCustomFrom}
+                max={paymentsCustomTo || undefined}
+                onChange={(e) => {
+                  setPaymentsCustomFrom(e.target.value);
+                  setPaymentsOffset(0);
+                }}
+              />
+              <input
+                type="date"
+                aria-label="По дату"
+                value={paymentsCustomTo}
+                min={paymentsCustomFrom || undefined}
+                onChange={(e) => {
+                  setPaymentsCustomTo(e.target.value);
+                  setPaymentsOffset(0);
+                }}
+              />
+            </div>
+          ) : null}
+          <form
+            className="ops-row"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setPaymentsQuery(paymentsQueryDraft.trim());
+              setPaymentsOffset(0);
+            }}
+          >
+            <input
+              type="search"
+              value={paymentsQueryDraft}
+              onChange={(e) => setPaymentsQueryDraft(e.target.value)}
+              placeholder="@ник, имя или id"
+            />
+            <button type="submit" className="ops-primary">
+              Найти
+            </button>
+            {paymentsQuery ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setPaymentsQueryDraft("");
+                  setPaymentsQuery("");
+                  setPaymentsOffset(0);
+                }}
+              >
+                Сбросить
+              </button>
+            ) : null}
+          </form>
+          <div className="ops-periods">
+            {PAYMENT_ORDERS.map((o) => (
+              <button
+                key={o.order}
+                type="button"
+                className={paymentsOrder === o.order ? "on" : ""}
+                onClick={() => {
+                  setPaymentsOrder(o.order);
+                  setPaymentsOffset(0);
+                }}
+              >
+                {o.label}
+              </button>
+            ))}
             <button
               type="button"
               className={paymentsPaidOnly ? "on" : ""}

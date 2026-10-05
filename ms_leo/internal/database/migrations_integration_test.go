@@ -106,7 +106,7 @@ func TestAdminMoneyQueriesOnRealSchema(t *testing.T) {
 		t.Errorf("пагинация: %d строк, %v", len(page), err)
 	}
 
-	payers, err := d.ListMoneyPayersForAdmin(pack, "", 50)
+	payers, err := d.ListMoneyPayersForAdmin(pack, AdminMoneyFilter{}, 50)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,12 +120,70 @@ func TestAdminMoneyQueriesOnRealSchema(t *testing.T) {
 	if ivan.UserID != 1 || ivan.AccessCount != 1 || ivan.DonationCount != 1 || ivan.RubMinorTotal != 21000 || ivan.StarsTotal != 150 || ivan.Username != "ivan" {
 		t.Errorf("Иван: %+v", ivan)
 	}
-	if only, err := d.ListMoneyPayersForAdmin(pack, "access", 50); err != nil || len(only) != 1 || only[0].UserID != 1 {
+	if only, err := d.ListMoneyPayersForAdmin(pack, AdminMoneyFilter{Kind: "access"}, 50); err != nil || len(only) != 1 || only[0].UserID != 1 {
 		t.Errorf("плательщики за доступ: %+v %v", only, err)
 	}
 
 	sums, err := d.AdminSumCompletedMoney(pack, time.Time{}, false)
 	if err != nil || len(sums) != 3 {
 		t.Errorf("сводка: %+v %v", sums, err)
+	}
+
+	// Поиск по нику (с @ и в другом регистре), имени и telegram id.
+	if n := count(AdminMoneyFilter{Query: "@IVA"}); n != 3 {
+		t.Errorf("по нику ivan: %d, ждали 3", n)
+	}
+	if n := count(AdminMoneyFilter{Query: "мари", Kind: "donation"}); n != 2 {
+		t.Errorf("по имени Мария: %d, ждали 2", n)
+	}
+	if n := count(AdminMoneyFilter{Query: "2"}); n != 2 {
+		t.Errorf("по id 2: %d, ждали 2", n)
+	}
+	if n := count(AdminMoneyFilter{Query: "nobody"}); n != 0 {
+		t.Errorf("по чужому нику: %d, ждали 0", n)
+	}
+
+	// Период по дате оплаты: [с; по).
+	now := time.Now()
+	if n := count(AdminMoneyFilter{CompletedOnly: true, From: now.Add(-36 * time.Hour)}); n != 2 {
+		t.Errorf("завершённые за 36 часов: %d, ждали 2", n)
+	}
+	if n := count(AdminMoneyFilter{CompletedOnly: true, From: now.Add(-72 * time.Hour), To: now.Add(-36 * time.Hour)}); n != 1 {
+		t.Errorf("завершённые 3…1.5 дня назад: %d, ждали 1", n)
+	}
+	if n := count(AdminMoneyFilter{To: now.Add(-10 * 24 * time.Hour)}); n != 0 {
+		t.Errorf("до 10 дней назад: %d, ждали 0", n)
+	}
+
+	// Хронология: со старых к новым — первым идёт доступ Ивана двухдневной давности.
+	asc, err := d.ListMoneyPaymentsForAdminFiltered(pack, AdminMoneyFilter{CompletedOnly: true, OldestFirst: true}, 0, 50)
+	if err != nil || len(asc) != 3 {
+		t.Fatalf("по хронологии: %+v %v", asc, err)
+	}
+	if asc[0].Kind != "access" || asc[0].UserID != 1 || asc[2].UserID != 2 {
+		t.Errorf("порядок по хронологии: %+v", asc)
+	}
+
+	// «Кто платил» и сводка учитывают человека и период.
+	if p, err := d.ListMoneyPayersForAdmin(pack, AdminMoneyFilter{From: now.Add(-36 * time.Hour)}, 50); err != nil || len(p) != 2 || p[1].AccessCount != 0 {
+		t.Errorf("плательщики за 36 часов: %+v %v", p, err)
+	}
+	if p, err := d.ListMoneyPayersForAdmin(pack, AdminMoneyFilter{Query: "ivan"}, 50); err != nil || len(p) != 1 || p[0].UserID != 1 {
+		t.Errorf("плательщики по нику: %+v %v", p, err)
+	}
+	fs, err := d.SumMoneyForAdminFiltered(pack, AdminMoneyFilter{Kind: "donation"})
+	if err != nil || len(fs) != 2 {
+		t.Fatalf("сводка донатов: %+v %v", fs, err)
+	}
+	for _, s := range fs {
+		if s.Kind != "donation" || s.Count != 1 {
+			t.Errorf("сводка донатов: %+v", fs)
+		}
+		if s.Currency == "RUB" && s.AmountMinor != 50000 || s.Currency == "XTR" && s.AmountMinor != 150 {
+			t.Errorf("сумма донатов: %+v", s)
+		}
+	}
+	if fs, err := d.SumMoneyForAdminFiltered(pack, AdminMoneyFilter{Query: "ivan", Kind: "access"}); err != nil || len(fs) != 1 || fs[0].AmountMinor != 21000 || fs[0].Currency != "RUB" {
+		t.Errorf("сводка доступа Ивана: %+v %v", fs, err)
 	}
 }
