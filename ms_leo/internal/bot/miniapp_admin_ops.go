@@ -193,16 +193,23 @@ func (b *Bot) MiniappAdminVisits(viewerUserID int64, initD initdata.InitData) ([
 }
 
 type MiniappAdminPayments struct {
-	Total  int                 `json:"total"`
-	Offset int                 `json:"offset"`
-	Limit  int                 `json:"limit"`
-	Stats  MiniappAdminTable   `json:"stats"`
-	Table  MiniappAdminTable   `json:"table"`
+	Total         int               `json:"total"`
+	Offset        int               `json:"offset"`
+	Limit         int               `json:"limit"`
+	Kind          string            `json:"kind"`           // "" | access | donation
+	CompletedOnly bool              `json:"completed_only"` // только завершённые
+	Stats         MiniappAdminTable `json:"stats"`
+	Payers        MiniappAdminTable `json:"payers"`
+	Table         MiniappAdminTable `json:"table"`
 }
 
-// MiniappAdminPaymentsPage — «Оплаты»: сводка и список доступа + донатов.
+// miniappAdminPayersLimit — сколько плательщиков показываем в таблице «Кто платил».
+const miniappAdminPayersLimit = 50
+
+// MiniappAdminPaymentsPage — «Оплаты»: сводка, кто платил и список платежей за доступ + донатов.
+// kind: "" — всё, "access" — только платежи за доступ, "donation" — только донаты.
 func (b *Bot) MiniappAdminPaymentsPage(
-	viewerUserID int64, initD initdata.InitData, offset, limit int,
+	viewerUserID int64, initD initdata.InitData, offset, limit int, kind string, completedOnly bool,
 ) (MiniappAdminPayments, error) {
 	var out MiniappAdminPayments
 	if _, err := b.requireMiniappAdmin(viewerUserID, initD); err != nil {
@@ -218,24 +225,38 @@ func (b *Bot) MiniappAdminPaymentsPage(
 	if limit <= 0 || limit > 50 {
 		limit = 20
 	}
+	kind = database.NormalizeAdminMoneyKind(kind)
+	filter := database.AdminMoneyFilter{Kind: kind, CompletedOnly: completedOnly}
+	out.Kind, out.CompletedOnly = kind, completedOnly
+
 	sums, err := b.db.AdminSumCompletedMoney(packChatID, time.Time{}, false)
 	if err != nil {
 		return out, err
 	}
 	out.Stats = adminBuildMoneyStatsTable(sums)
 
-	total, err := b.db.CountMoneyPaymentsForAdmin(packChatID)
+	payers, err := b.db.ListMoneyPayersForAdmin(packChatID, kind, miniappAdminPayersLimit)
 	if err != nil {
 		return out, err
 	}
-	rows, err := b.db.ListMoneyPaymentsForAdmin(packChatID, offset, limit)
+	out.Payers = adminBuildMoneyPayersTable(kind, payers)
+
+	total, err := b.db.CountMoneyPaymentsForAdminFiltered(packChatID, filter)
+	if err != nil {
+		return out, err
+	}
+	rows, err := b.db.ListMoneyPaymentsForAdminFiltered(packChatID, filter, offset, limit)
 	if err != nil {
 		return out, err
 	}
 	out.Total, out.Offset, out.Limit = total, offset, limit
 	out.Table = MiniappAdminTable{
-		Title:   "💳 Все оплаты",
-		Columns: []string{"№", "Тип", "Ник", "Статус", "Сумма", "Дата"},
+		Title:   adminMoneyListTitle(kind),
+		Columns: []string{"№", "Тип", "Кто", "Статус", "Сумма", "Дата"},
+		Rows:    [][]string{},
+	}
+	if completedOnly {
+		out.Table.Subtitle = "Только завершённые"
 	}
 	for i, p := range rows {
 		cur := ""
@@ -245,13 +266,90 @@ func (b *Bot) MiniappAdminPaymentsPage(
 		out.Table.Rows = append(out.Table.Rows, []string{
 			strconv.Itoa(offset + i + 1),
 			adminMoneyKindCurrencyLabel(p.Kind, cur),
-			adminPaywallPersonLabel(p.Username, p.DisplayName, p.UserID),
+			adminMoneyPersonLabel(p.Username, p.DisplayName, p.UserID),
 			adminPaymentStatusForKind(p.Kind, p.Status, p.AccessActive),
 			adminFormatPaymentAmount(p.AmountMinor, p.Currency),
 			p.CreatedAt.In(time.FixedZone("MSK", 3*3600)).Format("02.01 15:04"),
 		})
 	}
 	return out, nil
+}
+
+func adminMoneyListTitle(kind string) string {
+	switch kind {
+	case "access":
+		return "💳 Платежи за доступ"
+	case "donation":
+		return "💛 Донаты"
+	default:
+		return "💳 Все платежи и донаты"
+	}
+}
+
+// adminMoneyPersonLabel — кто платил: ник и имя из профиля, а если нет ни того,
+// ни другого — telegram id, чтобы человека можно было найти.
+func adminMoneyPersonLabel(username, displayName string, userID int64) string {
+	nick := adminPaywallPersonLabel(username, "", userID)
+	hasNick := strings.HasPrefix(nick, "@")
+	name := strings.TrimSpace(displayName)
+	if r := []rune(name); len(r) > 24 {
+		name = string(r[:24]) + "…"
+	}
+	switch {
+	case hasNick && name != "":
+		return nick + " · " + name
+	case hasNick:
+		return nick
+	case name != "":
+		return name + " · id" + strconv.FormatInt(userID, 10)
+	default:
+		return "id" + strconv.FormatInt(userID, 10)
+	}
+}
+
+// adminBuildMoneyPayersTable — «Кто платил»: по человеку, сколько раз и на какую сумму.
+func adminBuildMoneyPayersTable(kind string, payers []database.AdminMoneyPayerRow) MiniappAdminTable {
+	tbl := MiniappAdminTable{
+		Title:    "👥 Кто платил",
+		Subtitle: "Завершённые оплаты за всё время, свежие сверху",
+		Columns:  []string{"Кто", "Доступ", "Донаты", "⭐", "₽", "Последний"},
+		Rows:     [][]string{},
+	}
+	switch kind {
+	case "access":
+		tbl.Title = "👥 Кто платил за доступ"
+		tbl.Columns = []string{"Кто", "Платежей", "⭐", "₽", "Последний"}
+	case "donation":
+		tbl.Title = "👥 Кто донатил"
+		tbl.Columns = []string{"Кто", "Донатов", "⭐", "₽", "Последний"}
+	}
+	msk := time.FixedZone("MSK", 3*3600)
+	for _, p := range payers {
+		stars := "—"
+		if p.StarsTotal > 0 {
+			stars = strconv.FormatInt(p.StarsTotal, 10)
+		}
+		rub := "—"
+		if p.RubMinorTotal > 0 {
+			rub = fmt.Sprintf("%.0f", float64(p.RubMinorTotal)/100)
+		}
+		who := adminMoneyPersonLabel(p.Username, p.DisplayName, p.UserID)
+		last := p.LastPaidAt.In(msk).Format("02.01.06")
+		switch kind {
+		case "access":
+			tbl.Rows = append(tbl.Rows, []string{who, strconv.FormatInt(p.AccessCount, 10), stars, rub, last})
+		case "donation":
+			tbl.Rows = append(tbl.Rows, []string{who, strconv.FormatInt(p.DonationCount, 10), stars, rub, last})
+		default:
+			tbl.Rows = append(tbl.Rows, []string{
+				who,
+				strconv.FormatInt(p.AccessCount, 10),
+				strconv.FormatInt(p.DonationCount, 10),
+				stars, rub, last,
+			})
+		}
+	}
+	return tbl
 }
 
 type MiniappAdminPerson struct {

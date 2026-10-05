@@ -619,9 +619,11 @@ func (s *Server) handlePostAdminVisits(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handlePostAdminPayments(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		InitData string `json:"init_data"`
-		Offset   int    `json:"offset"`
-		Limit    int    `json:"limit"`
+		InitData      string `json:"init_data"`
+		Offset        int    `json:"offset"`
+		Limit         int    `json:"limit"`
+		Kind          string `json:"kind"`           // "" | access | donation
+		CompletedOnly bool   `json:"completed_only"` // только завершённые
 	}
 	corsWriteHeaders(w, r)
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -632,7 +634,8 @@ func (s *Server) handlePostAdminPayments(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return
 	}
-	data, err := s.bot.MiniappAdminPaymentsPage(parsed.User.ID, parsed, body.Offset, body.Limit)
+	data, err := s.bot.MiniappAdminPaymentsPage(
+		parsed.User.ID, parsed, body.Offset, body.Limit, body.Kind, body.CompletedOnly)
 	if err != nil {
 		s.writeAdminErr(w, err)
 		return

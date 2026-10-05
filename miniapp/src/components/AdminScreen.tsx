@@ -758,7 +758,7 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
                         : page === "visits"
                           ? "Посещения бота"
                           : page === "payments"
-                            ? "Оплаты"
+                            ? "Платежи и донаты"
                             : page === "admins"
                               ? "Админы"
                               : page === "scheduled"
@@ -874,8 +874,8 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
                 <button type="button" className="admin__tile" onClick={() => setPage("payments")}>
                   <span className="admin__tile-ico">💳</span>
                   <span className="admin__tile-text">
-                    <b>Оплаты</b>
-                    <small>доступ и донаты · ⭐ и ₽</small>
+                    <b>Платежи и донаты</b>
+                    <small>кто платил и донатил · ⭐ и ₽</small>
                   </span>
                 </button>
                 <button type="button" className="admin__tile" onClick={() => void openPrice()}>
