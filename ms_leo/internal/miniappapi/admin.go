@@ -624,6 +624,10 @@ func (s *Server) handlePostAdminPayments(w http.ResponseWriter, r *http.Request)
 		Limit         int    `json:"limit"`
 		Kind          string `json:"kind"`           // "" | access | donation
 		CompletedOnly bool   `json:"completed_only"` // только завершённые
+		Query         string `json:"query"`          // @ник, имя или telegram id
+		From          string `json:"from"`           // ГГГГ-ММ-ДД (МСК), включительно
+		To            string `json:"to"`             // ГГГГ-ММ-ДД (МСК), включительно
+		Order         string `json:"order"`          // desc | asc
 	}
 	corsWriteHeaders(w, r)
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -634,8 +638,16 @@ func (s *Server) handlePostAdminPayments(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return
 	}
-	data, err := s.bot.MiniappAdminPaymentsPage(
-		parsed.User.ID, parsed, body.Offset, body.Limit, body.Kind, body.CompletedOnly)
+	data, err := s.bot.MiniappAdminPaymentsPage(parsed.User.ID, parsed, bot.MiniappAdminPaymentsQuery{
+		Offset:        body.Offset,
+		Limit:         body.Limit,
+		Kind:          body.Kind,
+		CompletedOnly: body.CompletedOnly,
+		Query:         body.Query,
+		From:          body.From,
+		To:            body.To,
+		Order:         body.Order,
+	})
 	if err != nil {
 		s.writeAdminErr(w, err)
 		return

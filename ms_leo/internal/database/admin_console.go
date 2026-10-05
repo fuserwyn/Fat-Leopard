@@ -447,9 +447,31 @@ type AdminMoneyPaymentRow struct {
 // AdminMoneyFilter — фильтр списка оплат в админке.
 // Kind: "" — всё, "access" — платежи за доступ, "donation" — донаты.
 // CompletedOnly — только завершённые (без висящих заявок и отмен).
+// Query — ник (с @ или без), имя из профиля или telegram id; ищется вхождение без учёта регистра.
+// From/To — период по дате оплаты (completed_at, иначе created_at): From включительно,
+// To не включительно; нулевое время — без границы.
+// OldestFirst — хронология от старых к новым (по умолчанию новые сверху).
 type AdminMoneyFilter struct {
 	Kind          string
 	CompletedOnly bool
+	Query         string
+	From          time.Time
+	To            time.Time
+	OldestFirst   bool
+}
+
+// NormalizeAdminMoneyQuery — строка поиска по людям: без пробелов по краям, без @, в нижнем регистре.
+func NormalizeAdminMoneyQuery(q string) string {
+	q = strings.TrimSpace(q)
+	q = strings.TrimLeft(q, "@")
+	return strings.ToLower(strings.TrimSpace(q))
+}
+
+// sqlArgs — параметры $2…$6 для adminMoneyFilterSQL.
+func (f AdminMoneyFilter) sqlArgs() []any {
+	from := sql.NullTime{Time: f.From, Valid: !f.From.IsZero()}
+	to := sql.NullTime{Time: f.To, Valid: !f.To.IsZero()}
+	return []any{NormalizeAdminMoneyKind(f.Kind), f.CompletedOnly, NormalizeAdminMoneyQuery(f.Query), from, to}
 }
 
 // NormalizeAdminMoneyKind — допустимый вид оплаты для фильтра, иначе "" (всё).
@@ -500,10 +522,17 @@ const adminMoneyUnionSQL = `
 			LEFT JOIN miniapp_user_profile p
 				ON p.user_id = d.user_id AND p.pack_chat_id = $1`
 
-// adminMoneyFilterSQL — условие на строки adminMoneyUnionSQL ($2 — вид, $3 — только завершённые).
+// adminMoneyFilterSQL — условие на строки adminMoneyUnionSQL: $2 — вид, $3 — только завершённые,
+// $4 — поиск по нику/имени/id, $5 и $6 — период [с; по). Параметры собирает AdminMoneyFilter.sqlArgs.
 const adminMoneyFilterSQL = `
 		WHERE ($2::text = '' OR u.kind = $2::text)
-		  AND (NOT $3::boolean OR u.status = 'completed')`
+		  AND (NOT $3::boolean OR u.status = 'completed')
+		  AND ($4::text = ''
+		       OR STRPOS(LOWER(u.username), $4::text) > 0
+		       OR STRPOS(LOWER(u.display_name), $4::text) > 0
+		       OR u.user_id::text = $4::text)
+		  AND ($5::timestamptz IS NULL OR u.created_at >= $5::timestamptz)
+		  AND ($6::timestamptz IS NULL OR u.created_at < $6::timestamptz)`
 
 // CountMoneyPaymentsForAdmin — все заявки доступа и донаты.
 func (d *Database) CountMoneyPaymentsForAdmin(packChatID int64) (int, error) {
@@ -518,7 +547,8 @@ func (d *Database) CountMoneyPaymentsForAdminFiltered(packChatID int64, f AdminM
 	var n int
 	q := `SELECT COUNT(*) FROM (` + adminMoneyUnionSQL + `
 		) u` + adminMoneyFilterSQL
-	err := d.db.QueryRow(q, packChatID, NormalizeAdminMoneyKind(f.Kind), f.CompletedOnly).Scan(&n)
+	args := append([]any{packChatID}, f.sqlArgs()...)
+	err := d.db.QueryRow(q, args...).Scan(&n)
 	return n, err
 }
 
@@ -527,7 +557,8 @@ func (d *Database) ListMoneyPaymentsForAdmin(packChatID int64, offset, limit int
 	return d.ListMoneyPaymentsForAdminFiltered(packChatID, AdminMoneyFilter{}, offset, limit)
 }
 
-// ListMoneyPaymentsForAdminFiltered — список оплат с фильтром по виду и статусу, новые сверху.
+// ListMoneyPaymentsForAdminFiltered — список оплат с фильтром (вид, статус, человек, период);
+// новые сверху, а с OldestFirst — по хронологии от старых.
 func (d *Database) ListMoneyPaymentsForAdminFiltered(
 	packChatID int64, f AdminMoneyFilter, offset, limit int,
 ) ([]AdminMoneyPaymentRow, error) {
@@ -540,14 +571,20 @@ func (d *Database) ListMoneyPaymentsForAdminFiltered(
 	if offset < 0 {
 		offset = 0
 	}
+	order := "DESC"
+	if f.OldestFirst {
+		order = "ASC"
+	}
 	q := `
 		SELECT u.kind, u.id, u.user_id, u.username, u.display_name, u.status, u.created_at,
 		       u.amount_minor, u.currency, u.access_active
 		FROM (` + adminMoneyUnionSQL + `
 		) u` + adminMoneyFilterSQL + `
-		ORDER BY u.created_at DESC, u.id DESC
-		OFFSET $4 LIMIT $5`
-	rows, err := d.db.Query(q, packChatID, NormalizeAdminMoneyKind(f.Kind), f.CompletedOnly, offset, limit)
+		ORDER BY u.created_at ` + order + `, u.kind ` + order + `, u.id ` + order + `
+		OFFSET $7 LIMIT $8`
+	args := append([]any{packChatID}, f.sqlArgs()...)
+	args = append(args, offset, limit)
+	rows, err := d.db.Query(q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -566,6 +603,44 @@ func (d *Database) ListMoneyPaymentsForAdminFiltered(
 	return out, rows.Err()
 }
 
+// SumMoneyForAdminFiltered — завершённые оплаты из выборки по виду и валюте:
+// сколько и на какую сумму за выбранный период, по выбранному человеку.
+func (d *Database) SumMoneyForAdminFiltered(packChatID int64, f AdminMoneyFilter) ([]AdminMoneyKindSum, error) {
+	if d == nil || d.db == nil || packChatID == 0 {
+		return nil, nil
+	}
+	q := `
+		SELECT u.kind,
+		       CASE
+		           WHEN UPPER(BTRIM(COALESCE(u.currency, ''))) IN ('XTR', 'STARS') THEN 'XTR'
+		           WHEN BTRIM(COALESCE(u.currency, '')) = '' THEN 'RUB'
+		           ELSE UPPER(BTRIM(u.currency))
+		       END AS cur,
+		       COUNT(*),
+		       COALESCE(SUM(u.amount_minor), 0)
+		FROM (` + adminMoneyUnionSQL + `
+		) u` + adminMoneyFilterSQL + `
+		GROUP BY u.kind, cur
+		ORDER BY u.kind, cur`
+	f.CompletedOnly = true
+	args := append([]any{packChatID}, f.sqlArgs()...)
+	rows, err := d.db.Query(q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]AdminMoneyKindSum, 0, 4)
+	for rows.Next() {
+		var s AdminMoneyKindSum
+		if err := rows.Scan(&s.Kind, &s.Currency, &s.Count, &s.AmountMinor); err != nil {
+			return nil, err
+		}
+		s.Currency = adminNormalizeMoneyCurrency(s.Currency)
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
 // AdminMoneyPayerRow — кто платил: итог по человеку за всё время (только завершённые).
 type AdminMoneyPayerRow struct {
 	UserID        int64
@@ -579,8 +654,9 @@ type AdminMoneyPayerRow struct {
 }
 
 // ListMoneyPayersForAdmin — люди, которые платили за доступ и/или донатили,
-// с количеством и суммами. Свежие плательщики сверху. Kind — как в AdminMoneyFilter.
-func (d *Database) ListMoneyPayersForAdmin(packChatID int64, kind string, limit int) ([]AdminMoneyPayerRow, error) {
+// с количеством и суммами. Свежие плательщики сверху. Учитываются только завершённые
+// оплаты; вид, человек и период — из фильтра (CompletedOnly и OldestFirst не важны).
+func (d *Database) ListMoneyPayersForAdmin(packChatID int64, f AdminMoneyFilter, limit int) ([]AdminMoneyPayerRow, error) {
 	if d == nil || d.db == nil || packChatID == 0 {
 		return nil, nil
 	}
@@ -602,8 +678,11 @@ func (d *Database) ListMoneyPayersForAdmin(packChatID int64, kind string, limit 
 		) u` + adminMoneyFilterSQL + `
 		GROUP BY u.user_id
 		ORDER BY last_paid DESC, u.user_id DESC
-		LIMIT $4`
-	rows, err := d.db.Query(q, packChatID, NormalizeAdminMoneyKind(kind), true, limit)
+		LIMIT $7`
+	f.CompletedOnly = true
+	args := append([]any{packChatID}, f.sqlArgs()...)
+	args = append(args, limit)
+	rows, err := d.db.Query(q, args...)
 	if err != nil {
 		return nil, err
 	}

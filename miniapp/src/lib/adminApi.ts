@@ -375,30 +375,47 @@ export function fetchAdminVisits(initData: string) {
 /** Вид оплат в разделе «Оплаты»: всё, платежи за доступ или донаты. */
 export type AdminPaymentsKind = "" | "access" | "donation";
 
+/** Порядок списка оплат: desc — новые сверху, asc — по хронологии (старые сверху). */
+export type AdminPaymentsOrder = "desc" | "asc";
+
+/** Фильтры раздела «Оплаты». from/to — «ГГГГ-ММ-ДД» по Москве, обе включительно; "" — без границы. */
+export type AdminPaymentsFilter = {
+  kind?: AdminPaymentsKind;
+  completedOnly?: boolean;
+  /** @ник, имя из профиля или telegram id. */
+  query?: string;
+  from?: string;
+  to?: string;
+  order?: AdminPaymentsOrder;
+};
+
 export type AdminPaymentsPage = {
   total: number;
   offset: number;
   limit: number;
   kind?: AdminPaymentsKind;
   completed_only?: boolean;
+  query?: string;
+  from?: string;
+  to?: string;
+  order?: AdminPaymentsOrder;
+  /** Сводка по завершённым оплатам с учётом фильтров. */
   stats: AdminTable;
-  /** «Кто платил»: итог по людям за всё время. */
+  /** «Кто платил»: итог по людям за выбранный период. */
   payers?: AdminTable;
   table: AdminTable;
 };
 
-export function fetchAdminPayments(
-  initData: string,
-  offset = 0,
-  limit = 20,
-  kind: AdminPaymentsKind = "",
-  completedOnly = false,
-) {
+export function fetchAdminPayments(initData: string, offset = 0, limit = 20, filter: AdminPaymentsFilter = {}) {
   return post<{ payments: AdminPaymentsPage }>("/api/miniapp/admin/payments", initData, {
     offset,
     limit,
-    kind,
-    completed_only: completedOnly,
+    kind: filter.kind ?? "",
+    completed_only: filter.completedOnly ?? false,
+    query: (filter.query ?? "").trim(),
+    from: filter.from ?? "",
+    to: filter.to ?? "",
+    order: filter.order ?? "desc",
   });
 }
 

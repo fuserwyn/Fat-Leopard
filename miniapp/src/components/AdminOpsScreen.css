@@ -342,3 +342,14 @@
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
+
+.ops-period-nav {
+  flex-wrap: nowrap;
+}
+
+.ops-period-nav__title {
+  flex: 1 1 auto;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+}

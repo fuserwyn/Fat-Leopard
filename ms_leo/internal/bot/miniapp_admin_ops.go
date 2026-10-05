@@ -198,18 +198,97 @@ type MiniappAdminPayments struct {
 	Limit         int               `json:"limit"`
 	Kind          string            `json:"kind"`           // "" | access | donation
 	CompletedOnly bool              `json:"completed_only"` // только завершённые
+	Query         string            `json:"query"`          // поиск по нику / имени / id
+	From          string            `json:"from"`           // период с (ГГГГ-ММ-ДД, МСК), "" — без границы
+	To            string            `json:"to"`             // период по (включительно)
+	Order         string            `json:"order"`          // desc — новые сверху, asc — по хронологии
 	Stats         MiniappAdminTable `json:"stats"`
 	Payers        MiniappAdminTable `json:"payers"`
 	Table         MiniappAdminTable `json:"table"`
 }
 
+// MiniappAdminPaymentsQuery — фильтры раздела «Оплаты».
+type MiniappAdminPaymentsQuery struct {
+	Offset        int
+	Limit         int
+	Kind          string // "" | access | donation
+	CompletedOnly bool
+	Query         string // @ник, имя или telegram id
+	From          string // ГГГГ-ММ-ДД по Москве, включительно; "" — без границы
+	To            string // ГГГГ-ММ-ДД по Москве, включительно; "" — без границы
+	Order         string // desc (по умолчанию) | asc
+}
+
 // miniappAdminPayersLimit — сколько плательщиков показываем в таблице «Кто платил».
 const miniappAdminPayersLimit = 50
 
+var adminMoneyMSK = time.FixedZone("MSK", 3*3600)
+
+// adminParseMoneyDay — день «ГГГГ-ММ-ДД» по Москве; пустая строка — нулевое время.
+func adminParseMoneyDay(s string) (time.Time, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return time.Time{}, nil
+	}
+	t, err := time.ParseInLocation("2006-01-02", s, adminMoneyMSK)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("%w: неверная дата %q, нужен формат ГГГГ-ММ-ДД", ErrAdminActionInvalid, s)
+	}
+	return t, nil
+}
+
+// adminMoneyPeriod — границы периода для фильтра: с from 00:00 до конца дня to (МСК).
+// Если даты перепутаны местами — меняем их. Возвращает и нормализованные строки.
+func adminMoneyPeriod(fromS, toS string) (from, to time.Time, fromOut, toOut string, err error) {
+	from, err = adminParseMoneyDay(fromS)
+	if err != nil {
+		return
+	}
+	to, err = adminParseMoneyDay(toS)
+	if err != nil {
+		return
+	}
+	if !from.IsZero() && !to.IsZero() && to.Before(from) {
+		from, to = to, from
+	}
+	if !from.IsZero() {
+		fromOut = from.Format("2006-01-02")
+	}
+	if !to.IsZero() {
+		toOut = to.Format("2006-01-02")
+		to = to.AddDate(0, 0, 1)
+	}
+	return
+}
+
+// adminMoneyPeriodLabel — «за 01.09.26–30.09.26», «с 01.09.26», «по 30.09.26» или «за всё время».
+func adminMoneyPeriodLabel(from, to string) string {
+	f := func(s string) string {
+		t, err := time.Parse("2006-01-02", s)
+		if err != nil {
+			return s
+		}
+		return t.Format("02.01.06")
+	}
+	switch {
+	case from != "" && to != "" && from == to:
+		return "за " + f(from)
+	case from != "" && to != "":
+		return "за " + f(from) + "–" + f(to)
+	case from != "":
+		return "с " + f(from)
+	case to != "":
+		return "по " + f(to)
+	default:
+		return "за всё время"
+	}
+}
+
 // MiniappAdminPaymentsPage — «Оплаты»: сводка, кто платил и список платежей за доступ + донатов.
-// kind: "" — всё, "access" — только платежи за доступ, "donation" — только донаты.
+// Фильтры: вид (всё / доступ / донаты), только завершённые, человек (ник, имя, id),
+// период по дате оплаты и порядок (новые сверху или по хронологии).
 func (b *Bot) MiniappAdminPaymentsPage(
-	viewerUserID int64, initD initdata.InitData, offset, limit int, kind string, completedOnly bool,
+	viewerUserID int64, initD initdata.InitData, q MiniappAdminPaymentsQuery,
 ) (MiniappAdminPayments, error) {
 	var out MiniappAdminPayments
 	if _, err := b.requireMiniappAdmin(viewerUserID, initD); err != nil {
@@ -219,27 +298,56 @@ func (b *Bot) MiniappAdminPaymentsPage(
 	if packChatID == 0 {
 		return out, fmt.Errorf("не настроен MonetizedChatID")
 	}
+	offset, limit := q.Offset, q.Limit
 	if offset < 0 {
 		offset = 0
 	}
 	if limit <= 0 || limit > 50 {
 		limit = 20
 	}
-	kind = database.NormalizeAdminMoneyKind(kind)
-	filter := database.AdminMoneyFilter{Kind: kind, CompletedOnly: completedOnly}
-	out.Kind, out.CompletedOnly = kind, completedOnly
-
-	sums, err := b.db.AdminSumCompletedMoney(packChatID, time.Time{}, false)
+	kind := database.NormalizeAdminMoneyKind(q.Kind)
+	from, to, fromS, toS, err := adminMoneyPeriod(q.From, q.To)
 	if err != nil {
 		return out, err
 	}
-	out.Stats = adminBuildMoneyStatsTable(sums)
+	query := strings.TrimSpace(q.Query)
+	if r := []rune(query); len(r) > 64 {
+		query = string(r[:64])
+	}
+	oldestFirst := strings.EqualFold(strings.TrimSpace(q.Order), "asc")
+	filter := database.AdminMoneyFilter{
+		Kind:          kind,
+		CompletedOnly: q.CompletedOnly,
+		Query:         query,
+		From:          from,
+		To:            to,
+		OldestFirst:   oldestFirst,
+	}
+	out.Kind, out.CompletedOnly, out.Query, out.From, out.To = kind, q.CompletedOnly, query, fromS, toS
+	out.Order = "desc"
+	if oldestFirst {
+		out.Order = "asc"
+	}
 
-	payers, err := b.db.ListMoneyPayersForAdmin(packChatID, kind, miniappAdminPayersLimit)
+	period := adminMoneyPeriodLabel(fromS, toS)
+	scope := period
+	if query != "" {
+		scope += " · по «" + query + "»"
+	}
+
+	sums, err := b.db.SumMoneyForAdminFiltered(packChatID, filter)
+	if err != nil {
+		return out, err
+	}
+	out.Stats = adminBuildMoneyStatsTableForKind(kind, sums)
+	out.Stats.Subtitle = "Завершённые оплаты " + scope + " · звёзды и рубли"
+
+	payers, err := b.db.ListMoneyPayersForAdmin(packChatID, filter, miniappAdminPayersLimit)
 	if err != nil {
 		return out, err
 	}
 	out.Payers = adminBuildMoneyPayersTable(kind, payers)
+	out.Payers.Subtitle = "Завершённые оплаты " + scope + ", свежие сверху"
 
 	total, err := b.db.CountMoneyPaymentsForAdminFiltered(packChatID, filter)
 	if err != nil {
@@ -255,9 +363,17 @@ func (b *Bot) MiniappAdminPaymentsPage(
 		Columns: []string{"№", "Тип", "Кто", "Статус", "Сумма", "Дата"},
 		Rows:    [][]string{},
 	}
-	if completedOnly {
-		out.Table.Subtitle = "Только завершённые"
+	r := []rune(scope)
+	sub := []string{strings.ToUpper(string(r[:1])) + string(r[1:])}
+	if q.CompletedOnly {
+		sub = append(sub, "только завершённые")
 	}
+	if oldestFirst {
+		sub = append(sub, "сначала старые")
+	} else {
+		sub = append(sub, "сначала новые")
+	}
+	out.Table.Subtitle = strings.Join(sub, " · ")
 	for i, p := range rows {
 		cur := ""
 		if p.Currency.Valid {
@@ -269,7 +385,7 @@ func (b *Bot) MiniappAdminPaymentsPage(
 			adminMoneyPersonLabel(p.Username, p.DisplayName, p.UserID),
 			adminPaymentStatusForKind(p.Kind, p.Status, p.AccessActive),
 			adminFormatPaymentAmount(p.AmountMinor, p.Currency),
-			p.CreatedAt.In(time.FixedZone("MSK", 3*3600)).Format("02.01 15:04"),
+			p.CreatedAt.In(adminMoneyMSK).Format("02.01.06 15:04"),
 		})
 	}
 	return out, nil
