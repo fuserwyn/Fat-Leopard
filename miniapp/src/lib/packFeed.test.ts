@@ -3,6 +3,7 @@ import {
   buildFeedPostTextForSave,
   dtoToCard,
   extractEditableFeedPostText,
+  extractTrainingDoneKinds,
   feedItemKey,
   feedPostEditable,
   feedAllowsAdminCommentVoice,
@@ -21,6 +22,7 @@ import {
   type PackFeedItemDTO,
   type PackFeedThreadReplyDTO,
 } from "./packFeed";
+import { trainingDoneCategoryDisplayLabel } from "./workoutCategories";
 
 function item(partial: Partial<PackFeedItemDTO> & Pick<PackFeedItemDTO, "id">): PackFeedItemDTO {
   return {
@@ -97,6 +99,26 @@ describe("extractEditableFeedPostText / buildFeedPostTextForSave", () => {
     expect(saved).toMatch(/^#training_done/);
     expect(saved).toContain("танцы,");
     expect(saved).toContain("Новый комментарий");
+  });
+
+  it("changes training kind when user picked the wrong sport", () => {
+    const raw = "бег, 30 мин, интенсивность 3/5\n\nХорошо пошло";
+    expect(extractTrainingDoneKinds(raw)).toEqual(["run"]);
+    const draft = extractEditableFeedPostText(raw, "training_done");
+    const saved = buildFeedPostTextForSave(raw, "training_done", draft, ["swim"]);
+    expect(saved).toBe("#training_done — плавание, 30 мин, интенсивность 3/5\nХорошо пошло");
+    expect(trainingDoneCategoryDisplayLabel(saved)).toBe("Плавание");
+  });
+
+  it("multi-kind edit keeps custom «Другое» label", () => {
+    const raw = "#training_done — бег + сап, 40 мин, интенсивность 4/5";
+    expect(extractTrainingDoneKinds(raw)).toEqual(["run", "other"]);
+    const saved = buildFeedPostTextForSave(raw, "training_done", "40 мин, интенсивность 4/5", ["bike", "other"]);
+    expect(saved).toBe("#training_done — велосипед + сап, 40 мин, интенсивность 4/5");
+  });
+
+  it("unrecognized training format has no kinds", () => {
+    expect(extractTrainingDoneKinds("#training_done — просто текст")).toBeNull();
   });
 
   it("pack_message is plain text", () => {
