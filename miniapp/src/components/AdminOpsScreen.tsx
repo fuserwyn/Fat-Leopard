@@ -11,6 +11,7 @@ import {
   publishAdminPoll,
   removeAdminPerson,
   wipePackFeed,
+  type AdminPaymentsKind,
   type AdminPerson,
   type AdminScheduledPost,
   type AdminTable,
@@ -36,6 +37,12 @@ const PERIODS = [
 ];
 
 const PAYMENTS_PAGE = 20;
+
+const PAYMENT_KINDS: { kind: AdminPaymentsKind; label: string }[] = [
+  { kind: "", label: "Все" },
+  { kind: "access", label: "Платежи" },
+  { kind: "donation", label: "Донаты" },
+];
 
 function Table({ table }: { table: AdminTable }) {
   return (
@@ -76,6 +83,8 @@ export function AdminOpsScreen({ section, initData, showAlert }: Props) {
 
   const [paymentsOffset, setPaymentsOffset] = useState(0);
   const [paymentsTotal, setPaymentsTotal] = useState(0);
+  const [paymentsKind, setPaymentsKind] = useState<AdminPaymentsKind>("");
+  const [paymentsPaidOnly, setPaymentsPaidOnly] = useState(false);
 
   const [admins, setAdmins] = useState<AdminPerson[]>([]);
   const [adminQuery, setAdminQuery] = useState("");
@@ -110,14 +119,18 @@ export function AdminOpsScreen({ section, initData, showAlert }: Props) {
         const j = await fetchAdminVisits(initData);
         setTables(j.tables ?? []);
       } else if (section === "payments") {
-        const j = await fetchAdminPayments(initData, paymentsOffset, PAYMENTS_PAGE);
-        setTables([j.payments.stats, j.payments.table].filter(Boolean));
-        setPaymentsTotal(j.payments.total);
-        setNote(
-          j.payments.total > 0
-            ? `Строки ${paymentsOffset + 1}–${paymentsOffset + j.payments.table.rows.length} из ${j.payments.total}`
-            : "Оплат и донатов пока нет",
+        const j = await fetchAdminPayments(initData, paymentsOffset, PAYMENTS_PAGE, paymentsKind, paymentsPaidOnly);
+        const p = j.payments;
+        const shown = p.table?.rows?.length ?? 0;
+        setTables(
+          [p.stats, p.payers, p.table]
+            .filter((t): t is AdminTable => Boolean(t))
+            .map((t) => ({ ...t, rows: t.rows ?? [] })),
         );
+        setPaymentsTotal(p.total);
+        const empty =
+          paymentsKind === "access" ? "Платежей пока нет" : paymentsKind === "donation" ? "Донатов пока нет" : "Оплат и донатов пока нет";
+        setNote(p.total > 0 ? `Строки ${paymentsOffset + 1}–${paymentsOffset + shown} из ${p.total}` : empty);
       } else if (section === "admins") {
         const j = await fetchAdminAdmins(initData);
         setAdmins(j.admins ?? []);
@@ -133,7 +146,7 @@ export function AdminOpsScreen({ section, initData, showAlert }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [section, initData, period, paymentsOffset, fail]);
+  }, [section, initData, period, paymentsOffset, paymentsKind, paymentsPaidOnly, fail]);
 
   useEffect(() => {
     void load();
@@ -369,6 +382,37 @@ export function AdminOpsScreen({ section, initData, showAlert }: Props) {
             </button>
           ))}
         </div>
+      ) : null}
+      {section === "payments" ? (
+        <>
+          <div className="ops-periods">
+            {PAYMENT_KINDS.map((k) => (
+              <button
+                key={k.kind || "all"}
+                type="button"
+                className={paymentsKind === k.kind ? "on" : ""}
+                onClick={() => {
+                  setPaymentsKind(k.kind);
+                  setPaymentsOffset(0);
+                }}
+              >
+                {k.label}
+              </button>
+            ))}
+          </div>
+          <div className="ops-periods">
+            <button
+              type="button"
+              className={paymentsPaidOnly ? "on" : ""}
+              onClick={() => {
+                setPaymentsPaidOnly(!paymentsPaidOnly);
+                setPaymentsOffset(0);
+              }}
+            >
+              {paymentsPaidOnly ? "✓ Только оплаченные" : "Только оплаченные"}
+            </button>
+          </div>
+        </>
       ) : null}
       {note ? <p className="ops-muted">{note}</p> : null}
       {tables.map((t, i) => (

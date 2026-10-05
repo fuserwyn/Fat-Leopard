@@ -372,12 +372,34 @@ export function fetchAdminVisits(initData: string) {
   return post<{ tables: AdminTable[] }>("/api/miniapp/admin/visits", initData);
 }
 
-export function fetchAdminPayments(initData: string, offset = 0, limit = 20) {
-  return post<{ payments: { total: number; offset: number; limit: number; stats: AdminTable; table: AdminTable } }>(
-    "/api/miniapp/admin/payments",
-    initData,
-    { offset, limit },
-  );
+/** Вид оплат в разделе «Оплаты»: всё, платежи за доступ или донаты. */
+export type AdminPaymentsKind = "" | "access" | "donation";
+
+export type AdminPaymentsPage = {
+  total: number;
+  offset: number;
+  limit: number;
+  kind?: AdminPaymentsKind;
+  completed_only?: boolean;
+  stats: AdminTable;
+  /** «Кто платил»: итог по людям за всё время. */
+  payers?: AdminTable;
+  table: AdminTable;
+};
+
+export function fetchAdminPayments(
+  initData: string,
+  offset = 0,
+  limit = 20,
+  kind: AdminPaymentsKind = "",
+  completedOnly = false,
+) {
+  return post<{ payments: AdminPaymentsPage }>("/api/miniapp/admin/payments", initData, {
+    offset,
+    limit,
+    kind,
+    completed_only: completedOnly,
+  });
 }
 
 export function fetchAdminAdmins(initData: string) {
