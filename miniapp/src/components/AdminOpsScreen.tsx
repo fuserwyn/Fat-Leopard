@@ -49,7 +49,7 @@ const PERIODS = [
 const PAYMENTS_PAGE = 20;
 
 const PAYMENT_KINDS: { kind: AdminPaymentsKind; label: string }[] = [
-  { kind: "", label: "Все" },
+  { kind: "", label: "Оплаты и донаты" },
   { kind: "access", label: "Платежи" },
   { kind: "donation", label: "Донаты" },
 ];
@@ -435,41 +435,42 @@ export function AdminOpsScreen({ section, initData, showAlert }: Props) {
       ) : null}
       {section === "payments" ? (
         <>
-          <div className="ops-periods">
-            {PAYMENT_KINDS.map((k) => (
-              <button
-                key={k.kind || "all"}
-                type="button"
-                className={paymentsKind === k.kind ? "on" : ""}
-                onClick={() => {
-                  setPaymentsKind(k.kind);
-                  setPaymentsOffset(0);
-                }}
-              >
-                {k.label}
-              </button>
-            ))}
-          </div>
-          <div className="ops-periods">
-            {PAYMENTS_PERIOD_MODES.map((m) => (
-              <button
-                key={m.mode}
-                type="button"
-                className={paymentsPeriodMode === m.mode ? "on" : ""}
-                onClick={() => {
-                  if (m.mode === "custom" && paymentsPeriodMode !== "custom") {
-                    // Свой период начинаем с того, что было выбрано, — его удобно подправить.
-                    const r = paymentsPeriodRange(paymentsPeriodMode, paymentsAnchor);
-                    setPaymentsCustomFrom(r.from);
-                    setPaymentsCustomTo(r.to);
-                  }
-                  setPaymentsPeriodMode(m.mode);
-                  setPaymentsOffset(0);
-                }}
-              >
-                {m.label}
-              </button>
-            ))}
+          <div className="ops-row">
+            <select
+              aria-label="Тип"
+              value={paymentsKind}
+              onChange={(e) => {
+                setPaymentsKind(e.target.value as AdminPaymentsKind);
+                setPaymentsOffset(0);
+              }}
+            >
+              {PAYMENT_KINDS.map((k) => (
+                <option key={k.kind || "all"} value={k.kind}>
+                  {k.label}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Период"
+              value={paymentsPeriodMode}
+              onChange={(e) => {
+                const mode = e.target.value as PaymentsPeriodMode;
+                if (mode === "custom" && paymentsPeriodMode !== "custom") {
+                  // Свой период начинаем с того, что было выбрано, — его удобно подправить.
+                  const r = paymentsPeriodRange(paymentsPeriodMode, paymentsAnchor);
+                  setPaymentsCustomFrom(r.from);
+                  setPaymentsCustomTo(r.to);
+                }
+                setPaymentsPeriodMode(mode);
+                setPaymentsOffset(0);
+              }}
+            >
+              {PAYMENTS_PERIOD_MODES.map((m) => (
+                <option key={m.mode} value={m.mode}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
           </div>
           {paymentsPeriodMode === "day" || paymentsPeriodMode === "week" || paymentsPeriodMode === "month" ? (
             <div className="ops-row ops-period-nav">
@@ -551,30 +552,32 @@ export function AdminOpsScreen({ section, initData, showAlert }: Props) {
               </button>
             ) : null}
           </form>
-          <div className="ops-periods">
-            {PAYMENT_ORDERS.map((o) => (
-              <button
-                key={o.order}
-                type="button"
-                className={paymentsOrder === o.order ? "on" : ""}
-                onClick={() => {
-                  setPaymentsOrder(o.order);
-                  setPaymentsOffset(0);
-                }}
-              >
-                {o.label}
-              </button>
-            ))}
-            <button
-              type="button"
-              className={paymentsPaidOnly ? "on" : ""}
-              onClick={() => {
-                setPaymentsPaidOnly(!paymentsPaidOnly);
+          <div className="ops-row">
+            <select
+              aria-label="Сортировка"
+              value={paymentsOrder}
+              onChange={(e) => {
+                setPaymentsOrder(e.target.value as AdminPaymentsOrder);
                 setPaymentsOffset(0);
               }}
             >
-              {paymentsPaidOnly ? "✓ Только оплаченные" : "Только оплаченные"}
-            </button>
+              {PAYMENT_ORDERS.map((o) => (
+                <option key={o.order} value={o.order}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Статус"
+              value={paymentsPaidOnly ? "paid" : "any"}
+              onChange={(e) => {
+                setPaymentsPaidOnly(e.target.value === "paid");
+                setPaymentsOffset(0);
+              }}
+            >
+              <option value="any">Любой статус</option>
+              <option value="paid">Только оплаченные</option>
+            </select>
           </div>
         </>
       ) : null}
