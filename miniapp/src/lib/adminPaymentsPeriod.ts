@@ -11,7 +11,7 @@ export const PAYMENTS_PERIOD_MODES: { mode: PaymentsPeriodMode; label: string }[
   { mode: "day", label: "День" },
   { mode: "week", label: "Неделя" },
   { mode: "month", label: "Месяц" },
-  { mode: "custom", label: "Период" },
+  { mode: "custom", label: "Свой период" },
 ];
 
 const MONTHS = [
