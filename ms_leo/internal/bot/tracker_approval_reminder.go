@@ -25,6 +25,7 @@ func (b *Bot) startTrackerApprovalReminderScheduler(ctx context.Context) {
 			return
 		case <-ticker.C:
 			b.runTrackerApprovalReminderSweep()
+			b.runTrackerApprovalAgingSweep(time.Now())
 		}
 	}
 }

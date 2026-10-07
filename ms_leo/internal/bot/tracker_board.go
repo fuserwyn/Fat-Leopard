@@ -308,6 +308,7 @@ func trackerTaskView(t database.TrackerTask, withAtts bool) map[string]any {
 		"auto_push":         t.AutoPush,
 		"needs_approval":    t.NeedsApproval,
 		"approvals_count":   len(t.Approvals),
+		"approver_ids":      trackerApproverIDs(t),
 		"approvals_needed":  trackerApprovalRequired,
 		"author_id":         author,
 		"steps":             t.Steps,

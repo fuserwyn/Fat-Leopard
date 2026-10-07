@@ -1287,3 +1287,54 @@ html.app-keyboard-open .tracker {
   flex-wrap: wrap;
   gap: 8px;
 }
+
+/* Кто одобрил карточку: аватарки стопкой рядом со счётчиком 👍 */
+.tracker-approvers {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 5px;
+  vertical-align: middle;
+}
+
+.tracker-approvers img,
+.tracker-approvers__dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  flex: none;
+  object-fit: cover;
+  background: var(--card-inner);
+  box-shadow: 0 0 0 1.5px var(--card);
+}
+
+.tracker-approvers > * + * {
+  margin-left: -5px;
+}
+
+.tracker-approvers__dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.tracker-modal__approvers {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: 12.5px;
+}
+
+.tracker-modal__approvers .tracker-approvers img,
+.tracker-modal__approvers .tracker-approvers__dot {
+  width: 20px;
+  height: 20px;
+}
+
+.tracker-modal__approvers-names {
+  color: var(--muted);
+}

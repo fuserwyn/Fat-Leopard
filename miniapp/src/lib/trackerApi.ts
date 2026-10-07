@@ -57,6 +57,8 @@ export type TrackerTask = {
   needs_approval?: boolean;
   approvals_count?: number;
   approvals_needed?: number;
+  /** Кто уже одобрил, по порядку: id админов, у Лео — LEO_AUTHOR_ID. */
+  approver_ids?: number[];
   author_id: number | null;
   steps?: string[];
   steps_running?: boolean;

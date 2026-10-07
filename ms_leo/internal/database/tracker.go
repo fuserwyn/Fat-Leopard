@@ -621,6 +621,31 @@ func (d *Database) ListShippedTrackerTasksSince(since time.Time) ([]TrackerTask,
 	return out, rows.Err()
 }
 
+// ListTrackerTasksOnApproval — все задачи, которые сейчас ждут аппрувов.
+func (d *Database) ListTrackerTasksOnApproval() ([]TrackerTask, error) {
+	if d == nil || d.trackerDB() == nil {
+		return nil, fmt.Errorf("база недоступна")
+	}
+	rows, err := d.trackerDB().Query(trackerTaskSelect + `
+		WHERE t.dev_column = 'approve'
+		  AND t.needs_approval = TRUE
+		ORDER BY t.id
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]TrackerTask, 0, 8)
+	for rows.Next() {
+		t, err := scanTrackerTask(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
 // ListTrackerTasksAwaitingApprovalReminder — задачи на аппруве, где прошёл час
 // после первого уведомления и повтор ещё не отправляли.
 func (d *Database) ListTrackerTasksAwaitingApprovalReminder() ([]TrackerTask, error) {

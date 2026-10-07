@@ -220,6 +220,35 @@ function authorAvatar(task: TrackerTask, initData: string): string {
   return id > 0 ? trackerAvatarUrl(initData, id) : "";
 }
 
+type Approver = { id: number; name: string; avatar: string };
+
+/** Кто одобрил карточку: имя и картинка для каждого голоса, Лео — со своей. */
+function taskApprovers(task: TrackerTask, authors: Record<number, string>, initData: string): Approver[] {
+  return (task.approver_ids ?? []).map((id) =>
+    id === LEO_AUTHOR_ID
+      ? { id, name: "Лео", avatar: LEO_AVATAR_URL }
+      : { id, name: authors[id] || `id ${id}`, avatar: trackerAvatarUrl(initData, id) },
+  );
+}
+
+/** Аватарки одобривших — стопкой рядом со счётчиком 👍. */
+function ApproverAvatars({ approvers }: { approvers: Approver[] }) {
+  if (approvers.length === 0) return null;
+  return (
+    <span className="tracker-approvers" aria-label={`Одобрили: ${approvers.map((a) => a.name).join(", ")}`}>
+      {approvers.map((a) =>
+        a.avatar ? (
+          <img key={a.id} src={a.avatar} alt="" title={a.name} loading="lazy" referrerPolicy="no-referrer" />
+        ) : (
+          <span key={a.id} className="tracker-approvers__dot" title={a.name}>
+            {a.name.replace(/^@/, "").slice(0, 1).toUpperCase()}
+          </span>
+        ),
+      )}
+    </span>
+  );
+}
+
 function plural(n: number, one: string, few: string, many: string): string {
   const mod10 = n % 10;
   const mod100 = n % 100;
@@ -443,7 +472,11 @@ export function TrackerScreen({ initData, showAlert }: Props) {
         const list = j.tasks ?? [];
         setTasks(list);
         const ids = Array.from(
-          new Set(list.map((t) => Number(t.author_id) || 0).filter((id) => id > 0)),
+          new Set(
+            list
+              .flatMap((t) => [Number(t.author_id) || 0, ...(t.approver_ids ?? [])])
+              .filter((id) => id > 0),
+          ),
         );
         if (ids.length > 0) {
           const people = await trackerAuthors(initData, ids);
@@ -1045,6 +1078,7 @@ export function TrackerScreen({ initData, showAlert }: Props) {
                             isQa={isQa}
                             author={authorLabel(t, authors)}
                             avatar={authorAvatar(t, initData)}
+                            approvers={taskApprovers(t, authors, initData)}
                             onOpen={() => void openTask(t)}
                             onApprove={
                               canApproveOnBoard(t, isQa)
@@ -1533,6 +1567,21 @@ export function TrackerScreen({ initData, showAlert }: Props) {
               )}
               <span>Поставил: {authorLabel(detail, authors)}</span>
             </div>
+            {detail.needs_approval ? (
+              <div className="tracker-modal__approvers">
+                <span>
+                  👍 {detail.approvals_count ?? 0}/{detail.approvals_needed ?? 2}
+                </span>
+                <ApproverAvatars approvers={taskApprovers(detail, authors, initData)} />
+                <span className="tracker-modal__approvers-names">
+                  {(detail.approver_ids ?? []).length > 0
+                    ? taskApprovers(detail, authors, initData)
+                        .map((a) => a.name)
+                        .join(", ")
+                    : "пока никто не одобрил"}
+                </span>
+              </div>
+            ) : null}
             <div className="tracker-modal__prompt-block">
               {editingPrompt ? (
                 <>
@@ -1940,6 +1989,7 @@ function TaskCard({
   isQa,
   author,
   avatar,
+  approvers,
   onOpen,
   onApprove,
   onReject,
@@ -1950,6 +2000,7 @@ function TaskCard({
   isQa: boolean;
   author: string;
   avatar: string;
+  approvers: Approver[];
   onOpen: () => void;
   onApprove?: () => void;
   onReject?: () => void;
@@ -2031,6 +2082,7 @@ function TaskCard({
           {task.needs_approval ? (
             <span className="tracker-badge tracker-badge--approve">
               👍 {task.approvals_count ?? 0}/{task.approvals_needed ?? 2}
+              <ApproverAvatars approvers={approvers} />
             </span>
           ) : null}
           {task.kind === "deploy_fix" ? (

@@ -46,7 +46,8 @@ func trackerHasApproval(t database.TrackerTask, adminID int64) bool {
 }
 
 func trackerAppendApproval(t *database.TrackerTask, adminID int64) bool {
-	if t == nil || adminID <= 0 || trackerHasApproval(*t, adminID) {
+	// Лео голосует под своим служебным id (database.TrackerLeoAuthorID).
+	if t == nil || (adminID <= 0 && adminID != database.TrackerLeoAuthorID) || trackerHasApproval(*t, adminID) {
 		return false
 	}
 	t.Approvals = append(t.Approvals, adminID)
@@ -270,6 +271,12 @@ func (b *Bot) editTrackerApprovalMessage(msg *tgbotapi.Message, taskID int64) {
 }
 
 func (b *Bot) approveTrackerTask(taskID, adminID int64) (string, error) {
+	return b.applyTrackerApproval(taskID, adminID, fmt.Sprintf("Аппрув от админа %d", adminID))
+}
+
+// applyTrackerApproval — учесть голос (админа или Лео) и, если набралось
+// нужное число, отправить задачу в работу. label — начало шага в истории.
+func (b *Bot) applyTrackerApproval(taskID, approverID int64, label string) (string, error) {
 	if b == nil || b.db == nil {
 		return "", fmt.Errorf("база недоступна")
 	}
@@ -280,13 +287,13 @@ func (b *Bot) approveTrackerTask(taskID, adminID int64) (string, error) {
 	if !t.NeedsApproval || t.DevColumn != trackerColApprove {
 		return "", fmt.Errorf("задача не ждёт аппрува")
 	}
-	if t.HasAuthor && t.AuthorID == adminID {
+	if t.HasAuthor && t.AuthorID == approverID {
 		return "", fmt.Errorf("автор не может аппрувить свою задачу")
 	}
-	if !trackerAppendApproval(&t, adminID) {
+	if !trackerAppendApproval(&t, approverID) {
 		return "Вы уже аппрувнули", nil
 	}
-	appendTrackerStep(&t, fmt.Sprintf("Аппрув от админа %d (%d/%d)", adminID, len(t.Approvals), trackerApprovalRequired))
+	appendTrackerStep(&t, fmt.Sprintf("%s (%d/%d)", label, len(t.Approvals), trackerApprovalRequired))
 	if len(t.Approvals) >= trackerApprovalRequired {
 		if b.trackerPipelineBusy(t.ID) {
 			if err := applyTrackerColumn(&t, trackerColTodo); err != nil {
