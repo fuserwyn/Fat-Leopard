@@ -153,6 +153,12 @@ func newIntegrationBot(t *testing.T, tune func(*config.Config)) (*Bot, *fakeTele
 		tune(cfg)
 	}
 	b := NewForTest(cfg, db, logger.New("error"), api)
+	// Отметки «Claude не ответил» живут в памяти процесса и привязаны к id
+	// задачи, а id в каждой новой базе начинаются с единицы.
+	trackerLeoVoteRetry.Range(func(k, _ any) bool {
+		trackerLeoVoteRetry.Delete(k)
+		return true
+	})
 	tg.reset()
 	return b, tg, sqlDB
 }
