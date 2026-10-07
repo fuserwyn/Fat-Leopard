@@ -34,6 +34,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/scheduled/{id}", s.auth(s.get))
 	mux.HandleFunc("POST /api/scheduled/cancel", s.auth(s.cancel))
 	mux.HandleFunc("POST /api/ship", s.auth(s.ship))
+	mux.HandleFunc("POST /api/ask", s.auth(s.ask))
 	mux.HandleFunc("POST /api/stamp", s.auth(s.stamp))
 	mux.HandleFunc("GET /api/inspect", s.auth(s.inspect))
 	return mux
@@ -192,6 +193,25 @@ func (s *Server) stamp(w http.ResponseWriter, r *http.Request) {
 		"committed": res.Committed,
 	})
 }
+
+// ask — один ответ Claude текстом (Claude Agent SDK по подписке), без
+// инструментов. ms_leo зовёт его, когда Лео придумывает задачи и спринты.
+func (s *Server) ask(w http.ResponseWriter, r *http.Request) {
+	var body map[string]any
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"ok": false, "error": "непонятное тело"})
+		return
+	}
+	text, err := askClaude(s.cfg, str(body, "system"), str(body, "prompt"), str(body, "model"))
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "text": text})
+}
+
+// askClaude — переменная, чтобы тест обработчика не запускал настоящий CLI.
+var askClaude = agent.AskClaude
 
 func (s *Server) ship(w http.ResponseWriter, r *http.Request) {
 	var body map[string]any

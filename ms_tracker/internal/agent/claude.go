@@ -211,21 +211,74 @@ func runClaudeLocal(cfg config.Config, job store.Job, repoDir, branch string) (s
 }
 
 func runClaudeOnce(cfg config.Config, job store.Job, repoDir, branch string, cred claudeCred) (string, error) {
-	tag := "claude sdk (" + cred.label() + ")"
-	payload, err := json.Marshal(map[string]string{
+	note, err := execClaude(cred, repoDir, claudeWait, map[string]string{
 		"cwd":    repoDir,
 		"prompt": claudeDoingPrompt(job, branch),
 		"model":  claudeModelID(cfg, job),
 	})
+	if err == nil && note == "" {
+		note = "Claude сдал задачу."
+	}
+	return note, err
+}
+
+// claudeAskWait — потолок на один ответ без инструментов.
+const claudeAskWait = 3 * time.Minute
+
+// AskClaude — один ответ Claude текстом, без инструментов и репозитория.
+// Тем же доступом по подписке, что и задачи: так Лео в админке придумывает
+// задачи и спринты. model пустой — модель по умолчанию (CLAUDE_MODEL).
+func AskClaude(cfg config.Config, system, prompt, model string) (string, error) {
+	prompt = strings.TrimSpace(prompt)
+	if prompt == "" {
+		return "", fmt.Errorf("пустой вопрос")
+	}
+	creds := claudeCreds(cfg)
+	if len(creds) == 0 {
+		return "", fmt.Errorf("нет CLAUDE_CODE_OAUTH_TOKEN для Claude Agent SDK")
+	}
+	dir, err := os.MkdirTemp("", "leo-tracker-ask-*")
 	if err != nil {
 		return "", err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), claudeWait)
+	defer os.RemoveAll(dir)
+	payload := map[string]string{
+		"mode":   "ask",
+		"cwd":    dir,
+		"system": strings.TrimSpace(system),
+		"prompt": prompt,
+		"model":  claudeModelID(cfg, store.Job{Model: model}),
+	}
+	var errs []string
+	for _, cred := range creds {
+		text, err := execClaude(cred, dir, claudeAskWait, payload)
+		if err == nil {
+			if text == "" {
+				return "", fmt.Errorf("claude sdk вернул пустой ответ")
+			}
+			return text, nil
+		}
+		errs = append(errs, err.Error())
+		if !isClaudeAuthError(err.Error()) {
+			break
+		}
+	}
+	return "", fmt.Errorf("%s", strings.Join(errs, "; "))
+}
+
+// execClaude запускает claude_run.py с одним доступом и возвращает текст ответа.
+func execClaude(cred claudeCred, dir string, wait time.Duration, fields map[string]string) (string, error) {
+	tag := "claude sdk (" + cred.label() + ")"
+	payload, err := json.Marshal(fields)
+	if err != nil {
+		return "", err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), wait)
 	defer cancel()
 	// cursorCmd — общий запуск python в своей группе процессов (CLI Claude
 	// тоже плодит шеллы), по таймауту убивается вся группа.
 	cmd := cursorCmd(ctx, claudeRunPath())
-	cmd.Dir = repoDir
+	cmd.Dir = dir
 	cmd.Env = claudeEnv(cred)
 	cmd.Stdin = bytes.NewReader(payload)
 	var stdout, stderr bytes.Buffer
@@ -256,11 +309,7 @@ func runClaudeOnce(cfg config.Config, job store.Job, repoDir, branch string, cre
 		}
 		return "", fmt.Errorf("%s: %s", tag, clip(errText, 240))
 	}
-	note := strings.TrimSpace(out.Result)
-	if note == "" {
-		note = "Claude сдал задачу."
-	}
-	return note, nil
+	return strings.TrimSpace(out.Result), nil
 }
 
 // claudeCred — один способ авторизации CLI Claude.

@@ -1000,6 +1000,57 @@ func (b *Bot) shipTrackerToMain(t database.TrackerTask) (string, map[string]stri
 	return base, parsed.Pinned, nil
 }
 
+// trackerAskHTTPTimeout — чуть больше потолка ответа в трекере (3 минуты).
+const trackerAskHTTPTimeout = 200 * time.Second
+
+// trackerAskClaude — один ответ Claude текстом через ms_tracker (/api/ask):
+// там стоит Claude Agent SDK с доступом по подписке.
+func (b *Bot) trackerAskClaude(system, prompt, model string) (string, error) {
+	if b == nil || b.config == nil {
+		return "", fmt.Errorf("трекер не настроен")
+	}
+	secret := strings.TrimSpace(b.config.BoardSecret)
+	baseURL := strings.TrimRight(strings.TrimSpace(b.config.BoardURL), "/")
+	if secret == "" || baseURL == "" {
+		return "", fmt.Errorf("трекер не настроен")
+	}
+	payload, err := json.Marshal(map[string]string{"system": system, "prompt": prompt, "model": model})
+	if err != nil {
+		return "", err
+	}
+	req, err := http.NewRequest(http.MethodPost, baseURL+"/api/ask", bytes.NewReader(payload))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Tracker-Secret", secret)
+	req.Header.Set("Authorization", "Bearer "+secret)
+	resp, err := (&http.Client{Timeout: trackerAskHTTPTimeout}).Do(req)
+	if err != nil {
+		return "", fmt.Errorf("трекер недоступен: %w", err)
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	var parsed struct {
+		OK    bool   `json:"ok"`
+		Text  string `json:"text"`
+		Error string `json:"error"`
+	}
+	_ = json.Unmarshal(raw, &parsed)
+	if resp.StatusCode >= 300 || !parsed.OK {
+		msg := strings.TrimSpace(parsed.Error)
+		if msg == "" {
+			msg = fmt.Sprintf("HTTP %d", resp.StatusCode)
+		}
+		return "", fmt.Errorf("%s", msg)
+	}
+	text := strings.TrimSpace(parsed.Text)
+	if text == "" {
+		return "", fmt.Errorf("пустой ответ")
+	}
+	return text, nil
+}
+
 func trackerNotifyAuthor(t database.TrackerTask) int64 {
 	if t.HasAuthor {
 		return t.AuthorID

@@ -3,6 +3,9 @@
 
 Протокол тот же, что у cursor_run.py: на stdin JSON {cwd, prompt, model},
 на stdout одна строка JSON {ok, status, result | error}.
+
+С {"mode": "ask", "system": ...} Claude только отвечает текстом, без
+инструментов: cwd тогда — любой пустой каталог.
 """
 
 from __future__ import annotations
@@ -33,16 +36,42 @@ def _emit(obj: dict) -> None:
     print(json.dumps(obj, ensure_ascii=False), flush=True)
 
 
-async def _run(model: str, cwd: str, prompt: str) -> tuple[ResultMessage | None, str]:
-    options = ClaudeAgentOptions(
+# Режим «вопрос»: Claude только отвечает текстом — без инструментов и без
+# репозитория. Так Лео в админке придумывает задачи и спринты.
+ASK_BLOCKED_TOOLS = [
+    "Bash", "Read", "Write", "Edit", "Glob", "Grep", "TodoWrite",
+    "WebFetch", "WebSearch", "Task", "NotebookEdit",
+]
+
+
+def _options(model: str, cwd: str, system: str, ask: bool) -> ClaudeAgentOptions:
+    if not ask:
+        return ClaudeAgentOptions(
+            cwd=cwd,
+            model=model,
+            allowed_tools=ALLOWED_TOOLS,
+            permission_mode="acceptEdits",
+            max_turns=MAX_TURNS,
+            # Без пользовательских/проектных настроек — только то, что задали тут.
+            setting_sources=[],
+        )
+    kwargs = dict(
         cwd=cwd,
         model=model,
-        allowed_tools=ALLOWED_TOOLS,
-        permission_mode="acceptEdits",
-        max_turns=MAX_TURNS,
-        # Без пользовательских/проектных настроек — только то, что задали тут.
+        system_prompt=system or None,
+        allowed_tools=[],
+        disallowed_tools=ASK_BLOCKED_TOOLS,
+        max_turns=1,
         setting_sources=[],
     )
+    try:
+        return ClaudeAgentOptions(tools=[], **kwargs)
+    except TypeError:  # старый SDK без параметра tools
+        return ClaudeAgentOptions(**kwargs)
+
+
+async def _run(model: str, cwd: str, prompt: str, system: str = "", ask: bool = False) -> tuple[ResultMessage | None, str]:
+    options = _options(model, cwd, system, ask)
     result: ResultMessage | None = None
     last_text = ""
     async for msg in query(prompt=prompt, options=options):
@@ -65,6 +94,8 @@ def main() -> int:
     cwd = str(payload.get("cwd") or "").strip()
     prompt = str(payload.get("prompt") or "").strip()
     model = str(payload.get("model") or DEFAULT_MODEL).strip() or DEFAULT_MODEL
+    ask = str(payload.get("mode") or "").strip() == "ask"
+    system = str(payload.get("system") or "").strip()
     # Claude Agent SDK берёт доступ из окружения: токен подписки Claude Code
     # (CLAUDE_CODE_OAUTH_TOKEN) или, если его нет, ANTHROPIC_API_KEY.
     if not any((os.environ.get(k) or "").strip() for k in ("CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_API_KEY")):
@@ -78,7 +109,7 @@ def main() -> int:
         return 1
 
     try:
-        result, last_text = asyncio.run(_run(model, cwd, prompt))
+        result, last_text = asyncio.run(_run(model, cwd, prompt, system, ask))
     except ClaudeSDKError as err:
         _emit({"ok": False, "error": str(err) or type(err).__name__})
         return 1

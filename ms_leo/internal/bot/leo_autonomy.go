@@ -86,23 +86,51 @@ func (b *Bot) runLeoAutonomyIfDue() {
 }
 
 // leoPlannerChat — запрос к модели, которой Лео придумывает задачи и спринты.
-// Планирование задач идёт на отдельной, более сильной модели (LEO_TASKS_MODEL,
-// по умолчанию Claude): от формулировки зависит, что потом сделает агент.
-// Если она недоступна — отвечает обычная модель Лео, чтобы доска не вставала.
+// Идёт в Claude через Claude Agent SDK в ms_tracker — тем же доступом по
+// подписке, которым трекер выполняет задачи: от формулировки зависит, что
+// потом сделает агент. Если трекер или Claude недоступны — отвечает обычная
+// модель Лео (OpenRouter), чтобы доска не вставала.
 func (b *Bot) leoPlannerChat(messages []ai.ChatMessage) (string, error) {
+	system, prompt := leoPlannerPrompt(messages)
 	model := ""
 	if b.config != nil {
 		model = strings.TrimSpace(b.config.LeoTasksModel)
 	}
-	if model == "" {
-		return b.aiClient.Chat(messages, "")
-	}
-	raw, err := b.aiClient.Chat(messages, model)
+	raw, err := b.trackerAskClaude(system, prompt, model)
 	if err == nil {
 		return raw, nil
 	}
-	b.logger.Warnf("Лео-планировщик: модель %s не ответила (%v), пробую основную", model, err)
+	b.logger.Warnf("Лео-планировщик: Claude через трекер не ответил (%v), пробую основную модель", err)
 	return b.aiClient.Chat(messages, "")
+}
+
+// leoPlannerPrompt складывает переписку в системную инструкцию и один вопрос:
+// Claude Agent SDK принимает один запрос, а не список сообщений.
+func leoPlannerPrompt(messages []ai.ChatMessage) (system, prompt string) {
+	var sys, turns []string
+	dialog := 0
+	for _, m := range messages {
+		if strings.TrimSpace(m.Content) != "" && m.Role != "system" {
+			dialog++
+		}
+	}
+	for _, m := range messages {
+		text := strings.TrimSpace(m.Content)
+		if text == "" {
+			continue
+		}
+		switch {
+		case m.Role == "system":
+			sys = append(sys, text)
+		case dialog == 1:
+			turns = append(turns, text)
+		case m.Role == "assistant":
+			turns = append(turns, "Лео: "+text)
+		default:
+			turns = append(turns, "Админ: "+text)
+		}
+	}
+	return strings.Join(sys, "\n\n"), strings.Join(turns, "\n\n")
 }
 
 // runLeoSprint — спросить у Лео спринт и поставить задачи на доску.

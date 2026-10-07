@@ -35,9 +35,10 @@ OPENROUTER_API_KEY=your_openrouter_api_key_here
 # - google/gemini-flash-1.5-8b:free (бесплатная)
 # Список моделей: https://openrouter.ai/models
 OPENROUTER_MODEL=deepseek/deepseek-r1-0528
-# Модель, которой Лео придумывает задачи и спринты для доски в админке.
-# По умолчанию Claude; если она недоступна, отвечает OPENROUTER_MODEL.
-# LEO_TASKS_MODEL=anthropic/claude-opus-5.5
+# Задачи и спринты для доски Лео придумывает на Claude — через Claude Agent SDK
+# в ms_tracker (тот же токен подписки, что выполняет задачи). Если трекер или
+# Claude недоступны, отвечает OPENROUTER_MODEL. Модель можно задать явно:
+# LEO_TASKS_MODEL=claude-sonnet-5-5
 
 # Vision-модель для анализа фото в чате стаи (основная модель — текстовая, фото не видит).
 # Должна поддерживать изображения. Пусто = анализ фото выключен (Лео отвечает только по тексту).

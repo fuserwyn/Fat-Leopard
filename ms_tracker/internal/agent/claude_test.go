@@ -1,6 +1,9 @@
 package agent
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -101,5 +104,41 @@ func TestClaudeCredsSortByShape(t *testing.T) {
 	}
 	if !isClaudeAuthError("Failed to authenticate. API Error: 401 API key is invalid.") || isClaudeAuthError("claude sdk timeout") {
 		t.Fatal("auth error detection")
+	}
+}
+
+// AskClaude: вопрос уходит в claude_run.py в режиме ask, без репозитория.
+func TestAskClaudePassesAskPayload(t *testing.T) {
+	dir := t.TempDir()
+	stub := filepath.Join(dir, "claude_stub.sh")
+	seen := filepath.Join(dir, "payload.json")
+	script := "#!/bin/sh\ncat > " + seen + "\necho '{\"ok\": true, \"status\": \"success\", \"result\": \"  {\\\"tasks\\\": []}  \"}'\n"
+	if err := os.WriteFile(stub, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("CLAUDE_RUN", stub)
+
+	cfg := config.Config{ClaudeOAuthToken: "sk-ant-oat01-x", ClaudeModel: "claude-sonnet-5-5"}
+	got, err := AskClaude(cfg, "Ты Лео", "Придумай спринт", "")
+	if err != nil || got != `{"tasks": []}` {
+		t.Fatalf("ответ: %q %v", got, err)
+	}
+	raw, err := os.ReadFile(seen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var payload map[string]string
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload["mode"] != "ask" || payload["system"] != "Ты Лео" || payload["prompt"] != "Придумай спринт" || payload["model"] != "claude-sonnet-5-5" {
+		t.Fatalf("payload: %v", payload)
+	}
+
+	if _, err := AskClaude(cfg, "", "  ", ""); err == nil {
+		t.Fatal("пустой вопрос должен отклоняться")
+	}
+	if _, err := AskClaude(config.Config{}, "", "вопрос", ""); err == nil || !strings.Contains(err.Error(), "CLAUDE_CODE_OAUTH_TOKEN") {
+		t.Fatalf("без доступа: %v", err)
 	}
 }
