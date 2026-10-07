@@ -23,6 +23,10 @@ type Result struct {
 	Pushed bool
 }
 
+// branchChecks — сборка и тесты ветки; переменная, чтобы тесты вердикта
+// не клонировали репозиторий.
+var branchChecks = runBranchChecks
+
 func Run(cfg config.Config, job store.Job) (Result, error) {
 	phase := strings.ToLower(strings.TrimSpace(job.Phase))
 	if phase == "" {
@@ -62,6 +66,11 @@ func runVerdict(cfg config.Config, job store.Job, phase string) (Result, error) 
 			note = "тест не прошёл: " + reason
 		}
 		return Result{Note: note, Branch: branch, Commit: info.Head}, nil
+	}
+	if phase == "test" {
+		if reason := branchChecks(cfg, job, info.Files); reason != "" {
+			return Result{Note: "тест не прошёл: " + reason, Branch: branch, Commit: info.Head}, nil
+		}
 	}
 	note := strictVerdictNote(phase, branch, job.Prompt)
 	out := Result{Note: note, Branch: branch, Commit: info.Head}
