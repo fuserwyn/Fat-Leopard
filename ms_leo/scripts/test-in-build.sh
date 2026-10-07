@@ -10,7 +10,10 @@ if [ -n "$PGBIN" ]; then
 	rm -rf "$DIR"
 	mkdir -p "$DIR"
 	chown postgres "$DIR"
-	su postgres -c "$PGBIN/initdb -D $DIR -A trust -U postgres" >/dev/null
+	# Локаль UTF-8, как на боевой базе: с локалью C функция LOWER() не трогает
+	# кириллицу, и поиск по имени без учёта регистра ведёт себя иначе, чем на проде.
+	su postgres -c "$PGBIN/initdb -D $DIR -A trust -U postgres -E UTF8 --locale=C.UTF-8" >/dev/null 2>&1 \
+		|| { rm -rf "$DIR"/*; su postgres -c "$PGBIN/initdb -D $DIR -A trust -U postgres" >/dev/null; }
 	su postgres -c "$PGBIN/pg_ctl -D $DIR -o '-p 54330 -c listen_addresses=127.0.0.1' -l $DIR/server.log -w start" >/dev/null
 	export LEO_TEST_PG_DSN="postgres://postgres@127.0.0.1:54330/postgres?sslmode=disable&timezone=Europe/Moscow"
 	echo "тесты: временный Postgres поднят"

@@ -8,7 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "start": "node scripts/serve.cjs",
-    "test": "vitest run --coverage"
+    "test": "TZ=Europe/Moscow vitest run --coverage"
   },
   "dependencies": {
     "react": "^18.3.1",
