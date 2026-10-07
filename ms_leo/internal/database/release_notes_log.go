@@ -20,6 +20,36 @@ func (d *Database) SaveReleaseNotesLog(periodEnd, text string) error {
 	return nil
 }
 
+// ClaimReleaseNotesLog — атомарно занять выпуск за период перед публикацией.
+// false — запись уже есть: другой экземпляр бота (при деплое старый и новый
+// живут вместе) публикует или уже опубликовал этот выпуск.
+func (d *Database) ClaimReleaseNotesLog(periodEnd, text string) (bool, error) {
+	if d == nil || periodEnd == "" || text == "" {
+		return false, nil
+	}
+	res, err := d.db.Exec(`
+		INSERT INTO release_notes_log (period_end, text)
+		VALUES ($1, $2)
+		ON CONFLICT (period_end) DO NOTHING`, periodEnd, text)
+	if err != nil {
+		return false, fmt.Errorf("claim release notes log: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	return n > 0, nil
+}
+
+// ReleaseReleaseNotesLog — снять занятый выпуск, если публикация не удалась,
+// чтобы следующая попытка могла пройти.
+func (d *Database) ReleaseReleaseNotesLog(periodEnd string) error {
+	if d == nil || periodEnd == "" {
+		return nil
+	}
+	if _, err := d.db.Exec(`DELETE FROM release_notes_log WHERE period_end = $1`, periodEnd); err != nil {
+		return fmt.Errorf("release release notes log: %w", err)
+	}
+	return nil
+}
+
 // HasReleaseNotesLog — уже публиковали Release Notes с таким period_end.
 func (d *Database) HasReleaseNotesLog(periodEnd string) (bool, error) {
 	if d == nil || periodEnd == "" {

@@ -123,3 +123,20 @@ func TestReleaseNotesShouldRunToday(t *testing.T) {
 		t.Fatal("14+ days since last")
 	}
 }
+
+func TestReleaseNotesInWindow(t *testing.T) {
+	at := func(h, m int) time.Time { return time.Date(2026, 10, 5, h, m, 0, 0, time.UTC) }
+	for _, c := range []struct {
+		now  time.Time
+		want bool
+	}{
+		{at(9, 59), false},
+		{at(10, 0), true},
+		{at(12, 59), true},
+		{at(13, 0), false},
+	} {
+		if got := releaseNotesInWindow(c.now); got != c.want {
+			t.Errorf("%s: %v", c.now.Format("15:04"), got)
+		}
+	}
+}

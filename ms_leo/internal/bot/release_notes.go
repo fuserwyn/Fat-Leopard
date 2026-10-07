@@ -13,9 +13,17 @@ import (
 const (
 	releaseNotesPeriodDays = 14
 	releaseNotesHour       = 10
-	releaseNotesMinute     = 0
-	releaseNotesTick       = 1 * time.Minute
+	// Окно публикации: если в 10:00 бот перезапускался или модель не ответила,
+	// пробуем ещё до 13:00, а не ждём следующего понедельника.
+	releaseNotesLastHour = 13
+	releaseNotesRetry    = 30 * time.Minute
+	releaseNotesTick     = 1 * time.Minute
 )
+
+// releaseNotesInWindow — сейчас время, когда можно публиковать выпуск.
+func releaseNotesInWindow(now time.Time) bool {
+	return now.Hour() >= releaseNotesHour && now.Hour() < releaseNotesLastHour
+}
 
 var releaseNotesInternalPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)(ms_tracker|cursor[\s-]?агент|зомби|конвейер|pipeline|планировщик.*трекер|tracker/notify|tracker_agent)`),
@@ -109,7 +117,7 @@ func releaseNotesPeriodEndDate(now time.Time) string {
 	return now.Format("2006-01-02")
 }
 
-// startReleaseNotesScheduler — раз в две недели (понедельник 10:00 МСК) Лео публикует Release Notes.
+// startReleaseNotesScheduler — раз в две недели (понедельник, с 10:00 до 13:00 МСК) Лео публикует Release Notes.
 func (b *Bot) startReleaseNotesScheduler(ctx context.Context) {
 	if b == nil || b.aiClient == nil {
 		if b != nil {
@@ -124,13 +132,14 @@ func (b *Bot) startReleaseNotesScheduler(ctx context.Context) {
 	loc := moscowLocation()
 	ticker := time.NewTicker(releaseNotesTick)
 	defer ticker.Stop()
+	var lastAttempt time.Time
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
 			now := time.Now().In(loc)
-			if now.Hour() != releaseNotesHour || now.Minute() != releaseNotesMinute {
+			if !releaseNotesInWindow(now) || now.Sub(lastAttempt) < releaseNotesRetry {
 				continue
 			}
 			last, err := b.db.GetLatestReleaseNotesPeriodEnd()
@@ -150,6 +159,7 @@ func (b *Bot) startReleaseNotesScheduler(ctx context.Context) {
 			if ok {
 				continue
 			}
+			lastAttempt = now
 			b.logger.Infof("release notes: generating for period ending %s", periodEnd)
 			b.generateAndPublishReleaseNotes(now, periodEnd)
 		}
@@ -181,12 +191,23 @@ func (b *Bot) generateAndPublishReleaseNotes(now time.Time, periodEnd string) {
 		b.logger.Info("release notes: model skipped empty period")
 		return
 	}
-	if _, err := b.publishAdminPackFeedPost(0, adminPostAuthorLeo, text); err != nil {
-		b.logger.Warnf("release notes: publish: %v", err)
+	// Занимаем выпуск в базе до публикации: при деплое старый и новый экземпляр
+	// бота живут вместе, и без этого пост мог выйти дважды.
+	claimed, err := b.db.ClaimReleaseNotesLog(periodEnd, text)
+	if err != nil {
+		b.logger.Warnf("release notes: claim: %v", err)
 		return
 	}
-	if err := b.db.SaveReleaseNotesLog(periodEnd, text); err != nil {
-		b.logger.Warnf("release notes: save log: %v", err)
+	if !claimed {
+		b.logger.Info("release notes: already published by another instance, skip")
+		return
+	}
+	if _, err := b.publishAdminPackFeedPost(0, adminPostAuthorLeo, text); err != nil {
+		b.logger.Warnf("release notes: publish: %v", err)
+		if rerr := b.db.ReleaseReleaseNotesLog(periodEnd); rerr != nil {
+			b.logger.Warnf("release notes: release claim: %v", rerr)
+		}
+		return
 	}
 	b.logger.Infof("release notes published for period %s (%d features)", periodEnd, len(features))
 }
