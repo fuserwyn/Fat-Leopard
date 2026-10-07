@@ -81,7 +81,7 @@ func main() {
 		}
 		h := miniappapi.New(bot, cfg.APIToken, logger, publicBase, mediaDir, r2)
 		// Wrap handler с middleware для метрик
-		wrapped := metrics.HTTPMiddleware(h)
+		wrapped := metrics.HTTPMiddleware(miniappapi.LimitBody(h))
 		// Добавляем /metrics эндпоинт
 		mux := http.NewServeMux()
 		mux.Handle("/metrics", promhttp.Handler())
@@ -91,7 +91,9 @@ func main() {
 			Addr:              addr,
 			Handler:           mux,
 			ReadHeaderTimeout: 20 * time.Second,
-			ReadTimeout:       0,
+			// На весь запрос с телом: фото с медленного мобильного успевает,
+			// а соединение, которое тянет байт в минуту, не висит вечно.
+			ReadTimeout:       2 * time.Minute,
 			WriteTimeout:      0,
 			IdleTimeout:       120 * time.Second,
 		}
