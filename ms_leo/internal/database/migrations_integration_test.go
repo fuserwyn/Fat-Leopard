@@ -191,3 +191,33 @@ func TestAdminMoneyQueriesOnRealSchema(t *testing.T) {
 		t.Errorf("сводка доступа Ивана: %+v %v", fs, err)
 	}
 }
+
+// Событие аналитики записывается и без payload, и с ним; повтор с тем же
+// ключом идемпотентности второй строки не создаёт.
+func TestAnalyticsEventsAreStored(t *testing.T) {
+	d := openMigratedTestDB(t)
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	must(d.insertEvent(AnalyticsEvent{Name: EventBotStarted, TelegramID: 77, Source: "vk_ads"}))
+	must(d.insertEvent(AnalyticsEvent{Name: EventPaywallViewed, TelegramID: 77}))
+	must(d.insertEvent(AnalyticsEvent{Name: EventPaymentCompleted, TelegramID: 77, Payload: map[string]any{"provider": "stars", "amount": 350}, IdempotencyKey: "pay:1"}))
+	must(d.insertEvent(AnalyticsEvent{Name: EventPaymentCompleted, TelegramID: 77, Payload: map[string]any{"provider": "stars"}, IdempotencyKey: "pay:1"}))
+
+	var total, withoutPayload int
+	var source, provider string
+	must(d.db.QueryRow(`SELECT COUNT(*), COUNT(*) FILTER (WHERE payload IS NULL) FROM events WHERE telegram_id = 77`).Scan(&total, &withoutPayload))
+	must(d.db.QueryRow(`SELECT source FROM events WHERE event_name = $1`, EventBotStarted).Scan(&source))
+	must(d.db.QueryRow(`SELECT payload->>'provider' FROM events WHERE event_name = $1`, EventPaymentCompleted).Scan(&provider))
+	if total != 3 || withoutPayload != 2 || source != "vk_ads" || provider != "stars" {
+		t.Fatalf("события: всего %d, без payload %d, источник %q, провайдер %q", total, withoutPayload, source, provider)
+	}
+
+	counts, err := d.EventUniqueCounts(0)
+	if err != nil || counts[EventBotStarted] != 1 || counts[EventPaywallViewed] != 1 {
+		t.Errorf("события без payload видны аналитике: %v %v", counts, err)
+	}
+}

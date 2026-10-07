@@ -140,13 +140,16 @@ func (d *Database) trackEventWithRetry(ev AnalyticsEvent) {
 }
 
 func (d *Database) insertEvent(ev AnalyticsEvent) error {
-	var payloadJSON []byte
+	// Без payload в колонку должен уйти NULL. Пустой []byte драйвер шлёт как
+	// пустую строку, Postgres отвечает «invalid input syntax for type json» —
+	// и событие без payload (bot_started, paywall_viewed, …) не записывалось вовсе.
+	var payloadJSON any
 	if len(ev.Payload) > 0 {
 		b, err := json.Marshal(ev.Payload)
 		if err != nil {
 			return fmt.Errorf("marshal payload: %w", err)
 		}
-		payloadJSON = b
+		payloadJSON = string(b)
 	}
 
 	// occurred_at заполняется DEFAULT-ом (московский wall-clock, как остальные таблицы).
