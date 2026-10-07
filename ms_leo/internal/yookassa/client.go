@@ -15,8 +15,17 @@ import (
 	"time"
 )
 
-const createPaymentURL = "https://api.yookassa.ru/v3/payments"
-const createRefundURL = "https://api.yookassa.ru/v3/refunds"
+// apiBase — адрес API ЮKassa. Переменная, а не константа, чтобы тесты
+// подставляли локальный сервер и не ходили в настоящую кассу.
+var apiBase = "https://api.yookassa.ru/v3"
+
+// SetAPIBase подменяет адрес API и возвращает функцию отката. Нужен сквозным
+// тестам оплаты в других пакетах; в боевом коде не вызывается.
+func SetAPIBase(url string) (restore func()) {
+	prev := apiBase
+	apiBase = url
+	return func() { apiBase = prev }
+}
 
 type createPaymentReq struct {
 	Amount struct {
@@ -107,7 +116,7 @@ func CreatePayment(shopID, secretKey string, amountMinor int, currency, descript
 		return "", "", err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, createPaymentURL, bytes.NewReader(raw))
+	req, err := http.NewRequest(http.MethodPost, apiBase+"/payments", bytes.NewReader(raw))
 	if err != nil {
 		return "", "", err
 	}
@@ -162,7 +171,7 @@ func GetPayment(shopID, secretKey, paymentID string) (*PaymentStatusInfo, error)
 	if shopID == "" || secretKey == "" || strings.TrimSpace(paymentID) == "" {
 		return nil, fmt.Errorf("yookassa GetPayment: empty shop_id, secret_key or payment_id")
 	}
-	url := fmt.Sprintf("https://api.yookassa.ru/v3/payments/%s", strings.TrimSpace(paymentID))
+	url := fmt.Sprintf("%s/payments/%s", apiBase, strings.TrimSpace(paymentID))
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
@@ -255,7 +264,7 @@ func RefundPayment(shopID, secretKey, paymentID string, amountMinor int, currenc
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequest(http.MethodPost, createRefundURL, bytes.NewReader(raw))
+	req, err := http.NewRequest(http.MethodPost, apiBase+"/refunds", bytes.NewReader(raw))
 	if err != nil {
 		return err
 	}
