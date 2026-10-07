@@ -123,6 +123,14 @@ func (b *Bot) removeUser(userID, chatID int64, username string) {
 		}
 	}
 
+	b.removeUserNow(userID, chatID, username)
+}
+
+// removeUserNow удаляет участника без проверок срока: так исключает админ.
+// Проверки в removeUser защищают от устаревшего таймера, а решение человека
+// они отменять не должны — иначе «Исключить» отвечало «удалён», а участник с
+// невышедшим сроком оставался в стае.
+func (b *Bot) removeUserNow(userID, chatID int64, username string) {
 	dmStatus := "dm_skipped"
 	dmErrorText := ""
 	if chatID != userID {

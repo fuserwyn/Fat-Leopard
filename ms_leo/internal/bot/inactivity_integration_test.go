@@ -136,3 +136,41 @@ func TestWorkoutResetsInactivityTimer(t *testing.T) {
 		t.Fatal("после тренировки удалять нельзя")
 	}
 }
+
+// Админ исключает участника, у которого срок неактивности ещё не вышел:
+// решение человека выполняется сразу, а автоматическое удаление по
+// устаревшему таймеру такого участника по-прежнему не трогает.
+func TestAdminKickRemovesMemberBeforeDeadline(t *testing.T) {
+	b, tg, db := newIntegrationBot(t, starsConfig)
+	seedMember(t, db, itUser, "from_miniapp", false)
+	seedMember(t, db, itUser+1, "from_chat", false)
+	seedMember(t, db, itUser+2, "stale_timer", false)
+	for _, id := range []int64{itUser, itUser + 1, itUser + 2} {
+		setTimerStarted(t, db, id, 1)
+	}
+
+	// Сработал таймер, запланированный до того, как срок отодвинули.
+	b.removeUser(itUser+2, itPack, "stale_timer")
+	if isKicked(t, db, itUser+2) {
+		t.Fatal("устаревший таймер не должен удалять участника с невышедшим сроком")
+	}
+
+	if err := b.kickUserFromPack(itUser); err != nil {
+		t.Fatal(err)
+	}
+	if !isKicked(t, db, itUser) {
+		t.Fatal("исключение из админки мини-аппа должно сработать сразу")
+	}
+	if err := b.kickUserFromPack(itUser); err == nil {
+		t.Error("повторное исключение — ошибка «уже удалён»")
+	}
+
+	tg.reset()
+	b.adminDeleteUser(itAdmin, itUser+1)
+	if !isKicked(t, db, itUser+1) {
+		t.Fatal("исключение из чат-админки должно сработать сразу")
+	}
+	if texts := tg.textsTo(itUser + 1); len(texts) != 1 || !strings.Contains(texts[0], "Лео удалил тебя из стаи") {
+		t.Errorf("исключённому — сообщение с кнопкой возврата: %q", texts)
+	}
+}

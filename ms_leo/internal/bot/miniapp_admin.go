@@ -606,7 +606,7 @@ func (b *Bot) kickUserFromPack(targetUserID int64) error {
 	if username == "" {
 		username = fmt.Sprintf("User%d", targetUserID)
 	}
-	b.removeUser(targetUserID, packChatID, username)
+	b.removeUserNow(targetUserID, packChatID, username)
 	return nil
 }
 

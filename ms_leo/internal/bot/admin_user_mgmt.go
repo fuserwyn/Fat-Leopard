@@ -952,7 +952,7 @@ func (b *Bot) adminDeleteUser(chatID, targetUserID int64) {
 	if username == "" {
 		username = fmt.Sprintf("User%d", targetUserID)
 	}
-	b.removeUser(targetUserID, packChatID, username)
+	b.removeUserNow(targetUserID, packChatID, username)
 	b.api.Send(tgbotapi.NewMessage(chatID, fmt.Sprintf("✅ Пользователь %d удалён из стаи.", targetUserID)))
 }
 
