@@ -85,6 +85,26 @@ func (b *Bot) runLeoAutonomyIfDue() {
 	}
 }
 
+// leoPlannerChat — запрос к модели, которой Лео придумывает задачи и спринты.
+// Планирование задач идёт на отдельной, более сильной модели (LEO_TASKS_MODEL,
+// по умолчанию Claude): от формулировки зависит, что потом сделает агент.
+// Если она недоступна — отвечает обычная модель Лео, чтобы доска не вставала.
+func (b *Bot) leoPlannerChat(messages []ai.ChatMessage) (string, error) {
+	model := ""
+	if b.config != nil {
+		model = strings.TrimSpace(b.config.LeoTasksModel)
+	}
+	if model == "" {
+		return b.aiClient.Chat(messages, "")
+	}
+	raw, err := b.aiClient.Chat(messages, model)
+	if err == nil {
+		return raw, nil
+	}
+	b.logger.Warnf("Лео-планировщик: модель %s не ответила (%v), пробую основную", model, err)
+	return b.aiClient.Chat(messages, "")
+}
+
 // runLeoSprint — спросить у Лео спринт и поставить задачи на доску.
 func (b *Bot) runLeoSprint(state database.LeoAutonomy) error {
 	if b.aiClient == nil {
@@ -98,10 +118,10 @@ func (b *Bot) runLeoSprint(state database.LeoAutonomy) error {
 		count = leoAutonomyMaxTasks
 	}
 
-	raw, err := b.aiClient.Chat([]ai.ChatMessage{
+	raw, err := b.leoPlannerChat([]ai.ChatMessage{
 		{Role: "system", Content: fmt.Sprintf(leoAutonomySprintPrompt, count)},
 		{Role: "user", Content: leoSprintUserHint(state)},
-	}, "")
+	})
 	if err != nil {
 		return fmt.Errorf("Лео не ответил: %w", err)
 	}

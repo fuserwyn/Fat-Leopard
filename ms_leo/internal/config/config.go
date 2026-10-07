@@ -26,6 +26,9 @@ type Config struct {
 	OpenRouterAPIKey      string
 	OpenRouterModel       string        // Модель OpenRouter (по умолчанию deepseek/deepseek-chat)
 	OpenRouterVisionModel string        // Vision-модель для анализа фото (основная — текстовая); пусто = vision выключен
+	// LeoTasksModel — модель OpenRouter, которой Лео придумывает задачи и спринты
+	// для доски (LEO_TASKS_MODEL). Пусто — та же, что для остального.
+	LeoTasksModel string
 	OpenRouterTimeout     time.Duration // HTTP-таймаут к OpenRouter (весь запрос + чтение тела)
 	ScanHistoryOnStart    bool          // Сканировать историю при старте (по умолчанию false)
 
@@ -220,6 +223,7 @@ func Load() (*Config, error) {
 		OpenRouterAPIKey:      getEnv("OPENROUTER_API_KEY", ""),
 		OpenRouterModel:       getEnv("OPENROUTER_MODEL", "deepseek/deepseek-chat"),
 		OpenRouterVisionModel: getEnv("OPENROUTER_VISION_MODEL", "openai/gpt-4o-mini"),
+		LeoTasksModel:         getEnv("LEO_TASKS_MODEL", "anthropic/claude-opus-5.5"),
 		OpenRouterTimeout:     orTimeout,
 		ScanHistoryOnStart:    scanHistoryOnStart,
 		Prompts:               prompts.DefaultBundle(),

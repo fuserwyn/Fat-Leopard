@@ -47,10 +47,10 @@ func (b *Bot) MiniappAskLeoTask(
 	if b.aiClient == nil {
 		return "", "", fmt.Errorf("Лео сейчас недоступен: не настроен OpenRouter")
 	}
-	raw, err := b.aiClient.Chat([]ai.ChatMessage{
+	raw, err := b.leoPlannerChat([]ai.ChatMessage{
 		{Role: "system", Content: leoTaskSystemPrompt},
 		{Role: "user", Content: q},
-	}, "")
+	})
 	if err != nil {
 		return "", "", fmt.Errorf("Лео не ответил: %w", err)
 	}
@@ -106,10 +106,10 @@ func (b *Bot) MiniappLeoSprint(
 	if len([]rune(q)) > 500 {
 		q = string([]rune(q)[:500])
 	}
-	raw, err := b.aiClient.Chat([]ai.ChatMessage{
+	raw, err := b.leoPlannerChat([]ai.ChatMessage{
 		{Role: "system", Content: leoSprintSystemPrompt},
 		{Role: "user", Content: q},
-	}, "")
+	})
 	if err != nil {
 		return "", "", nil, fmt.Errorf("Лео не ответил: %w", err)
 	}
@@ -222,10 +222,10 @@ func (b *Bot) MiniappLeoProposeTask(
 			sb.WriteString("\n— " + t)
 		}
 	}
-	raw, err := b.aiClient.Chat([]ai.ChatMessage{
+	raw, err := b.leoPlannerChat([]ai.ChatMessage{
 		{Role: "system", Content: leoProposeSystemPrompt},
 		{Role: "user", Content: sb.String()},
-	}, "")
+	})
 	if err != nil {
 		return "", "", "", nil, fmt.Errorf("Лео не ответил: %w", err)
 	}
@@ -275,10 +275,10 @@ func (b *Bot) miniappLeoProposeDiscuss(
 		sb.WriteString("\nИсходная тема: " + topic + "\n")
 	}
 	sb.WriteString("\nКомментарий админа: " + feedback)
-	raw, err := b.aiClient.Chat([]ai.ChatMessage{
+	raw, err := b.leoPlannerChat([]ai.ChatMessage{
 		{Role: "system", Content: leoProposeDiscussSystemPrompt},
 		{Role: "user", Content: sb.String()},
-	}, "")
+	})
 	if err != nil {
 		return "", "", "", nil, fmt.Errorf("Лео не ответил: %w", err)
 	}
