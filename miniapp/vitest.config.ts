@@ -11,9 +11,9 @@ export default mergeConfig(
       coverage: {
         provider: "v8",
         include: ["src/**/*.{ts,tsx}"],
-        exclude: ["src/**/*.test.{ts,tsx}", "src/main.tsx", "src/vite-env.d.ts"],
+        exclude: ["src/**/*.test.{ts,tsx}", "src/main.tsx", "src/vite-env.d.ts", "src/lib/testApi.ts", "src/lib/backendContract.ts"],
         reporter: ["text-summary"],
-        thresholds: { lines: 24, functions: 44, statements: 24 },
+        thresholds: { lines: 27, functions: 56, statements: 27 },
       },
     },
   }),
