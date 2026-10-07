@@ -354,6 +354,7 @@ func TestApplyBoardNotifyFindsOpenTaskWhenForeignID(t *testing.T) {
 			"running", "doing", nil, nil, false,
 			false, false, false, true,
 			false, []byte("[]"),
+			nil, nil,
 			"", "", []byte(`["Взяли в работу по расписанию"]`), int64(42),
 			now, now, now, 0,
 		))

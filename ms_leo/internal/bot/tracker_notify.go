@@ -148,7 +148,10 @@ func trackerFullyDoneNote(t database.TrackerTask) string {
 		fmt.Sprintf("✅ %s выполнена.", trackerNotifyHeading(t)),
 		trackerDeploySummary(t),
 	}
-	if summary := trackerDoneExecutionSummary(t); summary != "" {
+	// Если агент ничего внятного не написал, итог откатывается к формулировке
+	// задачи — а она уже стоит в заголовке, повторять её незачем.
+	if summary := trackerDoneExecutionSummary(t); summary != "" &&
+		summary != trackerEffectiveDoneSummary(trackerTaskTitle(t.Prompt)) {
 		parts = append(parts, summary)
 	}
 	return strings.Join(parts, "\n\n")

@@ -242,15 +242,14 @@ describe("ActivityCard thread reply", () => {
         streak={2}
         hideStreak
         comment="Объявление"
-        threadComposer={{ ...composer, onSubmit }}
+        // Поле управляемое: текст приходит из draft, а не из события change.
+        threadComposer={{ ...composer, draft: "Привет стае", onSubmit }}
         adminVoiceAvailable
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: /Комментарии/ }));
     expect(screen.getByRole("group", { name: "От чьего имени комментировать" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "🐆 Лео" }));
-    const input = screen.getByPlaceholderText("Написать комментарий…");
-    fireEvent.change(input, { target: { value: "Привет стае" } });
     fireEvent.click(screen.getByRole("button", { name: "Отправить" }));
     expect(onSubmit).toHaveBeenCalledWith("Привет стае", null, "leo");
   });

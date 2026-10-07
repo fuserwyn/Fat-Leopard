@@ -38,6 +38,8 @@ describe("buildStreakByDay", () => {
       { date: "2026-09-03", count: 1 },
     ];
     const streak = buildStreakByDay(days);
-    expect(streak.map((p) => p.value)).toEqual([1, 1, 2, 2, 0, 1]);
+    // Как на бэкенде (ComputeStreakDays): тренировка после пропущенного дня
+    // начинает стрик с 1; без тренировки он держится один день и сгорает на второй.
+    expect(streak.map((p) => p.value)).toEqual([1, 1, 1, 1, 0, 1]);
   });
 });
