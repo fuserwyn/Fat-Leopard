@@ -20,9 +20,23 @@ import (
 // «Ресурсы» — сколько Railway насчитал за текущий месяц и сколько за тот же
 // период пришло оплат, всё в долларах, чтобы разницу было видно одним числом.
 
+// requireMiniappDataAdmin — доступ к сырым данным базы (таблицы и SQL-редактор).
+// Там видно всё, включая платежи и переписку, поэтому пускаем только владельца
+// и админов из настроек сервера; выданные через панель права сюда не дают.
+func (b *Bot) requireMiniappDataAdmin(viewerUserID int64, initD initdata.InitData) (int64, error) {
+	packID, err := b.requireMiniappAdmin(viewerUserID, initD)
+	if err != nil {
+		return 0, err
+	}
+	if b.config == nil || !b.config.IsAdminTelegramUser(viewerUserID) {
+		return 0, ErrPackFeedForbidden
+	}
+	return packID, nil
+}
+
 // MiniappAdminDBTables — список таблиц базы стаи.
 func (b *Bot) MiniappAdminDBTables(viewerUserID int64, initD initdata.InitData) ([]database.AdminTableInfo, error) {
-	if _, err := b.requireMiniappAdmin(viewerUserID, initD); err != nil {
+	if _, err := b.requireMiniappDataAdmin(viewerUserID, initD); err != nil {
 		return nil, err
 	}
 	return b.db.AdminListTables()
@@ -32,7 +46,7 @@ func (b *Bot) MiniappAdminDBTables(viewerUserID int64, initD initdata.InitData) 
 func (b *Bot) MiniappAdminDBTable(
 	viewerUserID int64, initD initdata.InitData, table string, limit, offset int, orderBy string, desc bool,
 ) (database.AdminQueryResult, error) {
-	if _, err := b.requireMiniappAdmin(viewerUserID, initD); err != nil {
+	if _, err := b.requireMiniappDataAdmin(viewerUserID, initD); err != nil {
 		return database.AdminQueryResult{}, err
 	}
 	return b.db.AdminTablePage(table, limit, offset, orderBy, desc)
@@ -42,7 +56,7 @@ func (b *Bot) MiniappAdminDBTable(
 func (b *Bot) MiniappAdminDBColumns(
 	viewerUserID int64, initD initdata.InitData, table string,
 ) ([]database.AdminColumnInfo, error) {
-	if _, err := b.requireMiniappAdmin(viewerUserID, initD); err != nil {
+	if _, err := b.requireMiniappDataAdmin(viewerUserID, initD); err != nil {
 		return nil, err
 	}
 	return b.db.AdminTableColumns(table)
@@ -52,7 +66,7 @@ func (b *Bot) MiniappAdminDBColumns(
 func (b *Bot) MiniappAdminDBQuery(
 	viewerUserID int64, initD initdata.InitData, query string,
 ) (database.AdminQueryResult, error) {
-	if _, err := b.requireMiniappAdmin(viewerUserID, initD); err != nil {
+	if _, err := b.requireMiniappDataAdmin(viewerUserID, initD); err != nil {
 		return database.AdminQueryResult{}, err
 	}
 	return b.db.AdminRunQuery(query)

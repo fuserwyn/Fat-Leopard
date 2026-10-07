@@ -81,7 +81,7 @@ func main() {
 		}
 		h := miniappapi.New(bot, cfg.APIToken, logger, publicBase, mediaDir, r2)
 		// Wrap handler с middleware для метрик
-		wrapped := metrics.HTTPMiddleware(miniappapi.LimitBody(h))
+		wrapped := metrics.HTTPMiddleware(miniappapi.NewRateLimiter().Middleware(miniappapi.LimitBody(h)))
 		// Добавляем /metrics эндпоинт
 		mux := http.NewServeMux()
 		mux.Handle("/metrics", promhttp.Handler())
