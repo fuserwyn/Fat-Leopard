@@ -1,0 +1,49 @@
+.error-boundary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 24px 16px;
+  padding: 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--card-inner);
+  color: var(--text);
+}
+
+.error-boundary__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.error-boundary__text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.error-boundary__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.error-boundary__btn {
+  min-height: 40px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.error-boundary__btn--ghost {
+  border-color: var(--border-subtle);
+  background: transparent;
+  color: var(--text);
+}

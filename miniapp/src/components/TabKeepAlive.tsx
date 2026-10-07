@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, type ReactNode } from "react";
+import { ErrorBoundary } from "./ErrorBoundary";
 import { applyScrollY, captureScrollY } from "../lib/tabScrollRestore";
 import "./TabKeepAlive.css";
 
@@ -7,11 +8,13 @@ type Props = {
   /** Скрыть вкладку (оверлей тренировки / поддержки поверх). */
   hidden?: boolean;
   className?: string;
+  /** Название раздела для сообщения об ошибке: сбой в одной вкладке не роняет остальные. */
+  label?: string;
   children: ReactNode;
 };
 
 /** Держит дочерний экран смонтированным; показывает только при active. */
-export function TabKeepAlive({ active, hidden = false, className, children }: Props) {
+export function TabKeepAlive({ active, hidden = false, className, label, children }: Props) {
   const show = active && !hidden;
   const scrollYRef = useRef(0);
   const prevShowRef = useRef(show);
@@ -42,7 +45,7 @@ export function TabKeepAlive({ active, hidden = false, className, children }: Pr
       aria-hidden={!show}
       {...(!show ? { inert: true as const } : {})}
     >
-      {children}
+      <ErrorBoundary label={label}>{children}</ErrorBoundary>
     </div>
   );
 }

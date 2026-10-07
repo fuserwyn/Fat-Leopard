@@ -8,6 +8,7 @@ import { ProfileScreen } from "./components/ProfileScreen";
 import { NewWorkoutScreen } from "./components/NewWorkoutScreen";
 import { RulesScreen } from "./components/RulesScreen";
 import { TabKeepAlive } from "./components/TabKeepAlive";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { MiniappRemovedScreen } from "./components/MiniappRemovedScreen";
 import { SupportScreen } from "./components/SupportScreen";
 import { AdminScreen } from "./components/AdminScreen";
@@ -432,7 +433,7 @@ export function App() {
   return (
     <div className="app">
       <div className="app__tabs">
-        <TabKeepAlive active={tab === "feed"} hidden={!tabsVisible}>
+        <TabKeepAlive active={tab === "feed"} hidden={!tabsVisible} label="Лента">
           <FeedScreen
             active={tab === "feed" && tabsVisible}
             streak={streak}
@@ -456,7 +457,7 @@ export function App() {
             packBonusThemeActive={packBonusThemeActive}
           />
         </TabKeepAlive>
-        <TabKeepAlive active={tab === "chat"} hidden={!tabsVisible}>
+        <TabKeepAlive active={tab === "chat"} hidden={!tabsVisible} label="Чат">
           <ChatScreen
             active={tab === "chat" && tabsVisible}
             name={effectiveName}
@@ -467,10 +468,10 @@ export function App() {
             onInboxDrained={onLeoInboxDrained}
           />
         </TabKeepAlive>
-        <TabKeepAlive active={tab === "rules"} hidden={!tabsVisible}>
+        <TabKeepAlive active={tab === "rules"} hidden={!tabsVisible} label="Правила">
           <RulesScreen />
         </TabKeepAlive>
-        <TabKeepAlive active={tab === "profile"} hidden={!tabsVisible}>
+        <TabKeepAlive active={tab === "profile"} hidden={!tabsVisible} label="Профиль">
           <ProfileScreen
             active={tab === "profile" && tabsVisible}
             name={effectiveName}
@@ -522,13 +523,15 @@ export function App() {
       ) : null}
 
       {adminOpen && isAdmin ? (
-        <AdminScreen
-          initData={initData}
-          inTelegram={inTelegram}
-          showAlert={showAlert}
-          onClose={() => setAdminOpen(false)}
-          onPackGoalChange={setPackWorkoutsGoal}
-        />
+        <ErrorBoundary label="Админка">
+          <AdminScreen
+            initData={initData}
+            inTelegram={inTelegram}
+            showAlert={showAlert}
+            onClose={() => setAdminOpen(false)}
+            onPackGoalChange={setPackWorkoutsGoal}
+          />
+        </ErrorBoundary>
       ) : null}
 
       {/* Празднования показываем по одному, чтобы оверлеи не накладывались:
