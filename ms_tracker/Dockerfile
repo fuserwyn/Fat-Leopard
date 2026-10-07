@@ -6,6 +6,8 @@ COPY go.sum* ./
 RUN go mod download
 COPY . .
 RUN go mod tidy
+# Тесты в момент выкатки: упали — образ не собирается, трекер остаётся на прошлой версии.
+RUN go test ./...
 RUN CGO_ENABLED=0 GOOS=linux go build -o /out/main ./cmd/tracker
 
 FROM python:3.12-slim

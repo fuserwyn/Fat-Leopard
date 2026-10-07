@@ -8,7 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "start": "node scripts/serve.cjs",
-    "test": "vitest run"
+    "test": "vitest run --coverage"
   },
   "dependencies": {
     "react": "^18.3.1",
@@ -21,6 +21,7 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
+    "@vitest/coverage-v8": "^3.2.4",
     "jsdom": "^27.0.1",
     "typescript": "^5.5.4",
     "vite": "^5.4.2",

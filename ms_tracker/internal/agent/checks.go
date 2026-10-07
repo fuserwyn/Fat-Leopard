@@ -45,7 +45,10 @@ func checksForFiles(files []string) []branchCheck {
 		}
 		out = append(out,
 			branchCheck{Dir: svc, Label: svc + ": сборка", Name: "go", Args: []string{"build", "./..."}},
-			branchCheck{Dir: svc, Label: svc + ": тесты", Name: "go", Args: []string{"test", "./..."}},
+			// Тот же сценарий, что при сборке образа на выкатке (у ms_leo — с временной
+			// базой и порогом покрытия): что прошло здесь, пройдёт и там.
+			branchCheck{Dir: svc, Label: svc + ": тесты", Name: "sh", Args: []string{"-c",
+				"if [ -f scripts/test-in-build.sh ]; then sh ./scripts/test-in-build.sh; else go test ./...; fi"}},
 		)
 	}
 	if touched["miniapp"] {

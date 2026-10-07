@@ -7,6 +7,8 @@ ENV VITE_MINIAPP_API_URL=$VITE_MINIAPP_API_URL
 COPY package.json package-lock.json* ./
 RUN npm ci
 COPY . ./
+# Тесты в момент выкатки: упали — образ не собирается, на прод ничего не уезжает.
+RUN npm test
 RUN npm run build
 RUN npm prune --omit=dev
 

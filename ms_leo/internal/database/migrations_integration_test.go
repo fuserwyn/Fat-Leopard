@@ -30,6 +30,10 @@ func openMigratedTestDB(t *testing.T) *Database {
 	if err := d.CreateTables(); err != nil {
 		t.Fatalf("таблицы и миграции: %v", err)
 	}
+	// Доска трекера: в бою у неё своя база, здесь — та же (как локально).
+	if err := d.EnsureTrackerSchema(); err != nil {
+		t.Fatalf("схема трекера: %v", err)
+	}
 	return d
 }
 
