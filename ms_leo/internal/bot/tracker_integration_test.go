@@ -350,3 +350,55 @@ func TestTrackerApprovalReminder(t *testing.T) {
 		}
 	}
 }
+
+// Трекер прислал «тест не прошёл»: карточка сама возвращается агенту с
+// причиной отказа и агент запускается снова — без человека и без лимита.
+func TestTrackerFailedTestGoesBackToAgentAutomatically(t *testing.T) {
+	tracker, tune := newFakeTracker(t)
+	b, tg, _ := newIntegrationBot(t, tune)
+
+	created, err := b.db.CreateTrackerTask(database.TrackerTask{
+		Prompt: "Челленджи: серверная часть", WhenAt: time.Now(), WhenLabel: "сейчас", Repeat: "разово", Kind: "task",
+		Status: "holding", DevColumn: trackerColTest, AutoReview: true, AutoPush: true,
+		AuthorID: trAdminA, HasAuthor: true, Result: "Сделал миграцию и API челленджей.",
+		Steps: []string{"Поставлена на доску стаи", "Агент сдал результат"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	queued := func() int {
+		tracker.mu.Lock()
+		defer tracker.mu.Unlock()
+		return tracker.queued
+	}
+
+	for attempt := 1; attempt <= 5; attempt++ {
+		// Агент доделал, карточка снова дошла до теста.
+		task := reloadTask(t, b, created.ID)
+		_ = applyTrackerColumn(&task, trackerColTest)
+		if err := b.db.SaveTrackerTask(task); err != nil {
+			t.Fatal(err)
+		}
+		before := queued()
+
+		verdict := "тест не прошёл: ms_leo: сборка не прошла:\ninternal/bot/challenges.go:17: undefined: initdata\n\nкоммит abc1234 тест"
+		if _, ship, err := b.ApplyBoardNotify(created.ID, verdict); err != nil || ship {
+			t.Fatalf("попытка %d: уведомление: ship=%v err=%v", attempt, ship, err)
+		}
+
+		got := reloadTask(t, b, created.ID)
+		if got.DevColumn != trackerColDoing {
+			t.Fatalf("попытка %d: карточка должна вернуться в работу, а она в %q (шаги %v)", attempt, got.DevColumn, got.Steps)
+		}
+		if strings.Count(got.Result, "undefined: initdata") != 1 || !strings.Contains(got.Result, trackerTestFailedMarker) {
+			t.Fatalf("попытка %d: причина отказа должна дойти до агента ровно один раз: %q", attempt, got.Result)
+		}
+		if prompt := trackerAgentPrompt(got, "doing"); !strings.Contains(prompt, "проверка перед выкатом его не приняла") || !strings.Contains(prompt, "undefined: initdata") {
+			t.Fatalf("попытка %d: задание агенту на доработку: %q", attempt, prompt)
+		}
+		eventually(t, "агент запущен заново", func() bool { return queued() > before })
+	}
+	if len(tg.sent("sendMessage")) != 0 {
+		t.Errorf("человека не зовём: %v", tg.sent("sendMessage"))
+	}
+}

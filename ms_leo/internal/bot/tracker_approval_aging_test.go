@@ -1,6 +1,8 @@
 package bot
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -100,5 +102,73 @@ func TestTrackerApproverIDsInView(t *testing.T) {
 	}
 	if !trackerAppendApproval(&task, 300) || trackerAppendApproval(&task, database.TrackerLeoAuthorID) || trackerAppendApproval(&task, 0) {
 		t.Fatal("правила добавления голоса")
+	}
+}
+
+// Отказ теста не останавливает карточку: она возвращается агенту с причиной,
+// сколько бы раз подряд тест ни падал.
+func TestFailedTestAlwaysReturnsCardToWork(t *testing.T) {
+	task := database.TrackerTask{
+		ID: 9, Num: 9, Prompt: "Добавить челленджи", DevColumn: trackerColTest, Status: "holding",
+		Result: "Сделал челленджи: миграция, API, тесты.",
+	}
+	for attempt := 1; attempt <= 8; attempt++ {
+		_ = applyTrackerColumn(&task, trackerColTest)
+		reason := fmt.Sprintf("тест не прошёл: ms_leo: сборка не прошла:\nошибка №%d", attempt)
+		applyTrackerPhaseVerdict(&task, trackerColTest, reason)
+
+		if task.DevColumn != trackerColDoing {
+			t.Fatalf("попытка %d: карточка должна вернуться в работу, а она в %q", attempt, task.DevColumn)
+		}
+		if !strings.Contains(task.Result, fmt.Sprintf("ошибка №%d", attempt)) {
+			t.Fatalf("попытка %d: причина отказа должна дойти до агента: %q", attempt, task.Result)
+		}
+		if attempt > 1 && strings.Contains(task.Result, fmt.Sprintf("ошибка №%d", attempt-1)) {
+			t.Fatalf("попытка %d: старая причина должна заменяться, а не копиться: %q", attempt, task.Result)
+		}
+		if !strings.HasPrefix(task.Result, "Сделал челленджи") {
+			t.Fatalf("попытка %d: отчёт агента о сделанном теряться не должен: %q", attempt, task.Result)
+		}
+	}
+
+	prompt := trackerAgentPrompt(task, "doing")
+	if !strings.Contains(prompt, "проверка перед выкатом его не приняла") || !strings.Contains(prompt, "ошибка №8") || !strings.Contains(prompt, "Добавить челленджи") {
+		t.Errorf("задание на доработку: %q", prompt)
+	}
+
+	// Пройденный тест карточку не трогает.
+	passed := database.TrackerTask{DevColumn: trackerColTest, Result: "готово"}
+	applyTrackerPhaseVerdict(&passed, trackerColTest, "Тест: config.go целый, ветка tracker/9-1. Тест пройден.")
+	if passed.DevColumn != trackerColTest || passed.Error != "" || passed.Result != "готово" {
+		t.Errorf("пройденный тест: %+v", passed)
+	}
+}
+
+// Перезапуск сорвавшегося агента не имеет предела, но пауза растёт до получаса.
+func TestAgentRestartsNeverStopButSlowDown(t *testing.T) {
+	if trackerAgentKickWait(0) != 90*time.Second || trackerAgentKickWait(1) != 3*time.Minute || trackerAgentKickWait(3) != 12*time.Minute {
+		t.Errorf("пауза удваивается: %s %s %s", trackerAgentKickWait(0), trackerAgentKickWait(1), trackerAgentKickWait(3))
+	}
+	if trackerAgentKickWait(5) != 30*time.Minute || trackerAgentKickWait(500) != 30*time.Minute {
+		t.Errorf("пауза не больше получаса: %s", trackerAgentKickWait(500))
+	}
+
+	now := time.Now()
+	failed := database.TrackerTask{
+		DevColumn: trackerColDoing, Status: "error", Error: "Агент не стартовал: нет токена",
+		HasLastRun: true, LastRunAt: now.Add(-31 * time.Minute),
+	}
+	for i := 0; i < 40; i++ {
+		failed.Steps = append(failed.Steps, "Снова запускаем агента")
+	}
+	if !trackerNeedsAgentKick(failed, now, false) {
+		t.Fatal("после сорока попыток агента всё равно перезапускаем")
+	}
+	failed.LastRunAt = now.Add(-10 * time.Minute)
+	if trackerNeedsAgentKick(failed, now, false) {
+		t.Error("но не чаще раза в полчаса")
+	}
+	if !trackerNeedsAgentKick(failed, now, true) {
+		t.Error("кнопка «Обновить» перезапускает сразу")
 	}
 }

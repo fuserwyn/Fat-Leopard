@@ -65,7 +65,23 @@ func trackerAgentName(phase string) string {
 
 const trackerAgentKickCooldown = 90 * time.Second
 const trackerAgentClaimWait = 45 * time.Second
-const trackerAgentKickMax = 5
+
+// Перезапускам агента нет предела: карточка должна доехать сама, без человека.
+// Чтобы сорванный старт (нет токена, лежит исполнитель) не долбил сервис каждые
+// полторы минуты, пауза растёт с каждой попыткой и упирается в полчаса.
+const trackerAgentKickCooldownMax = 30 * time.Minute
+
+// trackerAgentKickWait — сколько ждать перед очередным перезапуском агента.
+func trackerAgentKickWait(kicks int) time.Duration {
+	wait := trackerAgentKickCooldown
+	for i := 0; i < kicks && wait < trackerAgentKickCooldownMax; i++ {
+		wait *= 2
+	}
+	if wait > trackerAgentKickCooldownMax {
+		return trackerAgentKickCooldownMax
+	}
+	return wait
+}
 const trackerAgentWaitingStep = "ждёт очередь"
 
 func trackerLastStep(t database.TrackerTask) string {
@@ -120,14 +136,11 @@ func trackerNeedsAgentKick(t database.TrackerTask, now time.Time, force bool) bo
 	if trackerStepRemoteID(t.Steps) > 0 && !failed && !waiting {
 		return false
 	}
-	if !force && trackerAgentKickCount(t) >= trackerAgentKickMax {
-		return false
-	}
 	if failed {
 		if force {
 			return true
 		}
-		return !t.HasLastRun || now.Sub(t.LastRunAt) >= trackerAgentKickCooldown
+		return !t.HasLastRun || now.Sub(t.LastRunAt) >= trackerAgentKickWait(trackerAgentKickCount(t))
 	}
 	// Remote ещё нет: аппрув, «ждёт очередь» или create ещё летит.
 	// Пустую карточку без last_run не трогаем — так выглядит свежий claim
@@ -191,6 +204,8 @@ func trackerAgentPrompt(t database.TrackerTask, phase string) string {
 			if strings.Contains(result, "Логи сборки Railway") ||
 				strings.Contains(strings.ToLower(result), "сборка на стенде не прошла") {
 				text += "\n\nСборка Railway упала. Почини код по логам точечно, инструментами. Не возвращай полный текст файлов JSON-ом.\n" + result
+			} else if strings.Contains(result, trackerTestFailedMarker) {
+				text += "\n\nКод уже лежит на ветке задачи, но проверка перед выкатом его не приняла. Почини точечно, прогони те же проверки сам и сдай снова.\n" + result
 			} else {
 				text += "\n\nПрошлый результат / замечания ревью:\n" + result
 			}
@@ -653,8 +668,8 @@ pass false если нет коммита, только заметка, config.g
 		return nil
 	}
 	t.Error = clipNotifyText(note)
-	appendTrackerStep(&t, label+" не принято")
 	if phase == "review" {
+		appendTrackerStep(&t, label+" не принято")
 		_ = applyTrackerColumn(&t, trackerColDoing)
 		appendTrackerStep(&t, "Вернули в работу: ревью не принято")
 		if err := b.db.SaveTrackerTask(t); err != nil {
@@ -663,7 +678,12 @@ pass false если нет коммита, только заметка, config.g
 		b.kickTrackerPipeline(t)
 		return nil
 	}
-	return b.db.SaveTrackerTask(t)
+	returnTrackerFromFailedTest(&t, note)
+	if err := b.db.SaveTrackerTask(t); err != nil {
+		return err
+	}
+	b.kickTrackerPipeline(t)
+	return nil
 }
 
 // kickTrackerPipeline — следующая фаза после сдачи: Composer или сборка.
@@ -815,13 +835,6 @@ func (b *Bot) returnTrackerFromFailedStand(t *database.TrackerTask, waitErr erro
 	t.Error = clipNotifyText("сборка на стенде: " + reason)
 	t.Result = strings.TrimSpace(t.Result + "\n\n" + note)
 	appendTrackerStep(t, "сборка на стенде не прошла")
-	if trackerStandFailCount(*t) >= trackerStandMaxRetries {
-		appendTrackerStep(t, "сборка не чинится после нескольких попыток")
-		if serr := b.db.SaveTrackerTask(*t); serr != nil && b.logger != nil {
-			b.logger.Warnf("трекер: не сохранить срыв стенда #%d: %v", trackerDueNum(*t), serr)
-		}
-		return
-	}
 	if trackerFailLooksLikeStub(reason, logs) {
 		appendTrackerStep(t, "не вернули в работу: сборка упала на заглушке")
 		if serr := b.db.SaveTrackerTask(*t); serr != nil && b.logger != nil {

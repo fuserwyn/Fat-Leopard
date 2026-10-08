@@ -41,7 +41,9 @@ func (b *Bot) ApplyBoardNotify(taskID int64, text string) (localID int64, ship b
 	if err := b.db.SaveTrackerTask(t); err != nil {
 		return t.ID, false, err
 	}
-	if trackerShouldKickAfterNotify(kind, from, text) {
+	// Проваленный тест вернул карточку в работу — агента надо запустить снова.
+	testReturned := from == trackerColTest && t.DevColumn == trackerColDoing
+	if trackerShouldKickAfterNotify(kind, from, text) || testReturned {
 		b.kickTrackerPipeline(t)
 	}
 	return t.ID, trackerShouldShipAfterNotify(t), nil
@@ -375,16 +377,16 @@ func trackerShouldKickAfterNotify(kind, from, text string) bool {
 	if TrackerNotifyIsFullyShipped(text) {
 		return true
 	}
-	// Тест провален — ждём человека или повторный клик. Ревью провалено —
-	// агент снова пишет код во «В работе».
+	// Тест провален: карточку возвращает в работу returnTrackerFromFailedTest,
+	// агента после этого запускает вызывающий.
 	if from == trackerColTest && !trackerComposerPassed(from, text) {
 		return false
 	}
 	return true
 }
 
-// applyTrackerPhaseVerdict — отказ ревью возвращает карточку в работу,
-// чтобы агент правил по замечаниям. Отказ теста остаётся на тесте.
+// applyTrackerPhaseVerdict — отказ ревью или теста возвращает карточку в
+// работу, чтобы агент правил по замечаниям.
 func applyTrackerPhaseVerdict(t *database.TrackerTask, from, text string) {
 	if t == nil {
 		return
@@ -401,8 +403,40 @@ func applyTrackerPhaseVerdict(t *database.TrackerTask, from, text string) {
 		appendTrackerStep(t, "Вернули в работу: ревью не принято")
 		return
 	}
-	_ = applyTrackerColumn(t, from)
-	appendTrackerStep(t, trackerAgentName(from)+" не принято")
+	returnTrackerFromFailedTest(t, text)
+}
+
+// Тест проверяет сборку и прогоняет тесты по-настоящему, так что отказы —
+// обычное дело. Карточка не ждёт человека: возвращается агенту вместе с
+// причиной и идёт по кругу «работа → ревью → тест», пока тест не пройдёт.
+// Лимита попыток нет намеренно — так решил владелец.
+const (
+	trackerTestReturnedStep = "Вернули в работу: тест не прошёл"
+	trackerTestFailedMarker = "Тест не прошёл — почини и сдай снова:"
+)
+
+// returnTrackerFromFailedTest возвращает карточку в работу после отказа теста.
+func returnTrackerFromFailedTest(t *database.TrackerTask, text string) {
+	if t == nil {
+		return
+	}
+	t.Error = clipNotifyText(text)
+	appendTrackerStep(t, trackerAgentName(trackerColTest)+" не принято")
+	// Причину отказа кладём в результат: он уходит агенту в задании на доработку.
+	// Прошлую причину заменяем, а не копим.
+	result := t.Result
+	if i := strings.Index(result, trackerTestFailedMarker); i >= 0 {
+		result = result[:i]
+	}
+	reason := strings.TrimSpace(text)
+	// Уведомление трекера уже записало вердикт в результат — второй раз его не кладём.
+	result = strings.Replace(result, reason, "", 1)
+	if r := []rune(reason); len(r) > 2000 {
+		reason = string(r[:2000]) + "…"
+	}
+	t.Result = strings.TrimSpace(strings.TrimSpace(result) + "\n\n" + trackerTestFailedMarker + "\n" + reason)
+	_ = applyTrackerColumn(t, trackerColDoing)
+	appendTrackerStep(t, trackerTestReturnedStep)
 }
 
 func (b *Bot) notifyTrackerShippedOnce(t database.TrackerTask) {

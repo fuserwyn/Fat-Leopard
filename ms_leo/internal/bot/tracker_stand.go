@@ -15,7 +15,6 @@ import (
 const trackerStandWait = 10 * time.Minute
 const trackerStandPoll = 12 * time.Second
 const trackerStandSkipGrace = 45 * time.Second
-const trackerStandMaxRetries = 5
 const trackerStandLogClip = 2000
 
 var trackerStandInflight sync.Map
