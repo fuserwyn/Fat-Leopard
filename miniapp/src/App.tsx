@@ -14,6 +14,8 @@ import { SupportScreen } from "./components/SupportScreen";
 import { AdminScreen } from "./components/AdminScreen";
 import { AchievementToast } from "./components/AchievementToast";
 import { LevelUpToast } from "./components/LevelUpToast";
+import { PackWeekSummaryModal } from "./components/PackWeekSummaryModal";
+import { fetchPackWeekSummary, markPackWeekSummarySeen, type PackWeekSummary } from "./lib/packWeekSummary";
 import { earnedAchievementKeys, freshAchievementKeys, type AchievementKey } from "./lib/achievements";
 import { miniappLevelFromCups } from "./lib/miniappLevel";
 import { getStoredTheme, hasStoredTheme, hydrateThemeFromCloud, hydrateThemeFromServer, isThemeMode, persistTheme, persistThemeToServer } from "./lib/theme";
@@ -91,6 +93,8 @@ export function App() {
   const [packGoalReached, setPackGoalReached] = useState(false);
   const [packBonusThemeActive, setPackBonusThemeActive] = useState(false);
   const tzSyncedRef = useRef(false);
+  /** Итоги прошлой недели стаи, которые участник ещё не видел. */
+  const [packWeekSummary, setPackWeekSummary] = useState<PackWeekSummary | null>(null);
   // Очередь тостов «Ачивка получена!» — показываем по одному, дедуп по ключам.
   const [achievementQueue, setAchievementQueue] = useState<AchievementKey[]>([]);
   const currentAchievement = achievementQueue[0] ?? null;
@@ -332,6 +336,32 @@ export function App() {
     };
   }, [accessGateStatus, refreshTabBadges]);
 
+  // Итоги недели стаи: в понедельник Лео собирает их на сервере, участник прошлой недели
+  // видит модалку при заходе в приложение (и при возврате в него) — пока не закроет.
+  useEffect(() => {
+    if (accessGateStatus !== "ok" || !inTelegram || !initData?.trim()) return;
+    let cancelled = false;
+    const load = () => {
+      void fetchPackWeekSummary(initData).then((s) => {
+        if (!cancelled && s) setPackWeekSummary((cur) => cur ?? s);
+      });
+    };
+    load();
+    const onVis = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [accessGateStatus, inTelegram, initData]);
+
+  const closePackWeekSummary = useCallback(() => {
+    if (packWeekSummary && initData) void markPackWeekSummarySeen(initData, packWeekSummary.weekStart);
+    setPackWeekSummary(null);
+  }, [initData, packWeekSummary]);
+
   // Перепроверяем непрочитанные при каждой смене вкладки, чтобы бейдж появлялся
   // сразу при навигации, а не ждал 30-секундный тик. Вход в личный чат с Лео
   // пропускаем: там бейдж гасится оптимистично (clearLeoBadge), и повторный
@@ -535,7 +565,7 @@ export function App() {
       ) : null}
 
       {/* Празднования показываем по одному, чтобы оверлеи не накладывались:
-          сначала «Новый уровень!», затем очередь ачивок. */}
+          сначала «Новый уровень!», затем очередь ачивок, затем итоги недели стаи. */}
       {currentLevelUp != null ? (
         <LevelUpToast
           key={`level-${currentLevelUp}`}
@@ -548,6 +578,8 @@ export function App() {
           achievementKey={currentAchievement}
           onDone={() => setAchievementQueue((q) => q.slice(1))}
         />
+      ) : packWeekSummary && !adminOpen ? (
+        <PackWeekSummaryModal summary={packWeekSummary} onClose={closePackWeekSummary} />
       ) : null}
 
       {/* В админке свой таббар внутри шторки: пользовательские вкладки там лишние. */}

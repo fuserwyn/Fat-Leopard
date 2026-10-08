@@ -234,6 +234,8 @@ func (b *Bot) Start(ctx context.Context) error {
 	go b.startChallengeSweepScheduler(ctx)
 	// Оплата прошла, а вебхук ms_payments не дошёл — дожимаем доступ сами (см. paywall_reconciler.go).
 	go b.startPaywallYookassaReconciler(ctx)
+	// Итоги недели стаи в понедельник и цель +5 после закрытой недели (см. pack_week_summary.go).
+	go b.startPackWeekSummaryScheduler(ctx)
 
 	updatesCh := b.runGetUpdatesWithWebApp(ctx)
 

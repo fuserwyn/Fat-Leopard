@@ -59,6 +59,15 @@ N дней подряд с тренировкой (логика — `internal/bo
 
 API: `POST /api/miniapp/challenges/state`, `/challenges/accept {code}`, `/challenges/create {title, length_days}`, `/challenges/leave`, `/challenges/invite/dismiss`.
 
+### Миграция 89: итоги недели стаи
+
+В понедельник (МСК) Лео подводит итоги прошлой недели (логика — `internal/bot/pack_week_summary.go`).
+
+- `pack_week_summaries (pack_chat_id, week_start_date, workouts, goal, goal_reached, next_goal, participants)` — снимок недели, одна строка на неделю. Если цель закрыта, в той же транзакции `pack_weekly_goal_settings.goal` поднимается до `goal + 5` (`updated_by = 0`) — ровно один раз за неделю. Недели до 2026-10-05 не подводятся.
+- `pack_week_summary_seen (user_id, pack_chat_id, week_start_date)` — кто уже закрыл модалку итогов.
+
+API: `POST /api/miniapp/pack/week-summary` (итоги прошлой недели для участника общего зачёта, если не видел; иначе `summary: null`), `/pack/week-summary/seen {week_start}`.
+
 ## Ручной запуск миграций
 
 Если нужно запустить миграции вручную:

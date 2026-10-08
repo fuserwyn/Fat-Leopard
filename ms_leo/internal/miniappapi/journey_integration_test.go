@@ -620,3 +620,35 @@ func TestJourneyChallenges(t *testing.T) {
 		t.Errorf("отклонённое приглашение: %v", st["invite"])
 	}
 }
+
+// Итоги недели стаи: модалка приходит участнику прошлой недели один раз,
+// не участвовавшему — нет; закрыть можно только существующие итоги.
+func TestJourneyPackWeekSummary(t *testing.T) {
+	j := newJourney(t)
+	msk, _ := time.LoadLocation("Europe/Moscow")
+	now := time.Now().In(msk)
+	monday := now.AddDate(0, 0, -((int(now.Weekday()) + 6) % 7))
+	prev := monday.AddDate(0, 0, -7).Format("2006-01-02")
+	if _, err := j.db.Exec(`INSERT INTO training_sessions (user_id, chat_id, session_date, trainings_count) VALUES ($1, $2, $3, 1)`, jAnna, jPack, prev); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := j.db.Exec(`INSERT INTO pack_week_summaries (pack_chat_id, week_start_date, workouts, goal, goal_reached, next_goal, participants)
+		VALUES ($1, $2::date, 80, 75, TRUE, 80, 1)`, jPack, prev); err != nil {
+		t.Fatal(err)
+	}
+
+	got, _ := j.ok(jAnna, "/pack/week-summary", nil)["summary"].(map[string]any)
+	if got == nil || got["week_start"] != prev || got["goal_reached"] != true || got["next_goal"] != float64(80) || got["my_workouts"] != float64(1) {
+		t.Fatalf("итоги Анне: %v", got)
+	}
+	if out := j.ok(jBoris, "/pack/week-summary", nil); out["summary"] != nil {
+		t.Errorf("Борис не тренировался — модалки нет: %v", out)
+	}
+	if code := j.refused(jAnna, "/pack/week-summary/seen", map[string]any{"week_start": "2020-01-06"}); code != http.StatusNotFound {
+		t.Errorf("чужая неделя: %d", code)
+	}
+	j.ok(jAnna, "/pack/week-summary/seen", map[string]any{"week_start": prev})
+	if out := j.ok(jAnna, "/pack/week-summary", nil); out["summary"] != nil {
+		t.Errorf("после просмотра модалки нет: %v", out)
+	}
+}

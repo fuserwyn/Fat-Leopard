@@ -35,8 +35,9 @@ describe("removalRemainingUntil", () => {
   });
 
   it("computes remaining from RFC3339", () => {
-    const now = new Date("2026-07-01T01:12:00+03:00");
-    const at = "2026-07-08T00:00:00+03:00";
+    // Локальное время устройства: тест не зависит от часового пояса контейнера.
+    const now = new Date(2026, 6, 1, 1, 12);
+    const at = new Date(2026, 6, 8, 0, 0).toISOString();
     const r = removalRemainingUntil(at, now);
     expect(r).not.toBeNull();
     expect(r!.text).toBe("6 дней 22 ч.");

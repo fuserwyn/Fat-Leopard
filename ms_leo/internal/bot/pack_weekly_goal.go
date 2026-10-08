@@ -81,6 +81,7 @@ func (b *Bot) GetMiniappPackWeeklyProgressForAPI(packChatID int64) MiniappPackWe
 	if b == nil || b.db == nil || packChatID == 0 {
 		return out
 	}
+	b.ensurePackWeekSummaryQuiet(packChatID)
 	now := utils.GetMoscowTime()
 	out.WeekStart = utils.WeekStartMondayMSK(now)
 	out.WeekEnd = utils.WeekEndSundayMSK(now)
@@ -114,6 +115,7 @@ func (b *Bot) MaybeGrantPackWeeklyGoalBonus(packChatID int64) {
 	if b == nil || b.db == nil || packChatID == 0 {
 		return
 	}
+	b.ensurePackWeekSummaryQuiet(packChatID)
 	now := utils.GetMoscowTime()
 	weekStart := utils.WeekStartMondayMSK(now)
 	today := now.Format("2006-01-02")

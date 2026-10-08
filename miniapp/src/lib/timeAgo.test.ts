@@ -18,7 +18,8 @@ describe("timeAgoFromISO", () => {
 
 describe("formatChatTime", () => {
   it("formats ISO and millis", () => {
-    const iso = "2026-07-18T15:30:00+03:00";
+    // Локальное время устройства: тест не зависит от часового пояса контейнера.
+    const iso = new Date(2026, 6, 18, 15, 30).toISOString();
     const fromIso = formatChatTime(iso);
     const fromMs = formatChatTime(Date.parse(iso));
     expect(fromIso).toMatch(/18\.07\.2026/);

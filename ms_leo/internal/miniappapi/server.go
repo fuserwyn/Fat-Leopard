@@ -127,6 +127,10 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		s.handlePostProfileSave(w, r)
 	case path == "/api/miniapp/profile/cups-history" && r.Method == http.MethodPost:
 		s.handlePostProfileCupsHistory(w, r)
+	case path == "/api/miniapp/pack/week-summary" && r.Method == http.MethodPost:
+		s.handlePostPackWeekSummary(w, r)
+	case path == "/api/miniapp/pack/week-summary/seen" && r.Method == http.MethodPost:
+		s.handlePostPackWeekSummarySeen(w, r)
 	case path == "/api/miniapp/challenges/state" && r.Method == http.MethodPost:
 		s.handlePostChallengesState(w, r)
 	case path == "/api/miniapp/challenges/accept" && r.Method == http.MethodPost:
