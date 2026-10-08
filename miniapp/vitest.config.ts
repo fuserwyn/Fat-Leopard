@@ -8,6 +8,11 @@ export default mergeConfig(
   viteConfig,
   defineConfig({
     test: {
+      // В образе на выкатке задан VITE_MINIAPP_API_URL (ARG в Dockerfile.miniapp),
+      // локально — нет. Без фиксации тесты шли по разным веткам кода, и покрытие
+      // в образе выходило ниже порога. Тестам, которым нужен API, его подставляет
+      // vi.stubEnv (src/lib/testApi.ts).
+      env: { VITE_MINIAPP_API_URL: "" },
       coverage: {
         provider: "v8",
         include: ["src/**/*.{ts,tsx}"],
