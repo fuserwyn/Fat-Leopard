@@ -127,6 +127,16 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		s.handlePostProfileSave(w, r)
 	case path == "/api/miniapp/profile/cups-history" && r.Method == http.MethodPost:
 		s.handlePostProfileCupsHistory(w, r)
+	case path == "/api/miniapp/challenges/state" && r.Method == http.MethodPost:
+		s.handlePostChallengesState(w, r)
+	case path == "/api/miniapp/challenges/accept" && r.Method == http.MethodPost:
+		s.handlePostChallengesAccept(w, r)
+	case path == "/api/miniapp/challenges/create" && r.Method == http.MethodPost:
+		s.handlePostChallengesCreate(w, r)
+	case path == "/api/miniapp/challenges/leave" && r.Method == http.MethodPost:
+		s.handlePostChallengesLeave(w, r)
+	case path == "/api/miniapp/challenges/invite/dismiss" && r.Method == http.MethodPost:
+		s.handlePostChallengesInviteDismiss(w, r)
 	case path == "/api/miniapp/reminders/load" && r.Method == http.MethodPost:
 		s.handlePostReminderLoad(w, r)
 	case path == "/api/miniapp/reminders/save" && r.Method == http.MethodPost:
