@@ -80,6 +80,11 @@ func (b *Bot) handleStart(msg *tgbotapi.Message) {
 	if msg.From != nil && msg.Chat != nil && msg.Chat.IsPrivate() && b.db != nil {
 		challengeInvite = b.rememberChallengeInviteFromStart(msg.From.ID, msg.CommandArguments())
 	}
+	// Личная ссылка друга t.me/<бот>?start=ref-<id>: засчитываем новичка за пригласившим
+	// до записи визита и профиля — иначе он уже не новичок.
+	if msg.From != nil && msg.Chat != nil && msg.Chat.IsPrivate() && b.db != nil {
+		b.rememberReferralFromStart(msg.From.ID, msg.CommandArguments())
+	}
 	// Фиксируем визит в личке
 	if msg.From != nil && msg.Chat.IsPrivate() && b.db != nil {
 		username := msg.From.UserName

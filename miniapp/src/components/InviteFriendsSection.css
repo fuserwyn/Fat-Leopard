@@ -1,0 +1,67 @@
+.profile__invite {
+  margin-top: 18px;
+  margin-bottom: 8px;
+}
+
+.profile__invite-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.profile__invite-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 6px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  text-align: center;
+}
+
+.profile__invite-stat b {
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.profile__invite-stat small {
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+.profile__invite-progress {
+  font-size: 13px;
+  margin: 0 0 12px;
+}
+
+.profile__invite-btn {
+  width: 100%;
+}
+
+.profile__invite-link {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border: 1px dashed color-mix(in srgb, var(--accent) 40%, transparent);
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.profile__invite-link span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile__invite-link small {
+  flex-shrink: 0;
+  opacity: 0.7;
+}

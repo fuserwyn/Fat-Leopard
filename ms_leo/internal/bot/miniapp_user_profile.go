@@ -381,7 +381,8 @@ func (b *Bot) GetMiniappProfileStatsForAPI(userID, packChatID int64) MiniappProf
 	// Уровень и попытки спасения стрика — только от накопленных кубков (pack-row).
 	out.Level = leopardmoney.LevelFromTotalCups(out.XP)
 	out.LevelName = leopardmoney.LevelName(out.Level)
-	out.StreakSaveAttemptsMax = StreakSaveAttemptsMaxForLevel(out.Level)
+	// Сверх уровня — попытки за друзей, которые пришли по ссылке и записали тренировку.
+	out.StreakSaveAttemptsMax = StreakSaveAttemptsMaxForLevel(out.Level) + b.referralRewardBonus(userID)
 	if used, err := b.db.GetStreakSaveAttemptsUsed(userID, packChatID); err == nil {
 		out.StreakSaveAttemptsUsed = used
 	}

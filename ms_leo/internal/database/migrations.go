@@ -1801,6 +1801,24 @@ var Migrations = []Migration{
 			DROP TABLE IF EXISTS pack_week_summaries;
 		`,
 	},
+	{
+		Version:     90,
+		Description: "Приглашение друга: кто кого позвал по ссылке ?start=ref-<id> и когда друг записал первую тренировку",
+		UpSQL: `
+			-- Один пригласивший на новичка: засчитывается первая ссылка, по которой он пришёл.
+			-- first_workout_at заполняется первой тренировкой: награда идёт только за таких.
+			CREATE TABLE IF NOT EXISTS referrals (
+				invitee_user_id  BIGINT PRIMARY KEY,
+				inviter_user_id  BIGINT NOT NULL,
+				created_at       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+				first_workout_at TIMESTAMP WITH TIME ZONE
+			);
+			CREATE INDEX IF NOT EXISTS referrals_inviter_idx ON referrals (inviter_user_id);
+		`,
+		DownSQL: `
+			DROP TABLE IF EXISTS referrals;
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции

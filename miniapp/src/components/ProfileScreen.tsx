@@ -30,6 +30,7 @@ import {
   type DonateOptions,
 } from "../lib/donate";
 import { DonateThanksToast } from "./DonateThanksToast";
+import { InviteFriendsSection } from "./InviteFriendsSection";
 import { CupsHistorySheet } from "./CupsHistorySheet";
 import "./ProfileScreen.css";
 
@@ -1771,6 +1772,8 @@ export function ProfileScreen({
         </>
         )}
       </section>
+
+      {initData?.trim() ? <InviteFriendsSection initData={initData} /> : null}
 
       {(donateOptions.starsAvailable || donateOptions.cardAvailable) && (
         <section className="profile__donate">

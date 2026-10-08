@@ -104,7 +104,9 @@ func (d *Database) GetChannelAttribution(days int) ([]ChannelStatRow, error) {
 	where, args := analyticsWindowClause("occurred_at", days)
 	rows, err := d.db.Query(`
 		WITH starts AS (
-			SELECT COALESCE(NULLIF(source, ''), 'organic') AS src,
+			-- Личные ссылки ?start=ref-<id> сводим в один канал «ref»: иначе строка на каждого пригласившего.
+			SELECT CASE WHEN source LIKE 'ref-%' THEN 'ref'
+			            ELSE COALESCE(NULLIF(source, ''), 'organic') END AS src,
 			       COALESCE(telegram_id, user_id)          AS person
 			FROM events`+where+`
 			  `+andOrWhere(where)+` event_name = 'bot_started'

@@ -395,6 +395,8 @@ func (b *Bot) handleLeopardMoneyTrainingDone(msg *tgbotapi.Message, personalRepl
 	}
 	// Челлендж: день засчитан; пропуск, при котором стрик сгорел, челлендж проваливает.
 	b.challengeOnTraining(msg.From.ID, today, streakContinues(messageLog.StreakDays, newStreak, sameDay))
+	// Приглашение: первая тренировка друга засчитывается тому, кто его позвал.
+	b.referralOnTraining(msg.From.ID)
 
 	achievementAwarded := false
 	msgLog2, _ := b.db.GetMessageLog(msg.From.ID, packChatID)
