@@ -44,6 +44,10 @@ func checksForFiles(files []string) []branchCheck {
 			continue
 		}
 		out = append(out,
+			// go.sum в репозитории нет (он в .gitignore): образ на выкатке делает
+			// `go mod tidy` перед сборкой, и здесь нужно то же — иначе свежий клон
+			// не собирается с «missing go.sum entry», что бы ни было в задаче.
+			branchCheck{Dir: svc, Label: svc + ": зависимости", Name: "go", Args: []string{"mod", "tidy"}},
 			branchCheck{Dir: svc, Label: svc + ": сборка", Name: "go", Args: []string{"build", "./..."}},
 			// Тот же сценарий, что при сборке образа на выкатке (у ms_leo — с временной
 			// базой и порогом покрытия): что прошло здесь, пройдёт и там.

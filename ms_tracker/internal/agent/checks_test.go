@@ -19,7 +19,7 @@ func TestChecksForFiles(t *testing.T) {
 	if got := labels(".tracker/job-1.md", "README.md"); got != "" {
 		t.Errorf("заметка и корень не требуют проверок: %q", got)
 	}
-	if got := labels("ms_leo/internal/bot/x.go"); got != "ms_leo: сборка|ms_leo: тесты" {
+	if got := labels("ms_leo/internal/bot/x.go"); got != "ms_leo: зависимости|ms_leo: сборка|ms_leo: тесты" {
 		t.Errorf("ms_leo: %q", got)
 	}
 	got := labels("miniapp/src/App.tsx", "ms_leo/internal/bot/x.go", "ms_tracker/Dockerfile")

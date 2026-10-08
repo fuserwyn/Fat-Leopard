@@ -65,11 +65,13 @@ func runVerdict(cfg config.Config, job store.Job, phase string) (Result, error) 
 		if phase == "test" {
 			note = "тест не прошёл: " + reason
 		}
-		return Result{Note: note, Branch: branch, Commit: info.Head}, nil
+		// HasImpl: код на ветке есть, не прошла проверка. Без этого воркер считает,
+		// что кода нет, и подменяет причину на «нечего прогонять».
+		return Result{Note: note, Branch: branch, Commit: info.Head, HasImpl: true}, nil
 	}
 	if phase == "test" {
 		if reason := branchChecks(cfg, job, info.Files); reason != "" {
-			return Result{Note: "тест не прошёл: " + reason, Branch: branch, Commit: info.Head}, nil
+			return Result{Note: "тест не прошёл: " + reason, Branch: branch, Commit: info.Head, HasImpl: true}, nil
 		}
 	}
 	note := strictVerdictNote(phase, branch, job.Prompt)
