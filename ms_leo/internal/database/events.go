@@ -56,6 +56,9 @@ const (
 	EventChallengeFailed    = "challenge_failed"
 	EventChallengeCreated   = "challenge_created"
 
+	// Приглашение друга: 10 друзей с первой тренировкой — попытка спасти стрик
+	EventReferralRewardGranted = "referral_reward_granted"
+
 	// UGC, Лео, модерация
 	EventFeedReactionAdded    = "feed_reaction_added"
 	EventFeedCommentPosted    = "feed_comment_posted"

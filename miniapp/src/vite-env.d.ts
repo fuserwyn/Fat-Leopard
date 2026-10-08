@@ -53,6 +53,8 @@ interface TelegramWebApp {
   ) => void;
   /** Внешняя ссылка в браузере — для страницы оплаты ЮKassa. */
   openLink?: (url: string, options?: { try_instant_view?: boolean }) => void;
+  /** Ссылка t.me внутри Telegram — например окно «Поделиться» t.me/share/url. */
+  openTelegramLink?: (url: string) => void;
   close: () => void;
   /** Bot API ≥ 6.9 — ключи переживают закрытие Mini App, в отличие от localStorage на iOS. */
   CloudStorage?: {

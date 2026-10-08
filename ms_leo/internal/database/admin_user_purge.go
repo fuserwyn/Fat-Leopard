@@ -98,6 +98,7 @@ func adminUserPurgeSpecs() []userPurgeSpec {
 		{"подписки на друзей", "miniapp_friend_subscriptions", `subscriber_id = $1 OR target_id = $1`},
 		{"приглашения в челленджи", "challenge_invites", `user_id = $1`},
 		{"участие в челленджах", "challenge_participants", `user_id = $1`},
+		{"приглашения друзей", "referrals", `inviter_user_id = $1 OR invitee_user_id = $1`},
 		// Участия других в его челленджах уходят каскадом: название — его текст.
 		{"свои челленджи", "challenges", `author_user_id = $1`},
 		{"кубки за неделю стаи", "pack_weekly_goal_member_cups", `user_id = $1`},

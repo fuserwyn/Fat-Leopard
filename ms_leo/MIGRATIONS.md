@@ -68,6 +68,15 @@ API: `POST /api/miniapp/challenges/state`, `/challenges/accept {code}`, `/challe
 
 API: `POST /api/miniapp/pack/week-summary` (итоги прошлой недели для участника общего зачёта, если не видел; иначе `summary: null`), `/pack/week-summary/seen {week_start}`.
 
+### Миграция 90: приглашение друга
+
+Кнопка «Позвать в стаю» в профиле (логика — `internal/bot/referrals.go`).
+
+- `referrals (invitee_user_id, inviter_user_id, created_at, first_workout_at)` — кто пришёл по личной ссылке `t.me/<бот>?start=ref-<id>`. Засчитывается только новичок (нет `training_state`, `bot_visits`, `events`) и только за первой ссылкой. `first_workout_at` ставит первая тренировка приглашённого.
+- За каждых 10 друзей с первой тренировкой (не за переходы) к капу попыток спасти стрик добавляется +1. Источник визита — `bot_started.source = 'ref-<id>'`, в дашборде «Каналы» сведён в канал `ref`.
+
+API: `POST /api/miniapp/referral/state` → `{referral: {link, joined, qualified, reward_every, rewards, next_in}}`.
+
 ## Ручной запуск миграций
 
 Если нужно запустить миграции вручную:
