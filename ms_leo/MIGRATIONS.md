@@ -49,6 +49,16 @@ Bot API не отдаёт адресную книгу, поэтому конта
 - `miniapp_contact_join_notifications (user_id, pack_chat_id, enabled)` — переключатель в профиле мини-аппа; строки нет — включено.
 - `contact_join_notify_log (owner_user_id, contact_user_id, pack_chat_id)` — не больше одного уведомления на пару.
 
+### Миграция 88: челленджи
+
+N дней подряд с тренировкой (логика — `internal/bot/challenges.go`).
+
+- `challenges (id, code, title, length_days, author_user_id, created_at)` — `code` идёт в ссылку `t.me/<бот>?start=ch-<code>`. Шесть стандартных (7, 14, 30, 60, 90, 100 дней, коды `days7`…`days100`, `author_user_id IS NULL`) заводит миграция; свои (3–365 дней, название до 40 символов) создают те, кто прошёл 100-дневный.
+- `challenge_participants (challenge_id, user_id, pack_chat_id, start_date, status, days_done, last_counted_date, finished_at)` — статус `active` / `completed` / `failed`; частичный уникальный индекс держит один активный челлендж на участника. Даты — локальные даты участника.
+- `challenge_invites (user_id, challenge_id)` — челлендж из ссылки, который мини-апп предложит принять.
+
+API: `POST /api/miniapp/challenges/state`, `/challenges/accept {code}`, `/challenges/create {title, length_days}`, `/challenges/leave`, `/challenges/invite/dismiss`.
+
 ## Ручной запуск миграций
 
 Если нужно запустить миграции вручную:

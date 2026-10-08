@@ -230,6 +230,8 @@ func (b *Bot) Start(ctx context.Context) error {
 	go b.startDailyWisdomSubscriptionScheduler(ctx)
 	// Release Notes от Лео раз в две недели (см. release_notes.go).
 	go b.startReleaseNotesScheduler(ctx)
+	// Челленджи: проваливает те, где пропущен день, даже если участник не заходил.
+	go b.startChallengeSweepScheduler(ctx)
 	// Оплата прошла, а вебхук ms_payments не дошёл — дожимаем доступ сами (см. paywall_reconciler.go).
 	go b.startPaywallYookassaReconciler(ctx)
 

@@ -1713,6 +1713,63 @@ var Migrations = []Migration{
 			DROP TABLE IF EXISTS user_contacts;
 		`,
 	},
+	{
+		Version:     88,
+		Description: "Челленджи: N дней подряд с тренировкой, участники и приглашения по ссылке",
+		UpSQL: `
+			-- Стандартные челленджи (author_user_id IS NULL) и свои — от тех, кто прошёл 100 дней.
+			CREATE TABLE IF NOT EXISTS challenges (
+				id             BIGSERIAL PRIMARY KEY,
+				code           TEXT    NOT NULL UNIQUE,
+				title          TEXT    NOT NULL,
+				length_days    INTEGER NOT NULL CHECK (length_days BETWEEN 3 AND 365),
+				author_user_id BIGINT,
+				created_at     TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+			);
+			CREATE INDEX IF NOT EXISTS challenges_author_idx ON challenges (author_user_id, created_at DESC);
+
+			INSERT INTO challenges (code, title, length_days) VALUES
+				('days7',   '7 дней подряд',   7),
+				('days14',  '14 дней подряд',  14),
+				('days30',  '30 дней подряд',  30),
+				('days60',  '60 дней подряд',  60),
+				('days90',  '90 дней подряд',  90),
+				('days100', '100 дней подряд', 100)
+			ON CONFLICT (code) DO NOTHING;
+
+			-- Даты — локальные даты участника (как last_training_date).
+			CREATE TABLE IF NOT EXISTS challenge_participants (
+				id                BIGSERIAL PRIMARY KEY,
+				challenge_id      BIGINT  NOT NULL REFERENCES challenges(id) ON DELETE CASCADE,
+				user_id           BIGINT  NOT NULL,
+				pack_chat_id      BIGINT  NOT NULL,
+				start_date        DATE    NOT NULL,
+				status            TEXT    NOT NULL DEFAULT 'active'
+					CHECK (status IN ('active', 'completed', 'failed')),
+				days_done         INTEGER NOT NULL DEFAULT 0,
+				last_counted_date DATE,
+				finished_at       TIMESTAMP WITH TIME ZONE,
+				created_at        TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+			);
+			-- Один активный челлендж на участника.
+			CREATE UNIQUE INDEX IF NOT EXISTS challenge_participants_one_active
+				ON challenge_participants (user_id) WHERE status = 'active';
+			CREATE INDEX IF NOT EXISTS challenge_participants_user_idx
+				ON challenge_participants (user_id, created_at DESC);
+
+			-- Челлендж из ссылки t.me/<бот>?start=ch-<код>: ждёт, пока участник примет его в мини-аппе.
+			CREATE TABLE IF NOT EXISTS challenge_invites (
+				user_id      BIGINT PRIMARY KEY,
+				challenge_id BIGINT NOT NULL REFERENCES challenges(id) ON DELETE CASCADE,
+				created_at   TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+			);
+		`,
+		DownSQL: `
+			DROP TABLE IF EXISTS challenge_invites;
+			DROP TABLE IF EXISTS challenge_participants;
+			DROP TABLE IF EXISTS challenges;
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции

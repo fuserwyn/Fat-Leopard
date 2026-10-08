@@ -50,6 +50,12 @@ const (
 	EventAccountDeletedInactivity = "account_deleted_inactivity"
 	EventAccountReactivated       = "account_reactivated"
 
+	// Челленджи: N дней подряд с тренировкой
+	EventChallengeJoined    = "challenge_joined"
+	EventChallengeCompleted = "challenge_completed"
+	EventChallengeFailed    = "challenge_failed"
+	EventChallengeCreated   = "challenge_created"
+
 	// UGC, Лео, модерация
 	EventFeedReactionAdded    = "feed_reaction_added"
 	EventFeedCommentPosted    = "feed_comment_posted"

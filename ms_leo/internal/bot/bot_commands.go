@@ -74,6 +74,12 @@ func (b *Bot) handleStart(msg *tgbotapi.Message) {
 			return
 		}
 	}
+	// Ссылка на челлендж t.me/<бот>?start=ch-<код>: запоминаем его за пользователем,
+	// мини-апп предложит принять (сам челлендж не стартует).
+	var challengeInvite *database.Challenge
+	if msg.From != nil && msg.Chat != nil && msg.Chat.IsPrivate() && b.db != nil {
+		challengeInvite = b.rememberChallengeInviteFromStart(msg.From.ID, msg.CommandArguments())
+	}
 	// Фиксируем визит в личке
 	if msg.From != nil && msg.Chat.IsPrivate() && b.db != nil {
 		username := msg.From.UserName
@@ -132,6 +138,11 @@ func (b *Bot) handleStart(msg *tgbotapi.Message) {
 		b.logger.Infof("/start access granted user=%d free_entry=%t snapshot=%s",
 			msg.From.ID, b.freeEntryActive(), b.db.PaywallAccessDebugSnapshot(msg.From.ID, b.config.MonetizedChatID))
 		welcomeText = b.paywallPostPaymentUserText()
+	}
+
+	if challengeInvite != nil {
+		welcomeText += fmt.Sprintf("\n\n🔥 Тебя позвали в челлендж «%s» — %d %s подряд с тренировкой. Открой мини-апп, чтобы принять.",
+			challengeInvite.Title, challengeInvite.LengthDays, daysWordForm(challengeInvite.LengthDays))
 	}
 
 	reply := tgbotapi.NewMessage(msg.Chat.ID, welcomeText)

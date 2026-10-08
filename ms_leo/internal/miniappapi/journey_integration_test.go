@@ -550,3 +550,73 @@ func TestJourneyAdmin(t *testing.T) {
 	j.ok(jOwner, "/admin/payments", map[string]any{"offset": 0, "limit": 20})
 	j.ok(jOwner, "/admin/visits", nil)
 }
+
+// Челленджи через API: список, принятие, второй активный, бросить, свой — только
+// после 100 дней, приглашение из ссылки можно отклонить.
+func TestJourneyChallenges(t *testing.T) {
+	j := newJourney(t)
+
+	st := j.ok(jAnna, "/challenges/state", nil)
+	std := items(st, "standard")
+	if len(std) != 6 || std[0]["length_days"] != float64(7) || std[5]["length_days"] != float64(100) ||
+		!strings.HasPrefix(std[0]["link"].(string), "https://t.me/leo_test_bot?start=ch-") {
+		t.Fatalf("стандартные челленджи: %v", std)
+	}
+	if st["active"] != nil || st["can_create"] != false {
+		t.Fatalf("новичок: %v", st)
+	}
+
+	if code, _ := j.post(jAnna, "/challenges/accept", map[string]any{"code": "nope"}); code != http.StatusNotFound {
+		t.Errorf("неизвестный код: %d", code)
+	}
+	accepted := j.ok(jAnna, "/challenges/accept", map[string]any{"code": "days7"})
+	if a, _ := accepted["active"].(map[string]any); a == nil || a["status"] != "active" {
+		t.Fatalf("принят: %v", accepted)
+	}
+	if code, out := j.post(jAnna, "/challenges/accept", map[string]any{"code": "days14"}); code != http.StatusConflict || out["error"] != "challenge_already_active" {
+		t.Errorf("второй активный: %d %v", code, out)
+	}
+	if a, _ := j.ok(jAnna, "/challenges/state", nil)["active"].(map[string]any); a == nil || a["challenge"].(map[string]any)["code"] != "days7" {
+		t.Errorf("активный на экране: %v", a)
+	}
+	if code, out := j.post(jAnna, "/challenges/create", map[string]any{"title": "Свой", "length_days": 10}); code != http.StatusForbidden || out["error"] != "challenge_create_forbidden" {
+		t.Errorf("свой без 100 дней: %d %v", code, out)
+	}
+
+	j.ok(jAnna, "/challenges/leave", nil)
+	if code, out := j.post(jAnna, "/challenges/leave", nil); code != http.StatusConflict || out["error"] != "challenge_not_active" {
+		t.Errorf("бросить нечего: %d %v", code, out)
+	}
+
+	// Прошла 100 дней — можно свой; плохая длина и название отклоняются.
+	if _, err := j.db.Exec(`INSERT INTO challenge_participants (challenge_id, user_id, pack_chat_id, start_date, status, days_done, finished_at)
+		SELECT id, $1, $2, CURRENT_DATE - 100, 'completed', 100, NOW() FROM challenges WHERE code = 'days100'`, jAnna, jPack); err != nil {
+		t.Fatal(err)
+	}
+	if code, out := j.post(jAnna, "/challenges/create", map[string]any{"title": "Свой", "length_days": 400}); code != http.StatusBadRequest || out["error"] != "challenge_bad_length" {
+		t.Errorf("длина 400: %d %v", code, out)
+	}
+	if code, out := j.post(jAnna, "/challenges/create", map[string]any{"title": "", "length_days": 10}); code != http.StatusBadRequest || out["error"] != "challenge_bad_title" {
+		t.Errorf("пустое название: %d %v", code, out)
+	}
+	if code, out := j.post(jAnna, "/challenges/create", map[string]any{"title": "ты блять крут", "length_days": 10}); code == http.StatusOK || out["error"] == nil {
+		t.Errorf("модерация названия: %d %v", code, out)
+	}
+	created := j.ok(jAnna, "/challenges/create", map[string]any{"title": "Планка", "length_days": 21})
+	c, _ := created["challenge"].(map[string]any)
+	if c == nil || c["custom"] != true || c["length_days"] != float64(21) {
+		t.Fatalf("свой челлендж: %v", created)
+	}
+
+	// Борис пришёл по ссылке Анны: челлендж предложен, он отказался.
+	if _, err := j.db.Exec(`INSERT INTO challenge_invites (user_id, challenge_id) SELECT $1, id FROM challenges WHERE code = $2`, jBoris, c["code"]); err != nil {
+		t.Fatal(err)
+	}
+	if inv, _ := j.ok(jBoris, "/challenges/state", nil)["invite"].(map[string]any); inv == nil || inv["title"] != "Планка" {
+		t.Errorf("приглашение: %v", inv)
+	}
+	j.ok(jBoris, "/challenges/invite/dismiss", nil)
+	if st := j.ok(jBoris, "/challenges/state", nil); st["invite"] != nil {
+		t.Errorf("отклонённое приглашение: %v", st["invite"])
+	}
+}

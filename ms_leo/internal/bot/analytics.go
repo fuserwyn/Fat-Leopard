@@ -198,6 +198,7 @@ func (b *Bot) trackLeoChatLimitReached(telegramID int64) {
 
 // parseStartSource достаёт канал атрибуции из аргумента deep-link `/start`.
 // Формат UTM (analytics_BT_v1 §8): `?start=src-tg_channel_main` → "tg_channel_main".
+// Ссылка на челлендж `?start=ch-<код>` даёт источник "ch-<код>" как есть.
 // Пустой аргумент => "organic". Значение усечено до 32 символов (колонка source).
 func parseStartSource(arg string) string {
 	arg = strings.TrimSpace(arg)

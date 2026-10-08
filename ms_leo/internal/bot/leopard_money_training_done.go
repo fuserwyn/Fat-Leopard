@@ -383,7 +383,7 @@ func (b *Bot) handleLeopardMoneyTrainingDone(msg *tgbotapi.Message, personalRepl
 			effectiveLastTrainingDate = &adj
 		}
 	}
-	newStreak, _ := ComputeStreakDays(effectiveLastTrainingDate, messageLog.StreakDays, localNow)
+	newStreak, sameDay := ComputeStreakDays(effectiveLastTrainingDate, messageLog.StreakDays, localNow)
 
 	cupsAdd := leopardmoney.TrainingCupsFromReportText(text)
 	if err := b.db.AddCups(msg.From.ID, packChatID, cupsAdd); err != nil {
@@ -393,6 +393,8 @@ func (b *Bot) handleLeopardMoneyTrainingDone(msg *tgbotapi.Message, personalRepl
 	if err := b.db.UpdateStreak(msg.From.ID, packChatID, newStreak, today); err != nil {
 		b.logger.Errorf("update streak: %v", err)
 	}
+	// Челлендж: день засчитан; пропуск, при котором стрик сгорел, челлендж проваливает.
+	b.challengeOnTraining(msg.From.ID, today, streakContinues(messageLog.StreakDays, newStreak, sameDay))
 
 	achievementAwarded := false
 	msgLog2, _ := b.db.GetMessageLog(msg.From.ID, packChatID)

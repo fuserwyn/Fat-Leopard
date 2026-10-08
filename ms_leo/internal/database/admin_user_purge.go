@@ -96,6 +96,10 @@ func adminUserPurgeSpecs() []userPurgeSpec {
 			`owner_user_id = $1 OR contact_user_id = $1`},
 		{"настройка уведомлений о вступлении контактов", "miniapp_contact_join_notifications", `user_id = $1`},
 		{"подписки на друзей", "miniapp_friend_subscriptions", `subscriber_id = $1 OR target_id = $1`},
+		{"приглашения в челленджи", "challenge_invites", `user_id = $1`},
+		{"участие в челленджах", "challenge_participants", `user_id = $1`},
+		// Участия других в его челленджах уходят каскадом: название — его текст.
+		{"свои челленджи", "challenges", `author_user_id = $1`},
 		{"кубки за неделю стаи", "pack_weekly_goal_member_cups", `user_id = $1`},
 		{"тренировки", "training_sessions", `user_id = $1`},
 		{"заявки на оплату доступа", "paywall_access_requests", `user_id = $1`},
