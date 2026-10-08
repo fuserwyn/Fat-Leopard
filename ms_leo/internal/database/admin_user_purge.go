@@ -101,6 +101,7 @@ func adminUserPurgeSpecs() []userPurgeSpec {
 		// Участия других в его челленджах уходят каскадом: название — его текст.
 		{"свои челленджи", "challenges", `author_user_id = $1`},
 		{"кубки за неделю стаи", "pack_weekly_goal_member_cups", `user_id = $1`},
+		{"просмотренные итоги недели стаи", "pack_week_summary_seen", `user_id = $1`},
 		{"тренировки", "training_sessions", `user_id = $1`},
 		{"заявки на оплату доступа", "paywall_access_requests", `user_id = $1`},
 		{"события удаления из стаи", "deletion_events", `user_id = $1`},

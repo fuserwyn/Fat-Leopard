@@ -335,8 +335,8 @@ func (b *Bot) dashCohorts(now time.Time, thisMonday string) []MiniappAdminDashCo
 }
 
 // dashPackWeeks — последние недели стаи: сколько тренировок, цель, достигнута ли.
-// Истории оверрайдов цели нет, поэтому заданная админом цель показывается
-// только на текущей неделе, на прошлых — цель по умолчанию для той недели.
+// Для прошлых недель цель берётся из итогов недели (pack_week_summaries), а если
+// итогов нет (недели до их появления) — цель по умолчанию для той недели.
 func (b *Bot) dashPackWeeks(now time.Time, thisMonday string) []MiniappAdminDashPackWeek {
 	packChatID := b.adminPackChatID()
 	monday, err := time.ParseInLocation(dashDateLayout, thisMonday, now.Location())
@@ -350,10 +350,18 @@ func (b *Bot) dashPackWeeks(now time.Time, thisMonday string) []MiniappAdminDash
 		return nil
 	}
 	bonus, _ := b.db.PackWeeklyGoalBonusWeeks(packChatID, from)
+	summaries, _ := b.db.ListPackWeekSummaries(packChatID, from)
+	summaryGoal := make(map[string]int, len(summaries))
+	for _, s := range summaries {
+		summaryGoal[s.WeekStart] = s.Goal
+	}
 	out := make([]MiniappAdminDashPackWeek, 0, dashPackWeeks)
 	for i := 0; i < dashPackWeeks; i++ {
 		wk := monday.AddDate(0, 0, -7*i).Format(dashDateLayout)
 		goal := PackWeeklyWorkoutGoalForWeek(wk)
+		if g := summaryGoal[wk]; g > 0 {
+			goal = g
+		}
 		if i == 0 {
 			goal = b.packWeeklyWorkoutGoal(packChatID, wk)
 		}

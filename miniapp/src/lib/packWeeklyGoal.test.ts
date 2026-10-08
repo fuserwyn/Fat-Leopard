@@ -32,6 +32,7 @@ describe("packWeeklyGoal", () => {
   it("describes weekly goal reward in hint", () => {
     expect(PACK_WEEKLY_GOAL_HINT).toMatch(/75 тренировок/i);
     expect(PACK_WEEKLY_GOAL_HINT).toMatch(/50 дополнительных кубков/i);
+    expect(PACK_WEEKLY_GOAL_HINT).toMatch(/цель следующей на 5 тренировок/i);
   });
 
   it("uses server goal in hint", () => {

@@ -1770,6 +1770,37 @@ var Migrations = []Migration{
 			DROP TABLE IF EXISTS challenges;
 		`,
 	},
+	{
+		Version:     89,
+		Description: "Итоги недели стаи: снимок закрытой недели и отметки «модалку видел»",
+		UpSQL: `
+			-- Снимок недели стаи, который Лео собирает в понедельник: одна строка на неделю.
+			CREATE TABLE IF NOT EXISTS pack_week_summaries (
+				pack_chat_id    BIGINT  NOT NULL,
+				week_start_date DATE    NOT NULL,
+				workouts        INTEGER NOT NULL DEFAULT 0,
+				goal            INTEGER NOT NULL DEFAULT 0,
+				goal_reached    BOOLEAN NOT NULL DEFAULT FALSE,
+				next_goal       INTEGER NOT NULL DEFAULT 0,
+				participants    INTEGER NOT NULL DEFAULT 0,
+				created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+				PRIMARY KEY (pack_chat_id, week_start_date)
+			);
+
+			-- Кто уже видел модалку итогов недели.
+			CREATE TABLE IF NOT EXISTS pack_week_summary_seen (
+				user_id         BIGINT NOT NULL,
+				pack_chat_id    BIGINT NOT NULL,
+				week_start_date DATE   NOT NULL,
+				seen_at         TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+				PRIMARY KEY (user_id, pack_chat_id, week_start_date)
+			);
+		`,
+		DownSQL: `
+			DROP TABLE IF EXISTS pack_week_summary_seen;
+			DROP TABLE IF EXISTS pack_week_summaries;
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции

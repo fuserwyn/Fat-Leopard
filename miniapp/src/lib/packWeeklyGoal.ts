@@ -7,7 +7,7 @@ export const PACK_WEEKLY_PROGRESS_STEPS = 5;
 /** Подсказка к недельной цели стаи для конкретной цели (берётся с сервера). */
 export function packWeeklyGoalHint(goal: number = PACK_WEEKLY_GOAL_DEFAULT): string {
   const safeGoal = Number.isFinite(goal) && goal > 0 ? Math.floor(goal) : PACK_WEEKLY_GOAL_DEFAULT;
-  return `Если стая выполнит за неделю ${safeGoal} тренировок, каждый получит 50 дополнительных кубков.`;
+  return `Если стая выполнит за неделю ${safeGoal} тренировок, каждый получит 50 дополнительных кубков. Закрытая неделя поднимает цель следующей на 5 тренировок.`;
 }
 
 /** Подсказка к недельной цели стаи (иконка «?» у прогресс-бара). */
