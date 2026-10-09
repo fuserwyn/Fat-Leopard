@@ -68,7 +68,7 @@ func referralNextIn(qualified int) int {
 }
 
 // rememberReferralFromStart засчитывает новичка за пригласившим. Вызывать до того,
-// как /start заведёт новичку профиль и визит: засчитываются только новые люди.
+// как /start заведёт новичку профиль: засчитываются только те, кого ещё нет в стае.
 func (b *Bot) rememberReferralFromStart(userID int64, arg string) bool {
 	inviterID := parseReferralStartPayload(arg)
 	if inviterID == 0 || b == nil || b.db == nil || userID == 0 {

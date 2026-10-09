@@ -7,11 +7,15 @@ import (
 )
 
 // Приглашение друга: ссылка t.me/<бот>?start=ref-<id пригласившего>.
-// Засчитывается только новичок — тот, кого бот раньше не видел, — и только
+// Засчитывается только тот, кто ещё не в стае (нет профиля training_state), и только
 // за первым пригласившим. Награда считается по тем, кто записал первую тренировку.
+//
+// Визиты и события намеренно не проверяются: друг по ссылке часто сначала жмёт
+// «Открыть приложение» в профиле бота (событие miniapp_opened) или уже нажимал /start
+// без ссылки, когда вход был платным, — и такой переход не засчитывался.
 
 // RecordReferral запоминает, что inviteeID пришёл по ссылке inviterID.
-// false — не засчитано: себя, неизвестный пригласивший, новичок уже бывал в боте
+// false — не засчитано: себя, неизвестный пригласивший, приглашённый уже в стае
 // или уже пришёл по чужой ссылке.
 func (d *Database) RecordReferral(inviterID, inviteeID int64) (bool, error) {
 	if inviterID == 0 || inviteeID == 0 || inviterID == inviteeID {
@@ -22,8 +26,6 @@ func (d *Database) RecordReferral(inviterID, inviteeID int64) (bool, error) {
 		SELECT $2, $1
 		WHERE EXISTS (SELECT 1 FROM training_state WHERE user_id = $1)
 		  AND NOT EXISTS (SELECT 1 FROM training_state WHERE user_id = $2)
-		  AND NOT EXISTS (SELECT 1 FROM bot_visits WHERE user_id = $2)
-		  AND NOT EXISTS (SELECT 1 FROM events WHERE telegram_id = $2 OR user_id = $2)
 		ON CONFLICT (invitee_user_id) DO NOTHING`, inviterID, inviteeID)
 	if err != nil {
 		return false, fmt.Errorf("record referral: %w", err)

@@ -90,6 +90,35 @@ func TestReferralRewardAfterTenFirstWorkouts(t *testing.T) {
 	}
 }
 
+// Друг сначала открыл мини-апп из профиля бота (событие) и бывал в боте без ссылки
+// (визит), но в стае ещё не был — переход по ссылке всё равно засчитывается.
+func TestReferralCountsFriendWhoOpenedMiniappFirst(t *testing.T) {
+	b, _, db := newIntegrationBot(t, nil)
+	seedMember(t, db, itUser, "leopard", false)
+
+	const friend = int64(779100)
+	if _, err := db.Exec(`INSERT INTO events (event_name, user_id, telegram_id) VALUES ('miniapp_opened', $1, $1)`, friend); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO bot_visits (user_id) VALUES ($1)`, friend); err != nil {
+		t.Fatal(err)
+	}
+	startWith(b, friend, "ref-555001")
+
+	v, err := b.GetReferralForAPI(itUser)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.Joined != 1 {
+		t.Fatalf("друг после мини-аппа не засчитан: %+v", v)
+	}
+	// Он уже в стае — повторный переход по ссылке ничего не меняет.
+	startWith(b, friend, "ref-555001")
+	if v, _ = b.GetReferralForAPI(itUser); v.Joined != 1 {
+		t.Fatalf("повторный переход засчитан: %+v", v)
+	}
+}
+
 func TestParseReferralStartPayload(t *testing.T) {
 	cases := map[string]int64{
 		"ref-42": 42, " ref-555001 ": 555001, "ref-": 0, "ref-abc": 0, "ref--5": 0, "src-tg": 0, "": 0, "ch-days7": 0,
