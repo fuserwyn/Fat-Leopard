@@ -2,15 +2,20 @@ import { useEffect, useState } from "react";
 import { miniappLevelName, MAX_CUP_LEVEL } from "../lib/miniappLevel";
 import { LEO_AVATAR_URL } from "../lib/leoAvatar";
 import "./AchievementToast.css";
+import "./ShareCardSheet.css";
 
 type Props = {
   /** Достигнутый уровень (1…6). */
   level: number;
   /** Вызывается, когда поп-ап скрылся (по таймеру или тапу) — родитель снимает его с очереди. */
   onDone: () => void;
+  /** «Похвастаться» — открыть карточку для сторис и чатов (тост при этом закрывается). */
+  onShare?: () => void;
 };
 
 const VISIBLE_MS = 5000;
+/** С кнопкой «Похвастаться» тост висит дольше — чтобы успеть до неё дотянуться. */
+const VISIBLE_WITH_SHARE_MS = 8000;
 const EXIT_MS = 320;
 
 /** Эмодзи-животное уровня (индекс = номер уровня 1-based; сурикат без своего эмодзи — лапка). */
@@ -30,12 +35,13 @@ function levelCheer(level: number): string {
  * аватарка Лео, шеврон с номером уровня, искорки и тёплая фраза. Показывается поверх всего,
  * авто-скрывается, тап закрывает раньше. Очередь и дедуп — на стороне App (по номеру уровня).
  */
-export function LevelUpToast({ level, onDone }: Props) {
+export function LevelUpToast({ level, onDone, onShare }: Props) {
   const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
-    const hide = window.setTimeout(() => setLeaving(true), VISIBLE_MS);
+    const hide = window.setTimeout(() => setLeaving(true), onShare ? VISIBLE_WITH_SHARE_MS : VISIBLE_MS);
     return () => window.clearTimeout(hide);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- таймер ставится один раз на показ
   }, []);
 
   useEffect(() => {
@@ -71,6 +77,18 @@ export function LevelUpToast({ level, onDone }: Props) {
           {levelEmoji(level)} {miniappLevelName(level)}
         </div>
         <div className="achievement-toast__cheer">{levelCheer(level)}</div>
+        {onShare ? (
+          <button
+            type="button"
+            className="share-brag-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              onShare();
+            }}
+          >
+            Похвастаться
+          </button>
+        ) : null}
       </div>
     </div>
   );

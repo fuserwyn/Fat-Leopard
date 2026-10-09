@@ -2,15 +2,20 @@ import { useEffect, useState } from "react";
 import { achievementLabel, parseAchievementKey, type AchievementKey } from "../lib/achievements";
 import { LEO_AVATAR_URL } from "../lib/leoAvatar";
 import "./AchievementToast.css";
+import "./ShareCardSheet.css";
 
 type Props = {
   /** Ключ открытой ачивки, напр. "streak-7" / "workout-10". */
   achievementKey: AchievementKey;
   /** Вызывается, когда тост скрылся (по таймеру или тапу) — родитель снимает его с очереди. */
   onDone: () => void;
+  /** «Похвастаться» — открыть карточку для сторис и чатов (тост при этом закрывается). */
+  onShare?: () => void;
 };
 
 const VISIBLE_MS = 5000;
+/** С кнопкой «Похвастаться» тост висит дольше — чтобы успеть до неё дотянуться. */
+const VISIBLE_WITH_SHARE_MS = 8000;
 const EXIT_MS = 320;
 
 /** Тёплая фраза от Лео — добавляет эмоций поздравлению. */
@@ -28,12 +33,13 @@ export function leoCheer(achievementKey: AchievementKey): string {
  * искорки и тёплая фраза. Показывается поверх всего, авто-скрывается, тап закрывает
  * раньше. Очередь и дедуп — на стороне App (по ключам ачивок).
  */
-export function AchievementToast({ achievementKey, onDone }: Props) {
+export function AchievementToast({ achievementKey, onDone, onShare }: Props) {
   const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
-    const hide = window.setTimeout(() => setLeaving(true), VISIBLE_MS);
+    const hide = window.setTimeout(() => setLeaving(true), onShare ? VISIBLE_WITH_SHARE_MS : VISIBLE_MS);
     return () => window.clearTimeout(hide);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- таймер ставится один раз на показ
   }, []);
 
   useEffect(() => {
@@ -68,6 +74,18 @@ export function AchievementToast({ achievementKey, onDone }: Props) {
         <div className="achievement-toast__title">Ачивка получена!</div>
         <div className="achievement-toast__label">{achievementLabel(achievementKey)}</div>
         <div className="achievement-toast__cheer">{leoCheer(achievementKey)}</div>
+        {onShare ? (
+          <button
+            type="button"
+            className="share-brag-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              onShare();
+            }}
+          >
+            Похвастаться
+          </button>
+        ) : null}
       </div>
     </div>
   );

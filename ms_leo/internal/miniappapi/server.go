@@ -143,6 +143,8 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		s.handlePostChallengesLeave(w, r)
 	case path == "/api/miniapp/challenges/invite/dismiss" && r.Method == http.MethodPost:
 		s.handlePostChallengesInviteDismiss(w, r)
+	case path == "/api/miniapp/share/card" && r.Method == http.MethodPost:
+		s.handlePostShareCard(w, r)
 	case path == "/api/miniapp/referral/state" && r.Method == http.MethodPost:
 		s.handlePostReferralState(w, r)
 	case path == "/api/miniapp/reminders/load" && r.Method == http.MethodPost:

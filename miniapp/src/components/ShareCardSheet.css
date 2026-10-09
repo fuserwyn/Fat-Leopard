@@ -1,0 +1,200 @@
+/* Шторка «Похвастаться»: превью карточки 9:16 и кнопки соцсетей. */
+.share-card-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2600;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  animation: share-card-fade 200ms ease-out;
+}
+
+.share-card-sheet {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: min(480px, 100vw);
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 18px 16px calc(16px + env(safe-area-inset-bottom, 0));
+  border-radius: 24px 24px 0 0;
+  background: linear-gradient(180deg, var(--card) 0%, var(--card-inner) 100%);
+  color: var(--text);
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.45);
+  animation: share-card-up 260ms cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+.share-card-sheet__title {
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.share-card-sheet__preview {
+  height: min(46vh, 420px);
+  aspect-ratio: 9 / 16;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #120a04;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+}
+
+.share-card-sheet__preview img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.share-card-sheet__fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 100%;
+  padding: 12px;
+  text-align: center;
+  color: #fff;
+  background: linear-gradient(180deg, #2a1606 0%, #000 100%);
+}
+
+.share-card-sheet__fallback-emoji {
+  font-size: 48px;
+}
+
+.share-card-sheet__fallback-headline {
+  font-weight: 700;
+}
+
+.share-card-sheet__fallback-big {
+  font-size: 64px;
+  font-weight: 900;
+  line-height: 1;
+  color: #ffb347;
+}
+
+.share-card-sheet__fallback-name {
+  margin-top: 12px;
+  font-weight: 800;
+}
+
+.share-card-sheet__targets {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+
+.share-card-sheet__target {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 4px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.share-card-sheet__target:disabled {
+  opacity: 0.55;
+}
+
+.share-card-sheet__target-icon {
+  font-size: 22px;
+}
+
+.share-card-sheet__close {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--text);
+  opacity: 0.75;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Кнопка «Похвастаться» в празднованиях и в модалке засчитанной тренировки. */
+.share-brag-btn {
+  margin-top: 12px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffb347 0%, #ff8a00 100%);
+  color: #1a0e04;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(255, 138, 0, 0.35);
+}
+
+@keyframes share-card-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes share-card-up {
+  from {
+    transform: translateY(40px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Модалка «Тренировка засчитана» — по центру, как празднования. */
+.workout-done-overlay {
+  align-items: center;
+  padding: 20px;
+}
+
+.workout-done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: min(360px, calc(100vw - 40px));
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 22px 20px 12px;
+  border-radius: 24px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  background: linear-gradient(180deg, var(--card) 0%, var(--card-inner) 100%);
+  color: var(--text);
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.workout-done__emoji {
+  font-size: 44px;
+}
+
+.workout-done__title {
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.workout-done__message {
+  white-space: pre-wrap;
+  font-size: 14px;
+  line-height: 1.4;
+  opacity: 0.9;
+}
