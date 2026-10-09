@@ -985,3 +985,52 @@ func (s *Server) handlePostFeedReport(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
 }
+
+// handlePostFeedGuest — гостевая лента: несколько свежих тренировок стаи и ссылка
+// «Вступить» для того, кто открыл мини-апп, ещё не вступив. Нужна только
+// валидная подпись Telegram, членство в стае не проверяется.
+func (s *Server) handlePostFeedGuest(w http.ResponseWriter, r *http.Request) {
+	corsWriteHeaders(w, r)
+	if s.bot == nil || s.token == "" {
+		s.jsonErr(w, http.StatusServiceUnavailable, "server_unavailable")
+		return
+	}
+	var body struct {
+		InitData string `json:"init_data"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		s.jsonErr(w, http.StatusBadRequest, "invalid_json")
+		return
+	}
+	if body.InitData == "" {
+		s.jsonErr(w, http.StatusBadRequest, "missing_init_data")
+		return
+	}
+	if err := s.validateInit(body.InitData); err != nil {
+		s.logger.Warnf("miniapp guest feed init_data invalid: %v", err)
+		s.jsonErr(w, http.StatusUnauthorized, "invalid_init_data")
+		return
+	}
+	parsed, err := s.parseInit(body.InitData)
+	if err != nil {
+		s.jsonErr(w, http.StatusBadRequest, "parse_init_data")
+		return
+	}
+	if parsed.User.ID == 0 {
+		s.jsonErr(w, http.StatusBadRequest, "user_missing")
+		return
+	}
+	view, err := s.bot.PackGuestFeedForViewer(parsed.User.ID)
+	if err != nil {
+		s.logger.Errorf("guest feed: %v", err)
+		s.jsonErr(w, http.StatusInternalServerError, "feed_error")
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"ok":       true,
+		"in_pack":  view.InPack,
+		"items":    view.Items,
+		"join_url": view.JoinURL,
+	})
+}

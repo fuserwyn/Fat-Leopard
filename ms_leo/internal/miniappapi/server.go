@@ -61,6 +61,8 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		s.handlePostSupportChatSendPhoto(w, r)
 	case path == "/api/miniapp/feed" && r.Method == http.MethodPost:
 		s.handlePostFeed(w, r)
+	case path == "/api/miniapp/feed/guest" && r.Method == http.MethodPost:
+		s.handlePostFeedGuest(w, r)
 	case path == "/api/miniapp/user-avatar" && r.Method == http.MethodGet:
 		s.handleGetUserAvatar(w, r)
 	case path == "/api/miniapp/feed/training/react" && r.Method == http.MethodPost:

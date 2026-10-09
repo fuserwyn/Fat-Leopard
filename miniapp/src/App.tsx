@@ -10,6 +10,7 @@ import { RulesScreen } from "./components/RulesScreen";
 import { TabKeepAlive } from "./components/TabKeepAlive";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { MiniappRemovedScreen } from "./components/MiniappRemovedScreen";
+import { GuestFeedScreen } from "./components/GuestFeedScreen";
 import { SupportScreen } from "./components/SupportScreen";
 import { AdminScreen } from "./components/AdminScreen";
 import { AchievementToast } from "./components/AchievementToast";
@@ -28,13 +29,14 @@ import { isModerationError, moderationUserMessage } from "./lib/moderationMessag
 import { fetchLeoPendingCount } from "./lib/leoPersonalInbox";
 import { fetchFeedThreadUnreadSummary } from "./lib/feedThreadUnread";
 import { fetchPackGroupUnreadCount } from "./lib/packGroupUnread";
-import { ensureMiniappOnboarding } from "./lib/miniappOnboarding";
+import { ensureMiniappOnboarding, miniappAccessGate } from "./lib/miniappOnboarding";
 import { syncDeviceTimezone } from "./lib/timezoneSync";
 import { reportMiniappOpened, reportWorkoutLogStarted, reportNonSportInterest } from "./lib/miniappEvents";
 import "./App.css";
 
 type Tab = "chat" | "feed" | "rules" | "profile";
-type AccessGateStatus = "checking" | "ok" | "deleted";
+/** guest — ещё не в стае (пришёл по чужой ссылке): гостевая лента и «Вступить». */
+type AccessGateStatus = "checking" | "ok" | "deleted" | "guest";
 
 function formatTrainingDoneAlert(replyParts: string[]): string {
   const summary = replyParts.filter(Boolean).join("\n\n").trim();
@@ -129,8 +131,9 @@ export function App() {
       return;
     }
     const res = await ensureMiniappOnboarding(initData);
-    setAccessGateStatus(res.deleted || res.accessState === "deleted" ? "deleted" : "ok");
+    setAccessGateStatus(miniappAccessGate(res));
   }, [inTelegram, initData]);
+  const leaveGuestMode = useCallback(() => setAccessGateStatus("ok"), []);
 
   const refreshTabBadges = useCallback(async () => {
     if (accessGateStatus !== "ok" || !inTelegram || !initData?.trim()) {
@@ -450,6 +453,14 @@ export function App() {
 
   if (accessGateStatus === "checking") {
     return <div className="app" />;
+  }
+
+  if (accessGateStatus === "guest") {
+    return (
+      <div className="app">
+        <GuestFeedScreen initData={initData} onInPack={leaveGuestMode} />
+      </div>
+    );
   }
 
   if (accessGateStatus === "deleted") {

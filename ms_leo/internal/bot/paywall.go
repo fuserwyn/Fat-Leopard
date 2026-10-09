@@ -237,6 +237,12 @@ func (b *Bot) paywallUnpaidInlineKeyboard() *tgbotapi.InlineKeyboardMarkup {
 	if len(rows) == 0 {
 		return nil
 	}
+	// Гостевой просмотр: до оплаты можно заглянуть в ленту стаи (без вступления).
+	if url := strings.TrimSpace(b.config.MiniappWebAppURL); url != "" {
+		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonWebApp(guestFeedButtonText, tgbotapi.WebAppInfo{URL: url}),
+		))
+	}
 	return &tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
 }
 
