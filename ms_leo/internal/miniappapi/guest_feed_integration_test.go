@@ -126,4 +126,20 @@ func TestGuestFeedShowsPackWithoutJoining(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("плохая подпись: код %d", rec.Code)
 	}
+	// Битый JSON и пустая подпись — 400 с понятной причиной.
+	for body, want := range map[string]string{`{`: "invalid_json", `{"init_data":""}`: "missing_init_data"} {
+		req := httptest.NewRequest(http.MethodPost, "/api/miniapp/feed/guest", strings.NewReader(body))
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), want) {
+			t.Fatalf("%s: код %d %s", body, rec.Code, rec.Body.String())
+		}
+	}
+	// Сервер без бота витрину не отдаёт.
+	noBot := New(nil, routesTestToken, log, "https://example.test", t.TempDir(), nil)
+	rec = httptest.NewRecorder()
+	noBot.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/miniapp/feed/guest", strings.NewReader(`{}`)))
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("без бота: код %d", rec.Code)
+	}
 }
