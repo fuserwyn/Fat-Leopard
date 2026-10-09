@@ -69,4 +69,33 @@ describe("InviteFriendsSection", () => {
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
   });
+
+  it("refreshes the counter when the app becomes visible again", async () => {
+    vi.stubEnv("VITE_MINIAPP_API_URL", "https://api.test");
+    let joined = 0;
+    let fail = false;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        if (fail) throw new Error("offline");
+        return { ok: true, json: async () => ({ ok: true, referral: { link: state.link, joined } }) };
+      }),
+    );
+    vi.resetModules();
+    const { InviteFriendsSection: Fresh } = await import("./InviteFriendsSection");
+    const { findByText, getByText } = render(<Fresh initData="x" />);
+    expect((await findByText("пришли по ссылке")).previousSibling?.textContent).toBe("0");
+
+    joined = 1;
+    document.dispatchEvent(new Event("visibilitychange"));
+    await waitFor(() => expect(getByText("пришли по ссылке").previousSibling?.textContent).toBe("1"));
+
+    // Сбой сети при обновлении не прячет блок.
+    fail = true;
+    document.dispatchEvent(new Event("visibilitychange"));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(getByText("пришли по ссылке").previousSibling?.textContent).toBe("1");
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
 });

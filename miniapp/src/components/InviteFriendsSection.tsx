@@ -16,11 +16,21 @@ export function InviteFriendsSection({ initData, initialState }: Props) {
   useEffect(() => {
     if (initialState !== undefined) return;
     let alive = true;
-    void fetchReferralState(initData).then((s) => {
-      if (alive) setState(s);
-    });
+    const load = () => {
+      void fetchReferralState(initData).then((s) => {
+        // Сбой сети при обновлении не прячет уже показанный блок.
+        if (alive) setState((prev) => s ?? prev);
+      });
+    };
+    load();
+    // Друг переходит по ссылке, пока мини-апп свёрнут: при возврате обновляем счётчик.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       alive = false;
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [initData, initialState]);
 
