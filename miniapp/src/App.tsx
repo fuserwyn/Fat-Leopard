@@ -16,6 +16,15 @@ import { AdminScreen } from "./components/AdminScreen";
 import { AchievementToast } from "./components/AchievementToast";
 import { LevelUpToast } from "./components/LevelUpToast";
 import { PackWeekSummaryModal } from "./components/PackWeekSummaryModal";
+import { ShareCardSheet } from "./components/ShareCardSheet";
+import { WorkoutDoneModal } from "./components/WorkoutDoneModal";
+import {
+  achievementShareCard,
+  levelShareCard,
+  workoutShareCard,
+  type ShareCard,
+  type WorkoutShareInput,
+} from "./lib/shareCard";
 import { fetchPackWeekSummary, markPackWeekSummarySeen, type PackWeekSummary } from "./lib/packWeekSummary";
 import { earnedAchievementKeys, freshAchievementKeys, type AchievementKey } from "./lib/achievements";
 import { miniappLevelFromCups } from "./lib/miniappLevel";
@@ -103,6 +112,13 @@ export function App() {
   // Очередь поп-апов «Новый уровень!» — по номеру достигнутого уровня.
   const [levelUpQueue, setLevelUpQueue] = useState<number[]>([]);
   const currentLevelUp = levelUpQueue[0] ?? null;
+  /** Открытая карточка «Похвастаться» (сторис, чаты). */
+  const [shareCard, setShareCard] = useState<ShareCard | null>(null);
+  /** Модалка «Тренировка засчитана»: итог от сервера и данные для карточки тренировки. */
+  const [workoutDone, setWorkoutDone] = useState<{
+    message: string;
+    workout: Omit<WorkoutShareInput, "streak" | "name">;
+  } | null>(null);
 
   // §3: miniapp_opened — один раз, как только есть валидный initData в Telegram.
   useEffect(() => {
@@ -577,17 +593,38 @@ export function App() {
 
       {/* Празднования показываем по одному, чтобы оверлеи не накладывались:
           сначала «Новый уровень!», затем очередь ачивок, затем итоги недели стаи. */}
-      {currentLevelUp != null ? (
+      {/* Карточка «Похвастаться» и модалка засчитанной тренировки — раньше празднований:
+          празднования ждут в очереди и покажутся, когда их закроют. */}
+      {shareCard ? (
+        <ShareCardSheet card={shareCard} initData={initData} showAlert={showAlert} onClose={() => setShareCard(null)} />
+      ) : workoutDone ? (
+        <WorkoutDoneModal
+          message={workoutDone.message}
+          onClose={() => setWorkoutDone(null)}
+          onShare={() => {
+            setShareCard(workoutShareCard({ ...workoutDone.workout, streak, name: effectiveName }));
+            setWorkoutDone(null);
+          }}
+        />
+      ) : currentLevelUp != null ? (
         <LevelUpToast
           key={`level-${currentLevelUp}`}
           level={currentLevelUp}
           onDone={() => setLevelUpQueue((q) => q.slice(1))}
+          onShare={() => {
+            setShareCard(levelShareCard(currentLevelUp, effectiveName));
+            setLevelUpQueue((q) => q.slice(1));
+          }}
         />
       ) : currentAchievement ? (
         <AchievementToast
           key={currentAchievement}
           achievementKey={currentAchievement}
           onDone={() => setAchievementQueue((q) => q.slice(1))}
+          onShare={() => {
+            setShareCard(achievementShareCard(currentAchievement, effectiveName));
+            setAchievementQueue((q) => q.slice(1));
+          }}
         />
       ) : packWeekSummary && !adminOpen ? (
         <PackWeekSummaryModal summary={packWeekSummary} onClose={closePackWeekSummary} />
@@ -716,7 +753,10 @@ export function App() {
             const fallback =
               "Отчёт принят. Комментарий Лео скоро появится в ленте.";
             const msg = summary.length > 0 ? summary : fallback;
-            showAlert(msg.length > 400 ? `${msg.slice(0, 397)}…` : msg);
+            setWorkoutDone({
+              message: msg.length > 400 ? `${msg.slice(0, 397)}…` : msg,
+              workout: { reportLine: base, kindLabel: kind, min, intensity, photo },
+            });
             return true;
           }}
         />

@@ -55,6 +55,10 @@ interface TelegramWebApp {
   openLink?: (url: string, options?: { try_instant_view?: boolean }) => void;
   /** Ссылка t.me внутри Telegram — например окно «Поделиться» t.me/share/url. */
   openTelegramLink?: (url: string) => void;
+  /** Сторис из мини-аппа (Bot API ≥ 7.8): картинка по публичному https-адресу и подпись. */
+  shareToStory?: (mediaUrl: string, params?: { text?: string; widget_link?: { url: string; name?: string } }) => void;
+  /** Сохранить файл на устройство (Bot API ≥ 8.0). */
+  downloadFile?: (params: { url: string; file_name: string }, callback?: (accepted: boolean) => void) => void;
   close: () => void;
   /** Bot API ≥ 6.9 — ключи переживают закрытие Mini App, в отличие от localStorage на iOS. */
   CloudStorage?: {
