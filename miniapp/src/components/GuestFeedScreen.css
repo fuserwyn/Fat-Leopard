@@ -1,0 +1,78 @@
+.guest-feed {
+  min-height: 100dvh;
+  padding: 24px 16px calc(96px + env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
+}
+
+.guest-feed__header {
+  margin: 0 auto 16px;
+  max-width: 560px;
+}
+
+.guest-feed__brand {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.guest-feed__eyebrow {
+  margin: 16px 0 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.guest-feed__title {
+  margin: 0;
+  font-size: 26px;
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.guest-feed__text {
+  margin: 10px 0 0;
+  color: var(--text-muted);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.guest-feed__list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0 auto;
+  max-width: 560px;
+}
+
+.guest-feed__empty {
+  margin: 24px 0;
+  color: var(--text-muted);
+  text-align: center;
+  font-size: 15px;
+}
+
+/* «Вступить» всегда под рукой — прибита к низу экрана. */
+.guest-feed__cta-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(180deg, transparent, var(--bg, #000) 40%);
+  display: flex;
+  justify-content: center;
+}
+
+.guest-feed__cta {
+  width: min(100%, 420px);
+  padding: 14px 22px;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 88%, #ffffff 12%), var(--accent));
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}

@@ -52,3 +52,14 @@ export async function ensureMiniappOnboarding(initData: string): Promise<Onboard
     return empty;
   }
 }
+
+/**
+ * Что показать после хендшейка: выбывшему — экран блокировки, тому, кого в стае
+ * ещё нет (сервер ответил и сказал «out»), — гостевую ленту. Если сервер не
+ * ответил, приложение открывается как раньше: отказывать из-за сети нельзя.
+ */
+export function miniappAccessGate(res: OnboardingEnsureResult): "ok" | "deleted" | "guest" {
+  if (res.deleted || res.accessState === "deleted") return "deleted";
+  if (res.ok && !res.inPack && res.accessState === "out") return "guest";
+  return "ok";
+}
