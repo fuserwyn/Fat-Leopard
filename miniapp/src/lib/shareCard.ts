@@ -31,8 +31,10 @@ export type ShareCard = {
   big: string;
   /** Подпись под цифрой: «дней подряд», «Гепард», «минут». */
   bigCaption: string;
-  /** Необязательная строка деталей: вид спорта, стрик. */
+  /** Необязательная строка деталей: вид спорта, интенсивность. */
   details?: string;
+  /** Крупная плашка под деталями — стрик на карточке тренировки: «🔥 Стрик 13 дней». */
+  badge?: string;
   /** Имя участника. */
   name: string;
   /** Фото тренировки — фоном карточки. */
@@ -95,7 +97,6 @@ export type WorkoutShareInput = {
 /** Карточка засчитанной тренировки: минуты, вид спорта, интенсивность и стрик. */
 export function workoutShareCard(w: WorkoutShareInput): ShareCard {
   const parts = [w.kindLabel.trim(), `интенсивность ${w.intensity}/5`].filter(Boolean);
-  if (w.streak > 0) parts.push(`стрик ${w.streak} ${daysWordRu(w.streak)}`);
   return {
     kind: "workout",
     emoji: trainingDoneCategoryEmoji(w.reportLine) || "💪",
@@ -103,6 +104,9 @@ export function workoutShareCard(w: WorkoutShareInput): ShareCard {
     big: String(Math.max(0, Math.round(w.min))),
     bigCaption: "минут",
     details: parts.join(" · "),
+    // Стрик — второе, чем хвастаются после самой тренировки: выносим его
+    // отдельной крупной плашкой, а не прячем в мелкую строку деталей.
+    badge: w.streak > 0 ? `🔥 Стрик ${w.streak} ${daysWordRu(w.streak)}` : undefined,
     name: cleanName(w.name),
     photo: w.photo ?? null,
   };
@@ -119,7 +123,7 @@ export function shareCardCaption(card: ShareCard, link: string): string {
     card.kind === "level"
       ? `Новый уровень в Fat Leopard: ${card.big} — ${card.bigCaption} ${card.emoji}`
       : card.kind === "workout"
-        ? `Тренировка засчитана: ${card.big} ${card.bigCaption} ${card.emoji}`
+        ? `Тренировка засчитана: ${card.big} ${card.bigCaption} ${card.emoji}${card.badge ? ` · ${card.badge.replace(/^🔥\s*/, "").toLowerCase()} 🔥` : ""}`
         : card.headline === "Стрик"
           ? `Стрик ${card.big} ${card.bigCaption} в Fat Leopard 🔥`
           : `Ачивка в Fat Leopard: ${card.big} ${card.bigCaption} 💪`;
@@ -226,9 +230,26 @@ export function drawShareCard(
     ctx.fillText(card.details, cx, 1350);
   }
 
+  // Плашка стрика: золотая рамка и крупный текст между деталями и именем.
+  let nameY = 1560;
+  if (card.badge) {
+    const size = fitFont(ctx, card.badge, 800, 84, maxW - 120);
+    const badgeW = Math.min(maxW, ctx.measureText(card.badge).width + 120);
+    ctx.save();
+    ctx.fillStyle = "rgba(255, 179, 71, 0.16)";
+    ctx.beginPath();
+    ctx.roundRect(cx - badgeW / 2, 1392, badgeW, 136, 68);
+    ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = "#ffb347";
+    ctx.font = `800 ${size}px ${FONT}`;
+    ctx.fillText(card.badge, cx, 1490);
+    nameY = 1620;
+  }
+
   ctx.fillStyle = "#ffffff";
   fitFont(ctx, card.name, 800, 72, maxW);
-  ctx.fillText(card.name, cx, 1560);
+  ctx.fillText(card.name, cx, nameY);
 
   const shown = link ? shareLinkDisplay(link) : "Fat Leopard в Telegram";
   ctx.font = `700 44px ${FONT}`;

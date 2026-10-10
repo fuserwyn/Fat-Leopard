@@ -83,10 +83,12 @@ describe("карточки", () => {
       name: "Аня",
       photo,
     });
-    expect(c).toMatchObject({ kind: "workout", big: "30", bigCaption: "минут", details: "бег · интенсивность 3/5 · стрик 5 дней", photo });
+    // Стрик — отдельной крупной плашкой, а не в мелкой строке деталей.
+    expect(c).toMatchObject({ kind: "workout", big: "30", bigCaption: "минут", details: "бег · интенсивность 3/5", badge: "🔥 Стрик 5 дней", photo });
     expect(c.emoji).not.toBe("");
     const noStreak = workoutShareCard({ reportLine: "что-то", kindLabel: "", min: -1, intensity: 2, streak: 0, name: "Аня" });
     expect(noStreak).toMatchObject({ big: "0", details: "интенсивность 2/5", photo: null });
+    expect(noStreak.badge).toBeUndefined();
   });
 });
 
@@ -105,6 +107,8 @@ describe("подписи и ссылки", () => {
     expect(shareCardCaption(levelShareCard(5, "Аня"), link)).toContain("Новый уровень в Fat Leopard: 5 — Лев");
     const w = workoutShareCard({ reportLine: "бег", kindLabel: "бег", min: 30, intensity: 3, streak: 0, name: "А" });
     expect(shareCardCaption(w, "")).toMatch(/^Тренировка засчитана: 30 минут/);
+    const streaked = workoutShareCard({ reportLine: "зарядка", kindLabel: "зарядка", min: 15, intensity: 3, streak: 13, name: "LoFi" });
+    expect(shareCardCaption(streaked, link).split("\n")[0]).toMatch(/^Тренировка засчитана: 15 минут .* · стрик 13 дней 🔥$/);
     expect(shareCardCaption(w, `https://t.me/${"x".repeat(300)}`).length).toBe(200);
   });
 
@@ -142,7 +146,7 @@ describe("рисование", () => {
     const card = workoutShareCard({ reportLine: "бег", kindLabel: "бег", min: 30, intensity: 3, streak: 2, name: "Аня" });
     drawShareCard(ctx as never, card, "", { width: 2000, height: 1000 } as never);
     expect(ctx.drawImage).toHaveBeenCalledTimes(1);
-    expect(texts).toEqual(expect.arrayContaining(["Fat Leopard в Telegram", "бег · интенсивность 3/5 · стрик 2 дня"]));
+    expect(texts).toEqual(expect.arrayContaining(["Fat Leopard в Telegram", "бег · интенсивность 3/5", "🔥 Стрик 2 дня"]));
   });
 
   it("renderShareCard: JPEG с холста, null без 2D-контекста", async () => {

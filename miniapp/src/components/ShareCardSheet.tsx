@@ -13,6 +13,7 @@ import {
   type ShareCard,
   type UploadedShareCard,
 } from "../lib/shareCard";
+import { ShareBrandIcon } from "./ShareBrandIcon";
 import "./ShareCardSheet.css";
 
 type Props = {
@@ -24,12 +25,12 @@ type Props = {
 
 export type ShareTarget = "tg-story" | "tg-chat" | "vk" | "instagram" | "tiktok";
 
-const TARGETS: { id: ShareTarget; label: string; icon: string }[] = [
-  { id: "tg-story", label: "Сторис Telegram", icon: "📸" },
-  { id: "tg-chat", label: "В чат Telegram", icon: "💬" },
-  { id: "instagram", label: "Instagram", icon: "📷" },
-  { id: "tiktok", label: "TikTok", icon: "🎵" },
-  { id: "vk", label: "ВКонтакте", icon: "🅥" },
+const TARGETS: { id: ShareTarget; label: string }[] = [
+  { id: "tg-story", label: "Сторис Telegram" },
+  { id: "tg-chat", label: "В чат Telegram" },
+  { id: "instagram", label: "Instagram" },
+  { id: "tiktok", label: "TikTok" },
+  { id: "vk", label: "ВКонтакте" },
 ];
 
 const UPLOAD_FAILED = "Не получилось подготовить картинку. Проверь интернет и попробуй ещё раз.";
@@ -159,6 +160,7 @@ export function ShareCardSheet({ card, initData, showAlert, onClose }: Props) {
               <span className="share-card-sheet__fallback-headline">{card.headline}</span>
               <span className="share-card-sheet__fallback-big">{card.big}</span>
               <span>{card.bigCaption}</span>
+              {card.badge ? <span className="share-card-sheet__fallback-badge">{card.badge}</span> : null}
               <span className="share-card-sheet__fallback-name">{card.name}</span>
             </div>
           )}
@@ -168,13 +170,12 @@ export function ShareCardSheet({ card, initData, showAlert, onClose }: Props) {
             <button
               key={t.id}
               type="button"
-              className="share-card-sheet__target"
+              className={`share-card-sheet__target${busy === t.id ? " is-busy" : ""}`}
               disabled={!ready || busy != null}
+              aria-busy={busy === t.id}
               onClick={() => void share(t.id)}
             >
-              <span className="share-card-sheet__target-icon" aria-hidden>
-                {busy === t.id ? "⏳" : t.icon}
-              </span>
+              <ShareBrandIcon target={t.id} />
               <span>{t.label}</span>
             </button>
           ))}
