@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
+	"leo-bot/internal/domain"
 	"leo-bot/internal/utils"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -67,6 +69,11 @@ func TestInactivitySweepRemovesOnlyOverdueMembers(t *testing.T) {
 	var status string
 	if err := db.QueryRow(`SELECT COUNT(*), COALESCE(MAX(dm_status), '') FROM deletion_events WHERE user_id = $1`, overdue).Scan(&events, &status); err != nil || events != 1 || status != "dm_sent" {
 		t.Errorf("запись об удалении: %d %q %v", events, status, err)
+	}
+	// Стае об удалении не сообщаем: в ленте не появляется «я его съел».
+	var feedRows int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM user_messages WHERE user_id = $1 AND chat_id = $2`, overdue, itPack).Scan(&feedRows); err != nil || feedRows != 0 {
+		t.Errorf("в ленте стаи не должно быть записи об удалении: %d %v", feedRows, err)
 	}
 
 	// Повторный проход никого не удаляет и не пишет второй раз.
@@ -172,5 +179,43 @@ func TestAdminKickRemovesMemberBeforeDeadline(t *testing.T) {
 	}
 	if texts := tg.textsTo(itUser + 1); len(texts) != 1 || !strings.Contains(texts[0], "Лео удалил тебя из стаи") {
 		t.Errorf("исключённому — сообщение с кнопкой возврата: %q", texts)
+	}
+}
+
+// Карточки «я его съел», опубликованные до отключения, стая в ленте больше не видит.
+func TestPackFeedHidesOldRemovalNotices(t *testing.T) {
+	b, _, db := newIntegrationBot(t, starsConfig)
+	seedMember(t, db, itUser, "leopard", false)
+	for _, typ := range []string{"pack_removed", userMessageTypePackJoin} {
+		if _, err := db.Exec(`INSERT INTO user_messages (user_id, chat_id, username, message_text, message_type) VALUES ($1, $2, 'leopard', 'текст', $3)`, itUser, itPack, typ); err != nil {
+			t.Fatal(err)
+		}
+	}
+	feeds := map[string]func() ([]*domain.PackActivityRow, error){
+		"desc": func() ([]*domain.PackActivityRow, error) { return b.db.ListPackActivityFeedDesc(itPack, nil, 50) },
+		"after": func() ([]*domain.PackActivityRow, error) {
+			return b.db.ListPackActivityFeedAfterTS(itPack, time.Unix(0, 0), 50)
+		},
+		"since":   func() ([]*domain.PackActivityRow, error) { return b.db.ListPackActivityFeed(itPack, 50, nil) },
+		"afterID": func() ([]*domain.PackActivityRow, error) { return b.db.ListPackActivityFeedAfterID(itPack, 1, 50) },
+		"beforeID": func() ([]*domain.PackActivityRow, error) {
+			return b.db.ListPackActivityFeedBeforeID(itPack, 1<<62, 50)
+		},
+	}
+	for name, list := range feeds {
+		rows, err := list()
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		join := false
+		for _, r := range rows {
+			if r.MessageType == "pack_removed" {
+				t.Errorf("%s: запись об удалении видна в ленте", name)
+			}
+			join = join || r.MessageType == userMessageTypePackJoin
+		}
+		if !join {
+			t.Errorf("%s: остальные записи ленты должны остаться", name)
+		}
 	}
 }

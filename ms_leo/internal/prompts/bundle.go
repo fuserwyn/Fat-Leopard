@@ -23,8 +23,6 @@ type Bundle struct {
 	TrainingEvaluation      string // комментарий после тренировки JSON (Промт 1)
 	ReleaseNotes            string // Release Notes за две недели в ленту стаи
 	ContactJoinedPack       string // личка: контакт пользователя вступил в стаю
-	// PackFeedParticipantRemoved — карточка в ленте мини‑аппа, когда человек уже не видит её: текст для стаи.
-	PackFeedParticipantRemoved string
 }
 
 //go:embed data/daily_summary.txt
@@ -63,9 +61,6 @@ var embeddedWarningTimerQuestion string
 //go:embed data/achievement_milestone.txt
 var embeddedAchievementMilestone string
 
-//go:embed data/pack_feed_removed.txt
-var embeddedPackFeedParticipantRemoved string
-
 //go:embed data/training_evaluation.txt
 var embeddedTrainingEvaluation string
 
@@ -78,22 +73,21 @@ var embeddedContactJoinedPack string
 // DefaultBundle возвращает встроенные тексты из каталога data/.
 func DefaultBundle() Bundle {
 	return Bundle{
-		DailySummary:               embeddedDailySummary,
-		MonthlySummary:             embeddedMonthlySummary,
-		AnswerUserQuestion:         embeddedAnswerUserQuestion,
-		DailyWisdomTraining:        embeddedDailyWisdomTraining,
-		DailyWisdomLangRule:        embeddedDailyWisdomLangRule,
-		DailyWisdomUserTemplate:    embeddedDailyWisdomUserTemplate,
-		DailyWisdomVariation1:      embeddedDailyWisdomVariation1,
-		DailyWisdomVariation2:      embeddedDailyWisdomVariation2,
-		TrainingChatSuffix:         embeddedTrainingChatSuffix,
-		CriticalTimerQuestion:      embeddedCriticalTimerQuestion,
-		WarningTimerQuestion:       embeddedWarningTimerQuestion,
-		AchievementMilestone:       embeddedAchievementMilestone,
-		TrainingEvaluation:         embeddedTrainingEvaluation,
-		ReleaseNotes:               embeddedReleaseNotes,
-		ContactJoinedPack:          embeddedContactJoinedPack,
-		PackFeedParticipantRemoved: embeddedPackFeedParticipantRemoved,
+		DailySummary:            embeddedDailySummary,
+		MonthlySummary:          embeddedMonthlySummary,
+		AnswerUserQuestion:      embeddedAnswerUserQuestion,
+		DailyWisdomTraining:     embeddedDailyWisdomTraining,
+		DailyWisdomLangRule:     embeddedDailyWisdomLangRule,
+		DailyWisdomUserTemplate: embeddedDailyWisdomUserTemplate,
+		DailyWisdomVariation1:   embeddedDailyWisdomVariation1,
+		DailyWisdomVariation2:   embeddedDailyWisdomVariation2,
+		TrainingChatSuffix:      embeddedTrainingChatSuffix,
+		CriticalTimerQuestion:   embeddedCriticalTimerQuestion,
+		WarningTimerQuestion:    embeddedWarningTimerQuestion,
+		AchievementMilestone:    embeddedAchievementMilestone,
+		TrainingEvaluation:      embeddedTrainingEvaluation,
+		ReleaseNotes:            embeddedReleaseNotes,
+		ContactJoinedPack:       embeddedContactJoinedPack,
 	}
 }
 

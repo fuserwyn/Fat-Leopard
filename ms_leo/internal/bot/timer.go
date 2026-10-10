@@ -95,8 +95,7 @@ func normalizeUserDisplayName(username string) string {
 // (TG-группы как сущности нет, миграция на мини-апп):
 //  1. шлём DM с предложением вернуться;
 //  2. аннулируем купленный paywall-доступ — повторный вход только через новую оплату;
-//  3. кладём карточку pack_removed в ленту мини-аппа;
-//  4. помечаем training_state.is_deleted = true.
+//  3. помечаем training_state.is_deleted = true.
 func (b *Bot) removeUser(userID, chatID int64, username string) {
 	b.logger.Infof("Attempting to remove user %d (%s) from chat %d", userID, username, chatID)
 
@@ -158,12 +157,11 @@ func (b *Bot) removeUserNow(userID, chatID int64, username string) {
 		if expErr := b.db.ExpirePaywallAccessForUser(userID, chatID); expErr != nil {
 			b.logger.Errorf("Failed to expire paywall access for inactive user %d: %v", userID, expErr)
 		}
-		b.savePackRemovedMiniappFeed(chatID, userID, username)
 		// Кикнутый юзер не должен видеть синюю web_app-кнопку LeopardMiniApp в ЛС.
 		// Сбрасываем кеш, чтобы applyMiniappMenuButtonForUser форсированно отправил commands.
 		invalidateMiniappMenuButtonCache(userID)
 		b.applyMiniappMenuButtonForUser(userID)
-		b.logger.Infof("Removed user %d (%s) from pack: paywall access expired, miniapp feed updated", userID, username)
+		b.logger.Infof("Removed user %d (%s) from pack: paywall access expired", userID, username)
 	} else {
 		// chatID != MonetizedChatID — это приватный «message_log в личке» (chatID == userID).
 		// Никаких физических действий, только пометка is_deleted (см. ниже) — таймер выключен в DM выше.
