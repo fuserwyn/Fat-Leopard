@@ -26,7 +26,6 @@ func Catalog() []Slot {
 		{Key: "warning_timer_question", File: "warning_timer_question.txt", Title: "Предупреждение таймера", About: "День 5–7 до кика за неактивность", embedded: embeddedWarningTimerQuestion},
 		{Key: "critical_timer_question", File: "critical_timer_question.txt", Title: "Критический таймер", About: "Последний день перед киком", embedded: embeddedCriticalTimerQuestion},
 		{Key: "achievement_milestone", File: "achievement_milestone.txt", Title: "Ачивка-веха", About: "Текст к milestone-ачивке", embedded: embeddedAchievementMilestone},
-		{Key: "pack_feed_removed", File: "pack_feed_removed.txt", Title: "Участник ушёл", About: "Карточка в ленте, когда человека уже не видно", embedded: embeddedPackFeedParticipantRemoved},
 		{Key: "release_notes", File: "release_notes.txt", Title: "Release Notes", About: "Факты о новых функциях в мини-аппе за две недели", embedded: embeddedReleaseNotes},
 		{Key: "contact_joined_pack", File: "contact_joined_pack.txt", Title: "Контакт в стае", About: "Личка: контакт пользователя вступил в стаю", embedded: embeddedContactJoinedPack},
 	}
@@ -92,8 +91,6 @@ func setBundleKey(b Bundle, key, body string) Bundle {
 		b.AchievementMilestone = body
 	case "training_evaluation":
 		b.TrainingEvaluation = body
-	case "pack_feed_removed":
-		b.PackFeedParticipantRemoved = body
 	case "release_notes":
 		b.ReleaseNotes = body
 	case "contact_joined_pack":

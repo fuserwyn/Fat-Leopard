@@ -148,25 +148,6 @@ func (b *Bot) savePackRoarPackFeed(text string) {
 	}
 }
 
-func (b *Bot) savePackRemovedMiniappFeed(chatID, userID int64, username string) {
-	if b == nil || b.db == nil || userID == 0 {
-		return
-	}
-	if b.config.MonetizedChatID == 0 || chatID != b.config.MonetizedChatID {
-		return
-	}
-	um := &domain.UserMessage{
-		UserID:      userID,
-		ChatID:      chatID,
-		Username:    strings.TrimSpace(username),
-		MessageText: PackRemovedFeedNotice(b.livePrompts(), username),
-		MessageType: userMessageTypePackRemoved,
-	}
-	if err := b.db.SaveUserMessage(um); err != nil {
-		b.logger.Warnf("miniapp pack feed pack_removed user=%d: %v", userID, err)
-	}
-}
-
 // Автор админского поста ленты: "leo" — от имени Лео, иначе — от имени Админа.
 const (
 	adminPostAuthorLeo   = "leo"

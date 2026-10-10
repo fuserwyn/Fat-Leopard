@@ -445,7 +445,7 @@ func (b *Bot) handleHealthy(msg *tgbotapi.Message) {
 		replyText := "⏰ Время истекло! 🚫\n\n💪 Выздоровление принято, но время таймера уже истекло.\n\n🦁 Ням-ням, вкусненько! Я питаюсь ленивыми леопардами и становлюсь жирнее!\n\n💪 Ты ведь не хочешь стать как я?\n\nТогда тренируйся и отправляй отчёты!"
 		b.notifyUserText(msg, replyText, "", 0)
 
-		// Удаляем пользователя — кик идёт по pack-row, чтобы корректно сработали ExpirePaywallAccessForUser и pack_removed в ленте мини-аппа.
+		// Удаляем пользователя — кик идёт по pack-row, чтобы корректно сработал ExpirePaywallAccessForUser.
 		b.removeUser(msg.From.ID, b.kickChatIDForMessage(msg), username)
 		return
 	}

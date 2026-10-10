@@ -46,7 +46,7 @@ func (d *Database) ListPackActivityFeed(chatID int64, limit int, sinceUTC *time.
 			ON p.user_id = um.user_id AND p.pack_chat_id = um.chat_id
 		WHERE um.chat_id = $1
 		  AND COALESCE(um.is_hidden, FALSE) = FALSE
-		  AND um.message_type IN ('training_done', 'pack_join', 'pack_rejoin', 'daily_wisdom', 'pack_roar', 'pack_removed', 'admin_post', 'admin_poll')
+		  AND um.message_type IN ('training_done', 'pack_join', 'pack_rejoin', 'daily_wisdom', 'pack_roar', 'admin_post', 'admin_poll')
 		  ` + whereSince + `
 		ORDER BY um.created_at DESC
 		LIMIT $2
@@ -110,7 +110,7 @@ func (d *Database) ListPackActivityFeedAfterID(chatID int64, sinceID int64, limi
 		WHERE um.chat_id = $1
 		  AND um.id > $2
 		  AND COALESCE(um.is_hidden, FALSE) = FALSE
-		  AND um.message_type IN ('training_done', 'pack_join', 'pack_rejoin', 'daily_wisdom', 'pack_roar', 'pack_removed', 'admin_post', 'admin_poll')
+		  AND um.message_type IN ('training_done', 'pack_join', 'pack_rejoin', 'daily_wisdom', 'pack_roar', 'admin_post', 'admin_poll')
 		ORDER BY um.id DESC
 		LIMIT $3
 	`
@@ -174,7 +174,7 @@ func (d *Database) ListPackActivityFeedBeforeID(chatID int64, beforeID int64, li
 		WHERE um.chat_id = $1
 		  AND um.id < $2
 		  AND COALESCE(um.is_hidden, FALSE) = FALSE
-		  AND um.message_type IN ('training_done', 'pack_join', 'pack_rejoin', 'daily_wisdom', 'pack_roar', 'pack_removed', 'admin_post', 'admin_poll')
+		  AND um.message_type IN ('training_done', 'pack_join', 'pack_rejoin', 'daily_wisdom', 'pack_roar', 'admin_post', 'admin_poll')
 		ORDER BY um.id DESC
 		LIMIT $3
 	`
