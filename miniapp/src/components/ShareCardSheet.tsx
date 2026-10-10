@@ -150,7 +150,7 @@ export function ShareCardSheet({ card, initData, showAlert, onClose }: Props) {
         aria-label="Поделиться"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="share-card-sheet__title">Похвастаться</div>
+        <div className="share-card-sheet__title">Поделиться</div>
         <div className="share-card-sheet__preview">
           {preview ? (
             <img src={preview} alt={`${card.headline}: ${card.big} ${card.bigCaption}`} />

@@ -31,13 +31,13 @@ describe("WorkoutDoneModal", () => {
   });
 });
 
-describe("«Похвастаться» в празднованиях", () => {
+describe("«Поделиться» в празднованиях", () => {
   it("ачивка: кнопка не закрывает тост тапом, а открывает карточку", () => {
     vi.useFakeTimers();
     const onShare = vi.fn();
     const onDone = vi.fn();
     const { getByText } = render(<AchievementToast achievementKey="streak-30" onDone={onDone} onShare={onShare} />);
-    fireEvent.click(getByText("Похвастаться"));
+    fireEvent.click(getByText("Поделиться"));
     expect(onShare).toHaveBeenCalledTimes(1);
     act(() => {
       vi.advanceTimersByTime(6000);
@@ -55,9 +55,9 @@ describe("«Похвастаться» в празднованиях", () => {
   it("уровень: кнопка есть только с onShare", () => {
     const onShare = vi.fn();
     const { getByText, rerender, queryByText } = render(<LevelUpToast level={3} onDone={() => {}} onShare={onShare} />);
-    fireEvent.click(getByText("Похвастаться"));
+    fireEvent.click(getByText("Поделиться"));
     expect(onShare).toHaveBeenCalledTimes(1);
     rerender(<LevelUpToast level={3} onDone={() => {}} />);
-    expect(queryByText("Похвастаться")).toBeNull();
+    expect(queryByText("Поделиться")).toBeNull();
   });
 });

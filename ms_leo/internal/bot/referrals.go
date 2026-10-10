@@ -136,7 +136,7 @@ func (b *Bot) GetReferralForAPI(userID int64) (ReferralView, error) {
 	return v, nil
 }
 
-// ShareLinkForUser — личная ссылка на бота для карточек «похвастаться» (ачивка,
+// ShareLinkForUser — личная ссылка на бота для карточек «поделиться» (ачивка,
 // уровень, тренировка): та же реферальная t.me/<бот>?start=ref-<id>, чтобы друг,
 // пришедший со сторис, засчитался приглашением. Пусто, если имя бота неизвестно.
 func (b *Bot) ShareLinkForUser(userID int64) string {

@@ -112,7 +112,7 @@ export function App() {
   // Очередь поп-апов «Новый уровень!» — по номеру достигнутого уровня.
   const [levelUpQueue, setLevelUpQueue] = useState<number[]>([]);
   const currentLevelUp = levelUpQueue[0] ?? null;
-  /** Открытая карточка «Похвастаться» (сторис, чаты). */
+  /** Открытая карточка «Поделиться» (сторис, чаты). */
   const [shareCard, setShareCard] = useState<ShareCard | null>(null);
   /** Модалка «Тренировка засчитана»: итог от сервера и данные для карточки тренировки. */
   const [workoutDone, setWorkoutDone] = useState<{
@@ -593,7 +593,7 @@ export function App() {
 
       {/* Празднования показываем по одному, чтобы оверлеи не накладывались:
           сначала «Новый уровень!», затем очередь ачивок, затем итоги недели стаи. */}
-      {/* Карточка «Похвастаться» и модалка засчитанной тренировки — раньше празднований:
+      {/* Карточка «Поделиться» и модалка засчитанной тренировки — раньше празднований:
           празднования ждут в очереди и покажутся, когда их закроют. */}
       {shareCard ? (
         <ShareCardSheet card={shareCard} initData={initData} showAlert={showAlert} onClose={() => setShareCard(null)} />

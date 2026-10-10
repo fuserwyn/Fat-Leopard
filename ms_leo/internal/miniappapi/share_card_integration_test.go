@@ -28,7 +28,7 @@ func shareCardRequest(t *testing.T, initData string, photo []byte) *http.Request
 	return req
 }
 
-// Карточка «похвастаться» сохраняется как публичная картинка, а в ответе —
+// Карточка «поделиться» сохраняется как публичная картинка, а в ответе —
 // личная ссылка на бота (реферальная), чтобы друг со сторис засчитался приглашением.
 func TestShareCardUploadReturnsPublicURLAndBotLink(t *testing.T) {
 	j := newJourney(t)
