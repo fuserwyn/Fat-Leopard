@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchReferralState } from "../lib/referral";
 import {
+  openShareApp,
   openShareLink,
   renderShareCard,
   saveShareImage,
@@ -98,19 +99,20 @@ export function ShareCardSheet({ card, initData, showAlert, onClose }: Props) {
       if (busy) return;
       setBusy(target);
       try {
-        const up = target === "instagram" || target === "tiktok" ? null : await ensureUploaded();
+        const up = await ensureUploaded();
         const caption = shareCardCaption(card, link || up?.link || "");
         if (target === "instagram" || target === "tiktok") {
           const app = target === "instagram" ? "Instagram" : "TikTok";
-          const res = image ? await shareImageViaSystem(image, caption) : "unsupported";
-          if (res !== "unsupported") return;
-          const saved = await ensureUploaded();
-          if (!saved) {
-            showAlert(UPLOAD_FAILED);
+          if (up) {
+            // Картинку — в галерею, затем сразу открываем само приложение:
+            // системное «Поделиться» показывало окно выбора вместо Instagram/TikTok.
+            if (saveShareImage(up.url, () => openShareApp(target))) return;
+            showAlert(`Сохрани картинку и выложи её в сторис ${app} из галереи.`);
             return;
           }
-          saveShareImage(saved.url);
-          showAlert(`Сохрани картинку и выложи её в сторис ${app} из галереи.`);
+          // Без ссылки на картинку сохранить её нечем — остаётся системное «Поделиться».
+          const res = image ? await shareImageViaSystem(image, caption) : "unsupported";
+          if (res === "unsupported") showAlert(UPLOAD_FAILED);
           return;
         }
         if (!up) {
@@ -133,7 +135,7 @@ export function ShareCardSheet({ card, initData, showAlert, onClose }: Props) {
           openShareLink(telegramChatShareUrl(up.url, caption));
           return;
         }
-        openShareLink(vkShareUrl(link || up.link, up.url, caption));
+        openShareApp("vk", vkShareUrl(link || up.link, up.url, caption));
       } finally {
         setBusy(null);
       }

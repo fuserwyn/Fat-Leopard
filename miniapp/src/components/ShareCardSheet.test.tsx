@@ -10,6 +10,7 @@ const shareToTelegramStory = vi.fn();
 const shareImageViaSystem = vi.fn();
 const saveShareImage = vi.fn();
 const openShareLink = vi.fn();
+const openShareApp = vi.fn();
 
 vi.mock("../lib/referral", () => ({ fetchReferralState: (...a: unknown[]) => fetchReferralState(...a) }));
 vi.mock("../lib/shareCard", async (importOriginal) => {
@@ -22,6 +23,7 @@ vi.mock("../lib/shareCard", async (importOriginal) => {
     shareImageViaSystem: (...a: unknown[]) => shareImageViaSystem(...a),
     saveShareImage: (...a: unknown[]) => saveShareImage(...a),
     openShareLink: (...a: unknown[]) => openShareLink(...a),
+    openShareApp: (...a: unknown[]) => openShareApp(...a),
   };
 });
 
@@ -38,6 +40,10 @@ beforeEach(() => {
   uploadShareCard.mockResolvedValue({ url: IMG, link: LINK });
   shareToTelegramStory.mockReturnValue(true);
   shareImageViaSystem.mockResolvedValue("shared");
+  saveShareImage.mockImplementation((_url: string, onDone?: () => void) => {
+    onDone?.();
+    return true;
+  });
   URL.createObjectURL = vi.fn(() => "blob:card");
   URL.revokeObjectURL = vi.fn();
 });
@@ -82,27 +88,38 @@ describe("ShareCardSheet", () => {
     expect(showAlert).toHaveBeenCalledWith(expect.stringContaining("Сохрани картинку"));
   });
 
-  it("чат Telegram и ВКонтакте открывают окна «Поделиться»", async () => {
+  it("чат Telegram — окно «Поделиться», ВКонтакте — сразу в приложении", async () => {
     const { getByText } = await open();
     await click(getByText("В чат Telegram"));
     expect(openShareLink).toHaveBeenLastCalledWith(expect.stringMatching(/^https:\/\/t\.me\/share\/url\?url=https%3A%2F%2Fcdn\.test/));
     await click(getByText("ВКонтакте"));
-    expect(openShareLink).toHaveBeenLastCalledWith(expect.stringMatching(/^https:\/\/vk\.com\/share\.php\?/));
+    expect(openShareApp).toHaveBeenLastCalledWith("vk", expect.stringMatching(/^https:\/\/vk\.com\/share\.php\?/));
   });
 
-  it("Instagram — системное «Поделиться» с файлом", async () => {
+  it("Instagram — сохраняет картинку и открывает само приложение, без системного окна", async () => {
+    const { getByText, showAlert } = await open();
+    await click(getByText("Instagram"));
+    expect(saveShareImage).toHaveBeenCalledWith(IMG, expect.any(Function));
+    expect(openShareApp).toHaveBeenCalledWith("instagram");
+    expect(shareImageViaSystem).not.toHaveBeenCalled();
+    expect(showAlert).not.toHaveBeenCalled();
+  });
+
+  it("TikTok без downloadFile — картинка открыта ссылкой, подсказка", async () => {
+    saveShareImage.mockReturnValue(false);
+    const { getByText, showAlert } = await open();
+    await click(getByText("TikTok"));
+    expect(saveShareImage).toHaveBeenCalledWith(IMG, expect.any(Function));
+    expect(openShareApp).not.toHaveBeenCalled();
+    expect(showAlert).toHaveBeenCalledWith(expect.stringContaining("TikTok"));
+  });
+
+  it("Instagram без загруженной картинки — запасное системное «Поделиться»", async () => {
+    uploadShareCard.mockResolvedValue(null);
     const { getByText, showAlert } = await open();
     await click(getByText("Instagram"));
     expect(shareImageViaSystem).toHaveBeenCalledWith(image, expect.any(String));
     expect(showAlert).not.toHaveBeenCalled();
-  });
-
-  it("TikTok без системного «Поделиться» — сохраняет картинку", async () => {
-    shareImageViaSystem.mockResolvedValue("unsupported");
-    const { getByText, showAlert } = await open();
-    await click(getByText("TikTok"));
-    expect(saveShareImage).toHaveBeenCalledWith(IMG);
-    expect(showAlert).toHaveBeenCalledWith(expect.stringContaining("TikTok"));
   });
 
   it("загрузка не удалась — повторяет по нажатию, потом сообщает об ошибке", async () => {
