@@ -6,8 +6,12 @@ import {
   drawShareCard,
   fitFont,
   levelShareCard,
+  openShareApp,
   openShareLink,
   renderShareCard,
+  SHARE_APP_FALLBACK_MS,
+  shareAppUrl,
+  sharePlatform,
   saveShareImage,
   shareCardCaption,
   shareImageViaSystem,
@@ -258,8 +262,14 @@ describe("публикация", () => {
   it("сохранение картинки", () => {
     const downloadFile = vi.fn();
     setWebApp({ downloadFile });
-    saveShareImage("https://cdn/x.jpg");
+    expect(saveShareImage("https://cdn/x.jpg")).toBe(true);
     expect(downloadFile).toHaveBeenCalledWith({ url: "https://cdn/x.jpg", file_name: "fat-leopard.jpg" });
+    const onDone = vi.fn();
+    expect(saveShareImage("https://cdn/y.jpg", onDone)).toBe(true);
+    const cb = downloadFile.mock.calls[1][1] as (accepted: boolean) => void;
+    expect(onDone).not.toHaveBeenCalled();
+    cb(false);
+    expect(onDone).toHaveBeenCalledTimes(1);
 
     const openLink = vi.fn();
     setWebApp({
@@ -268,7 +278,99 @@ describe("публикация", () => {
         throw new Error("old client");
       },
     });
-    saveShareImage("https://cdn/x.jpg");
+    expect(saveShareImage("https://cdn/x.jpg", vi.fn())).toBe(false);
     expect(openLink).toHaveBeenCalledWith("https://cdn/x.jpg");
+  });
+
+  it("платформа — из Telegram, иначе по User-Agent", () => {
+    setWebApp({ platform: "android" });
+    expect(sharePlatform()).toBe("android");
+    setWebApp({ platform: "ios" });
+    expect(sharePlatform()).toBe("ios");
+    setWebApp({ platform: "tdesktop" });
+    expect(sharePlatform()).toBe("other");
+    setWebApp({});
+    vi.stubGlobal("navigator", { userAgent: "Mozilla/5.0 (Linux; Android 14)" });
+    expect(sharePlatform()).toBe("android");
+    vi.stubGlobal("navigator", { userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0)" });
+    expect(sharePlatform()).toBe("ios");
+    vi.stubGlobal("navigator", { userAgent: "Mozilla/5.0 (X11; Linux x86_64)" });
+    expect(sharePlatform()).toBe("other");
+  });
+
+  it("ссылки приложений: intent с пакетом на Android, схема на iOS", () => {
+    expect(shareAppUrl("instagram", "android")).toBe(
+      "intent://story-camera#Intent;scheme=instagram;package=com.instagram.android;S.browser_fallback_url=https%3A%2F%2Fwww.instagram.com%2F;end",
+    );
+    expect(shareAppUrl("tiktok", "android")).toMatch(
+      /^intent:#Intent;action=android\.intent\.action\.MAIN;category=android\.intent\.category\.LAUNCHER;package=com\.zhiliaoapp\.musically;S\.browser_fallback_url=https%3A%2F%2Fwww\.tiktok\.com%2Fupload;end$/,
+    );
+    const vk = "https://vk.com/share.php?url=x";
+    expect(shareAppUrl("vk", "android", vk)).toBe(
+      `intent://vk.com/share.php?url=x#Intent;scheme=https;package=com.vkontakte.android;S.browser_fallback_url=${encodeURIComponent(vk)};end`,
+    );
+    expect(shareAppUrl("vk", "android")).toContain("package=com.vkontakte.android");
+    expect(shareAppUrl("instagram", "ios")).toBe("instagram://story-camera");
+    expect(shareAppUrl("tiktok", "ios")).toBe("snssdk1233://");
+    expect(shareAppUrl("vk", "ios", vk)).toBe("");
+    expect(shareAppUrl("instagram", "other")).toBe("");
+  });
+
+  it("openShareApp: открывает приложение, а если оно не открылось — сайт", () => {
+    vi.useFakeTimers();
+    try {
+      const openLink = vi.fn();
+      const nav = vi.fn();
+      // Не мобильный клиент — сразу сайт.
+      setWebApp({ platform: "tdesktop", openLink });
+      openShareApp("instagram", undefined, nav);
+      expect(nav).not.toHaveBeenCalled();
+      expect(openLink).toHaveBeenLastCalledWith("https://www.instagram.com/");
+
+      // Приложение открылось (мини-апп ушёл в фон) — сайт не открываем.
+      openLink.mockClear();
+      setWebApp({ platform: "android", openLink });
+      openShareApp("instagram", undefined, nav);
+      expect(nav).toHaveBeenLastCalledWith(expect.stringMatching(/^intent:\/\/story-camera#Intent;/));
+      window.dispatchEvent(new Event("blur"));
+      vi.advanceTimersByTime(SHARE_APP_FALLBACK_MS);
+      expect(openLink).not.toHaveBeenCalled();
+
+      // Ушли в фон по visibilitychange.
+      setWebApp({ platform: "ios", openLink });
+      openShareApp("tiktok", undefined, nav);
+      expect(nav).toHaveBeenLastCalledWith("snssdk1233://");
+      const vis = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+      document.dispatchEvent(new Event("visibilitychange"));
+      vis.mockRestore();
+      vi.advanceTimersByTime(SHARE_APP_FALLBACK_MS);
+      expect(openLink).not.toHaveBeenCalled();
+
+      // Видимость не поменялась — приложения нет, открываем сайт.
+      document.dispatchEvent(new Event("visibilitychange"));
+      openShareApp("tiktok", undefined, nav);
+      vi.advanceTimersByTime(SHARE_APP_FALLBACK_MS);
+      expect(openLink).toHaveBeenLastCalledWith("https://www.tiktok.com/upload");
+
+      // WebView не пустил по схеме — тоже сайт.
+      openShareApp(
+        "vk",
+        "https://vk.com/share.php?url=x",
+        () => {
+          throw new Error("blocked");
+        },
+      );
+      vi.advanceTimersByTime(SHARE_APP_FALLBACK_MS);
+      expect(openLink).toHaveBeenLastCalledWith("https://vk.com/share.php?url=x");
+
+      // Навигация по умолчанию — через window.location.
+      setWebApp({ platform: "android", openLink });
+      const err = vi.spyOn(console, "error").mockImplementation(() => {});
+      openShareApp("vk");
+      err.mockRestore();
+      vi.runAllTimers();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

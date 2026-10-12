@@ -5,9 +5,10 @@
  *  - сторис Telegram — WebApp.shareToStory (нужен публичный https-адрес картинки,
  *    поэтому картинка сначала грузится на сервер: POST /api/miniapp/share/card);
  *  - чат Telegram — окно t.me/share/url со ссылкой на картинку и на бота;
- *  - ВКонтакте — vk.com/share.php;
- *  - Instagram и TikTok — системное «Поделиться» с файлом (navigator.share), а если
- *    WebView его не умеет — картинка сохраняется, и её можно выложить из галереи.
+ *  - ВКонтакте — vk.com/share.php, открытый сразу в приложении ВК (openShareApp);
+ *  - Instagram и TikTok — картинка сохраняется в галерею, и сразу открывается само
+ *    приложение (без системного окна выбора приложений); если картинку не удалось
+ *    загрузить — запасной путь через системное «Поделиться» (navigator.share).
  */
 import { achievementLabel, parseAchievementKey, type AchievementKey } from "./achievements";
 import { miniappLevelEmoji, miniappLevelName } from "./miniappLevel";
@@ -374,16 +375,133 @@ export async function shareImageViaSystem(image: Blob, caption: string): Promise
   }
 }
 
-/** Сохраняет картинку на устройство: Telegram downloadFile, иначе — открыть её в браузере. */
-export function saveShareImage(imageUrl: string): void {
+/**
+ * Сохраняет картинку на устройство: Telegram downloadFile, иначе — открыть её в браузере.
+ * true — картинку сохраняет Telegram; onDone вызовется, когда пользователь ответит
+ * на запрос о скачивании. false — картинка открыта ссылкой, onDone не вызывается.
+ */
+export function saveShareImage(imageUrl: string, onDone?: () => void): boolean {
   const wa = window.Telegram?.WebApp;
   if (wa?.downloadFile) {
     try {
-      wa.downloadFile({ url: imageUrl, file_name: "fat-leopard.jpg" });
-      return;
+      const params = { url: imageUrl, file_name: "fat-leopard.jpg" };
+      if (onDone) wa.downloadFile(params, () => onDone());
+      else wa.downloadFile(params);
+      return true;
     } catch {
       /* старый клиент — откроем картинку ссылкой */
     }
   }
   openShareLink(imageUrl);
+  return false;
+}
+
+export type ShareApp = "instagram" | "tiktok" | "vk";
+export type SharePlatform = "android" | "ios" | "other";
+
+type ShareAppInfo = {
+  /** Пакет Android: intent с явным пакетом открывает приложение без окна выбора. */
+  pkg: string;
+  /** Как открыть на Android: своя схема (instagram://story-camera) или главный экран. */
+  android: { scheme: string; path: string } | null;
+  /** URL-схема приложения на iOS; пусто — открываем универсальной https-ссылкой. */
+  ios: string;
+  /** Сайт — если приложения нет или платформа не мобильная. */
+  web: string;
+};
+
+const SHARE_APPS: Record<ShareApp, ShareAppInfo> = {
+  instagram: {
+    pkg: "com.instagram.android",
+    android: { scheme: "instagram", path: "story-camera" },
+    ios: "instagram://story-camera",
+    web: "https://www.instagram.com/",
+  },
+  tiktok: {
+    pkg: "com.zhiliaoapp.musically",
+    android: null,
+    ios: "snssdk1233://",
+    web: "https://www.tiktok.com/upload",
+  },
+  vk: {
+    pkg: "com.vkontakte.android",
+    android: null,
+    ios: "",
+    web: "https://vk.com/",
+  },
+};
+
+/** Платформа: из Telegram WebApp, иначе — по User-Agent. */
+export function sharePlatform(): SharePlatform {
+  const p = (window.Telegram?.WebApp?.platform ?? "").toLowerCase();
+  if (p === "android" || p === "android_x") return "android";
+  if (p === "ios") return "ios";
+  if (p) return "other";
+  const ua = typeof navigator !== "undefined" ? navigator.userAgent || "" : "";
+  if (/android/i.test(ua)) return "android";
+  if (/iphone|ipad|ipod/i.test(ua)) return "ios";
+  return "other";
+}
+
+/**
+ * Ссылка, открывающая само приложение. Android — intent:// с явным пакетом (так система
+ * не показывает окно выбора приложений) и запасным адресом; iOS — схема приложения.
+ * Пустая строка — открывать webUrl обычной ссылкой.
+ */
+export function shareAppUrl(app: ShareApp, platform: SharePlatform, webUrl = SHARE_APPS[app].web): string {
+  const info = SHARE_APPS[app];
+  const fallback = `S.browser_fallback_url=${encodeURIComponent(webUrl)}`;
+  if (platform === "android") {
+    if (info.android) {
+      return `intent://${info.android.path}#Intent;scheme=${info.android.scheme};package=${info.pkg};${fallback};end`;
+    }
+    if (webUrl !== info.web && /^https:\/\//.test(webUrl)) {
+      // Ссылку (окно «Поделиться» ВК) отдаём прямо приложению — оно ловит свои https-адреса.
+      return `intent://${webUrl.slice("https://".length)}#Intent;scheme=https;package=${info.pkg};${fallback};end`;
+    }
+    return `intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=${info.pkg};${fallback};end`;
+  }
+  if (platform === "ios") return info.ios;
+  return "";
+}
+
+/** Переход WebView по ссылке приложения (вынесено, чтобы подменять в тестах). */
+function navigateWebView(url: string): void {
+  window.location.href = url;
+}
+
+/** Сколько ждём, что приложение откроется, прежде чем открыть сайт. */
+export const SHARE_APP_FALLBACK_MS = 2000;
+
+/**
+ * Открывает приложение напрямую, без системного окна выбора. Если за пару секунд
+ * мини-апп не ушёл в фон (приложения нет) — открывает webUrl (сайт или окно «Поделиться»).
+ */
+export function openShareApp(app: ShareApp, webUrl = SHARE_APPS[app].web, navigate: (url: string) => void = navigateWebView): void {
+  const url = shareAppUrl(app, sharePlatform(), webUrl);
+  if (!url) {
+    openShareLink(webUrl);
+    return;
+  }
+  let left = false;
+  const onHide = () => {
+    if (document.visibilityState === "hidden") left = true;
+  };
+  const onBlur = () => {
+    left = true;
+  };
+  document.addEventListener("visibilitychange", onHide);
+  window.addEventListener("pagehide", onBlur);
+  window.addEventListener("blur", onBlur);
+  try {
+    navigate(url);
+  } catch {
+    /* WebView не пустил по схеме — сразу откроем сайт */
+  }
+  window.setTimeout(() => {
+    document.removeEventListener("visibilitychange", onHide);
+    window.removeEventListener("pagehide", onBlur);
+    window.removeEventListener("blur", onBlur);
+    if (!left) openShareLink(webUrl);
+  }, SHARE_APP_FALLBACK_MS);
 }
