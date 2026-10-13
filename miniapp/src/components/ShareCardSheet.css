@@ -155,6 +155,35 @@
   color: #ffb347;
 }
 
+/* «Сохранить картинку» — для Instagram и TikTok, где её выбирают из галереи. */
+.share-card-sheet__save {
+  width: 100%;
+  padding: 11px;
+  border: 1.5px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  border-radius: 14px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.share-card-sheet__save:disabled {
+  opacity: 0.55;
+}
+
+.share-card-sheet__save.is-busy {
+  opacity: 1;
+  animation: share-card-pulse 0.9s ease-in-out infinite;
+}
+
+.share-card-sheet__hint {
+  font-size: 12px;
+  line-height: 1.3;
+  text-align: center;
+  opacity: 0.65;
+}
+
 .share-card-sheet__close {
   width: 100%;
   padding: 12px;

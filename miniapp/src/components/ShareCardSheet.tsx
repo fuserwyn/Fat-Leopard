@@ -46,7 +46,7 @@ export function ShareCardSheet({ card, initData, showAlert, onClose }: Props) {
   const [image, setImage] = useState<Blob | null>(null);
   const [preview, setPreview] = useState("");
   const [ready, setReady] = useState(false);
-  const [busy, setBusy] = useState<ShareTarget | null>(null);
+  const [busy, setBusy] = useState<ShareTarget | "save" | null>(null);
   // Загрузку начинаем сразу после отрисовки: к нажатию кнопки ссылка на картинку
   // обычно уже готова, и Telegram открывает сторис/чат без задержки.
   const upload = useRef<Promise<UploadedShareCard | null> | null>(null);
@@ -94,27 +94,40 @@ export function ShareCardSheet({ card, initData, showAlert, onClose }: Props) {
     return up;
   }, [image, initData, link]);
 
+  /**
+   * Отдельная кнопка «Сохранить картинку»: в Instagram и TikTok картинку выбирают
+   * из галереи, поэтому её можно сохранить заранее, не задерживая переход в приложение.
+   */
+  const save = useCallback(async () => {
+    if (busy) return;
+    setBusy("save");
+    try {
+      const up = await ensureUploaded();
+      if (up) {
+        if (!saveShareImage(up.url)) showAlert("Картинка открыта — сохрани её долгим нажатием.");
+        return;
+      }
+      // Без ссылки на картинку сохранить её через Telegram нечем — системное «Поделиться».
+      const res = image ? await shareImageViaSystem(image, shareCardCaption(card, link)) : "unsupported";
+      if (res === "unsupported") showAlert(UPLOAD_FAILED);
+    } finally {
+      setBusy(null);
+    }
+  }, [busy, card, ensureUploaded, image, link, showAlert]);
+
   const share = useCallback(
     async (target: ShareTarget) => {
       if (busy) return;
+      if (target === "instagram" || target === "tiktok") {
+        // Сразу в приложение (Instagram — на камеру сторис), прямо по нажатию:
+        // без ожидания загрузки и без вопроса Telegram «скачать файл?».
+        openShareApp(target);
+        return;
+      }
       setBusy(target);
       try {
         const up = await ensureUploaded();
         const caption = shareCardCaption(card, link || up?.link || "");
-        if (target === "instagram" || target === "tiktok") {
-          const app = target === "instagram" ? "Instagram" : "TikTok";
-          if (up) {
-            // Картинку — в галерею, затем сразу открываем само приложение:
-            // системное «Поделиться» показывало окно выбора вместо Instagram/TikTok.
-            if (saveShareImage(up.url, () => openShareApp(target))) return;
-            showAlert(`Сохрани картинку и выложи её в сторис ${app} из галереи.`);
-            return;
-          }
-          // Без ссылки на картинку сохранить её нечем — остаётся системное «Поделиться».
-          const res = image ? await shareImageViaSystem(image, caption) : "unsupported";
-          if (res === "unsupported") showAlert(UPLOAD_FAILED);
-          return;
-        }
         if (!up) {
           // Без картинки в чат всё равно можно позвать по ссылке на бота.
           if (target === "tg-chat" && link) {
@@ -140,7 +153,7 @@ export function ShareCardSheet({ card, initData, showAlert, onClose }: Props) {
         setBusy(null);
       }
     },
-    [busy, card, ensureUploaded, image, link, showAlert],
+    [busy, card, ensureUploaded, link, showAlert],
   );
 
   return (
@@ -182,6 +195,16 @@ export function ShareCardSheet({ card, initData, showAlert, onClose }: Props) {
             </button>
           ))}
         </div>
+        <button
+          type="button"
+          className={`share-card-sheet__save${busy === "save" ? " is-busy" : ""}`}
+          disabled={!ready || busy != null}
+          aria-busy={busy === "save"}
+          onClick={() => void save()}
+        >
+          Сохранить картинку
+        </button>
+        <div className="share-card-sheet__hint">Для Instagram и TikTok сохрани картинку и выбери её из галереи в сторис.</div>
         <button type="button" className="share-card-sheet__close" onClick={onClose}>
           Закрыть
         </button>
