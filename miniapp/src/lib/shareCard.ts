@@ -6,9 +6,10 @@
  *    поэтому картинка сначала грузится на сервер: POST /api/miniapp/share/card);
  *  - чат Telegram — окно t.me/share/url со ссылкой на картинку и на бота;
  *  - ВКонтакте — vk.com/share.php, открытый сразу в приложении ВК (openShareApp);
- *  - Instagram и TikTok — картинка сохраняется в галерею, и сразу открывается само
- *    приложение (без системного окна выбора приложений); если картинку не удалось
- *    загрузить — запасной путь через системное «Поделиться» (navigator.share).
+ *  - Instagram и TikTok — по нажатию сразу открывается само приложение (Instagram —
+ *    на камере сторис), без системного окна выбора и без вопроса о скачивании;
+ *    картинку для галереи сохраняет отдельная кнопка «Сохранить картинку»
+ *    (saveShareImage, а без загрузки на сервер — системное «Поделиться»).
  */
 import { achievementLabel, parseAchievementKey, type AchievementKey } from "./achievements";
 import { miniappLevelEmoji, miniappLevelName } from "./miniappLevel";
