@@ -24,14 +24,17 @@ type Config struct {
 	TrackerDatabaseURL    string
 	LogLevel              string
 	OpenRouterAPIKey      string
-	OpenRouterModel       string        // Модель OpenRouter (по умолчанию deepseek/deepseek-chat)
-	OpenRouterVisionModel string        // Vision-модель для анализа фото (основная — текстовая); пусто = vision выключен
+	OpenRouterModel       string // Модель OpenRouter (по умолчанию deepseek/deepseek-chat)
+	OpenRouterVisionModel string // Vision-модель для анализа фото (основная — текстовая); пусто = vision выключен
+	// OpenRouterFallbackModels — запасные модели (OPENROUTER_FALLBACK_MODELS, через
+	// запятую): OpenRouter переключается на них, когда основная перегружена (429).
+	OpenRouterFallbackModels []string
 	// LeoTasksModel — модель Claude, которой Лео придумывает задачи и спринты
 	// для доски (LEO_TASKS_MODEL, напр. claude-sonnet-5-5). Запрос идёт через
 	// Claude Agent SDK в ms_tracker; пусто — модель трекера по умолчанию.
-	LeoTasksModel string
-	OpenRouterTimeout     time.Duration // HTTP-таймаут к OpenRouter (весь запрос + чтение тела)
-	ScanHistoryOnStart    bool          // Сканировать историю при старте (по умолчанию false)
+	LeoTasksModel      string
+	OpenRouterTimeout  time.Duration // HTTP-таймаут к OpenRouter (весь запрос + чтение тела)
+	ScanHistoryOnStart bool          // Сканировать историю при старте (по умолчанию false)
 
 	// Платный доступ к Fat Leopard MiniApp (Telegram Payments + ЮKassa).
 	// Архитектура mini-app-only: TG-группы как сущности больше нет, MonetizedChatID
@@ -195,39 +198,40 @@ func Load() (*Config, error) {
 	ykMinor, ykCur := yookassaAmountAndCurrencyFromEnv(currency, amountMinor)
 
 	return &Config{
-		APIToken:              apiToken,
-		OwnerID:               ownerID,
-		BoardSecret:           firstNonEmpty(getEnv("TRACKER_SECRET", ""), getEnv("BOARD_SSO_SECRET", "")),
-		BoardURL:              firstNonEmpty(getEnv("TRACKER_URL", ""), getEnv("MYVIBELAB_URL", "")),
-		BoardRepo:             getEnv("BOARD_REPO", "fuserwyn/Fat-Leopard"),
-		BoardBranch:           getEnv("BOARD_BRANCH", ""),
-		BoardModel:            getEnv("BOARD_MODEL", ""),
-		BoardReviewModel:      getEnv("BOARD_REVIEW_MODEL", "cursor-composer"),
-		RailwayToken:          getEnv("RAILWAY_API_TOKEN", ""),
-		LabEnvironmentID:      getEnv("LAB_ENVIRONMENT_ID", ""),
-		LabServices:           getEnv("LAB_SERVICE_IDS", ""),
-		LabMiniappURL:         getEnv("LAB_MINIAPP_URL", ""),
-		RailwayProjectID:      getEnv("RAILWAY_PROJECT_ID", ""),
-		RailwayEnvironmentID:  getEnv("RAILWAY_ENVIRONMENT_ID", ""),
-		UsagePriceRAMGBMonth:  parseFloatEnv("USAGE_PRICE_RAM_GB_MONTH", 10),
-		UsagePriceCPUMonth:    parseFloatEnv("USAGE_PRICE_CPU_MONTH", 20),
-		UsagePriceDiskGBMonth: parseFloatEnv("USAGE_PRICE_DISK_GB_MONTH", 0.15),
-		UsagePriceEgressGB:    parseFloatEnv("USAGE_PRICE_EGRESS_GB", 0.05),
-		UsageMinutesPerMonth:  parseFloatEnv("USAGE_MINUTES_PER_MONTH", 43800),
-		UsdRubRate:            parseFloatEnv("USD_RUB_RATE", 90),
-		UsdPerStar:            parseFloatEnv("USD_PER_STAR", 0.013),
-		AdminIDs:              adminIDs,
-		AlphaTesterIDs:        alphaTesterIDs,
-		DatabaseURL:           getEnv("DATABASE_URL", "postgresql://postgres:password@localhost:5432/leo_bot_db?sslmode=disable"),
-		TrackerDatabaseURL:    strings.TrimSpace(getEnv("TRACKER_DATABASE_URL", "")),
-		LogLevel:              getEnv("LOG_LEVEL", "info"),
-		OpenRouterAPIKey:      getEnv("OPENROUTER_API_KEY", ""),
-		OpenRouterModel:       getEnv("OPENROUTER_MODEL", "deepseek/deepseek-chat"),
-		OpenRouterVisionModel: getEnv("OPENROUTER_VISION_MODEL", "openai/gpt-4o-mini"),
-		LeoTasksModel:         getEnv("LEO_TASKS_MODEL", ""),
-		OpenRouterTimeout:     orTimeout,
-		ScanHistoryOnStart:    scanHistoryOnStart,
-		Prompts:               prompts.DefaultBundle(),
+		APIToken:                 apiToken,
+		OwnerID:                  ownerID,
+		BoardSecret:              firstNonEmpty(getEnv("TRACKER_SECRET", ""), getEnv("BOARD_SSO_SECRET", "")),
+		BoardURL:                 firstNonEmpty(getEnv("TRACKER_URL", ""), getEnv("MYVIBELAB_URL", "")),
+		BoardRepo:                getEnv("BOARD_REPO", "fuserwyn/Fat-Leopard"),
+		BoardBranch:              getEnv("BOARD_BRANCH", ""),
+		BoardModel:               getEnv("BOARD_MODEL", ""),
+		BoardReviewModel:         getEnv("BOARD_REVIEW_MODEL", "cursor-composer"),
+		RailwayToken:             getEnv("RAILWAY_API_TOKEN", ""),
+		LabEnvironmentID:         getEnv("LAB_ENVIRONMENT_ID", ""),
+		LabServices:              getEnv("LAB_SERVICE_IDS", ""),
+		LabMiniappURL:            getEnv("LAB_MINIAPP_URL", ""),
+		RailwayProjectID:         getEnv("RAILWAY_PROJECT_ID", ""),
+		RailwayEnvironmentID:     getEnv("RAILWAY_ENVIRONMENT_ID", ""),
+		UsagePriceRAMGBMonth:     parseFloatEnv("USAGE_PRICE_RAM_GB_MONTH", 10),
+		UsagePriceCPUMonth:       parseFloatEnv("USAGE_PRICE_CPU_MONTH", 20),
+		UsagePriceDiskGBMonth:    parseFloatEnv("USAGE_PRICE_DISK_GB_MONTH", 0.15),
+		UsagePriceEgressGB:       parseFloatEnv("USAGE_PRICE_EGRESS_GB", 0.05),
+		UsageMinutesPerMonth:     parseFloatEnv("USAGE_MINUTES_PER_MONTH", 43800),
+		UsdRubRate:               parseFloatEnv("USD_RUB_RATE", 90),
+		UsdPerStar:               parseFloatEnv("USD_PER_STAR", 0.013),
+		AdminIDs:                 adminIDs,
+		AlphaTesterIDs:           alphaTesterIDs,
+		DatabaseURL:              getEnv("DATABASE_URL", "postgresql://postgres:password@localhost:5432/leo_bot_db?sslmode=disable"),
+		TrackerDatabaseURL:       strings.TrimSpace(getEnv("TRACKER_DATABASE_URL", "")),
+		LogLevel:                 getEnv("LOG_LEVEL", "info"),
+		OpenRouterAPIKey:         getEnv("OPENROUTER_API_KEY", ""),
+		OpenRouterModel:          getEnv("OPENROUTER_MODEL", "deepseek/deepseek-chat"),
+		OpenRouterVisionModel:    getEnv("OPENROUTER_VISION_MODEL", "openai/gpt-4o-mini"),
+		OpenRouterFallbackModels: splitList(getEnv("OPENROUTER_FALLBACK_MODELS", "deepseek/deepseek-v3.2,openai/gpt-4o-mini")),
+		LeoTasksModel:            getEnv("LEO_TASKS_MODEL", ""),
+		OpenRouterTimeout:        orTimeout,
+		ScanHistoryOnStart:       scanHistoryOnStart,
+		Prompts:                  prompts.DefaultBundle(),
 
 		PaywallEnabled:                  paywallEnabled,
 		PaywallEntryFree:                entryFree,
@@ -605,4 +609,15 @@ func yookassaAmountAndCurrencyFromEnv(paymentCurrency string, paymentAmountMinor
 		return n, "RUB"
 	}
 	return 0, ""
+}
+
+// splitList — «a, b,,c» → [a b c].
+func splitList(raw string) []string {
+	var out []string
+	for _, part := range strings.Split(raw, ",") {
+		if part = strings.TrimSpace(part); part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
 }

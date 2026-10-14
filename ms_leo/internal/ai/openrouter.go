@@ -14,14 +14,16 @@ import (
 )
 
 type OpenRouterClient struct {
-	apiKey        string
-	baseURL       string
-	model         string // Модель по умолчанию (текстовая)
-	visionModel   string // Vision-модель для анализа изображений (пусто = vision выключен)
-	logger        logger.Logger
-	httpClient    *http.Client
-	promptsBundle prompts.Bundle
-	livePrompts   func() prompts.Bundle
+	apiKey      string
+	baseURL     string
+	model       string // Модель по умолчанию (текстовая)
+	visionModel string // Vision-модель для анализа изображений (пусто = vision выключен)
+	// fallbackModels — запасные модели для Chat, если основная перегружена.
+	fallbackModels []string
+	logger         logger.Logger
+	httpClient     *http.Client
+	promptsBundle  prompts.Bundle
+	livePrompts    func() prompts.Bundle
 }
 
 // SetVisionModel задаёт vision-модель (slug OpenRouter). Пустая строка отключает анализ фото.
@@ -60,7 +62,10 @@ type ChatMessage struct {
 }
 
 type ChatRequest struct {
-	Model    string        `json:"model"`
+	Model string `json:"model"`
+	// Models — запасные модели по порядку: OpenRouter сам переключается на
+	// следующую, если предыдущая перегружена (429), упала или отказала.
+	Models   []string      `json:"models,omitempty"`
 	Messages []ChatMessage `json:"messages"`
 	Stream   bool          `json:"stream,omitempty"`
 }
@@ -111,25 +116,85 @@ func NewOpenRouterClient(apiKey string, defaultModel string, p prompts.Bundle, l
 }
 
 // Chat отправляет запрос к OpenRouter API и возвращает ответ
+// chatRetryDelays — паузы между повторами, когда OpenRouter перегружен или
+// недоступен. Переменная, чтобы тесты не ждали.
+var chatRetryDelays = []time.Duration{2 * time.Second, 6 * time.Second}
+
+// SetFallbackModels — запасные модели для Chat (OPENROUTER_FALLBACK_MODELS).
+func (c *OpenRouterClient) SetFallbackModels(models []string) {
+	c.fallbackModels = nil
+	for _, m := range models {
+		if m = strings.TrimSpace(m); m != "" {
+			c.fallbackModels = append(c.fallbackModels, m)
+		}
+	}
+}
+
+// modelChain — основная модель и запасные без повторов.
+func (c *OpenRouterClient) modelChain(model string) []string {
+	out := []string{model}
+	for _, m := range c.fallbackModels {
+		dup := false
+		for _, x := range out {
+			dup = dup || x == m
+		}
+		if !dup {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
+// chatRetryable — сбой временный: перегрузка, ошибка шлюза, обрыв сети.
+func chatRetryable(status int) bool {
+	return status == http.StatusTooManyRequests || status == http.StatusBadGateway ||
+		status == http.StatusServiceUnavailable || status == http.StatusGatewayTimeout || status == 0
+}
+
+// Chat отправляет запрос к OpenRouter API и возвращает ответ.
+//
+// Перегрузка модели (429) — обычное дело у дешёвых моделей: раньше ответ Лео
+// в таком случае просто терялся. Теперь OpenRouter получает список запасных
+// моделей, а если не ответили и они — запрос повторяется с паузой.
 func (c *OpenRouterClient) Chat(messages []ChatMessage, model string) (string, error) {
 	if model == "" {
 		model = c.model // Используем модель из конфига
 	}
-
 	request := ChatRequest{
 		Model:    model,
 		Messages: messages,
 		Stream:   false,
 	}
-
+	if chain := c.modelChain(model); len(chain) > 1 {
+		request.Models = chain
+	}
 	jsonData, err := json.Marshal(request)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal request: %w", err)
 	}
 
+	var lastErr error
+	for attempt := 0; ; attempt++ {
+		text, status, err := c.chatOnce(jsonData)
+		if err == nil {
+			return text, nil
+		}
+		lastErr = err
+		if !chatRetryable(status) || attempt >= len(chatRetryDelays) {
+			return "", lastErr
+		}
+		if c.logger != nil {
+			c.logger.Warnf("openrouter: %v — повтор через %s", err, chatRetryDelays[attempt])
+		}
+		time.Sleep(chatRetryDelays[attempt])
+	}
+}
+
+// chatOnce — один запрос. status 0 — до ответа сервера не дошло.
+func (c *OpenRouterClient) chatOnce(jsonData []byte) (string, int, error) {
 	req, err := http.NewRequest("POST", c.baseURL, bytes.NewBuffer(jsonData))
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
+		return "", -1, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -139,7 +204,7 @@ func (c *OpenRouterClient) Chat(messages []ChatMessage, model string) (string, e
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("failed to send request: %w", err)
+		return "", 0, fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -149,22 +214,22 @@ func (c *OpenRouterClient) Chat(messages []ChatMessage, model string) (string, e
 
 		// Специальная обработка ошибки политики данных для бесплатных моделей
 		if resp.StatusCode == 404 && strings.Contains(errorMsg, "data policy") {
-			return "", fmt.Errorf("OpenRouter API требует настройки политики данных. Перейди на https://openrouter.ai/settings/privacy и включи 'Model Training' для бесплатных моделей. Ошибка: %s", errorMsg)
+			return "", resp.StatusCode, fmt.Errorf("OpenRouter API требует настройки политики данных. Перейди на https://openrouter.ai/settings/privacy и включи 'Model Training' для бесплатных моделей. Ошибка: %s", errorMsg)
 		}
 
-		return "", fmt.Errorf("API error (status %d): %s", resp.StatusCode, errorMsg)
+		return "", resp.StatusCode, fmt.Errorf("API error (status %d): %s", resp.StatusCode, errorMsg)
 	}
 
 	var response ChatResponse
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		return "", fmt.Errorf("failed to decode response: %w", err)
+		return "", -1, fmt.Errorf("failed to decode response: %w", err)
 	}
 
 	if len(response.Choices) == 0 {
-		return "", fmt.Errorf("no choices in response")
+		return "", -1, fmt.Errorf("no choices in response")
 	}
 
-	return response.Choices[0].Message.Content, nil
+	return response.Choices[0].Message.Content, resp.StatusCode, nil
 }
 
 // GenerateDailySummary генерирует ежедневную сводку о тренировках
