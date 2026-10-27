@@ -117,6 +117,7 @@ func (b *Bot) MiniappAdminAnalyticsData(
 		{database.EventChallengeCompleted, "Прошёл челлендж"},
 		{database.EventChallengeFailed, "Провалил челлендж"},
 		{database.EventChallengeCreated, "Создал челлендж"},
+		{database.EventJointTrainingInvite, "Позвал на тренировку"},
 	} {
 		retention.Rows = append(retention.Rows, []string{r[1], strconv.FormatInt(counts[r[0]], 10)})
 	}

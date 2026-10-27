@@ -58,6 +58,8 @@ const (
 
 	// Приглашение друга: 10 друзей с первой тренировкой — попытка спасти стрик
 	EventReferralRewardGranted = "referral_reward_granted"
+	// Совместная тренировка: отмеченному через @ник, которого нет в стае, ушёл инвайт
+	EventJointTrainingInvite = "joint_training_invite_sent"
 
 	// UGC, Лео, модерация
 	EventFeedReactionAdded    = "feed_reaction_added"
