@@ -218,6 +218,7 @@ func (b *Bot) showAdminAnalyticsFunnel3(chatID int64, days int) {
 		{database.EventChallengeCompleted, "Прошёл челлендж"},
 		{database.EventChallengeFailed, "Провалил челлендж"},
 		{database.EventChallengeCreated, "Создал челлендж"},
+		{database.EventJointTrainingInvite, "Позвал на трен."},
 	}
 
 	tbl := newAdminTable([]string{"Событие", "Юзеры"}, []int{16, 6})

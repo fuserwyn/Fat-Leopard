@@ -1819,6 +1819,26 @@ var Migrations = []Migration{
 			DROP TABLE IF EXISTS referrals;
 		`,
 	},
+	{
+		Version:     91,
+		Description: "Совместные тренировки: инвайты в стаю тем, кого отметили в отчёте через @ник",
+		UpSQL: `
+			-- Один инвайт на пару «кто отметил → @ник» за период: повторная отметка не спамит.
+			-- invitee_user_id = 0, если бот этого человека не знает и ссылку пересылает сам отметивший.
+			CREATE TABLE IF NOT EXISTS joint_training_invites (
+				inviter_user_id  BIGINT NOT NULL,
+				invitee_username TEXT   NOT NULL,
+				invitee_user_id  BIGINT NOT NULL DEFAULT 0,
+				sent_at          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+				PRIMARY KEY (inviter_user_id, invitee_username)
+			);
+			CREATE INDEX IF NOT EXISTS joint_training_invites_invitee_idx
+				ON joint_training_invites (invitee_user_id);
+		`,
+		DownSQL: `
+			DROP TABLE IF EXISTS joint_training_invites;
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции
