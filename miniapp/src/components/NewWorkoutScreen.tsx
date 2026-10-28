@@ -8,6 +8,7 @@ import { CameraButton } from "./CameraButton";
 import { hapticImpact, hapticNotification } from "../lib/haptics";
 import "./NewWorkoutScreen.css";
 import { clipboardImageFile } from "../lib/clipboardImage";
+import { WORKOUT_NOTE_PLACEHOLDER } from "../lib/workoutNote";
 
 type ViewportMetrics = {
   /** Высота видимой области (над клавиатурой). */
@@ -450,7 +451,7 @@ export function NewWorkoutScreen({
             rows={3}
             onChange={(e) => setNote(e.target.value.slice(0, NOTE_MAX))}
             maxLength={NOTE_MAX}
-            placeholder="Как прошла тренировка, что интересного было…"
+            placeholder={WORKOUT_NOTE_PLACEHOLDER}
             enterKeyHint="done"
             autoCorrect="on"
             spellCheck
