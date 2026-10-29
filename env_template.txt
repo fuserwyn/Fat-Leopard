@@ -6,6 +6,9 @@ FAT_LEOPARD_API_TOKEN=your_bot_token_here
 
 # Owner ID (ваш Telegram ID)
 OWNER_ID=your_telegram_id_here
+# Очередь оплаты сервера (напоминание 20-го числа): Telegram ID по порядку — Стас, Анна, lofi.
+# Первый платит в ноябре 2026, дальше по кругу. Пусто — очередь из OWNER_ID + ADMIN_IDS.
+SERVER_PAYMENT_ADMIN_IDS=
 
 # PostgreSQL Database Configuration
 # ВАЖНО: Используйте формат postgresql:// (не postgresql+asyncpg://)

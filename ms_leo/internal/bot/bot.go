@@ -223,6 +223,8 @@ func (b *Bot) Start(ctx context.Context) error {
 	go b.startTrackerDueScheduler(ctx)
 	// Повторное уведомление админам, если аппрув завис больше часа (см. tracker_approval_reminder.go).
 	go b.startTrackerApprovalReminderScheduler(ctx)
+	// 20-го числа — напоминание очередному админу оплатить сервер (см. server_payment_reminder.go).
+	go b.startServerPaymentReminderScheduler(ctx)
 	// Periodic-страховка от пропущенных киков (см. startInactivityKickWatchdog).
 	go b.startInactivityKickWatchdog(ctx)
 	// Напоминания «внеси тренировку» в локальный час пользователя (см. startWorkoutReminderScheduler).
