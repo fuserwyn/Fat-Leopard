@@ -78,6 +78,33 @@ func TestJointTrainingMentionsNotifyAndInvite(t *testing.T) {
 }
 
 // Бот не смог доставить инвайт — ссылку получает отметивший.
+// Отметка @Имя кириллицей: выбывший из стаи с display_name получает инвайт;
+// неизвестное имя — ссылку для пересылки отметившему.
+func TestJointTrainingCyrillicDisplayOutsidePack(t *testing.T) {
+	b, tg, db := newIntegrationBot(t, nil)
+	seedMember(t, db, itUser, "leopard", false)
+	const guest = int64(555020)
+	seedMember(t, db, guest, "guest_tg", true)
+	if _, err := db.Exec(
+		`INSERT INTO miniapp_user_profile (user_id, pack_chat_id, display_name) VALUES ($1, $2, 'Аня')`,
+		guest, itPack,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	b.notifyJointTrainingMentions(itPack, itUser, "@leopard", "бег, 30 мин, интенсивность 3/5\n\nс @Аня")
+	if got := joinedTexts(tg.textsTo(guest)); !strings.Contains(got, "на совместной тренировке в стае") {
+		t.Fatalf("инвайт по display_name: %q", got)
+	}
+
+	tg.reset()
+	logWorkout(b, itUser, "бег, 30 мин, интенсивность 3/5\n\nс @Маша")
+	author := joinedTexts(tg.textsTo(itUser))
+	if !strings.Contains(author, "@маша пока нет в стае") {
+		t.Fatalf("неизвестное кириллическое имя — ссылка отметившему: %q", author)
+	}
+}
+
 func TestJointTrainingInviteFallbackWhenDMFails(t *testing.T) {
 	b, tg, db := newIntegrationBot(t, nil)
 	seedMember(t, db, itUser, "leopard", false)
