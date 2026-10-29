@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { STREAK_ACHIEVEMENTS, WORKOUT_ACHIEVEMENTS, workoutsWordRu } from "../lib/achievements";
 import { inactivityHighlight } from "../lib/inactivityHighlight";
+import { detectTimezoneInfo } from "../lib/timezoneSync";
 import { inactiveDaysFromRemovalRemaining, removalRemainingUntil } from "../lib/inactivityRemoval";
 import { cupsLevelProgressBarPct, formatCupsLevelProgressLabel, miniappCupsLevelProgress, miniappLevelFromCups } from "../lib/miniappLevel";
 import { LevelCarousel } from "./LevelCarousel";
@@ -970,7 +971,12 @@ export function ProfileScreen({
     }
     setProfileSaving(true);
     try {
-      const normalizedProfile = normalizeProfileData(profile);
+      // Пояс берём с устройства, а не из загруженного ранее профиля: иначе сохранение имени
+      // после переезда затирало бы автоопределённый пояс старым (напоминания уезжали на часы).
+      const normalizedProfile = normalizeProfileData({
+        ...profile,
+        timezoneOffset: detectTimezoneInfo().offsetFromMoscow,
+      });
       const body: Record<string, unknown> = {
         init_data: initData,
         gender: normalizedProfile.gender,
