@@ -51,7 +51,7 @@ type WisdomSubscriptionDue struct {
 	Username                 string
 	RemindHour               int
 	TimezoneOffsetFromMoscow int
-	LastSentMskDate          sql.NullString // YYYY-MM-DD МСК последней отправки (идемпотентность)
+	LastSentMskDate          sql.NullString // YYYY-MM-DD последней отправки в локальном TZ юзера (идемпотентность; имя колонки историческое)
 }
 
 // GetWisdomSubscriptionSettings — настройки подписки. Если строки нет — дефолт (ВЫКЛ, 09:00 локально).

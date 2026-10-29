@@ -52,7 +52,7 @@ func (b *Bot) SaveWorkoutReminderForViewer(viewerUserID int64, initD initdata.In
 
 // workoutReminderTick — как часто планировщик проверяет, у кого настал «час напоминания».
 // Раз в минуту: окно срабатывания — целый локальный час (localHour == remind_hour), а
-// идемпотентность держит last_sent_msk_date, так что лишних отправок не будет.
+// идемпотентность держит last_sent_msk_date (хранит локальную дату юзера), так что лишних отправок не будет.
 const workoutReminderTick = 1 * time.Minute
 
 // startWorkoutReminderScheduler — фоновое напоминание «не забудь внести тренировку».
@@ -82,7 +82,7 @@ func (b *Bot) startWorkoutReminderScheduler(ctx context.Context) {
 }
 
 // runWorkoutReminderSweep — одна итерация: всем, у кого сейчас «их» локальный час и кто
-// сегодня ещё не тренировался, шлём дружелюбный пинок. Идемпотентно по дате МСК.
+// сегодня ещё не тренировался, шлём дружелюбный пинок. Идемпотентно по локальной дате юзера.
 func (b *Bot) runWorkoutReminderSweep() {
 	if b == nil || b.db == nil || b.config == nil {
 		return
@@ -93,26 +93,21 @@ func (b *Bot) runWorkoutReminderSweep() {
 		b.logger.Errorf("workout reminder sweep: list candidates: %v", err)
 		return
 	}
-	mskToday := utils.GetMoscowTime().Format("2006-01-02")
+	now := utils.GetMoscowTime()
 	sent := 0
 	for _, c := range candidates {
-		// Час напоминания в локальном TZ юзера.
-		loc := userLocalLoc(c.TimezoneOffsetFromMoscow)
-		localNow := utils.GetMoscowTime().In(loc)
-		if localNow.Hour() != c.RemindHour {
+		// Час напоминания и «сегодня» — в локальном TZ юзера; уже отправленное сегодня
+		// (по локальной дате) не дублируем.
+		due, todayLocal := localDailySendDue(now, c.TimezoneOffsetFromMoscow, c.RemindHour, 0, c.LastSentMskDate.String)
+		if !due {
 			continue
 		}
 		// Уже тренировался сегодня (локальная дата) — напоминать незачем.
-		todayLocal := localNow.Format("2006-01-02")
 		if c.LastTrainingDate.Valid && strings.TrimSpace(c.LastTrainingDate.String) == todayLocal {
 			continue
 		}
-		// Уже отправляли сегодня (по МСК-дате) — не дублируем.
-		if c.LastSentMskDate.Valid && strings.TrimSpace(c.LastSentMskDate.String) == mskToday {
-			continue
-		}
 		b.sendWorkoutReminder(c.UserID, c.Username)
-		if err := b.db.MarkWorkoutReminderSent(c.UserID, packChatID, mskToday); err != nil {
+		if err := b.db.MarkWorkoutReminderSent(c.UserID, packChatID, todayLocal); err != nil {
 			b.logger.Warnf("workout reminder mark sent user=%d: %v", c.UserID, err)
 		}
 		sent++

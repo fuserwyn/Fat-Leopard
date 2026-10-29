@@ -16,6 +16,23 @@ func userLocalLoc(tzOffsetFromMoscow int) *time.Location {
 	return time.FixedZone("UserLocal", (3+tzOffsetFromMoscow)*3600)
 }
 
+// localDailySendDue — пора ли отправить ежедневное сообщение (напоминание, мудрость дня),
+// которое должно прийти в hour:minute по локальному времени юзера, и какую дату отметить
+// отправленной. Окно — от hour:minute до конца часа. Идемпотентность — по ЛОКАЛЬНОЙ дате:
+// с датой МСК при смене пояса сообщение терялось (Белград → Москва: в 23:00 по Белграду
+// уже наступили сутки МСК, и напоминание в 23:00 МСК в день возвращения не приходило).
+func localDailySendDue(now time.Time, tzOffsetFromMoscow, hour, minute int, lastSentDate string) (bool, string) {
+	localNow := now.In(userLocalLoc(tzOffsetFromMoscow))
+	today := localNow.Format("2006-01-02")
+	if localNow.Hour() != hour || localNow.Minute() < minute {
+		return false, today
+	}
+	if strings.TrimSpace(lastSentDate) == today {
+		return false, today
+	}
+	return true, today
+}
+
 // inactiveWarningAtLocal — 9:00 локального TZ в календарный день, за hoursBefore до кика в полночь.
 func inactiveWarningAtLocal(removalAt time.Time, hoursBefore int, loc *time.Location) time.Time {
 	t := removalAt.Add(-time.Duration(hoursBefore) * time.Hour).In(loc)
