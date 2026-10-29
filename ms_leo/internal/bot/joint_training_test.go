@@ -37,6 +37,9 @@ func TestJointTrainingTexts(t *testing.T) {
 	if s := jointTrainingForwardText("petya", "https://t.me/x?start=ref-1"); !strings.Contains(s, "@petya") || !strings.HasSuffix(s, "https://t.me/x?start=ref-1") {
 		t.Fatalf("пересылка: %q", s)
 	}
+	if jointTrainingMentionLabel("vasya") != "@vasya" || jointTrainingMentionLabel("@Аня") != "@Аня" {
+		t.Fatal("mention label")
+	}
 	var nilBot *Bot
 	nilBot.notifyJointTrainingMentions(1, 1, "x", "@vasya")
 }
