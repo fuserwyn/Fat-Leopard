@@ -134,7 +134,7 @@ func (d *Database) ListDueWisdomSubscriptionCandidates(packChatID int64) ([]Wisd
 	return out, rows.Err()
 }
 
-// MarkWisdomSubscriptionSent — фиксируем дату МСК последней отправки (идемпотентность одной отправки в день).
+// MarkWisdomSubscriptionSent — фиксируем локальную дату юзера (YYYY-MM-DD) последней отправки (идемпотентность одной отправки в день).
 func (d *Database) MarkWisdomSubscriptionSent(userID, packChatID int64, mskDate string) error {
 	if d == nil || userID == 0 || packChatID == 0 || mskDate == "" {
 		return nil

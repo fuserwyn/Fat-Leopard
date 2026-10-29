@@ -105,7 +105,7 @@ func (d *Database) ListDueWorkoutReminderCandidates(packChatID int64) ([]Workout
 	return out, rows.Err()
 }
 
-// MarkWorkoutReminderSent — фиксируем дату МСК последней отправки (идемпотентность одной отправки в день).
+// MarkWorkoutReminderSent — фиксируем локальную дату юзера (YYYY-MM-DD) последней отправки (идемпотентность одной отправки в день).
 func (d *Database) MarkWorkoutReminderSent(userID, packChatID int64, mskDate string) error {
 	if d == nil || userID == 0 || packChatID == 0 || mskDate == "" {
 		return nil
