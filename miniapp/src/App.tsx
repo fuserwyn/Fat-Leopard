@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAppKeyboardInset } from "./hooks/useAppKeyboardInset";
 import { useTelegramWebApp } from "./hooks/useTelegramWebApp";
 import { BottomNav } from "./components/BottomNav";
@@ -39,7 +39,7 @@ import { fetchLeoPendingCount } from "./lib/leoPersonalInbox";
 import { fetchFeedThreadUnreadSummary } from "./lib/feedThreadUnread";
 import { fetchPackGroupUnreadCount } from "./lib/packGroupUnread";
 import { ensureMiniappOnboarding, miniappAccessGate } from "./lib/miniappOnboarding";
-import { syncDeviceTimezone } from "./lib/timezoneSync";
+import { syncDeviceTimezone, watchDeviceTimezone } from "./lib/timezoneSync";
 import { reportMiniappOpened, reportWorkoutLogStarted, reportNonSportInterest } from "./lib/miniappEvents";
 import "./App.css";
 
@@ -103,7 +103,6 @@ export function App() {
   const [packWorkoutsGoal, setPackWorkoutsGoal] = useState(PACK_WEEKLY_GOAL_DEFAULT);
   const [packGoalReached, setPackGoalReached] = useState(false);
   const [packBonusThemeActive, setPackBonusThemeActive] = useState(false);
-  const tzSyncedRef = useRef(false);
   /** Итоги прошлой недели стаи, которые участник ещё не видел. */
   const [packWeekSummary, setPackWeekSummary] = useState<PackWeekSummary | null>(null);
   // Очередь тостов «Ачивка получена!» — показываем по одному, дедуп по ключам.
@@ -310,12 +309,10 @@ export function App() {
       setDaysInPack(typeof j.days_in_pack === "number" && j.days_in_pack > 0 ? j.days_in_pack : 0);
       setSuggestedWorkoutTypes(parseSuggestedWorkoutTypes(j.suggested_workout_types));
       notifyNewAchievements(userId, achCount, workoutsTotal);
-      // Автоопределение часового пояса из устройства: приводим хранимое смещение к зоне телефона.
-      if (!tzSyncedRef.current) {
-        tzSyncedRef.current = true;
-        const currentOffset = typeof j.timezone_offset === "number" ? j.timezone_offset : 0;
-        void syncDeviceTimezone(initData, currentOffset);
-      }
+      // Автоопределение часового пояса из устройства: при каждой загрузке профиля приводим
+      // хранимое смещение к зоне телефона (запрос уходит, только если пояс сменился).
+      const currentOffset = typeof j.timezone_offset === "number" ? j.timezone_offset : 0;
+      void syncDeviceTimezone(initData, currentOffset);
     } catch {
       return;
     }
@@ -324,6 +321,13 @@ export function App() {
   useEffect(() => {
     void refreshAccessStatus();
   }, [refreshAccessStatus]);
+
+  // Пояс мог смениться, пока мини-апп висел в фоне (перелёт, переход на зимнее время):
+  // перепроверяем при возврате в приложение и периодически.
+  useEffect(() => {
+    if (accessGateStatus !== "ok" || !inTelegram || !initData?.trim()) return;
+    return watchDeviceTimezone(initData);
+  }, [accessGateStatus, inTelegram, initData]);
 
   useEffect(() => {
     const t = window.setInterval(() => {
