@@ -1839,6 +1839,21 @@ var Migrations = []Migration{
 			DROP TABLE IF EXISTS joint_training_invites;
 		`,
 	},
+	{
+		Version:     92,
+		Description: "Напоминания админам об оплате сервера: одна строка на месяц",
+		UpSQL: `
+			-- Строка появляется, когда напоминание за месяц ушло: рестарт бота не шлёт его повторно.
+			CREATE TABLE IF NOT EXISTS server_payment_reminders (
+				month         TEXT   PRIMARY KEY,
+				admin_user_id BIGINT NOT NULL,
+				sent_at       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+			);
+		`,
+		DownSQL: `
+			DROP TABLE IF EXISTS server_payment_reminders;
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции
