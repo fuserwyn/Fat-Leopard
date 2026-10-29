@@ -19,12 +19,13 @@ func TestAgentEngine(t *testing.T) {
 		job  store.Job
 		want string
 	}{
-		{"default claude", both, store.Job{}, engineClaude},
-		{"board default model", both, store.Job{Model: "cursor-composer"}, engineClaude},
+		{"default cursor", both, store.Job{}, engineCursor},
+		{"board default model", both, store.Job{Model: "cursor-composer"}, engineCursor},
 		{"job claude", both, store.Job{Model: "claude-sonnet-5-5"}, engineClaude},
 		{"job claude alias", both, store.Job{Model: "Claude"}, engineClaude},
 		{"job composer beats default", both, store.Job{Model: "composer-2.5"}, engineCursor},
 		{"job cursor alias", both, store.Job{Model: "cursor"}, engineCursor},
+		{"env claude", config.Config{TrackerAgent: "claude", CursorAPIKey: "c", ClaudeOAuthToken: "o"}, store.Job{}, engineClaude},
 		{"env cursor", config.Config{TrackerAgent: "cursor", CursorAPIKey: "c", ClaudeOAuthToken: "o"}, store.Job{}, engineCursor},
 		{"env cursor, board default model", config.Config{TrackerAgent: "cursor", CursorAPIKey: "c", ClaudeOAuthToken: "o"}, store.Job{Model: "cursor-composer"}, engineCursor},
 		{"only cursor key", config.Config{CursorAPIKey: "c"}, store.Job{}, engineCursor},

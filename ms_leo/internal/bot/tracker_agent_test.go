@@ -90,7 +90,7 @@ func TestTrackerComposerModel(t *testing.T) {
 	if got := trackerDoingModelKey("claude"); got != "claude" {
 		t.Fatalf("claude: %s", got)
 	}
-	if got := trackerDoingModelKey(""); got != "claude" {
+	if got := trackerDoingModelKey(""); got != "cursor" {
 		t.Fatalf("auto: %s", got)
 	}
 	if got := trackerComposerModel(b); got != "cursor-composer" {

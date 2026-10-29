@@ -5,12 +5,11 @@
 #   - postgres   : та же схема, что в проде (cmd/migrate применяется ботом на старте)
 #   - bot        : Go-сервис ms_leo + HTTP API мини-аппа на :8080 (PORT=8080)
 #   - tracker    : ms_tracker — агент доски, сдачи шлёт боту на /api/miniapp/board/notify.
-#                  Задачи выполняет Claude Agent SDK, запасной — Cursor SDK.
+#                  Задачи выполняет Cursor SDK. Claude — только явный выбор.
 #
-# ВАЖНО про Claude: положи в .env CLAUDE_CODE_OAUTH_TOKEN (токен подписки из
-# `claude setup-token`, начинается с sk-ant-oat) или ANTHROPIC_API_KEY. Без них
-# трекер уйдёт на Cursor (нужен CURSOR_API_KEY). Модель — CLAUDE_MODEL
-# (по умолчанию claude-opus-5-5), TRACKER_AGENT=cursor — начинать с Cursor.
+# ВАЖНО про исполнителя: основной — CURSOR_API_KEY. Claude нужен только если
+# на карточке выбран Claude: CLAUDE_CODE_OAUTH_TOKEN (`claude setup-token`)
+# или ANTHROPIC_API_KEY. TRACKER_AGENT=claude заставляет начать с Claude.
 # Для коммитов и пуша веток задач нужен GITHUB_PERSONAL_TOKEN.
 #   - miniapp    : статика Vite на :3000, VITE_MINIAPP_API_URL → http://localhost:8080
 #
@@ -70,8 +69,8 @@ services:
       - NOTIFY_SECRET=${TRACKER_SECRET:-dev-tracker-secret}
       - BOARD_REPO=${BOARD_REPO:-fuserwyn/Fat-Leopard}
       - BOARD_BRANCH=main
-      # Исполнитель задач: Claude Agent SDK (основной), Cursor SDK (запасной).
-      - TRACKER_AGENT=${TRACKER_AGENT:-claude}
+      # Исполнитель задач: Cursor по умолчанию. Claude — TRACKER_AGENT=claude.
+      - TRACKER_AGENT=${TRACKER_AGENT:-cursor}
       - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - CLAUDE_MODEL=${CLAUDE_MODEL:-}

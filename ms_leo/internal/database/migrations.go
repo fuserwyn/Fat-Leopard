@@ -1857,12 +1857,14 @@ var Migrations = []Migration{
 	{
 		Version:     93,
 		Description: "Исполнитель задачи трекера: auto, claude или cursor",
+		// В бою доска в TRACKER_DATABASE_URL, на базе Лео её таблиц нет —
+		// там колонку добавит migrateTrackerBoardOnDB.
 		UpSQL: `
-			ALTER TABLE pack_tracker_tasks
+			ALTER TABLE IF EXISTS pack_tracker_tasks
 				ADD COLUMN IF NOT EXISTS agent TEXT NOT NULL DEFAULT 'auto';
 		`,
 		DownSQL: `
-			ALTER TABLE pack_tracker_tasks DROP COLUMN IF EXISTS agent;
+			ALTER TABLE IF EXISTS pack_tracker_tasks DROP COLUMN IF EXISTS agent;
 		`,
 	},
 }

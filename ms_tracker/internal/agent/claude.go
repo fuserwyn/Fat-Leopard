@@ -14,8 +14,8 @@ import (
 	"leo-tracker/internal/store"
 )
 
-// Claude Agent SDK — основной исполнитель задач; Cursor SDK — запасной.
-// Запускается так же: python-скрипт в клоне репо, JSON через stdin/stdout.
+// Cursor SDK — основной исполнитель задач; Claude Agent SDK — только если
+// карточке явно выбрали Claude. Запуск тот же: python-скрипт в клоне репо.
 
 const (
 	// С запасным Cursor (20 мин) укладываемся в час, после которого задачу
@@ -52,20 +52,20 @@ func cursorReady(cfg config.Config) bool {
 
 // agentEngine — с кого начинать задачу:
 //  1. модель карточки: claude-* → Claude, composer-*/cursor-* → Cursor;
-//  2. TRACKER_AGENT=claude|cursor;
-//  3. по умолчанию Claude, а если у Claude нет доступа — Cursor.
+//  2. TRACKER_AGENT=claude — явно начать с Claude;
+//  3. по умолчанию Cursor, а если у Cursor нет ключа — Claude.
 //
 // Если первый исполнитель недоступен (нет токенов, лимит, ошибка, таймаут) —
 // runAgentLocal сам передаёт задачу второму.
 func agentEngine(cfg config.Config, job store.Job) string {
-	pick := engineClaude
+	pick := engineCursor
 	switch {
 	case isClaudeModel(job.Model):
 		pick = engineClaude
-	case isCursorModel(job.Model) && !strings.EqualFold(strings.TrimSpace(job.Model), "cursor-composer"):
+	case isCursorModel(job.Model):
 		pick = engineCursor
-	case strings.EqualFold(strings.TrimSpace(cfg.TrackerAgent), engineCursor):
-		pick = engineCursor
+	case strings.EqualFold(strings.TrimSpace(cfg.TrackerAgent), engineClaude):
+		pick = engineClaude
 	}
 	if pick == engineCursor && !cursorReady(cfg) && claudeReady(cfg) {
 		return engineClaude

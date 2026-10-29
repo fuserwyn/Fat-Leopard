@@ -65,13 +65,12 @@ OPENROUTER_VISION_MODEL=openai/gpt-4o-mini
 #   NOTIFY_SECRET=...   # тот же, что TRACKER_SECRET
 #   TRACKER_SECRET=...
 #
-# Исполнитель задач трекера (ms_tracker): Claude Agent SDK, запасной — Cursor SDK.
-# Cursor включается сам, если Claude недоступен: нет токена, кончились лимиты,
-# ошибка или таймаут.
-#   CLAUDE_CODE_OAUTH_TOKEN=...   # Claude Agent SDK по подписке (основной): токен из `claude setup-token`
+# Исполнитель задач трекера (ms_tracker): по умолчанию Cursor SDK.
+# Claude — только если на карточке явно выбран Claude (или TRACKER_AGENT=claude).
+#   CURSOR_API_KEY=...            # основной исполнитель
+#   CLAUDE_CODE_OAUTH_TOKEN=...   # запасной, токен из `claude setup-token`
 #   ANTHROPIC_API_KEY=...         # необязательно: только если нет токена подписки
-#   CURSOR_API_KEY=...            # Cursor (запасной)
-#   TRACKER_AGENT=cursor          # начинать сразу с Cursor (по умолчанию claude)
+#   TRACKER_AGENT=claude          # начать с Claude; пусто — Cursor
 #   CLAUDE_MODEL=claude-opus-5-5   # модель Claude по умолчанию
 #   CLAUDE_MAX_TURNS=150      # лимит ходов агента на одну задачу
 # На отдельную задачу: модель карточки (model_key / BOARD_MODEL у ms_leo)
