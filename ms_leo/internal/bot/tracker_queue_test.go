@@ -160,7 +160,7 @@ func trackerTaskListColumnsFull() []string {
 		"needs_approval", "approvals",
 		"approval_notified_at", "approval_reminder_sent_at",
 		"error", "result", "steps", "author_id",
-		"created_at", "last_run_at", "updated_at", "attachments_count",
+		"created_at", "last_run_at", "updated_at", "agent", "attachments_count",
 	}
 }
 
@@ -173,7 +173,7 @@ func expectTrackerListFull(mock sqlmock.Sqlmock, row trackerListRow) {
 			false, []byte("[]"),
 			nil, nil,
 			"", "", []byte(`[]`), row.author,
-			row.at, nil, row.at, 0,
+			row.at, nil, row.at, "auto", 0,
 		))
 }
 
@@ -187,7 +187,7 @@ func expectTrackerGetWithApproval(mock sqlmock.Sqlmock, row trackerListRow, need
 			needsApproval, approvals,
 			nil, nil,
 			"", "", []byte(`[]`), row.author,
-			row.at, nil, row.at, 0,
+			row.at, nil, row.at, "auto", 0,
 		))
 	mock.ExpectQuery(`SELECT id, name, mime, size`).
 		WithArgs(row.id).

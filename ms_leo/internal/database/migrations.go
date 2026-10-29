@@ -1854,6 +1854,17 @@ var Migrations = []Migration{
 			DROP TABLE IF EXISTS server_payment_reminders;
 		`,
 	},
+	{
+		Version:     93,
+		Description: "Исполнитель задачи трекера: auto, claude или cursor",
+		UpSQL: `
+			ALTER TABLE pack_tracker_tasks
+				ADD COLUMN IF NOT EXISTS agent TEXT NOT NULL DEFAULT 'auto';
+		`,
+		DownSQL: `
+			ALTER TABLE pack_tracker_tasks DROP COLUMN IF EXISTS agent;
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции

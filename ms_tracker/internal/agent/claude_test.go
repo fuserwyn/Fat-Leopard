@@ -24,6 +24,7 @@ func TestAgentEngine(t *testing.T) {
 		{"job claude", both, store.Job{Model: "claude-sonnet-5-5"}, engineClaude},
 		{"job claude alias", both, store.Job{Model: "Claude"}, engineClaude},
 		{"job composer beats default", both, store.Job{Model: "composer-2.5"}, engineCursor},
+		{"job cursor alias", both, store.Job{Model: "cursor"}, engineCursor},
 		{"env cursor", config.Config{TrackerAgent: "cursor", CursorAPIKey: "c", ClaudeOAuthToken: "o"}, store.Job{}, engineCursor},
 		{"env cursor, board default model", config.Config{TrackerAgent: "cursor", CursorAPIKey: "c", ClaudeOAuthToken: "o"}, store.Job{Model: "cursor-composer"}, engineCursor},
 		{"only cursor key", config.Config{CursorAPIKey: "c"}, store.Job{}, engineCursor},
@@ -57,6 +58,18 @@ func TestApplyDoingRequiresClaudeToken(t *testing.T) {
 	_, err := applyDoing(config.Config{GithubToken: "t", Repo: "o/r", TrackerAgent: "claude"}, store.Job{Prompt: "x"})
 	if err == nil || !strings.Contains(err.Error(), "CLAUDE_CODE_OAUTH_TOKEN") {
 		t.Fatalf("%v", err)
+	}
+}
+
+func TestClaudeCapacityExhausted(t *testing.T) {
+	if !claudeCapacityExhausted("You've hit your limit · session limit") {
+		t.Fatal("session limit")
+	}
+	if !claudeCapacityExhausted("Claude упёрся в лимит 150 ходов.") {
+		t.Fatal("max turns")
+	}
+	if claudeCapacityExhausted("Починил кнопку и прогнал тесты.") {
+		t.Fatal("normal note")
 	}
 }
 

@@ -43,6 +43,36 @@ func trackerImplModel(b *Bot) string {
 	return ""
 }
 
+// trackerDoingModelKey — модель фазы «в работе».
+// auto и claude стартуют с Claude: если сессия оборвётся по токенам, ms_tracker
+// сам отдаёт задачу Cursor. cursor — сразу Cursor, без Claude.
+func trackerDoingModelKey(agent string) string {
+	if normalizeTrackerAgent(agent) == "cursor" {
+		return "cursor"
+	}
+	return "claude"
+}
+
+func normalizeTrackerAgent(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "claude", "cursor":
+		return strings.ToLower(strings.TrimSpace(raw))
+	default:
+		return "auto"
+	}
+}
+
+func trackerAgentChoiceLabel(agent string) string {
+	switch normalizeTrackerAgent(agent) {
+	case "claude":
+		return "Claude"
+	case "cursor":
+		return "Cursor"
+	default:
+		return "Авто"
+	}
+}
+
 // trackerAgentBoardUserID — кто в сессии create на внешней доске.
 // Всегда владелец: иначе гостевой SSO отвечает unauthorized.
 func (b *Bot) trackerAgentBoardUserID() int64 {
@@ -82,6 +112,7 @@ func trackerAgentKickWait(kicks int) time.Duration {
 	}
 	return wait
 }
+
 const trackerAgentWaitingStep = "ждёт очередь"
 
 func trackerLastStep(t database.TrackerTask) string {
@@ -435,6 +466,8 @@ func (b *Bot) runTrackerAgent(taskID int64, phase string) error {
 	model := trackerImplModel(b)
 	if phase == "review" || phase == "test" {
 		model = trackerComposerModel(b)
+	} else if phase == "doing" || phase == "" {
+		model = trackerDoingModelKey(t.Agent)
 	}
 	if phase == "doing" {
 		_ = applyTrackerColumn(&t, trackerColDoing)

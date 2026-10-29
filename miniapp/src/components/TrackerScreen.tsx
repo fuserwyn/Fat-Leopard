@@ -279,8 +279,28 @@ function cardClasses(t: TrackerTask, isQa: boolean): string {
   return cls.join(" ");
 }
 
+type TrackerAgent = "auto" | "claude" | "cursor";
+
+const AGENT_OPTIONS: { value: TrackerAgent; label: string }[] = [
+  { value: "auto", label: "Авто: Claude, при лимите — Cursor" },
+  { value: "claude", label: "Claude" },
+  { value: "cursor", label: "Cursor" },
+];
+
+function trackerAgentOf(raw: string | undefined): TrackerAgent {
+  if (raw === "claude" || raw === "cursor") return raw;
+  return "auto";
+}
+
+function trackerAgentLabel(raw: string | undefined): string {
+  if (raw === "claude") return "Claude";
+  if (raw === "cursor") return "Cursor";
+  return "Авто";
+}
+
 function metaParts(t: TrackerTask, isQa: boolean): string[] {
   const parts: string[] = [];
+  if (!isQa && (t.agent === "claude" || t.agent === "cursor")) parts.push(trackerAgentLabel(t.agent));
   if (t.when) parts.push(t.when);
   if (t.repeat && t.repeat !== "разово") parts.push(t.repeat);
   if (!isQa && t.auto_review) parts.push("авто-ревью");
@@ -414,6 +434,8 @@ export function TrackerScreen({ initData, showAlert }: Props) {
   const [when, setWhen] = useState(WHEN_PRESETS[0].value);
   const [whenAt, setWhenAt] = useState("");
   const [needsApproval, setNeedsApproval] = useState(false);
+  /** Кто пишет код. auto — Claude, при обрыве сессии по токенам Cursor. */
+  const [agent, setAgent] = useState<TrackerAgent>("auto");
   /** Задачу от Лео на доску — с аппрувом всех админов. */
   const [leoNeedsApproval, setLeoNeedsApproval] = useState(true);
   const [images, setImages] = useState<TaskImage[]>([]);
@@ -576,6 +598,7 @@ export function TrackerScreen({ initData, showAlert }: Props) {
         needs_approval: wantApproval,
         // Задачу сочинил Лео — пусть на доске и стоит он, а не тот, кто одобрил.
         leo: opts?.leo,
+        agent: opts?.leo ? "auto" : agent,
       });
       if (images.length > 0 && res.id) {
         // Картинку трекер принимает только к существующей задаче, поэтому
@@ -1157,6 +1180,17 @@ export function TrackerScreen({ initData, showAlert }: Props) {
                 </div>
               ) : null}
               <div className="tracker__new-row">
+                <select
+                  value={agent}
+                  aria-label="Исполнитель"
+                  onChange={(e) => setAgent(trackerAgentOf(e.target.value))}
+                >
+                  {AGENT_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
                 <select value={when} onChange={(e) => setWhen(e.target.value)}>
                   {WHEN_PRESETS.map((p) => (
                     <option key={p.value} value={p.value}>
@@ -1582,6 +1616,35 @@ export function TrackerScreen({ initData, showAlert }: Props) {
                 </span>
               </div>
             ) : null}
+            {canEditPrompt(detail) ? (
+              <label className="tracker__agent">
+                Исполнитель
+                <select
+                  value={trackerAgentOf(detail.agent)}
+                  disabled={busy}
+                  onChange={(e) => {
+                    const next = trackerAgentOf(e.target.value);
+                    void actOnDetail(async () => {
+                      const res = await trackerPrompt(
+                        initData,
+                        detail.id,
+                        detail.prompt,
+                        next,
+                      );
+                      if (res.task) setDetail(res.task);
+                    }, `Исполнитель: ${trackerAgentLabel(next)}.`);
+                  }}
+                >
+                  {AGENT_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <p className="tracker__hint">Исполнитель: {trackerAgentLabel(detail.agent)}</p>
+            )}
             <div className="tracker-modal__prompt-block">
               {editingPrompt ? (
                 <>

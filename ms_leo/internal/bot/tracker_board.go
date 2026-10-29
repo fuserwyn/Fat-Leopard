@@ -314,13 +314,14 @@ func trackerTaskView(t database.TrackerTask, withAtts bool) map[string]any {
 		"steps":             t.Steps,
 		"steps_running": t.Status == "running" || t.Status == "reviewing" ||
 			(t.Status == "holding" && (t.DevColumn == trackerColTest && !t.ManualQa || t.DevColumn == trackerColDeploy)),
-		"model_key":  "",
-		"live_step":  live,
+		"model_key":    trackerDoingModelKey(t.Agent),
+		"agent":        normalizeTrackerAgent(t.Agent),
+		"live_step":    live,
 		"result":       t.Result,
 		"done_summary": doneSummary,
 		"created_at":   t.CreatedAt.Format(time.RFC3339),
-		"commit":     trackerTaskCommit(t),
-		"branch":     trackerTaskBranch(t),
+		"commit":       trackerTaskCommit(t),
+		"branch":       trackerTaskBranch(t),
 	}
 	if t.HasLastRun {
 		out["last_run_at"] = t.LastRunAt.Format(time.RFC3339)
@@ -450,6 +451,7 @@ func (b *Bot) localTrackerCreate(payload map[string]any, userID int64) (json.Raw
 		ManualQa:   payloadBool(payload, "manual_qa"),
 		FastTrack:  payloadBool(payload, "fast_track"),
 		AutoPush:   payloadBoolOr(payload, "auto_push", true),
+		Agent:      normalizeTrackerAgent(payloadString(payload, "agent")),
 		Steps:      []string{"Поставлена на доску стаи"},
 	}
 	if needsApproval {
@@ -752,11 +754,21 @@ func (b *Bot) localTrackerPrompt(taskID int64, payload map[string]any) (json.Raw
 	if prompt == "" {
 		return nil, fmt.Errorf("опиши задачу")
 	}
+	promptChanged := strings.TrimSpace(prompt) != strings.TrimSpace(t.Prompt)
 	t.Prompt = prompt
-	appendTrackerStep(&t, "Формулировку обновили")
-	if t.DevColumn == trackerColApprove {
-		t.Approvals = nil
-		appendTrackerStep(&t, "Аппрувы сброшены после правки")
+	if _, ok := payload["agent"]; ok {
+		next := normalizeTrackerAgent(payloadString(payload, "agent"))
+		if next != normalizeTrackerAgent(t.Agent) {
+			t.Agent = next
+			appendTrackerStep(&t, "Исполнитель: "+trackerAgentChoiceLabel(next))
+		}
+	}
+	if promptChanged {
+		appendTrackerStep(&t, "Формулировку обновили")
+		if t.DevColumn == trackerColApprove {
+			t.Approvals = nil
+			appendTrackerStep(&t, "Аппрувы сброшены после правки")
+		}
 	}
 	if err := b.db.SaveTrackerTask(t); err != nil {
 		return nil, err

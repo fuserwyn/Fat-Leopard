@@ -121,14 +121,18 @@ def main() -> int:
         _emit({"ok": False, "error": f"claude не вернул результат (model {model})"})
         return 2
     text = str(result.result or last_text or "").strip()
-    # Упёрся в лимит ходов — правки могли успеть лечь в репо; трекер сам
-    # проверит git status и не примет задачу без правок приложения.
+    errors = "; ".join(str(e) for e in (result.errors or []))
+    # Лимит ходов и обрыв сессии по токенам — не сдача. Трекер отдаст задачу Cursor.
     if result.is_error and result.subtype == "error_max_turns":
-        _emit({"ok": True, "status": result.subtype, "result": text or f"Claude упёрся в лимит {MAX_TURNS} ходов."})
-        return 0
-    if result.is_error:
-        reason = text or "; ".join(str(e) for e in (result.errors or [])) or result.subtype
-        _emit({"ok": False, "status": result.subtype, "error": f"claude: {reason} (model {model})"})
+        _emit({
+            "ok": False,
+            "status": result.subtype,
+            "error": text or f"claude: упёрся в лимит {MAX_TURNS} ходов (model {model})",
+        })
+        return 2
+    if result.is_error or _capacity_exhausted(text) or _capacity_exhausted(errors) or _capacity_exhausted(result.subtype or ""):
+        reason = text or errors or result.subtype or "сессия закончилась"
+        _emit({"ok": False, "status": result.subtype or "capacity", "error": f"claude: {reason} (model {model})"})
         return 2
     _emit(
         {
@@ -140,6 +144,28 @@ def main() -> int:
         }
     )
     return 0
+
+
+_CAPACITY_MARKERS = (
+    "rate_limit",
+    "rate limit",
+    "usage limit",
+    "session limit",
+    "extra usage",
+    "credit balance",
+    "hit your limit",
+    "token limit",
+    "max_tokens",
+    "out of credits",
+    "error_max_budget",
+    "error_max_turns",
+    "overloaded_error",
+)
+
+
+def _capacity_exhausted(text: str) -> bool:
+    low = (text or "").lower()
+    return any(marker in low for marker in _CAPACITY_MARKERS)
 
 
 if __name__ == "__main__":

@@ -138,6 +138,8 @@ func migrateTrackerBoardOnDB(db *sql.DB) error {
 			ADD COLUMN IF NOT EXISTS approval_notified_at TIMESTAMPTZ;
 		ALTER TABLE pack_tracker_tasks
 			ADD COLUMN IF NOT EXISTS approval_reminder_sent_at TIMESTAMPTZ;
+		ALTER TABLE pack_tracker_tasks
+			ADD COLUMN IF NOT EXISTS agent TEXT NOT NULL DEFAULT 'auto';
 	`)
 	if err != nil {
 		return fmt.Errorf("tracker schema migrate: %w", err)

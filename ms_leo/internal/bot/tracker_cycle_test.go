@@ -43,7 +43,7 @@ func TestAdminRefreshClaimsDueTask(t *testing.T) {
 		"needs_approval", "approvals",
 		"approval_notified_at", "approval_reminder_sent_at",
 		"error", "result", "steps", "author_id",
-		"created_at", "last_run_at", "updated_at", "attachments_count",
+		"created_at", "last_run_at", "updated_at", "agent", "attachments_count",
 	}
 	mock.ExpectQuery(`FROM pack_tracker_tasks t`).
 		WillReturnRows(sqlmock.NewRows(listCols).AddRow(
@@ -53,7 +53,7 @@ func TestAdminRefreshClaimsDueTask(t *testing.T) {
 			false, []byte("[]"),
 			nil, nil,
 			"", "", []byte(`["Взяли в работу по расписанию"]`), int64(42),
-			now, now, now, 0,
+			now, now, now, "auto", 0,
 		))
 
 	b := &Bot{db: database.NewForTest(sqlDB)}
@@ -251,7 +251,7 @@ func trackerListColumns() []string {
 		"needs_approval", "approvals",
 		"approval_notified_at", "approval_reminder_sent_at",
 		"error", "result", "steps", "author_id",
-		"created_at", "last_run_at", "updated_at", "attachments_count",
+		"created_at", "last_run_at", "updated_at", "agent", "attachments_count",
 	}
 }
 
@@ -271,7 +271,7 @@ func expectTrackerList(mock sqlmock.Sqlmock, row trackerListRow) {
 			false, []byte("[]"),
 			nil, nil,
 			"", "", []byte(`[]`), row.author,
-			row.at, nil, row.at, 0,
+			row.at, nil, row.at, "auto", 0,
 		))
 }
 
@@ -292,6 +292,6 @@ func expectTrackerGet(mock sqlmock.Sqlmock, row trackerListRow) {
 			false, []byte("[]"),
 			nil, nil,
 			"", "", []byte(`[]`), row.author,
-			row.at, nil, row.at, 0,
+			row.at, nil, row.at, "auto", 0,
 		))
 }

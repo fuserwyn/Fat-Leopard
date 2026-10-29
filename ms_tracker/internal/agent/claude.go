@@ -217,10 +217,31 @@ func runClaudeOnce(cfg config.Config, job store.Job, repoDir, branch string, cre
 		"prompt": claudeDoingPrompt(job, branch),
 		"model":  claudeModelID(cfg, job),
 	})
+	if err == nil && claudeCapacityExhausted(note) {
+		return "", fmt.Errorf("claude sdk: сессия закончилась: %s", clip(note, 180))
+	}
 	if err == nil && note == "" {
 		note = "Claude сдал задачу."
 	}
 	return note, err
+}
+
+// claudeCapacityExhausted — Claude не смог довести задачу: кончились токены
+// сессии, лимит ходов или бюджет. Тогда runAgentLocal отдаёт задачу Cursor.
+func claudeCapacityExhausted(msg string) bool {
+	low := strings.ToLower(msg)
+	for _, s := range []string{
+		"rate_limit", "rate limit", "usage limit", "session limit",
+		"extra usage", "credit balance", "hit your limit",
+		"token limit", "max_tokens", "out of credits",
+		"error_max_budget", "error_max_turns", "overloaded_error",
+		"сессия закончилась", "лимит токен", "упёрся в лимит",
+	} {
+		if strings.Contains(low, s) {
+			return true
+		}
+	}
+	return false
 }
 
 // claudeAskWait — потолок на один ответ без инструментов.

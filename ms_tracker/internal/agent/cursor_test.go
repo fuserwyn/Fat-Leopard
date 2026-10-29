@@ -24,6 +24,9 @@ func TestCursorModelID(t *testing.T) {
 	if got := cursorModelID(config.Config{CursorModel: "composer-2"}, store.Job{Model: "composer-2.5"}); got != "composer-2.5" {
 		t.Fatalf("job wins: %s", got)
 	}
+	if got := cursorModelID(config.Config{CursorModel: "composer-2"}, store.Job{Model: "cursor"}); got != "composer-2" {
+		t.Fatalf("bare cursor uses cfg: %s", got)
+	}
 }
 
 func TestCursorDoingPrompt(t *testing.T) {

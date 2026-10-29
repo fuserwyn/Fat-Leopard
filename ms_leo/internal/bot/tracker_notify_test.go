@@ -356,7 +356,7 @@ func TestApplyBoardNotifyFindsOpenTaskWhenForeignID(t *testing.T) {
 			false, []byte("[]"),
 			nil, nil,
 			"", "", []byte(`["Взяли в работу по расписанию"]`), int64(42),
-			now, now, now, 0,
+			now, now, now, "auto", 0,
 		))
 	mock.ExpectExec(`UPDATE pack_tracker_tasks SET`).
 		WillReturnResult(sqlmock.NewResult(0, 1))

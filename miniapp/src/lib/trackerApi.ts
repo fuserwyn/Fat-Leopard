@@ -69,6 +69,8 @@ export type TrackerTask = {
   created_at?: string;
   last_run_at?: string;
   model_key?: string;
+  /** Кто пишет код: auto — Claude, при лимите токенов Cursor; claude; cursor. */
+  agent?: "auto" | "claude" | "cursor" | string;
 };
 
 export type SprintIdea = {
@@ -188,6 +190,8 @@ export function trackerCreate(
     auto_push?: boolean;
     /** Задачу придумал Лео: на доске автором пишем его. */
     leo?: boolean;
+    /** auto — Claude, при обрыве сессии Cursor; claude; cursor. */
+    agent?: "auto" | "claude" | "cursor";
   },
 ) {
   return call<{ id: number; when: string }>(initData, "create", {
@@ -265,10 +269,10 @@ export function trackerQa(initData: string, taskId: number, action: "start" | "p
 }
 
 /** Обновить формулировку задачи, пока она ещё не началась. */
-export function trackerPrompt(initData: string, taskId: number, prompt: string) {
+export function trackerPrompt(initData: string, taskId: number, prompt: string, agent?: string) {
   return call<{ ok: boolean; task?: TrackerTask }>(initData, "prompt", {
     task_id: taskId,
-    payload: { id: taskId, prompt },
+    payload: { id: taskId, prompt, ...(agent ? { agent } : {}) },
   });
 }
 
