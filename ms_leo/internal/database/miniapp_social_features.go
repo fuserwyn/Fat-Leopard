@@ -19,7 +19,7 @@ type WorkoutReminderDue struct {
 	RemindHour               int
 	TimezoneOffsetFromMoscow int
 	LastTrainingDate         sql.NullString // YYYY-MM-DD в локальном TZ юзера
-	LastSentMskDate          sql.NullString // YYYY-MM-DD МСК последней отправки (идемпотентность)
+	LastSentMskDate          sql.NullString // YYYY-MM-DD последней отправки в локальном TZ юзера (идемпотентность; имя колонки историческое)
 }
 
 // GetWorkoutReminderSettings — настройки напоминания. Если строки нет — дефолт (ВЫКЛ, 19:00 локально).
