@@ -34,8 +34,11 @@ func TestJointTrainingTexts(t *testing.T) {
 	if s := jointTrainingInviteText("Аня", "f", "йога"); !strings.Contains(s, "Аня отметила тебя на совместной тренировке в стае") {
 		t.Fatalf("инвайт: %q", s)
 	}
-	if s := jointTrainingForwardText("petya", "https://t.me/x?start=ref-1"); !strings.Contains(s, "@petya") || !strings.HasSuffix(s, "https://t.me/x?start=ref-1") {
+	if s := jointTrainingForwardText("petya", "https://t.me/x?start=ref-1"); !strings.Contains(s, "@petya пока нет в стае") || strings.Contains(s, "@@") || !strings.HasSuffix(s, "https://t.me/x?start=ref-1") {
 		t.Fatalf("пересылка: %q", s)
+	}
+	if s := jointTrainingForwardText("@маша", "https://t.me/x?start=ref-1"); strings.Contains(s, "@@") || !strings.Contains(s, "@маша пока нет в стае") {
+		t.Fatalf("пересылка с готовым @: %q", s)
 	}
 	if jointTrainingMentionLabel("vasya") != "@vasya" || jointTrainingMentionLabel("@Аня") != "@Аня" {
 		t.Fatal("mention label")

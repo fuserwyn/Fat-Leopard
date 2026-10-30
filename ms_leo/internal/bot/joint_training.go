@@ -51,9 +51,10 @@ func jointTrainingInviteText(authorName, gender, reportText string) string {
 		preview + "»\n\nПрисоединяйся к стае — тренироваться вместе веселее!"
 }
 
-// jointTrainingForwardText — отметившему: бот не знает @ника, ссылку нужно переслать самому.
+// jointTrainingForwardText — отметившему: бот не знает человека, ссылку нужно переслать самому.
+// username может быть уже с «@» (label) или без: в тексте всегда один @.
 func jointTrainingForwardText(username, link string) string {
-	return "🤝 @" + username + " пока нет в стае, а Лео не может написать первым. " +
+	return "🤝 " + jointTrainingMentionLabel(username) + " пока нет в стае, а Лео не может написать первым. " +
 		"Перешли другу приглашение на совместные тренировки:\n" + link
 }
 

@@ -100,7 +100,7 @@ func TestJointTrainingCyrillicDisplayOutsidePack(t *testing.T) {
 	tg.reset()
 	logWorkout(b, itUser, "бег, 30 мин, интенсивность 3/5\n\nс @Маша")
 	author := joinedTexts(tg.textsTo(itUser))
-	if !strings.Contains(author, "@маша пока нет в стае") {
+	if strings.Contains(author, "@@") || !strings.Contains(author, "@маша пока нет в стае") {
 		t.Fatalf("неизвестное кириллическое имя — ссылка отметившему: %q", author)
 	}
 }
