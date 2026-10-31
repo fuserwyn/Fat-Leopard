@@ -96,10 +96,12 @@ func trackerAgentName(phase string) string {
 const trackerAgentKickCooldown = 90 * time.Second
 const trackerAgentClaimWait = 45 * time.Second
 
-// Перезапускам агента нет предела: карточка должна доехать сама, без человека.
-// Чтобы сорванный старт (нет токена, лежит исполнитель) не долбил сервис каждые
-// полторы минуты, пауза растёт с каждой попыткой и упирается в полчаса.
+// Сорванный старт (нет токена, лимит подписки, лежит исполнитель) сам
+// перезапускаем не больше trackerAgentKickLimit раз, пауза растёт до получаса.
+// Дальше карточка ждёт человека: #167 сутки крутилась каждые 30 минут и жгла
+// токены. «Запустить снова» и «Обновить» (force) перезапускают сразу.
 const trackerAgentKickCooldownMax = 30 * time.Minute
+const trackerAgentKickLimit = 3
 
 // trackerAgentKickWait — сколько ждать перед очередным перезапуском агента.
 func trackerAgentKickWait(kicks int) time.Duration {
@@ -171,7 +173,11 @@ func trackerNeedsAgentKick(t database.TrackerTask, now time.Time, force bool) bo
 		if force {
 			return true
 		}
-		return !t.HasLastRun || now.Sub(t.LastRunAt) >= trackerAgentKickWait(trackerAgentKickCount(t))
+		kicks := trackerAgentKickCount(t)
+		if kicks >= trackerAgentKickLimit {
+			return false
+		}
+		return !t.HasLastRun || now.Sub(t.LastRunAt) >= trackerAgentKickWait(kicks)
 	}
 	// Remote ещё нет: аппрув, «ждёт очередь» или create ещё летит.
 	// Пустую карточку без last_run не трогаем — так выглядит свежий claim

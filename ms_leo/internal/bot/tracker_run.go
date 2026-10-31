@@ -77,7 +77,8 @@ func (b *Bot) startTrackerDueScheduler(ctx context.Context) {
 		case <-ticker.C:
 			b.runDueTrackerTasks()
 		case <-daily.C:
-			if n := b.kickStuckTrackerAgents(true); n > 0 && b.logger != nil {
+			// Без force: суточный тик — не человек, лимит перезапусков соблюдаем.
+			if n := b.kickStuckTrackerAgents(false); n > 0 && b.logger != nil {
 				b.logger.Infof("трекер: суточный перезапуск застрявших агентов: %d", n)
 			}
 		}
