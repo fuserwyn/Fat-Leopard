@@ -126,3 +126,32 @@ func TestServerPaymentReminderMessageButton(t *testing.T) {
 		t.Errorf("кнопка оплаты: %+v", m.ReplyMarkup)
 	}
 }
+
+func TestServerPaymentStarsForCost(t *testing.T) {
+	cases := []struct {
+		usd, rate float64
+		want      int
+	}{
+		{13.34, 0.013, 1027}, // округляем вверх, чтобы расход покрылся
+		{13, 0.013, 1000},
+		{0, 0.013, 0},
+		{13.34, 0, 0},
+	}
+	for _, c := range cases {
+		if got := serverPaymentStarsForCost(c.usd, c.rate); got != c.want {
+			t.Errorf("$%.2f по %.3f: got %d want %d", c.usd, c.rate, got, c.want)
+		}
+	}
+}
+
+func TestServerPaymentAmountLine(t *testing.T) {
+	if got := serverPaymentAmountLine(0, 0); got != "" {
+		t.Errorf("без суммы: %q", got)
+	}
+	if got := serverPaymentAmountLine(500, 0); !strings.Contains(got, "К оплате: 500 ⭐") {
+		t.Errorf("запасная сумма: %q", got)
+	}
+	if got := serverPaymentAmountLine(1027, 13.34); !strings.Contains(got, "$13.34") || !strings.Contains(got, "1027 ⭐") {
+		t.Errorf("расход Railway: %q", got)
+	}
+}

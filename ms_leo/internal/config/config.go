@@ -22,7 +22,8 @@ type Config struct {
 	// через запятую, по порядку: первый платит в ноябре 2026, второй — в декабре и т.д.).
 	// Пусто — очередь из OWNER_ID + ADMIN_IDS.
 	ServerPaymentAdminIDs []int64
-	// ServerPaymentStars — сумма в звёздах для кнопки оплаты в напоминании (SERVER_PAYMENT_STARS); 0 — без кнопки.
+	// ServerPaymentStars — запасная сумма счёта за сервер (SERVER_PAYMENT_STARS), если Railway не ответил;
+	// обычно сумма считается по расходу Railway. 0 — тогда без кнопки оплаты.
 	ServerPaymentStars int
 	DatabaseURL           string
 	// TrackerDatabaseURL — Postgres только трекера (карточки, вложения, автономия, jobs).

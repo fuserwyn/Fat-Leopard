@@ -3,6 +3,8 @@ package bot
 import (
 	"context"
 	"fmt"
+	"math"
+	"strings"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -11,7 +13,8 @@ import (
 // Напоминание админам об оплате ресурсов сервера: 20-го числа каждого месяца (МСК)
 // одному админу по очереди. Очередь — SERVER_PAYMENT_ADMIN_IDS (по порядку),
 // первый в ней платит в ноябре 2026, второй — в декабре, третий — в январе, и снова по кругу.
-// В сообщении — кнопка оплаты звёздами на SERVER_PAYMENT_STARS (0 — без кнопки).
+// В сообщении — кнопка оплаты звёздами на сумму расхода Railway по курсу USD_PER_STAR.
+// Railway не ответил — берём SERVER_PAYMENT_STARS; и его нет — напоминание без кнопки.
 
 const (
 	serverPaymentReminderDay  = 20
@@ -53,6 +56,39 @@ func serverPaymentReminderText(month time.Time, nextAdminLabel string) string {
 	return text
 }
 
+// serverPaymentStarsForCost — сколько звёзд покрывает расход; округляем вверх, чтобы хватило.
+func serverPaymentStarsForCost(usd, usdPerStar float64) int {
+	if usd <= 0 || usdPerStar <= 0 {
+		return 0
+	}
+	return int(math.Ceil(usd / usdPerStar))
+}
+
+// serverPaymentAmount — сумма счёта: расход Railway в звёздах, иначе SERVER_PAYMENT_STARS.
+// usd = 0 — расход неизвестен, сумма запасная.
+func (b *Bot) serverPaymentAmount() (stars int, usd float64) {
+	if strings.TrimSpace(b.config.RailwayToken) != "" && strings.TrimSpace(b.config.RailwayProjectID) != "" {
+		_, total, err := b.railwayCost()
+		if err != nil {
+			b.logger.Errorf("server payment amount: railway: %v", err)
+		} else if n := serverPaymentStarsForCost(total, b.config.UsdPerStar); n > 0 {
+			return n, total
+		}
+	}
+	return b.config.ServerPaymentStars, 0
+}
+
+// serverPaymentAmountLine — строка с суммой в напоминании.
+func serverPaymentAmountLine(stars int, usd float64) string {
+	if stars <= 0 {
+		return ""
+	}
+	if usd <= 0 {
+		return fmt.Sprintf("\n\nК оплате: %d ⭐", stars)
+	}
+	return fmt.Sprintf("\n\nРасход Railway: $%.2f — к оплате %d ⭐", usd, stars)
+}
+
 // serverPaymentReminderMessage — сообщение админу; link пустой — без кнопки оплаты.
 func serverPaymentReminderMessage(adminID int64, text, link string, stars int) tgbotapi.MessageConfig {
 	m := tgbotapi.NewMessage(adminID, text)
@@ -65,8 +101,7 @@ func serverPaymentReminderMessage(adminID int64, text, link string, stars int) t
 }
 
 // serverPaymentInvoiceLink — счёт в звёздах за месяц; без ссылки напоминание всё равно уходит.
-func (b *Bot) serverPaymentInvoiceLink(adminID int64, month time.Time) string {
-	stars := b.config.ServerPaymentStars
+func (b *Bot) serverPaymentInvoiceLink(adminID int64, month time.Time, stars int) string {
 	if stars <= 0 {
 		return ""
 	}
@@ -135,8 +170,13 @@ func (b *Bot) runServerPaymentReminder(now time.Time) bool {
 	if len(admins) > 1 {
 		next = b.supportDisplayName(admins[(idx+1)%len(admins)])
 	}
-	link := b.serverPaymentInvoiceLink(adminID, now)
-	if _, err := b.api.Send(serverPaymentReminderMessage(adminID, serverPaymentReminderText(now, next), link, b.config.ServerPaymentStars)); err != nil {
+	stars, usd := b.serverPaymentAmount()
+	link := b.serverPaymentInvoiceLink(adminID, now, stars)
+	text := serverPaymentReminderText(now, next)
+	if link != "" {
+		text += serverPaymentAmountLine(stars, usd)
+	}
+	if _, err := b.api.Send(serverPaymentReminderMessage(adminID, text, link, stars)); err != nil {
 		b.logger.Errorf("server payment reminder %s to %d: %v", month, adminID, err)
 		if err := b.db.ReleaseServerPaymentReminder(month); err != nil {
 			b.logger.Errorf("server payment reminder %s release: %v", month, err)
