@@ -22,21 +22,25 @@ const (
 
 // TrackerTask — строка доски. Вложения подгружаются отдельно.
 type TrackerTask struct {
-	ID                      int64
-	Num                     int
-	Prompt                  string
-	WhenAt                  time.Time
-	WhenLabel               string
-	Repeat                  string
-	Kind                    string
-	Status                  string
-	DevColumn               string
-	QaColumn                string
-	QaStatus                string
-	HandedToQa              bool
-	AutoReview              bool
-	ManualQa                bool
-	FastTrack               bool
+	ID         int64
+	Num        int
+	Prompt     string
+	WhenAt     time.Time
+	WhenLabel  string
+	Repeat     string
+	Kind       string
+	Status     string
+	DevColumn  string
+	QaColumn   string
+	QaStatus   string
+	HandedToQa bool
+	AutoReview bool
+	ManualQa   bool
+	FastTrack  bool
+	// SkipReview / SkipTest — галочки «ревью» и «тест» сняты. Нулевое значение
+	// оставляет обе фазы, как у карточек, созданных до этих галочек.
+	SkipReview              bool
+	SkipTest                bool
 	AutoPush                bool
 	NeedsApproval           bool
 	Approvals               []int64
@@ -76,6 +80,7 @@ const trackerTaskSelect = `
 		       t.approval_notified_at, t.approval_reminder_sent_at,
 		       t.error, t.result, t.steps, t.author_id,
 		       t.created_at, t.last_run_at, t.updated_at, t.agent,
+		       t.skip_review, t.skip_test,
 		       (SELECT COUNT(*) FROM pack_tracker_attachments a WHERE a.task_id = t.id)
 		FROM pack_tracker_tasks t
 `
@@ -206,18 +211,19 @@ func (d *Database) CreateTrackerTask(t TrackerTask) (TrackerTask, error) {
 		INSERT INTO pack_tracker_tasks (
 			num, prompt, when_at, when_label, repeat, kind, status, dev_column,
 			qa_column, qa_status, handed_to_qa, auto_review, manual_qa, fast_track,
-			auto_push, needs_approval, approvals, error, result, steps, author_id, agent
+			auto_push, needs_approval, approvals, error, result, steps, author_id, agent,
+			skip_review, skip_test
 		)
 		VALUES (
 			COALESCE((SELECT MAX(num) FROM pack_tracker_tasks), 0) + 1,
 			$1, $2, $3, $4, $5, $6, $7, NULLIF($8, ''), NULLIF($9, ''),
-			$10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21
+			$10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23
 		)
 		RETURNING id, num, created_at, updated_at
 	`, t.Prompt, t.WhenAt, t.WhenLabel, t.Repeat, t.Kind, t.Status, t.DevColumn,
 		t.QaColumn, t.QaStatus, t.HandedToQa, t.AutoReview, t.ManualQa, t.FastTrack,
 		t.AutoPush, t.NeedsApproval, marshalTrackerApprovals(t.Approvals), t.Error, t.Result, steps, author,
-		trackerAgentOrAuto(t.Agent),
+		trackerAgentOrAuto(t.Agent), t.SkipReview, t.SkipTest,
 	).Scan(&t.ID, &t.Num, &t.CreatedAt, &t.UpdatedAt)
 	return t, err
 }
@@ -254,12 +260,12 @@ func (d *Database) SaveTrackerTask(t TrackerTask) error {
 			manual_qa = $13, fast_track = $14, auto_push = $15, needs_approval = $16,
 			approvals = $17, error = $18,
 			result = $19, steps = $20, author_id = $21, last_run_at = $22,
-			agent = $23, updated_at = NOW()
+			agent = $23, skip_review = $24, skip_test = $25, updated_at = NOW()
 		WHERE id = $1
 	`, t.ID, t.Prompt, t.WhenAt, t.WhenLabel, t.Repeat, t.Kind, t.Status, t.DevColumn,
 		t.QaColumn, t.QaStatus, t.HandedToQa, t.AutoReview, t.ManualQa, t.FastTrack,
 		t.AutoPush, t.NeedsApproval, marshalTrackerApprovals(t.Approvals), t.Error,
-		t.Result, steps, author, lastRun, trackerAgentOrAuto(t.Agent))
+		t.Result, steps, author, lastRun, trackerAgentOrAuto(t.Agent), t.SkipReview, t.SkipTest)
 	if err != nil {
 		return err
 	}
@@ -492,7 +498,7 @@ func scanTrackerTask(row trackerRow) (TrackerTask, error) {
 		&t.NeedsApproval, &approvalsRaw,
 		&approvalNotified, &approvalReminder,
 		&t.Error, &t.Result, &steps, &author,
-		&t.CreatedAt, &lastRun, &t.UpdatedAt, &t.Agent, &t.AttachmentsCount,
+		&t.CreatedAt, &lastRun, &t.UpdatedAt, &t.Agent, &t.SkipReview, &t.SkipTest, &t.AttachmentsCount,
 	)
 	if err != nil {
 		return t, err

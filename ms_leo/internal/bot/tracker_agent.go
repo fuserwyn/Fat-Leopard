@@ -97,11 +97,20 @@ const trackerAgentKickCooldown = 90 * time.Second
 const trackerAgentClaimWait = 45 * time.Second
 
 // Сорванный старт (нет токена, лимит подписки, лежит исполнитель) сам
-// перезапускаем не больше trackerAgentKickLimit раз, пауза растёт до получаса.
+// перезапускаем не больше trackerAttemptCap раз, пауза растёт до получаса.
 // Дальше карточка ждёт человека: #167 сутки крутилась каждые 30 минут и жгла
 // токены. «Запустить снова» и «Обновить» (force) перезапускают сразу.
 const trackerAgentKickCooldownMax = 30 * time.Minute
-const trackerAgentKickLimit = 3
+
+// trackerAttemptCap — сколько раз сами перезапускаем упавшего исполнителя.
+// Дальше автору уходит сигнал, лог пишется в карточку, и если это был не Cursor —
+// карточку один раз отдаём Cursor, тоже не больше чем на столько повторов.
+const trackerAttemptCap = 3
+
+const (
+	trackerCursorHandoffStep     = "Передали Cursor после ошибок"
+	trackerAttemptsExhaustedStep = "Попытки кончились"
+)
 
 // trackerAgentKickWait — сколько ждать перед очередным перезапуском агента.
 func trackerAgentKickWait(kicks int) time.Duration {
@@ -124,10 +133,27 @@ func trackerLastStep(t database.TrackerTask) string {
 	return ""
 }
 
-func trackerAgentKickCount(t database.TrackerTask) int {
-	n := 0
+func trackerStepHas(t database.TrackerTask, needle string) bool {
 	for _, s := range t.Steps {
-		if strings.Contains(strings.ToLower(s), "снова запускаем агента") {
+		if strings.Contains(s, needle) {
+			return true
+		}
+	}
+	return false
+}
+
+// trackerStageKickCount — повторы текущего исполнителя. После передачи Cursor
+// считаем только шаги, которые идут следом.
+func trackerStageKickCount(t database.TrackerTask) int {
+	n := 0
+	afterHandoff := !trackerStepHas(t, trackerCursorHandoffStep)
+	for _, s := range t.Steps {
+		if strings.Contains(s, trackerCursorHandoffStep) {
+			afterHandoff = true
+			n = 0
+			continue
+		}
+		if afterHandoff && strings.Contains(strings.ToLower(s), "снова запускаем агента") {
 			n++
 		}
 	}
@@ -170,14 +196,13 @@ func trackerNeedsAgentKick(t database.TrackerTask, now time.Time, force bool) bo
 		return false
 	}
 	if failed {
+		if !force && trackerStageKickCount(t) >= trackerAttemptCap {
+			return false
+		}
 		if force {
 			return true
 		}
-		kicks := trackerAgentKickCount(t)
-		if kicks >= trackerAgentKickLimit {
-			return false
-		}
-		return !t.HasLastRun || now.Sub(t.LastRunAt) >= trackerAgentKickWait(kicks)
+		return !t.HasLastRun || now.Sub(t.LastRunAt) >= trackerAgentKickWait(trackerStageKickCount(t))
 	}
 	// Remote ещё нет: аппрув, «ждёт очередь» или create ещё летит.
 	// Пустую карточку без last_run не трогаем — так выглядит свежий claim
@@ -695,9 +720,9 @@ pass false если нет коммита, только заметка, config.g
 				}
 			}
 		}
-		next := trackerColTest
-		if phase == "test" {
-			next = trackerColDeploy
+		next := trackerColDeploy
+		if phase == "review" {
+			next = trackerColumnAfterReview(t)
 		}
 		_ = applyTrackerColumn(&t, next)
 		if err := b.db.SaveTrackerTask(t); err != nil {

@@ -34,6 +34,10 @@ export type TrackerTask = {
   auto_review: boolean;
   manual_qa: boolean;
   fast_track: boolean;
+  /** Галочка «Ревью». Пустое значение на старых карточках — ревью есть. */
+  review?: boolean;
+  /** Галочка «Тест». Пустое значение на старых карточках — тест есть. */
+  test?: boolean;
   error: string;
   has_result: boolean;
   phase: string;
@@ -185,6 +189,10 @@ export function trackerCreate(
     auto_review?: boolean;
     manual_qa?: boolean;
     fast_track?: boolean;
+    /** false — пропустить ревью. По умолчанию ревью есть. */
+    review?: boolean;
+    /** false — пропустить тест. По умолчанию тест есть. */
+    test?: boolean;
     needs_approval?: boolean;
     /** Агент пушит сам, иначе «выполнено» не попадёт на сервер. */
     auto_push?: boolean;
@@ -269,10 +277,22 @@ export function trackerQa(initData: string, taskId: number, action: "start" | "p
 }
 
 /** Обновить формулировку задачи, пока она ещё не началась. */
-export function trackerPrompt(initData: string, taskId: number, prompt: string, agent?: string) {
+export function trackerPrompt(
+  initData: string,
+  taskId: number,
+  prompt: string,
+  agent?: string,
+  phases?: { review?: boolean; test?: boolean },
+) {
   return call<{ ok: boolean; task?: TrackerTask }>(initData, "prompt", {
     task_id: taskId,
-    payload: { id: taskId, prompt, ...(agent ? { agent } : {}) },
+    payload: {
+      id: taskId,
+      prompt,
+      ...(agent ? { agent } : {}),
+      ...(phases?.review === undefined ? {} : { review: phases.review }),
+      ...(phases?.test === undefined ? {} : { test: phases.test }),
+    },
   });
 }
 

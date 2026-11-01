@@ -77,9 +77,8 @@ func (b *Bot) startTrackerDueScheduler(ctx context.Context) {
 		case <-ticker.C:
 			b.runDueTrackerTasks()
 		case <-daily.C:
-			// Без force: суточный тик — не человек, лимит перезапусков соблюдаем.
 			if n := b.kickStuckTrackerAgents(false); n > 0 && b.logger != nil {
-				b.logger.Infof("трекер: суточный перезапуск застрявших агентов: %d", n)
+				b.logger.Infof("трекер: суточная проверка застрявших агентов: %d", n)
 			}
 		}
 	}
@@ -177,6 +176,12 @@ func (b *Bot) kickStuckTrackerAgents(force bool) int {
 			n++
 			continue
 		}
+		if trackerAgentStartFailed(t) && !force && trackerStageKickCount(t) >= trackerAttemptCap {
+			if b.settleExhaustedTrackerAttempt(&t) {
+				n++
+			}
+			continue
+		}
 		if !trackerNeedsAgentKick(t, now, force) {
 			continue
 		}
@@ -200,6 +205,75 @@ func (b *Bot) kickStuckTrackerAgents(force bool) int {
 		n++
 	}
 	return n
+}
+
+// settleExhaustedTrackerAttempt — три повтора кончились. Лог пишем в карточку,
+// автору шлём, что задача упала. Если падал не Cursor, один раз передаём ему
+// карточку. Повторный опрос доски второе письмо не шлёт.
+func (b *Bot) settleExhaustedTrackerAttempt(t *database.TrackerTask) bool {
+	if b == nil || t == nil || b.db == nil {
+		return false
+	}
+	logText := strings.TrimSpace(t.Error)
+	if logText == "" {
+		logText = "агент не сдал задачу"
+	}
+	if !trackerStepHas(*t, trackerCursorHandoffStep) && normalizeTrackerAgent(t.Agent) != "cursor" {
+		appendTrackerFailureLog(t, logText)
+		t.Agent = "cursor"
+		t.Error = ""
+		appendTrackerStep(t, trackerCursorHandoffStep)
+		if err := b.db.SaveTrackerTask(*t); err != nil {
+			if b.logger != nil {
+				b.logger.Warnf("трекер: не передать #%d Cursor: %v", trackerDueNum(*t), err)
+			}
+			return false
+		}
+		b.notifyTrackerAttempt(*t, fmt.Sprintf(
+			"Задача #%d упала.\n\nДальше запускаю Cursor, ещё до %d повторов.\n\nЛог:\n%s",
+			trackerDueNum(*t), trackerAttemptCap, clipNotifyText(logText),
+		))
+		b.dispatchTrackerAgent(*t, "doing")
+		return true
+	}
+	if trackerStepHas(*t, trackerAttemptsExhaustedStep) {
+		return false
+	}
+	appendTrackerFailureLog(t, logText)
+	appendTrackerStep(t, trackerAttemptsExhaustedStep)
+	t.Status = "error"
+	t.Error = clipNotifyText(logText)
+	if err := b.db.SaveTrackerTask(*t); err != nil {
+		if b.logger != nil {
+			b.logger.Warnf("трекер: не остановить #%d: %v", trackerDueNum(*t), err)
+		}
+		return false
+	}
+	b.notifyTrackerAttempt(*t, fmt.Sprintf(
+		"Задача #%d упала. %s исчерпал %d повтора, дальше сам не запускаю.\n\nЛог:\n%s",
+		trackerDueNum(*t), trackerAgentChoiceLabel(t.Agent), trackerAttemptCap, clipNotifyText(logText),
+	))
+	return true
+}
+
+func appendTrackerFailureLog(t *database.TrackerTask, logText string) {
+	if t == nil {
+		return
+	}
+	block := "Лог:\n" + strings.TrimSpace(logText)
+	if strings.Contains(t.Result, block) {
+		return
+	}
+	t.Result = strings.TrimSpace(strings.TrimSpace(t.Result) + "\n\n" + block)
+}
+
+func (b *Bot) notifyTrackerAttempt(t database.TrackerTask, text string) {
+	if b == nil || strings.TrimSpace(text) == "" {
+		return
+	}
+	if err := b.NotifyTrackerResult(trackerNotifyAuthor(t), text); err != nil && b.logger != nil {
+		b.logger.Warnf("трекер: не сообщить об ошибке #%d: %v", trackerDueNum(t), err)
+	}
 }
 
 // Ревью/тест без агента: карточка приехала, а старт упёрся в занятый

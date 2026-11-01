@@ -1877,6 +1877,20 @@ var Migrations = []Migration{
 			ALTER TABLE training_state DROP COLUMN IF EXISTS timezone_name;
 		`,
 	},
+	{
+		Version:     95,
+		Description: "Галочки ревью и теста на карточке трекера",
+		UpSQL: `
+			ALTER TABLE IF EXISTS pack_tracker_tasks
+				ADD COLUMN IF NOT EXISTS skip_review BOOLEAN NOT NULL DEFAULT FALSE;
+			ALTER TABLE IF EXISTS pack_tracker_tasks
+				ADD COLUMN IF NOT EXISTS skip_test BOOLEAN NOT NULL DEFAULT FALSE;
+		`,
+		DownSQL: `
+			ALTER TABLE IF EXISTS pack_tracker_tasks DROP COLUMN IF EXISTS skip_test;
+			ALTER TABLE IF EXISTS pack_tracker_tasks DROP COLUMN IF EXISTS skip_review;
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции

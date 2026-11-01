@@ -295,6 +295,15 @@ func TestTrackerNotifyDoneColumn(t *testing.T) {
 	if got := trackerNotifyDoneColumn(database.TrackerTask{DevColumn: trackerColTest}); got != trackerColDeploy {
 		t.Fatalf("test → build: %s", got)
 	}
+	if got := trackerNotifyDoneColumn(database.TrackerTask{DevColumn: trackerColDoing, SkipReview: true}); got != trackerColTest {
+		t.Fatalf("без ревью → тест: %s", got)
+	}
+	if got := trackerNotifyDoneColumn(database.TrackerTask{DevColumn: trackerColDoing, SkipReview: true, SkipTest: true}); got != trackerColDeploy {
+		t.Fatalf("без ревью и теста → сборка: %s", got)
+	}
+	if got := trackerNotifyDoneColumn(database.TrackerTask{DevColumn: trackerColReview, SkipTest: true}); got != trackerColDeploy {
+		t.Fatalf("ревью без теста → сборка: %s", got)
+	}
 	shipped := database.TrackerTask{DevColumn: trackerColReview, Result: trackerFullyDoneNote(database.TrackerTask{Num: 1})}
 	if got := trackerNotifyDoneColumn(shipped); got != trackerColDeploy {
 		t.Fatalf("shipped text → deploy, not done: %s", got)
@@ -356,7 +365,7 @@ func TestApplyBoardNotifyFindsOpenTaskWhenForeignID(t *testing.T) {
 			false, []byte("[]"),
 			nil, nil,
 			"", "", []byte(`["Взяли в работу по расписанию"]`), int64(42),
-			now, now, now, "auto", 0,
+			now, now, now, "auto", false, false, 0,
 		))
 	mock.ExpectExec(`UPDATE pack_tracker_tasks SET`).
 		WillReturnResult(sqlmock.NewResult(0, 1))

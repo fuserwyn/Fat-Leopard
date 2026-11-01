@@ -301,6 +301,8 @@ function metaParts(t: TrackerTask, isQa: boolean): string[] {
   if (!isQa && (t.agent === "claude" || t.agent === "cursor")) parts.push(trackerAgentLabel(t.agent));
   if (t.when) parts.push(t.when);
   if (t.repeat && t.repeat !== "разово") parts.push(t.repeat);
+  if (!isQa && t.review === false) parts.push("без ревью");
+  if (!isQa && t.test === false) parts.push("без теста");
   if (!isQa && t.auto_review) parts.push("авто-ревью");
   if (t.manual_qa) parts.push("ручное QA");
   if (t.fast_track) parts.push("без ревью и теста");
@@ -432,6 +434,8 @@ export function TrackerScreen({ initData, showAlert }: Props) {
   const [when, setWhen] = useState(WHEN_PRESETS[0].value);
   const [whenAt, setWhenAt] = useState("");
   const [needsApproval, setNeedsApproval] = useState(false);
+  const [withReview, setWithReview] = useState(true);
+  const [withTest, setWithTest] = useState(true);
   /** Кто пишет код. По умолчанию Cursor, Claude — только явный выбор. */
   const [agent, setAgent] = useState<TrackerAgent>("cursor");
   /** Задачу от Лео на доску — с аппрувом всех админов. */
@@ -594,6 +598,8 @@ export function TrackerScreen({ initData, showAlert }: Props) {
         when: when === "custom" ? whenFromPicker(whenAt) : when,
         prompt: text,
         needs_approval: wantApproval,
+        review: withReview,
+        test: withTest,
         // Задачу сочинил Лео — пусть на доске и стоит он, а не тот, кто одобрил.
         leo: opts?.leo,
         agent: opts?.leo ? "cursor" : agent,
@@ -1153,6 +1159,26 @@ export function TrackerScreen({ initData, showAlert }: Props) {
                 <b>Аппрув команды</b>
               </span>
             </label>
+            <label className="tracker-feat">
+              <input
+                type="checkbox"
+                checked={withReview}
+                onChange={(e) => setWithReview(e.target.checked)}
+              />
+              <span>
+                <b>Ревью</b>
+              </span>
+            </label>
+            <label className="tracker-feat">
+              <input
+                type="checkbox"
+                checked={withTest}
+                onChange={(e) => setWithTest(e.target.checked)}
+              />
+              <span>
+                <b>Тест</b>
+              </span>
+            </label>
           </div>
 
           <div className="tracker__new">
@@ -1643,6 +1669,44 @@ export function TrackerScreen({ initData, showAlert }: Props) {
             ) : (
               <p className="tracker__hint">Исполнитель: {trackerAgentLabel(detail.agent)}</p>
             )}
+            {detail.status !== "done" && detail.status !== "canceled" ? (
+              <div className="tracker__toggles">
+                <label className="tracker-feat">
+                  <input
+                    type="checkbox"
+                    checked={detail.review !== false}
+                    disabled={busy}
+                    onChange={(e) => {
+                      const review = e.target.checked;
+                      void actOnDetail(async () => {
+                        const res = await trackerPrompt(initData, detail.id, detail.prompt, undefined, { review });
+                        if (res.task) setDetail(res.task);
+                      }, review ? "Ревью включено." : "Ревью выключено.");
+                    }}
+                  />
+                  <span>
+                    <b>Ревью</b>
+                  </span>
+                </label>
+                <label className="tracker-feat">
+                  <input
+                    type="checkbox"
+                    checked={detail.test !== false}
+                    disabled={busy}
+                    onChange={(e) => {
+                      const test = e.target.checked;
+                      void actOnDetail(async () => {
+                        const res = await trackerPrompt(initData, detail.id, detail.prompt, undefined, { test });
+                        if (res.task) setDetail(res.task);
+                      }, test ? "Тест включён." : "Тест выключен.");
+                    }}
+                  />
+                  <span>
+                    <b>Тест</b>
+                  </span>
+                </label>
+              </div>
+            ) : null}
             <div className="tracker-modal__prompt-block">
               {editingPrompt ? (
                 <>

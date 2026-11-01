@@ -144,9 +144,9 @@ func TestFailedTestAlwaysReturnsCardToWork(t *testing.T) {
 	}
 }
 
-// Сорвавшегося агента сами перезапускаем trackerAgentKickLimit раз, с растущей
-// паузой; дальше только руками.
-func TestAgentRestartsSlowDownAndStop(t *testing.T) {
+// Пауза между повторами растёт до получаса, но после трёх повторов
+// карточка сама больше не стартует.
+func TestAgentRestartsStopAfterCap(t *testing.T) {
 	if trackerAgentKickWait(0) != 90*time.Second || trackerAgentKickWait(1) != 3*time.Minute || trackerAgentKickWait(3) != 12*time.Minute {
 		t.Errorf("пауза удваивается: %s %s %s", trackerAgentKickWait(0), trackerAgentKickWait(1), trackerAgentKickWait(3))
 	}
@@ -159,13 +159,13 @@ func TestAgentRestartsSlowDownAndStop(t *testing.T) {
 		DevColumn: trackerColDoing, Status: "error", Error: "Агент не стартовал: нет токена",
 		HasLastRun: true, LastRunAt: now.Add(-31 * time.Minute),
 	}
-	for i := 0; i < trackerAgentKickLimit-1; i++ {
+	for i := 0; i < trackerAttemptCap-1; i++ {
 		failed.Steps = append(failed.Steps, "Снова запускаем агента")
 	}
 	if !trackerNeedsAgentKick(failed, now, false) {
 		t.Fatal("до лимита агента перезапускаем сами")
 	}
-	failed.LastRunAt = now.Add(-trackerAgentKickWait(trackerAgentKickLimit-1) + time.Minute)
+	failed.LastRunAt = now.Add(-trackerAgentKickWait(trackerAttemptCap-1) + time.Minute)
 	if trackerNeedsAgentKick(failed, now, false) {
 		t.Error("но не раньше паузы")
 	}
@@ -173,7 +173,7 @@ func TestAgentRestartsSlowDownAndStop(t *testing.T) {
 	failed.LastRunAt = now.Add(-31 * time.Minute)
 	failed.Steps = append(failed.Steps, "Снова запускаем агента")
 	if trackerNeedsAgentKick(failed, now, false) {
-		t.Error("после лимита сами не перезапускаем — ждём человека")
+		t.Fatal("после трёх повторов сами больше не запускаем")
 	}
 	failed.LastRunAt = now.Add(-48 * time.Hour)
 	if trackerNeedsAgentKick(failed, now, false) {

@@ -563,16 +563,13 @@ func trackerNotifyDoneColumn(t database.TrackerTask) string {
 	}
 	switch col {
 	case trackerColReview:
-		return trackerColTest
+		return trackerColumnAfterReview(t)
 	case trackerColTest:
 		return trackerColDeploy
 	case trackerColDeploy, trackerColDone:
 		return col
 	}
-	if t.FastTrack {
-		return trackerColDeploy
-	}
-	return trackerColReview
+	return trackerColumnAfterDoing(t)
 }
 
 func trackerShouldShipAfterNotify(t database.TrackerTask) bool {
