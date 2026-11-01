@@ -30,6 +30,7 @@ const (
 
 	serverPaymentPayloadPrefix      = "srv_"
 	serverPaymentCardCallbackPrefix = "server_pay_card:"
+	serverPaymentTestMonthPrefix    = "test-"
 )
 
 // Внешние вызовы вынесены в переменные, чтобы подменять их в тестах.
@@ -123,25 +124,46 @@ func (b *Bot) runServerPaymentBilling(now time.Time) bool {
 	if existing != nil {
 		return false
 	}
-	period := serverPaymentPeriodLabel(now)
-	stars, link := b.config.ServerPaymentStars, ""
+	return b.issueServerPaymentBill(month, serverPaymentPeriodLabel(now), b.config.ServerPaymentUserID,
+		b.config.ServerPaymentStars, b.config.ServerPaymentRub, b.config.ServerPaymentSuspendEnabled, now)
+}
+
+// handleTestServerBill — /test_server_bill: владелец проверяет оплату настоящими деньгами на небольшой сумме.
+// Месяц с префиксом test- не считается просрочкой и не включает паузу.
+func (b *Bot) handleTestServerBill(msg *tgbotapi.Message) {
+	if msg.From == nil || msg.From.ID != b.config.OwnerID {
+		return
+	}
+	now := time.Now().In(moscowLocation())
+	month := serverPaymentTestMonthPrefix + now.Format("20060102-150405")
+	if !b.issueServerPaymentBill(month, "тест", msg.From.ID, 9, 10, false, now) {
+		if _, err := b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "Не удалось выставить тестовый счёт, подробности в логах.")); err != nil {
+			b.logger.Errorf("server payment %s: %v", month, err)
+		}
+	}
+}
+
+// issueServerPaymentBill создаёт счёт и отправляет его; stars или rub = 0 отключает способ оплаты.
+func (b *Bot) issueServerPaymentBill(month, period string, userID int64, stars, rub int, warnSuspend bool, now time.Time) bool {
+	var err error
+	link := ""
 	if stars > 0 {
 		if link, err = b.serverPaymentStarsLink(month, period, stars); err != nil || link == "" {
 			b.logger.Errorf("server payment %s stars link: %v", month, err)
 			stars, link = 0, ""
 		}
 	}
-	rub, cardCallback := 0, ""
-	if b.serverPaymentCardReady() {
-		rub = b.config.ServerPaymentRub
+	cardCallback := ""
+	if b.serverPaymentCardReady() && rub > 0 {
 		cardCallback = serverPaymentCardCallbackPrefix + month
+	} else {
+		rub = 0
 	}
 	if stars == 0 && rub == 0 {
 		b.logger.Errorf("server payment %s: нет ни одного способа оплаты", month)
 		return false
 	}
 
-	userID := b.config.ServerPaymentUserID
 	inserted, err := b.db.InsertServerPaymentBill(database.ServerPaymentBill{
 		Month: month, UserID: userID, Stars: stars, Rub: rub, SentAt: now,
 	})
@@ -152,7 +174,7 @@ func (b *Bot) runServerPaymentBilling(now time.Time) bool {
 		return false
 	}
 	text := serverPaymentBillText(period, stars, rub)
-	if b.config.ServerPaymentSuspendEnabled {
+	if warnSuspend {
 		text += "\nОплатить нужно в течение суток, иначе бот встанет на паузу."
 	}
 	if _, err := b.api.Send(serverPaymentBillMessage(userID, text, link, stars, cardCallback, rub)); err != nil {

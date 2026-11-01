@@ -115,9 +115,10 @@ func (d *Database) UnpaidServerPaymentBillsWithCard() ([]*ServerPaymentBill, err
 }
 
 // OldestOverdueServerPaymentBill — самый старый счёт, выставленный раньше before и не оплаченный; nil — таких нет.
+// Тестовые счета (test-…) просрочкой не считаются.
 func (d *Database) OldestOverdueServerPaymentBill(before time.Time) (*ServerPaymentBill, error) {
 	bill, err := scanServerPaymentBill(d.db.QueryRow(`SELECT `+serverPaymentBillColumns+` FROM server_payment_bills
-		WHERE paid_at IS NULL AND sent_at < $1 ORDER BY month LIMIT 1`, before))
+		WHERE paid_at IS NULL AND sent_at < $1 AND month NOT LIKE 'test-%' ORDER BY month LIMIT 1`, before))
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}

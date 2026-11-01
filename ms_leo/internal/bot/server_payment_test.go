@@ -169,6 +169,37 @@ func TestServerPaymentCardFlowIntegration(t *testing.T) {
 	}
 }
 
+// Тестовый счёт: только владельцу, на небольшую сумму, без предупреждения и без паузы.
+func TestServerPaymentTestBillIntegration(t *testing.T) {
+	b, tg := newServerPaymentTestBot(t, func(c *config.Config) { c.ServerPaymentSuspendEnabled = true })
+	command := func(from int64) *tgbotapi.Message {
+		return &tgbotapi.Message{From: &tgbotapi.User{ID: from}, Chat: &tgbotapi.Chat{ID: from, Type: "private"}, Text: "/test_server_bill"}
+	}
+	b.handleTestServerBill(command(serverPaymentTestPayer))
+	if got := tg.texts(serverPaymentTestPayer); len(got) != 0 {
+		t.Fatalf("не владельцу счёт не положен: %v", got)
+	}
+	b.handleTestServerBill(command(serverPaymentTestOwner))
+	got := tg.texts(serverPaymentTestOwner)
+	if len(got) != 1 || !strings.Contains(got[0], "за тест: 10 ₽ или 9 ⭐") || strings.Contains(got[0], "пауз") {
+		t.Fatalf("тестовый счёт: %v", got)
+	}
+
+	month := serverPaymentTestMonthPrefix + "overdue"
+	t.Cleanup(func() { _ = b.db.DeleteServerPaymentBill(month) })
+	now := time.Now()
+	if err := b.db.DeleteServerPaymentBill(month); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := b.db.InsertServerPaymentBill(database.ServerPaymentBill{Month: month, UserID: serverPaymentTestOwner, Stars: 1, Rub: 1, SentAt: now.Add(-72 * time.Hour)}); err != nil {
+		t.Fatal(err)
+	}
+	b.refreshServerPaymentSuspension(now)
+	if b.serverPaymentSuspended.Load() {
+		t.Fatal("тестовый счёт не включает паузу")
+	}
+}
+
 // Личка закрыта: счёт не теряется и пауза не включается, следующий тик пробует снова.
 func TestServerPaymentRetriesIntegration(t *testing.T) {
 	b, tg := newServerPaymentTestBot(t, func(c *config.Config) { c.ServerPaymentSuspendEnabled = true })

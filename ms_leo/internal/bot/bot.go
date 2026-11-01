@@ -218,7 +218,7 @@ func (b *Bot) Start(ctx context.Context) error {
 	go b.startScheduledAdminPostsWorker(ctx)
 	// Periodic-страховка от пропущенных киков (см. startInactivityKickWatchdog).
 	go b.startInactivityKickWatchdog(ctx)
-	// 20-го числа — счёт за сервер плательщику (см. server_payment.go).
+	// 1-го числа — счёт за сервер плательщику (см. server_payment.go).
 	go b.startServerPaymentScheduler(ctx)
 	// Напоминания «внеси тренировку» в локальный час пользователя (см. startWorkoutReminderScheduler).
 	go b.startWorkoutReminderScheduler(ctx)
@@ -449,6 +449,8 @@ func (b *Bot) handleCommand(msg *tgbotapi.Message) {
 	switch command {
 	case "start":
 		b.handleStart(msg)
+	case "test_server_bill":
+		b.handleTestServerBill(msg)
 	case "rejoin":
 		b.handleRejoin(msg)
 	case "start_timer":
