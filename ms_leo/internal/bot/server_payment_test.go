@@ -181,7 +181,7 @@ func TestServerPaymentTestBillIntegration(t *testing.T) {
 	}
 	b.handleTestServerBill(command(serverPaymentTestOwner))
 	got := tg.texts(serverPaymentTestOwner)
-	if len(got) != 1 || !strings.Contains(got[0], "за тест: 10 ₽ или 9 ⭐") || strings.Contains(got[0], "пауз") {
+	if len(got) != 1 || !strings.Contains(got[0], "за тест: 10 ₽ или 1 ⭐") || strings.Contains(got[0], "пауз") {
 		t.Fatalf("тестовый счёт: %v", got)
 	}
 

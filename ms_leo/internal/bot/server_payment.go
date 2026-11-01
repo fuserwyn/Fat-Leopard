@@ -136,7 +136,7 @@ func (b *Bot) handleTestServerBill(msg *tgbotapi.Message) {
 	}
 	now := time.Now().In(moscowLocation())
 	month := serverPaymentTestMonthPrefix + now.Format("20060102-150405")
-	if !b.issueServerPaymentBill(month, "тест", msg.From.ID, 9, 10, false, now) {
+	if !b.issueServerPaymentBill(month, "тест", msg.From.ID, 1, 10, false, now) {
 		if _, err := b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "Не удалось выставить тестовый счёт, подробности в логах.")); err != nil {
 			b.logger.Errorf("server payment %s: %v", month, err)
 		}
