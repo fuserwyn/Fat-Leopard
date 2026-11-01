@@ -718,3 +718,46 @@ button.nwo__photo-add.fl-cam-btn {
   font: 600 var(--nwo-chip-fs) / var(--nwo-chip-lh) var(--font);
   color: var(--muted, #8b8b9a);
 }
+
+/* Подсказка «@» под описанием: участники стаи для отметки на совместной тренировке. */
+.nwo__mentions {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-radius: 12px;
+  background: var(--nwo-chip-bg);
+}
+
+.nwo__mention {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: inherit;
+  font: 600 var(--nwo-chip-fs) / 1.2 var(--font);
+  text-align: left;
+  cursor: pointer;
+}
+
+.nwo__mention:active {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.nwo__mention-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nwo__mention-tag {
+  color: var(--muted, #8b8b9a);
+  font-weight: 500;
+  white-space: nowrap;
+}

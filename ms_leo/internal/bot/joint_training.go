@@ -7,6 +7,7 @@ import (
 	"leo-bot/internal/database"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	initdata "github.com/telegram-mini-apps/init-data-golang"
 )
 
 // Совместная тренировка: в отчёте о тренировке отмечают напарника через @ник
@@ -148,4 +149,54 @@ func (b *Bot) inviteToJointTraining(packChatID, authorUserID int64, authorName, 
 	}
 	b.notifyUserTextByID(authorUserID, authorUserID,
 		"🤝 Отправил @"+username+" приглашение в стаю на совместные тренировки.", "", 0)
+}
+
+// JointTrainingMention — подсказка в мини-аппе при наборе «@» в описании тренировки.
+// Mention — то, что вставляется после «@»: его потом узнаёт разбор отметок.
+type JointTrainingMention struct {
+	UserID  int64  `json:"user_id"`
+	Name    string `json:"name"`
+	Mention string `json:"mention"`
+}
+
+// reMentionableName — имя в стае, которое целиком ловится как @-отметка.
+var reMentionableName = regexp.MustCompile(`^[^\s@,.!?;:()\[\]{}«»"']{1,40}$`)
+
+// jointTrainingMentionToken — чем отметить участника: ник Telegram, а без ника —
+// имя в стае, если в нём нет пробелов и знаков. "" — отметить нельзя.
+func jointTrainingMentionToken(username, displayName string) string {
+	if u := strings.TrimLeft(strings.TrimSpace(username), "@"); u != "" {
+		return u
+	}
+	if n := strings.TrimSpace(displayName); reMentionableName.MatchString(n) {
+		return n
+	}
+	return ""
+}
+
+// SearchJointTrainingMentionsForViewer — участники стаи для @-отметки напарника.
+func (b *Bot) SearchJointTrainingMentionsForViewer(viewerUserID int64, initD initdata.InitData, query string) ([]JointTrainingMention, error) {
+	if err := b.AssertMiniAppPackChatAligns(initD); err != nil {
+		return nil, err
+	}
+	if err := b.assertPackFeedSocialViewer(viewerUserID); err != nil {
+		return nil, err
+	}
+	rows, err := b.db.SearchPackMembersForMention(b.config.MonetizedChatID, viewerUserID, query, 8)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]JointTrainingMention, 0, len(rows))
+	for _, r := range rows {
+		tok := jointTrainingMentionToken(r.Username, r.DisplayName)
+		if tok == "" {
+			continue
+		}
+		out = append(out, JointTrainingMention{
+			UserID:  r.UserID,
+			Name:    packMemberDisplayName(r.DisplayName, r.Username),
+			Mention: tok,
+		})
+	}
+	return out, nil
 }

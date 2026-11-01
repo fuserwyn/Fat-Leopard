@@ -73,3 +73,54 @@ func (d *Database) ClaimJointTrainingInvite(inviterID int64, username string, in
 	n, _ := res.RowsAffected()
 	return n > 0, nil
 }
+
+// JointTrainingMentionCandidate — участник стаи для подсказки при @-отметке.
+type JointTrainingMentionCandidate struct {
+	UserID      int64
+	Username    string
+	DisplayName string
+}
+
+// SearchPackMembersForMention — активные участники стаи, чей ник или имя в стае
+// начинается с query (без «@», регистр не важен). Пустой query — самые активные.
+// Сам viewer в выдачу не попадает: себя на совместной тренировке не отмечают.
+func (d *Database) SearchPackMembersForMention(packChatID, viewerUserID int64, query string, limit int) ([]JointTrainingMentionCandidate, error) {
+	if d == nil || packChatID == 0 {
+		return nil, nil
+	}
+	if limit <= 0 || limit > 20 {
+		limit = 8
+	}
+	q := normalizeTelegramUsername(query)
+	esc := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(q)
+	pattern := esc + "%"
+	rows, err := d.db.Query(`
+		SELECT ts.user_id,
+		       LOWER(BTRIM(REGEXP_REPLACE(COALESCE(ts.username, ''), '^@+', ''))),
+		       BTRIM(COALESCE(p.display_name, ''))
+		FROM training_state ts
+		LEFT JOIN miniapp_user_profile p
+			ON p.user_id = ts.user_id AND p.pack_chat_id = ts.chat_id
+		WHERE ts.chat_id = $1
+		  AND ts.is_deleted = FALSE
+		  AND ts.user_id <> $2
+		  AND (
+		        LOWER(BTRIM(REGEXP_REPLACE(COALESCE(ts.username, ''), '^@+', ''))) LIKE $3 ESCAPE '\'
+		     OR LOWER(BTRIM(COALESCE(p.display_name, ''))) LIKE $3 ESCAPE '\'
+		  )
+		ORDER BY COALESCE(ts.streak_days, 0) DESC, ts.user_id ASC
+		LIMIT $4`, packChatID, viewerUserID, pattern, limit)
+	if err != nil {
+		return nil, fmt.Errorf("search pack members for mention: %w", err)
+	}
+	defer rows.Close()
+	out := []JointTrainingMentionCandidate{}
+	for rows.Next() {
+		var c JointTrainingMentionCandidate
+		if err := rows.Scan(&c.UserID, &c.Username, &c.DisplayName); err != nil {
+			return nil, fmt.Errorf("scan mention candidate: %w", err)
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}

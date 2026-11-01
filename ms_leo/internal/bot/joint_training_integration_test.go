@@ -1,8 +1,11 @@
 package bot
 
 import (
+	"errors"
 	"strings"
 	"testing"
+
+	initdata "github.com/telegram-mini-apps/init-data-golang"
 )
 
 func joinedTexts(texts []string) string { return strings.Join(texts, "\n---\n") }
@@ -102,5 +105,65 @@ func TestJointTrainingInviteFallbackWhenDMFails(t *testing.T) {
 	}
 	if toAuthor != 1 {
 		t.Fatalf("отметившему ссылка для пересылки: %d", toAuthor)
+	}
+}
+
+// Подсказка «@» в мини-аппе: только активные участники стаи, без самого автора,
+// по началу ника или имени; без ника вставляется имя, если его можно отметить.
+func TestSearchJointTrainingMentionsForViewer(t *testing.T) {
+	b, _, db := newIntegrationBot(t, nil)
+	const (
+		vasya  = int64(556002)
+		anya   = int64(556003)
+		anna   = int64(556004)
+		kicked = int64(556005)
+	)
+	seedMember(t, db, itUser, "leopard", false)
+	seedMember(t, db, vasya, "@Vasya_Run", false)
+	seedMember(t, db, anya, "", false)
+	seedMember(t, db, anna, "", false)
+	seedMember(t, db, kicked, "vasilisa", true)
+	for uid, name := range map[int64]string{anya: "Аня", anna: "Анна Петрова"} {
+		if _, err := db.Exec(`INSERT INTO miniapp_user_profile (user_id, pack_chat_id, display_name) VALUES ($1, $2, $3)`, uid, itPack, name); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	got, err := b.SearchJointTrainingMentionsForViewer(itUser, initdata.InitData{}, "@VAS")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].UserID != vasya || got[0].Mention != "vasya_run" {
+		t.Fatalf("поиск @vas: %+v", got)
+	}
+
+	got, err = b.SearchJointTrainingMentionsForViewer(itUser, initdata.InitData{}, "ан")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].UserID != anya || got[0].Mention != "Аня" || got[0].Name != "Аня" {
+		t.Fatalf("поиск «ан» (Анну Петрову без ника отметить нельзя): %+v", got)
+	}
+
+	got, err = b.SearchJointTrainingMentionsForViewer(itUser, initdata.InitData{}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range got {
+		if m.UserID == itUser || m.UserID == kicked {
+			t.Fatalf("в подсказке автор или выбывший: %+v", got)
+		}
+	}
+	if len(got) != 2 {
+		t.Fatalf("пустой запрос: %+v", got)
+	}
+
+	got, err = b.SearchJointTrainingMentionsForViewer(itUser, initdata.InitData{}, "%")
+	if err != nil || len(got) != 0 {
+		t.Fatalf("«%%» не шаблон: %+v %v", got, err)
+	}
+
+	if _, err := b.SearchJointTrainingMentionsForViewer(777777, initdata.InitData{}, ""); !errors.Is(err, ErrTrainingFeedSocialForbidden) {
+		t.Fatalf("не участник стаи: %v", err)
 	}
 }
