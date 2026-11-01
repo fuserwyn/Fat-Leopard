@@ -91,6 +91,9 @@ func (f *serverPaymentFakeTG) handler(w http.ResponseWriter, r *http.Request) {
 		}
 		f.sent[r.FormValue("chat_id")] = append(f.sent[r.FormValue("chat_id")], r.FormValue("text"))
 		_, _ = w.Write([]byte(`{"ok":true,"result":{"message_id":1,"chat":{"id":1}}}`))
+	case "answerPreCheckoutQuery":
+		f.sent["pre_checkout"] = append(f.sent["pre_checkout"], r.FormValue("ok"))
+		_, _ = w.Write([]byte(`{"ok":true,"result":true}`))
 	default:
 		_, _ = w.Write([]byte(`{"ok":true,"result":true}`))
 	}
@@ -100,6 +103,12 @@ func (f *serverPaymentFakeTG) texts(id int64) []string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return append([]string(nil), f.sent[strconv.FormatInt(id, 10)]...)
+}
+
+func (f *serverPaymentFakeTG) preCheckouts() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.sent["pre_checkout"]...)
 }
 
 const (
@@ -144,8 +153,63 @@ func newServerPaymentTestBot(t *testing.T, tune func(*config.Config)) (*Bot, *se
 	return &Bot{api: api, db: db, logger: logger.New("error"), config: cfg}, tg
 }
 
+// Оплата картой подтверждается сразу, а звёзды по уже оплаченному картой счёту не принимаются.
+func TestServerPaymentCardWatchIntegration(t *testing.T) {
+	oldCreate, oldGet, oldEvery, oldRounds := serverPaymentCreateCard, serverPaymentGetPayment, serverPaymentCardWatchEvery, serverPaymentCardWatchRounds
+	defer func() {
+		serverPaymentCreateCard, serverPaymentGetPayment, serverPaymentCardWatchEvery, serverPaymentCardWatchRounds = oldCreate, oldGet, oldEvery, oldRounds
+	}()
+	serverPaymentCreateCard = func(_, _ string, _ int, _, _, _, _ string, _ map[string]string) (string, string, error) {
+		return "yk-1", "https://kassa.test/1", nil
+	}
+	serverPaymentGetPayment = func(_, _, _ string) (*yookassa.PaymentStatusInfo, error) {
+		return &yookassa.PaymentStatusInfo{Status: "succeeded", Paid: true}, nil
+	}
+	serverPaymentCardWatchEvery, serverPaymentCardWatchRounds = 10*time.Millisecond, 100
+	b, tg := newServerPaymentTestBot(t, nil)
+	now := time.Date(2026, 11, 1, 15, 0, 0, 0, moscowLocation())
+	if !b.runServerPaymentBilling(now) {
+		t.Fatal("счёт не ушёл")
+	}
+	b.handleUpdate(tgbotapi.Update{CallbackQuery: &tgbotapi.CallbackQuery{ID: "cb", From: &tgbotapi.User{ID: serverPaymentTestPayer}, Data: serverPaymentCardCallbackPrefix + "2026-11"}})
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		got := tg.texts(serverPaymentTestPayer)
+		if len(got) == 3 && strings.Contains(got[2], "Счёт за сервер оплачен: 100 ₽") {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("оплата картой не подтверждена: %v", got)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	// Опрос не успел закрыть счёт: звёзды отклоняются, а счёт закрывается оплатой картой.
+	serverPaymentCardWatchRounds = 0
+	if err := b.db.DeleteServerPaymentBill("2026-12"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := b.db.InsertServerPaymentBill(database.ServerPaymentBill{Month: "2026-12", UserID: serverPaymentTestPayer, Stars: 86, Rub: 100, SentAt: now}); err != nil {
+		t.Fatal(err)
+	}
+	if err := b.db.SetServerPaymentBillCardPayment("2026-12", "yk-2", "https://kassa.test/2"); err != nil {
+		t.Fatal(err)
+	}
+	b.handleServerPaymentPreCheckout(&tgbotapi.PreCheckoutQuery{ID: "q", From: &tgbotapi.User{ID: serverPaymentTestPayer}, Currency: "XTR", TotalAmount: 86, InvoicePayload: serverPaymentPayloadPrefix + "2026-12"})
+	if got := tg.preCheckouts(); len(got) != 1 || got[0] != "false" {
+		t.Fatalf("pre_checkout по оплаченному картой счёту: %v", got)
+	}
+	bill, err := b.db.GetServerPaymentBill("2026-12")
+	if err != nil || bill == nil || !bill.PaidAt.Valid {
+		t.Fatalf("счёт не закрыт оплатой картой: %+v %v", bill, err)
+	}
+}
+
 // Фиксированный счёт раз в месяц; карта: чужому нельзя, ссылка переиспользуется, оплата закрывает опросом.
 func TestServerPaymentCardFlowIntegration(t *testing.T) {
+	oldRounds := serverPaymentCardWatchRounds
+	serverPaymentCardWatchRounds = 0
+	defer func() { serverPaymentCardWatchRounds = oldRounds }()
 	created, status := 0, "pending"
 	oldCreate, oldGet := serverPaymentCreateCard, serverPaymentGetPayment
 	defer func() { serverPaymentCreateCard, serverPaymentGetPayment = oldCreate, oldGet }()

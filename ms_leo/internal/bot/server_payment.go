@@ -37,6 +37,9 @@ const (
 var (
 	serverPaymentCreateCard = yookassa.CreatePayment
 	serverPaymentGetPayment = yookassa.GetPayment
+
+	serverPaymentCardWatchEvery  = 10 * time.Second
+	serverPaymentCardWatchRounds = 90 // 15 минут после нажатия
 )
 
 // serverPaymentDue — пора ли выставлять счёт (время МСК). Позже 1-го тоже пора: если бот лежал 1-го, счёт придёт после подъёма.
@@ -214,7 +217,12 @@ func isServerPaymentPayload(payload string) bool {
 func (b *Bot) handleServerPaymentPreCheckout(q *tgbotapi.PreCheckoutQuery) {
 	reject := func(reason, text string) {
 		b.logger.Warnf("server payment pre_checkout reject: %s payload=%q", reason, q.InvoicePayload)
-		_, _ = b.api.Request(tgbotapi.PreCheckoutConfig{PreCheckoutQueryID: q.ID, OK: false, ErrorMessage: text})
+		// PreCheckoutConfig не передаёт ok=false: Params.AddBool пропускает false, а поле обязательное.
+		if _, err := b.api.MakeRequest("answerPreCheckoutQuery", tgbotapi.Params{
+			"pre_checkout_query_id": q.ID, "ok": "false", "error_message": text,
+		}); err != nil {
+			b.logger.Errorf("server payment pre_checkout reject: %v", err)
+		}
 	}
 	bill, err := b.db.GetServerPaymentBill(strings.TrimPrefix(q.InvoicePayload, serverPaymentPayloadPrefix))
 	switch {
@@ -226,6 +234,8 @@ func (b *Bot) handleServerPaymentPreCheckout(q *tgbotapi.PreCheckoutQuery) {
 		reject("already_paid", "Этот счёт уже оплачен.")
 	case q.Currency != "XTR" || q.TotalAmount != bill.Stars:
 		reject("amount_mismatch", "Неверная сумма счёта.")
+	case b.serverPaymentPaidByCard(bill):
+		reject("paid_by_card", "Этот счёт уже оплачен картой.")
 	default:
 		_, _ = b.api.Request(tgbotapi.PreCheckoutConfig{PreCheckoutQueryID: q.ID, OK: true})
 	}
@@ -361,6 +371,45 @@ func (b *Bot) handleServerPaymentCardCallback(callback *tgbotapi.CallbackQuery) 
 		return
 	}
 	b.logger.Infof("server payment card %s: payment link sent", month)
+	go b.watchServerPaymentCard(month)
+}
+
+// watchServerPaymentCard быстро подтверждает оплату по свежей ссылке: без подтверждения плательщик
+// может заплатить ещё раз другим способом. После рестарта счёт подхватит обычный тик.
+func (b *Bot) watchServerPaymentCard(month string) {
+	defer b.recoverPanic("watchServerPaymentCard")
+	for i := 0; i < serverPaymentCardWatchRounds; i++ {
+		time.Sleep(serverPaymentCardWatchEvery)
+		bill, err := b.db.GetServerPaymentBill(month)
+		if err != nil {
+			b.logger.Warnf("server payment card watch %s: %v", month, err)
+			continue
+		}
+		if bill == nil || bill.PaidAt.Valid || !bill.YookassaPaymentID.Valid {
+			return
+		}
+		status, err := b.serverPaymentSyncCard(bill)
+		if err != nil {
+			b.logger.Warnf("server payment card watch %s: %v", month, err)
+			continue
+		}
+		if status == "succeeded" || status == "canceled" {
+			return
+		}
+	}
+}
+
+// serverPaymentPaidByCard — счёт уже оплачен картой, но опрос ещё не успел его закрыть.
+func (b *Bot) serverPaymentPaidByCard(bill *database.ServerPaymentBill) bool {
+	if !bill.YookassaPaymentID.Valid {
+		return false
+	}
+	status, err := b.serverPaymentSyncCard(bill)
+	if err != nil {
+		b.logger.Warnf("server payment pre_checkout %s card status: %v", bill.Month, err)
+		return false
+	}
+	return status == "succeeded"
 }
 
 // dropUpdateWhileSuspended — true, если бот на паузе и апдейт обрабатывать не надо.
