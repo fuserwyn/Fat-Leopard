@@ -291,6 +291,9 @@ func (b *Bot) handleServerPaymentCardCallback(callback *tgbotapi.CallbackQuery) 
 		_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, text))
 	}
 	month := strings.TrimPrefix(callback.Data, serverPaymentCardCallbackPrefix)
+	if callback.From != nil {
+		b.logger.Infof("server payment card %s: pressed by %d", month, callback.From.ID)
+	}
 	bill, err := b.db.GetServerPaymentBill(month)
 	if err != nil {
 		b.logger.Errorf("server payment card %s: %v", month, err)
@@ -306,18 +309,25 @@ func (b *Bot) handleServerPaymentCardCallback(callback *tgbotapi.CallbackQuery) 
 		return
 	}
 
+	// Запрос в ЮKassa идёт до 25 секунд: отвечаем сразу, а дальнейшие сбои сообщаем уже сообщением.
+	_, _ = b.api.Request(tgbotapi.NewCallback(callback.ID, "Готовлю ссылку на оплату…"))
+	fail := func() {
+		if _, err := b.api.Send(tgbotapi.NewMessage(bill.UserID, "Не удалось открыть оплату. Попробуй позже.")); err != nil {
+			b.logger.Errorf("server payment card %s fail notice: %v", month, err)
+		}
+	}
+
 	confirmURL := ""
 	if bill.YookassaPaymentID.Valid {
 		status, err := b.serverPaymentSyncCard(bill)
 		if err != nil {
 			b.logger.Errorf("server payment card %s status: %v", month, err)
-			alert("Не удалось открыть оплату. Попробуй позже.")
+			fail()
 			return
 		}
 		switch status {
 		case "succeeded":
-			alert("Этот счёт уже оплачен.")
-			return
+			return // serverPaymentSyncCard уже закрыл счёт и поблагодарил
 		case "pending", "waiting_for_capture":
 			confirmURL = bill.CardConfirmURL.String
 		}
@@ -335,7 +345,7 @@ func (b *Bot) handleServerPaymentCardCallback(callback *tgbotapi.CallbackQuery) 
 		}
 		if err != nil {
 			b.logger.Errorf("server payment card %s: %v", month, err)
-			alert("Не удалось открыть оплату. Попробуй позже.")
+			fail()
 			return
 		}
 		confirmURL = url
@@ -347,10 +357,10 @@ func (b *Bot) handleServerPaymentCardCallback(callback *tgbotapi.CallbackQuery) 
 	))
 	if _, err := b.api.Send(m); err != nil {
 		b.logger.Errorf("server payment card %s send: %v", month, err)
-		alert("Не удалось открыть оплату. Попробуй позже.")
+		fail()
 		return
 	}
-	_, _ = b.api.Request(tgbotapi.NewCallback(callback.ID, ""))
+	b.logger.Infof("server payment card %s: payment link sent", month)
 }
 
 // dropUpdateWhileSuspended — true, если бот на паузе и апдейт обрабатывать не надо.
