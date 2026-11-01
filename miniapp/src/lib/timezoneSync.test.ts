@@ -55,7 +55,7 @@ describe("syncDeviceTimezone", () => {
     await m.syncDeviceTimezone("init", 0);
     expect(calls).toHaveLength(1);
     expect(calls[0].path).toBe("/api/miniapp/profile/save");
-    expect(calls[0].body).toEqual({ init_data: "init", timezone_offset: -2 });
+    expect(calls[0].body).toEqual({ init_data: "init", timezone_offset: -2, timezone_name: expect.any(String) });
     expect(m.getKnownServerOffset()).toBe(-2);
   });
 
@@ -67,6 +67,19 @@ describe("syncDeviceTimezone", () => {
     await m.syncDeviceTimezone("init", 0);
     expect(calls).toHaveLength(0);
     expect(m.getKnownServerOffset()).toBe(0);
+  });
+
+  it("смещение то же, зона на сервере другая или пустая — отправляет зону", async () => {
+    const m = await load();
+    m.resetTimezoneSyncState();
+    const calls = mockFetch(() => ({ json: { ok: true } }));
+    setDeviceUtcOffset(3);
+    const { ianaName } = m.detectTimezoneInfo();
+    await m.syncDeviceTimezone("init", 0, ianaName);
+    expect(calls).toHaveLength(0);
+    await m.syncDeviceTimezone("init", 0, "");
+    expect(calls).toHaveLength(1);
+    expect(calls[0].body).toEqual({ init_data: "init", timezone_offset: 0, timezone_name: ianaName });
   });
 
   it("без initData или без API — ничего не делает", async () => {
@@ -117,7 +130,7 @@ describe("recheckDeviceTimezone / watchDeviceTimezone", () => {
     window.dispatchEvent(new Event("focus")); // параллельный триггер — дубль не уходит
     await vi.waitFor(() => expect(m.getKnownServerOffset()).toBe(-2));
     expect(calls).toHaveLength(1);
-    expect(calls[0].body).toEqual({ init_data: "init", timezone_offset: -2 });
+    expect(calls[0].body).toEqual({ init_data: "init", timezone_offset: -2, timezone_name: expect.any(String) });
 
     // Повторный возврат в той же зоне — тишина.
     window.dispatchEvent(new Event("focus"));
@@ -148,7 +161,7 @@ describe("recheckDeviceTimezone / watchDeviceTimezone", () => {
 
     await vi.advanceTimersByTimeAsync(m.TIMEZONE_RECHECK_INTERVAL_MS);
     expect(calls).toHaveLength(1);
-    expect(calls[0].body).toEqual({ init_data: "init", timezone_offset: 1 });
+    expect(calls[0].body).toEqual({ init_data: "init", timezone_offset: 1, timezone_name: expect.any(String) });
     stop();
   });
 

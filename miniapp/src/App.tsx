@@ -261,6 +261,7 @@ export function App() {
         workouts_week?: number;
         inactivity_removal_at?: string;
         timezone_offset?: number;
+        timezone_name?: string;
         days_since_last_training?: number;
         days_in_pack?: number;
         last_training_date?: string;
@@ -312,7 +313,7 @@ export function App() {
       // Автоопределение часового пояса из устройства: при каждой загрузке профиля приводим
       // хранимое смещение к зоне телефона (запрос уходит, только если пояс сменился).
       const currentOffset = typeof j.timezone_offset === "number" ? j.timezone_offset : 0;
-      void syncDeviceTimezone(initData, currentOffset);
+      void syncDeviceTimezone(initData, currentOffset, j.timezone_name);
     } catch {
       return;
     }

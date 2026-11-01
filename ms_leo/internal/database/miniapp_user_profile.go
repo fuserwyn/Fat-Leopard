@@ -187,3 +187,59 @@ func (d *Database) PatchTrainingStateTimezoneOffsetIfExists(userID, packChatID i
 	)
 	return err
 }
+
+// GetTimezoneNameFromTrainingState — сохранённая IANA-зона; пусто, если строки нет или зона ещё не приходила.
+func (d *Database) GetTimezoneNameFromTrainingState(userID, packChatID int64) (string, error) {
+	var name string
+	err := d.db.QueryRow(
+		`SELECT timezone_name FROM training_state WHERE user_id = $1 AND chat_id = $2`,
+		userID, packChatID,
+	).Scan(&name)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return name, err
+}
+
+// PatchTrainingStateTimezoneNameIfExists — запоминает IANA-зону устройства (Europe/Belgrade).
+// Пустое имя не пишем: старый клиент его не шлёт, а зону стирать незачем.
+func (d *Database) PatchTrainingStateTimezoneNameIfExists(userID, packChatID int64, name string) error {
+	if name == "" {
+		return nil
+	}
+	_, err := d.db.Exec(
+		`UPDATE training_state SET timezone_name = $1, updated_at = $2 WHERE user_id = $3 AND chat_id = $4`,
+		name, time.Now().UTC(), userID, packChatID,
+	)
+	return err
+}
+
+// TrainingStateTimezone — пользователь с известной IANA-зоной и сохранённым смещением.
+type TrainingStateTimezone struct {
+	UserID int64
+	Name   string
+	Offset int
+}
+
+// ListTrainingStateTimezones — все строки стаи, у которых известна IANA-зона.
+func (d *Database) ListTrainingStateTimezones(packChatID int64) ([]TrainingStateTimezone, error) {
+	rows, err := d.db.Query(
+		`SELECT user_id, timezone_name, COALESCE(timezone_offset_from_moscow, 0)
+		   FROM training_state
+		  WHERE chat_id = $1 AND timezone_name <> ''`,
+		packChatID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []TrainingStateTimezone
+	for rows.Next() {
+		var t TrainingStateTimezone
+		if err := rows.Scan(&t.UserID, &t.Name, &t.Offset); err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}

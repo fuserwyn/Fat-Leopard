@@ -6,8 +6,8 @@
  * источник правды — ручной команды (#timezone) больше нет.
  *
  * Бэкенд хранит смещение в часах относительно МСК (UTC+3); конвертим из браузерного offset.
- * IANA-зону не храним — вся серверная логика (стрик, таймеры, дедлайны, напоминания)
- * работает по int-смещению.
+ * Вся серверная логика (стрик, таймеры, дедлайны, напоминания) работает по int-смещению,
+ * а IANA-зона нужна, чтобы сервер сам сдвигал его при переходе на летнее/зимнее время.
  */
 
 const apiBase = (import.meta.env.VITE_MINIAPP_API_URL as string | undefined)?.replace(/\/$/, "") ?? "";
@@ -57,12 +57,12 @@ export function getKnownServerOffset(): number | null {
   return knownServerOffset;
 }
 
-async function pushOffset(initData: string, offsetFromMoscow: number): Promise<void> {
+async function pushOffset(initData: string, offsetFromMoscow: number, ianaName: string): Promise<void> {
   try {
     const res = await fetch(`${apiBase}/api/miniapp/profile/save`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ init_data: initData, timezone_offset: offsetFromMoscow }),
+      body: JSON.stringify({ init_data: initData, timezone_offset: offsetFromMoscow, timezone_name: ianaName }),
     });
     if (res.ok) knownServerOffset = offsetFromMoscow;
   } catch {
@@ -74,13 +74,15 @@ async function pushOffset(initData: string, offsetFromMoscow: number): Promise<v
  * Приводит хранимое на бэке смещение к фактическому часовому поясу устройства.
  * Шлём profile/save только если оно отличается от сохранённого, чтобы не дёргать сеть зря.
  * @param currentOffset — текущее смещение пользователя из /profile/load.
+ * @param currentName — IANA-зона из /profile/load; не передана — зону не сверяем.
  */
-export async function syncDeviceTimezone(initData: string, currentOffset: number): Promise<void> {
+export async function syncDeviceTimezone(initData: string, currentOffset: number, currentName?: string): Promise<void> {
   if (!apiBase || !initData.trim()) return;
   knownServerOffset = currentOffset;
-  const { offsetFromMoscow } = detectTimezoneInfo();
-  if (offsetFromMoscow === currentOffset) return;
-  await pushOffset(initData, offsetFromMoscow);
+  const { offsetFromMoscow, ianaName } = detectTimezoneInfo();
+  const nameChanged = currentName !== undefined && ianaName !== "" && ianaName !== currentName;
+  if (offsetFromMoscow === currentOffset && !nameChanged) return;
+  await pushOffset(initData, offsetFromMoscow, ianaName);
 }
 
 /**
@@ -90,9 +92,9 @@ export async function syncDeviceTimezone(initData: string, currentOffset: number
 export async function recheckDeviceTimezone(initData: string): Promise<void> {
   if (!apiBase || !initData.trim() || knownServerOffset === null) return;
   if (inFlight) return inFlight;
-  const { offsetFromMoscow } = detectTimezoneInfo();
+  const { offsetFromMoscow, ianaName } = detectTimezoneInfo();
   if (offsetFromMoscow === knownServerOffset) return;
-  inFlight = pushOffset(initData, offsetFromMoscow).finally(() => {
+  inFlight = pushOffset(initData, offsetFromMoscow, ianaName).finally(() => {
     inFlight = null;
   });
   return inFlight;

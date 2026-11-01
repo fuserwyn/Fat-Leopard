@@ -1867,6 +1867,16 @@ var Migrations = []Migration{
 			ALTER TABLE IF EXISTS pack_tracker_tasks DROP COLUMN IF EXISTS agent;
 		`,
 	},
+	{
+		Version:     94,
+		Description: "IANA-зона устройства в training_state: смещение от МСК пересчитывается при смене летнего/зимнего времени",
+		UpSQL: `
+			ALTER TABLE training_state ADD COLUMN IF NOT EXISTS timezone_name TEXT NOT NULL DEFAULT '';
+		`,
+		DownSQL: `
+			ALTER TABLE training_state DROP COLUMN IF EXISTS timezone_name;
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции

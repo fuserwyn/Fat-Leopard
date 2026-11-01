@@ -982,6 +982,7 @@ export function ProfileScreen({
         gender: normalizedProfile.gender,
         display_name: normalizedProfile.displayName,
         timezone_offset: normalizedProfile.timezoneOffset,
+        timezone_name: detectTimezoneInfo().ianaName,
       };
       const res = await fetch(`${api}/api/miniapp/profile/save`, {
         method: "POST",

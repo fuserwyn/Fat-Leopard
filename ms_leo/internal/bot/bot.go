@@ -225,6 +225,8 @@ func (b *Bot) Start(ctx context.Context) error {
 	go b.startTrackerApprovalReminderScheduler(ctx)
 	// 20-го числа — напоминание очередному админу оплатить сервер (см. server_payment_reminder.go).
 	go b.startServerPaymentReminderScheduler(ctx)
+	// Смещение от МСК по IANA-зоне устройства: летнее/зимнее время (см. timezone_sync.go).
+	go b.startTimezoneResyncScheduler(ctx)
 	// Periodic-страховка от пропущенных киков (см. startInactivityKickWatchdog).
 	go b.startInactivityKickWatchdog(ctx)
 	// Напоминания «внеси тренировку» в локальный час пользователя (см. startWorkoutReminderScheduler).
