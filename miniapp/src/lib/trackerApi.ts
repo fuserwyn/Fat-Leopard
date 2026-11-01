@@ -73,7 +73,7 @@ export type TrackerTask = {
   created_at?: string;
   last_run_at?: string;
   model_key?: string;
-  /** Кто пишет код: cursor по умолчанию, claude — только явный выбор. auto тоже Cursor. */
+  /** Кто пишет код: claude по умолчанию, auto тоже Claude; cursor — явный выбор или передача после сбоев. */
   agent?: "auto" | "claude" | "cursor" | string;
 };
 
@@ -198,7 +198,7 @@ export function trackerCreate(
     auto_push?: boolean;
     /** Задачу придумал Лео: на доске автором пишем его. */
     leo?: boolean;
-    /** cursor — основной; claude — только если выбрать явно. */
+    /** claude — основной; cursor — только если выбрать явно. */
     agent?: "auto" | "claude" | "cursor";
   },
 ) {

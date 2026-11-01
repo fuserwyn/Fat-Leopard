@@ -14,13 +14,13 @@ type Config struct {
 	CursorAPIKey    string
 	CursorAPI       string
 	CursorModel     string
-	// Claude Agent SDK — запасной исполнитель, если карточке явно выбрали Claude.
-	// Сначала ANTHROPIC_API_KEY (оплата по токенам). Токен подписки
-	// (`claude setup-token`) — только если ключа API нет.
+	// Claude Agent SDK — основной исполнитель.
+	// Токен подписки (`claude setup-token`). ANTHROPIC_API_KEY (оплата по токенам) —
+	// только если токена нет совсем.
 	ClaudeOAuthToken string
 	AnthropicAPIKey  string
 	ClaudeModel      string
-	// TrackerAgent — "claude" начинает с Claude. Пусто и "cursor" — Cursor.
+	// TrackerAgent — "cursor" начинает с Cursor. Пусто и "claude" — Claude.
 	TrackerAgent     string
 	GithubToken      string
 	GithubAPI        string

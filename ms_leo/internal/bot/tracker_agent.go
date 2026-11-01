@@ -44,13 +44,13 @@ func trackerImplModel(b *Bot) string {
 }
 
 // trackerDoingModelKey — модель фазы «в работе».
-// По умолчанию и при выборе Cursor стартует Cursor. Claude — только если
-// админ явно выбрал его на карточке.
+// По умолчанию и при выборе Claude стартует Claude. Cursor — если админ выбрал
+// его на карточке или карточку передали ему после сбоев.
 func trackerDoingModelKey(agent string) string {
-	if normalizeTrackerAgent(agent) == "claude" {
-		return "claude"
+	if normalizeTrackerAgent(agent) == "cursor" {
+		return "cursor"
 	}
-	return "cursor"
+	return "claude"
 }
 
 func normalizeTrackerAgent(raw string) string {

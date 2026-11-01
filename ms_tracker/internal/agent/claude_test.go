@@ -19,7 +19,7 @@ func TestAgentEngine(t *testing.T) {
 		job  store.Job
 		want string
 	}{
-		{"default cursor", both, store.Job{}, engineCursor},
+		{"default claude", both, store.Job{}, engineClaude},
 		{"board default model", both, store.Job{Model: "cursor-composer"}, engineCursor},
 		{"job claude", both, store.Job{Model: "claude-sonnet-5-5"}, engineClaude},
 		{"job claude alias", both, store.Job{Model: "Claude"}, engineClaude},
@@ -81,24 +81,29 @@ func TestClaudeDoingPrompt(t *testing.T) {
 	}
 }
 
-func TestClaudeEnvPrefersAPIKey(t *testing.T) {
+func TestClaudeEnvUsesSubscriptionNotAPIKey(t *testing.T) {
 	t.Setenv("ANTHROPIC_API_KEY", "from-env")
 	t.Setenv("ANTHROPIC_BASE_URL", "https://openrouter.ai/api")
 	t.Setenv("ANTHROPIC_AUTH_TOKEN", "sk-or-x")
 	creds := claudeCreds(config.Config{ClaudeOAuthToken: "sk-ant-oat01-tok", AnthropicAPIKey: "sk-ant-api03-key"})
-	if len(creds) != 2 || creds[0].oauth || !creds[1].oauth {
-		t.Fatalf("сначала ключ API, потом подписка: %+v", creds)
+	if len(creds) != 1 || !creds[0].oauth {
+		t.Fatalf("при токене подписки ключ API не используем: %+v", creds)
 	}
 	env := strings.Join(claudeEnv(creds[0]), "\n")
-	if !strings.Contains(env, "ANTHROPIC_API_KEY=sk-ant-api03-key") || strings.Contains(env, "CLAUDE_CODE_OAUTH_TOKEN=") {
-		t.Fatal("ключ API должен вытеснять токен подписки")
+	if !strings.Contains(env, "CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-tok") || strings.Contains(env, "ANTHROPIC_API_KEY=") {
+		t.Fatal("подписка — без ключа API")
 	}
 	if strings.Contains(env, "openrouter") || strings.Contains(env, "ANTHROPIC_AUTH_TOKEN=") {
 		t.Fatal("переменные чужого провайдера не должны доходить до CLI")
 	}
-	env = strings.Join(claudeEnv(creds[1]), "\n")
-	if !strings.Contains(env, "CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-tok") || strings.Contains(env, "ANTHROPIC_API_KEY=") {
-		t.Fatal("подписка — без ключа API")
+
+	creds = claudeCreds(config.Config{AnthropicAPIKey: "sk-ant-api03-key"})
+	if len(creds) != 1 || creds[0].oauth {
+		t.Fatalf("без токена — ключ API: %+v", creds)
+	}
+	env = strings.Join(claudeEnv(creds[0]), "\n")
+	if !strings.Contains(env, "ANTHROPIC_API_KEY=sk-ant-api03-key") || strings.Contains(env, "CLAUDE_CODE_OAUTH_TOKEN=") {
+		t.Fatal("ключ API — без токена подписки")
 	}
 }
 

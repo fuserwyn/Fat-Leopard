@@ -57,7 +57,7 @@ type TrackerTask struct {
 	LastRunAt               time.Time
 	HasLastRun              bool
 	UpdatedAt               time.Time
-	// Agent — кто пишет код: cursor и auto запускают Cursor, claude — только явный выбор.
+	// Agent — кто пишет код: claude и auto запускают Claude, cursor — явный выбор или передача после сбоев.
 	Agent            string
 	AttachmentsCount int
 	Attachments      []TrackerAttachment

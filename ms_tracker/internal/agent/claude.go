@@ -39,9 +39,8 @@ func isCursorModel(m string) bool {
 	return m == "cursor" || strings.HasPrefix(m, "cursor") || strings.HasPrefix(m, "composer")
 }
 
-// claudeReady — есть доступ к Claude Agent SDK. Если задан ANTHROPIC_API_KEY,
-// трекер ходит им и не тратит квоту Claude Code. Токен подписки
-// (CLAUDE_CODE_OAUTH_TOKEN) — запасной, когда ключа API нет.
+// claudeReady — есть доступ к Claude Agent SDK. Основной — токен подписки
+// (CLAUDE_CODE_OAUTH_TOKEN). ANTHROPIC_API_KEY — только если токена нет совсем.
 func claudeReady(cfg config.Config) bool {
 	return len(claudeCreds(cfg)) > 0
 }
@@ -52,20 +51,19 @@ func cursorReady(cfg config.Config) bool {
 
 // agentEngine — с кого начинать задачу:
 //  1. модель карточки: claude-* → Claude, composer-*/cursor-* → Cursor;
-//  2. TRACKER_AGENT=claude — явно начать с Claude;
-//  3. по умолчанию Cursor, а если у Cursor нет ключа — Claude.
+//  2. TRACKER_AGENT=cursor — явно начать с Cursor;
+//  3. по умолчанию Claude, а если у Claude нет доступа — Cursor.
 //
-// Если первый исполнитель недоступен (нет токенов, лимит, ошибка, таймаут) —
-// runAgentLocal сам передаёт задачу второму.
+// Повтор и смена исполнителя после сбоев — на карточке доски.
 func agentEngine(cfg config.Config, job store.Job) string {
-	pick := engineCursor
+	pick := engineClaude
 	switch {
 	case isClaudeModel(job.Model):
 		pick = engineClaude
 	case isCursorModel(job.Model):
 		pick = engineCursor
-	case strings.EqualFold(strings.TrimSpace(cfg.TrackerAgent), engineClaude):
-		pick = engineClaude
+	case strings.EqualFold(strings.TrimSpace(cfg.TrackerAgent), engineCursor):
+		pick = engineCursor
 	}
 	if pick == engineCursor && !cursorReady(cfg) && claudeReady(cfg) {
 		return engineClaude
@@ -173,8 +171,7 @@ func runClaudeLocal(cfg config.Config, job store.Job, repoDir, branch string) (s
 			return note, nil
 		}
 		errs = append(errs, err.Error())
-		// Дальше пробуем второй доступ только если этот не пустили:
-		// протухший токен подписки не должен ронять задачу при живом ключе API.
+		// Дальше пробуем следующий доступ только если этот не пустили.
 		if !isClaudeAuthError(err.Error()) {
 			break
 		}
@@ -342,8 +339,9 @@ func claudeSecret(v string) string {
 	return v
 }
 
-// claudeCreds — доступы по порядку: сначала ключ API, потом подписка.
-// Так трекер не сжигает пятичасовую квоту Claude Code, пока есть ANTHROPIC_API_KEY.
+// claudeCreds — доступы по порядку. Есть токен подписки — только он: оплата
+// идёт по подписке, и сбой токена не должен незаметно уводить задачу в платный
+// API. Ключ API — только если токена нет совсем.
 // Значение раскладываем по виду, а не по имени переменной: токен подписки,
 // положенный в ANTHROPIC_API_KEY (или наоборот), даёт «401 API key is invalid».
 func claudeCreds(cfg config.Config) []claudeCred {
@@ -366,7 +364,10 @@ func claudeCreds(cfg config.Config) []claudeCred {
 			key = append(key, claudeCred{value: v})
 		}
 	}
-	return append(key, oauth...)
+	if len(oauth) > 0 {
+		return oauth
+	}
+	return key
 }
 
 func isClaudeAuthError(msg string) bool {

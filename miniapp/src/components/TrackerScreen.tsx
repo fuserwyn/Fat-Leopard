@@ -282,12 +282,12 @@ function cardClasses(t: TrackerTask, isQa: boolean): string {
 type TrackerAgent = "auto" | "claude" | "cursor";
 
 const AGENT_OPTIONS: { value: TrackerAgent; label: string }[] = [
-  { value: "cursor", label: "Cursor" },
   { value: "claude", label: "Claude" },
+  { value: "cursor", label: "Cursor" },
 ];
 
 function trackerAgentOf(raw: string | undefined): TrackerAgent {
-  return raw === "claude" ? "claude" : "cursor";
+  return raw === "cursor" ? "cursor" : "claude";
 }
 
 function trackerAgentLabel(raw: string | undefined): string {
@@ -436,8 +436,8 @@ export function TrackerScreen({ initData, showAlert }: Props) {
   const [needsApproval, setNeedsApproval] = useState(false);
   const [withReview, setWithReview] = useState(true);
   const [withTest, setWithTest] = useState(true);
-  /** Кто пишет код. По умолчанию Cursor, Claude — только явный выбор. */
-  const [agent, setAgent] = useState<TrackerAgent>("cursor");
+  /** Кто пишет код. По умолчанию Claude, Cursor — только явный выбор. */
+  const [agent, setAgent] = useState<TrackerAgent>("claude");
   /** Задачу от Лео на доску — с аппрувом всех админов. */
   const [leoNeedsApproval, setLeoNeedsApproval] = useState(true);
   const [images, setImages] = useState<TaskImage[]>([]);
@@ -602,7 +602,7 @@ export function TrackerScreen({ initData, showAlert }: Props) {
         test: withTest,
         // Задачу сочинил Лео — пусть на доске и стоит он, а не тот, кто одобрил.
         leo: opts?.leo,
-        agent: opts?.leo ? "cursor" : agent,
+        agent: opts?.leo ? "claude" : agent,
       });
       if (images.length > 0 && res.id) {
         // Картинку трекер принимает только к существующей задаче, поэтому
