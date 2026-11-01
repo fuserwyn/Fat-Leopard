@@ -23,7 +23,7 @@ import (
 
 const (
 	serverPaymentDay  = 1
-	serverPaymentHour = 10 // с 10:00 МСК, чтобы не будить ночью
+	serverPaymentHour = 15 // с 15:00 МСК
 	serverPaymentTick = 5 * time.Minute
 
 	serverPaymentSuspendGrace = 24 * time.Hour

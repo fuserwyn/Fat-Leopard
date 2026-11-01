@@ -1394,7 +1394,8 @@ var Migrations = []Migration{
 		`,
 	},
 	{
-		Version:     73,
+		// Не 73: база прода уже записала этот номер со старой ветки и пропустила бы миграцию.
+		Version:     1001,
 		Description: "Ежемесячные счета за сервер: одна строка на месяц",
 		UpSQL: `
 			CREATE TABLE IF NOT EXISTS server_payment_bills (

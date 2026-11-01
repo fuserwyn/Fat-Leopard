@@ -24,7 +24,7 @@ func TestServerPaymentDue(t *testing.T) {
 	cases := []struct {
 		d, h int
 		want bool
-	}{{1, 0, false}, {1, 9, false}, {1, 10, true}, {2, 0, true}, {30, 23, true}}
+	}{{1, 0, false}, {1, 14, false}, {1, 15, true}, {2, 0, true}, {30, 23, true}}
 	for _, c := range cases {
 		if got := serverPaymentDue(time.Date(2026, 11, c.d, c.h, 0, 0, 0, loc)); got != c.want {
 			t.Errorf("day=%d hour=%d: got %v want %v", c.d, c.h, got, c.want)
@@ -124,10 +124,10 @@ func TestServerPaymentCardFlowIntegration(t *testing.T) {
 		return &yookassa.PaymentStatusInfo{Status: status, Paid: status == "succeeded"}, nil
 	}
 	b, tg := newServerPaymentTestBot(t, nil)
-	now := time.Date(2026, 11, 1, 10, 0, 0, 0, moscowLocation())
+	now := time.Date(2026, 11, 1, 15, 0, 0, 0, moscowLocation())
 
 	if b.runServerPaymentBilling(now.Add(-time.Hour)) {
-		t.Fatal("до 10:00 счёт не выставляем")
+		t.Fatal("до 15:00 счёт не выставляем")
 	}
 	if !b.runServerPaymentBilling(now) {
 		t.Fatal("счёт не ушёл")
@@ -172,7 +172,7 @@ func TestServerPaymentCardFlowIntegration(t *testing.T) {
 // Личка закрыта: счёт не теряется и пауза не включается, следующий тик пробует снова.
 func TestServerPaymentRetriesIntegration(t *testing.T) {
 	b, tg := newServerPaymentTestBot(t, func(c *config.Config) { c.ServerPaymentSuspendEnabled = true })
-	now := time.Date(2026, 11, 1, 10, 0, 0, 0, moscowLocation())
+	now := time.Date(2026, 11, 1, 15, 0, 0, 0, moscowLocation())
 	tg.fail = true
 	if b.runServerPaymentBilling(now) {
 		t.Fatal("отправка не удалась")
