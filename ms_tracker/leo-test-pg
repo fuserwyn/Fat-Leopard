@@ -2,10 +2,21 @@
 # Временный Postgres для проверки SQL агентом трекера. Печатает DSN:
 #   LEO_TEST_PG_DSN=$(leo-test-pg) go test ./internal/database/
 # Повторный вызов переиспользует уже поднятую базу. Данных боя здесь нет.
+# `leo-test-pg stop` гасит базу и стирает её каталог (трекер зовёт после задачи).
 set -e
 PGBIN=$(ls -d /usr/lib/postgresql/*/bin | tail -1)
 DIR=/tmp/leo-test-pg
 PORT=54329
+if [ "$1" = "stop" ]; then
+	# /tmp/leo-build-pg — база ms_leo/scripts/test-in-build.sh, если проверку оборвали по таймауту.
+	for d in "$DIR" /tmp/leo-build-pg; do
+		if su postgres -c "$PGBIN/pg_ctl -D $d status" >/dev/null 2>&1; then
+			su postgres -c "$PGBIN/pg_ctl -D $d -m fast -w stop" >/dev/null
+		fi
+		rm -rf "$d"
+	done
+	exit 0
+fi
 if ! su postgres -c "$PGBIN/pg_ctl -D $DIR status" >/dev/null 2>&1; then
 	rm -rf "$DIR"
 	mkdir -p "$DIR"

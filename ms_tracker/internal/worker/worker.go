@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"leo-tracker/internal/agent"
@@ -66,7 +67,17 @@ func runOnce(cfg config.Config, st *store.Store) {
 	}
 }
 
+// activeJobs — сколько задач сейчас выполняется. Обычно одна, но снятая по
+// staleAfter задача может ещё работать, пока идёт следующая.
+var activeJobs atomic.Int32
+
 func finish(cfg config.Config, st *store.Store, job store.Job) {
+	activeJobs.Add(1)
+	defer func() {
+		if activeJobs.Add(-1) == 0 {
+			agent.ReleaseAfterJobs()
+		}
+	}()
 	store.AppendStep(&job, "Агент: запустили")
 	if job.Branch == "" && job.SourceTaskID > 0 {
 		job.Branch = st.SourceBranch(job.SourceTaskID)
