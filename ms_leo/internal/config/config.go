@@ -20,7 +20,7 @@ type Config struct {
 	AlphaTesterIDs []int64 // §10: тестеры альфы — события тегируются is_alpha
 	// ServerPaymentAdminIDs — очередь админов, оплачивающих сервер (SERVER_PAYMENT_ADMIN_IDS,
 	// через запятую, по порядку: первый платит в ноябре 2026, второй — в декабре и т.д.).
-	// Пусто — очередь из OWNER_ID + ADMIN_IDS.
+	// Не задано — defaultServerPaymentAdminIDs.
 	ServerPaymentAdminIDs []int64
 	// ServerPaymentStars — запасная сумма счёта за сервер (SERVER_PAYMENT_STARS), если Railway не ответил;
 	// обычно сумма считается по расходу Railway. 0 — тогда без кнопки оплаты.
@@ -228,7 +228,7 @@ func Load() (*Config, error) {
 		UsdPerStar:               parseFloatEnv("USD_PER_STAR", 0.013),
 		AdminIDs:                 adminIDs,
 		AlphaTesterIDs:           alphaTesterIDs,
-		ServerPaymentAdminIDs:    parseAdminIDs(getEnv("SERVER_PAYMENT_ADMIN_IDS", "")),
+		ServerPaymentAdminIDs:    parseAdminIDs(getEnv("SERVER_PAYMENT_ADMIN_IDS", defaultServerPaymentAdminIDs)),
 		ServerPaymentStars:       parseServerPaymentStars(getEnv("SERVER_PAYMENT_STARS", "")),
 		DatabaseURL:              getEnv("DATABASE_URL", "postgresql://postgres:password@localhost:5432/leo_bot_db?sslmode=disable"),
 		TrackerDatabaseURL:       strings.TrimSpace(getEnv("TRACKER_DATABASE_URL", "")),
@@ -340,6 +340,9 @@ func (c *Config) AdminTelegramUserIDs() []int64 {
 	}
 	return out
 }
+
+// defaultServerPaymentAdminIDs — очередь оплаты сервера: Стас, Анна, lofi.
+const defaultServerPaymentAdminIDs = "166039118,202498592,414802636"
 
 func parseServerPaymentStars(raw string) int {
 	n, err := strconv.Atoi(strings.TrimSpace(raw))

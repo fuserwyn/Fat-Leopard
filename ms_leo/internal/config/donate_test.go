@@ -116,3 +116,16 @@ func TestPaywallEntryFreeDefaultsToTrue(t *testing.T) {
 		t.Fatal("PAYWALL_ENTRY_FREE=false возвращает платный вход")
 	}
 }
+
+func TestServerPaymentRotationDefaultOrder(t *testing.T) {
+	got := parseAdminIDs(defaultServerPaymentAdminIDs)
+	want := []int64{166039118, 202498592, 414802636} // Стас, Анна, lofi
+	if len(got) != len(want) {
+		t.Fatalf("got %v", got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("место %d: got %d want %d", i, got[i], want[i])
+		}
+	}
+}
