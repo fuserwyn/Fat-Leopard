@@ -15,7 +15,8 @@ type Config struct {
 	CursorAPI       string
 	CursorModel     string
 	// Claude Agent SDK — запасной исполнитель, если карточке явно выбрали Claude.
-	// Доступ — токен подписки Claude Code (`claude setup-token`).
+	// Сначала ANTHROPIC_API_KEY (оплата по токенам). Токен подписки
+	// (`claude setup-token`) — только если ключа API нет.
 	ClaudeOAuthToken string
 	AnthropicAPIKey  string
 	ClaudeModel      string

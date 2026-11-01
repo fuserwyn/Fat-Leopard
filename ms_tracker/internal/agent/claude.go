@@ -39,9 +39,9 @@ func isCursorModel(m string) bool {
 	return m == "cursor" || strings.HasPrefix(m, "cursor") || strings.HasPrefix(m, "composer")
 }
 
-// claudeReady — есть доступ к Claude Agent SDK. Основной путь — токен
-// подписки Claude Code (CLAUDE_CODE_OAUTH_TOKEN, `claude setup-token`);
-// ANTHROPIC_API_KEY — запасной, если токена нет.
+// claudeReady — есть доступ к Claude Agent SDK. Если задан ANTHROPIC_API_KEY,
+// трекер ходит им и не тратит квоту Claude Code. Токен подписки
+// (CLAUDE_CODE_OAUTH_TOKEN) — запасной, когда ключа API нет.
 func claudeReady(cfg config.Config) bool {
 	return len(claudeCreds(cfg)) > 0
 }
@@ -80,7 +80,7 @@ func agentEngine(cfg config.Config, job store.Job) string {
 func agentKeyError(cfg config.Config, job store.Job) error {
 	if agentEngine(cfg, job) == engineClaude {
 		if !claudeReady(cfg) {
-			return fmt.Errorf("нет CLAUDE_CODE_OAUTH_TOKEN для Claude Agent SDK")
+			return fmt.Errorf("нет ANTHROPIC_API_KEY или CLAUDE_CODE_OAUTH_TOKEN для Claude Agent SDK")
 		}
 		return nil
 	}
@@ -90,46 +90,17 @@ func agentKeyError(cfg config.Config, job store.Job) error {
 	return nil
 }
 
-// runAgentLocal запускает основного исполнителя, а при его сбое — запасного.
-// Кто именно сделал задачу, в заметку не пишем: на доске это шум.
+// runAgentLocal запускает одного исполнителя. Повтор и смена на Cursor —
+// на карточке доски, не здесь: иначе каждый сбой снова жжёт квоту Claude.
 func runAgentLocal(cfg config.Config, job store.Job, repoDir, branch string) (string, error) {
 	if agentEngine(cfg, job) == engineClaude {
-		note, err := runClaudeLocal(cfg, job, repoDir, branch)
-		if err == nil || !cursorReady(cfg) {
-			return note, err
-		}
-		resetWorktree(repoDir)
-		cnote, cerr := runCursorLocal(cfg, job, repoDir, branch)
-		if cerr != nil {
-			return "", fmt.Errorf("%v; запасной Cursor: %v", err, cerr)
-		}
-		return cnote, nil
+		return runClaudeLocal(cfg, job, repoDir, branch)
 	}
 	note, err := runCursorLocal(cfg, job, repoDir, branch)
-	if !claudeReady(cfg) {
-		return note, err
+	if err == nil && !dirtyHasImpl(repoDir) && len(parseImplReply(note).Files) == 0 {
+		return "", fmt.Errorf("cursor sdk сдал задачу без правок")
 	}
-	if err == nil {
-		// Cursor «сдал», но в репо нет правок и нет JSON с файлами —
-		// считаем, что он не справился, и отдаём задачу Claude.
-		if dirtyHasImpl(repoDir) || len(parseImplReply(note).Files) > 0 {
-			return note, nil
-		}
-		err = fmt.Errorf("cursor sdk сдал задачу без правок")
-	}
-	resetWorktree(repoDir)
-	cnote, cerr := runClaudeLocal(cfg, job, repoDir, branch)
-	if cerr != nil {
-		return "", fmt.Errorf("%v; запасной Claude: %v", err, cerr)
-	}
-	return cnote, nil
-}
-
-// resetWorktree откатывает недоделки первого исполнителя, чтобы запасной
-// начал с чистой ветки.
-func resetWorktree(repoDir string) {
-	_ = run(repoDir, "git", "reset", "--hard", "HEAD")
-	_ = run(repoDir, "git", "clean", "-fd")
+	return note, err
 }
 
 func claudeModelID(cfg config.Config, job store.Job) string {
@@ -189,7 +160,7 @@ func claudeRunPath() string {
 func runClaudeLocal(cfg config.Config, job store.Job, repoDir, branch string) (string, error) {
 	creds := claudeCreds(cfg)
 	if len(creds) == 0 {
-		return "", fmt.Errorf("нет CLAUDE_CODE_OAUTH_TOKEN для Claude Agent SDK")
+		return "", fmt.Errorf("нет ANTHROPIC_API_KEY или CLAUDE_CODE_OAUTH_TOKEN для Claude Agent SDK")
 	}
 	repoDir = strings.TrimSpace(repoDir)
 	if repoDir == "" {
@@ -257,7 +228,7 @@ func AskClaude(cfg config.Config, system, prompt, model string) (string, error) 
 	}
 	creds := claudeCreds(cfg)
 	if len(creds) == 0 {
-		return "", fmt.Errorf("нет CLAUDE_CODE_OAUTH_TOKEN для Claude Agent SDK")
+		return "", fmt.Errorf("нет ANTHROPIC_API_KEY или CLAUDE_CODE_OAUTH_TOKEN для Claude Agent SDK")
 	}
 	dir, err := os.MkdirTemp("", "leo-tracker-ask-*")
 	if err != nil {
@@ -371,7 +342,8 @@ func claudeSecret(v string) string {
 	return v
 }
 
-// claudeCreds — доступы по порядку: сначала подписка, потом ключ API.
+// claudeCreds — доступы по порядку: сначала ключ API, потом подписка.
+// Так трекер не сжигает пятичасовую квоту Claude Code, пока есть ANTHROPIC_API_KEY.
 // Значение раскладываем по виду, а не по имени переменной: токен подписки,
 // положенный в ANTHROPIC_API_KEY (или наоборот), даёт «401 API key is invalid».
 func claudeCreds(cfg config.Config) []claudeCred {
@@ -394,7 +366,7 @@ func claudeCreds(cfg config.Config) []claudeCred {
 			key = append(key, claudeCred{value: v})
 		}
 	}
-	return append(oauth, key...)
+	return append(key, oauth...)
 }
 
 func isClaudeAuthError(msg string) bool {

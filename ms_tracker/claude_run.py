@@ -99,7 +99,7 @@ def main() -> int:
     # Claude Agent SDK берёт доступ из окружения: токен подписки Claude Code
     # (CLAUDE_CODE_OAUTH_TOKEN) или, если его нет, ANTHROPIC_API_KEY.
     if not any((os.environ.get(k) or "").strip() for k in ("CLAUDE_CODE_OAUTH_TOKEN", "ANTHROPIC_API_KEY")):
-        _emit({"ok": False, "error": "нет CLAUDE_CODE_OAUTH_TOKEN"})
+        _emit({"ok": False, "error": "нет ANTHROPIC_API_KEY или CLAUDE_CODE_OAUTH_TOKEN"})
         return 1
     if not cwd or not os.path.isdir(cwd):
         _emit({"ok": False, "error": "нет каталога репозитория"})

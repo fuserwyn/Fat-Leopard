@@ -57,7 +57,7 @@ func TestClaudeModelID(t *testing.T) {
 
 func TestApplyDoingRequiresClaudeToken(t *testing.T) {
 	_, err := applyDoing(config.Config{GithubToken: "t", Repo: "o/r", TrackerAgent: "claude"}, store.Job{Prompt: "x"})
-	if err == nil || !strings.Contains(err.Error(), "CLAUDE_CODE_OAUTH_TOKEN") {
+	if err == nil || !strings.Contains(err.Error(), "ANTHROPIC_API_KEY") {
 		t.Fatalf("%v", err)
 	}
 }
@@ -81,24 +81,24 @@ func TestClaudeDoingPrompt(t *testing.T) {
 	}
 }
 
-func TestClaudeEnvPrefersSubscription(t *testing.T) {
+func TestClaudeEnvPrefersAPIKey(t *testing.T) {
 	t.Setenv("ANTHROPIC_API_KEY", "from-env")
 	t.Setenv("ANTHROPIC_BASE_URL", "https://openrouter.ai/api")
 	t.Setenv("ANTHROPIC_AUTH_TOKEN", "sk-or-x")
 	creds := claudeCreds(config.Config{ClaudeOAuthToken: "sk-ant-oat01-tok", AnthropicAPIKey: "sk-ant-api03-key"})
-	if len(creds) != 2 || !creds[0].oauth || creds[1].oauth {
-		t.Fatalf("сначала подписка, потом ключ: %+v", creds)
+	if len(creds) != 2 || creds[0].oauth || !creds[1].oauth {
+		t.Fatalf("сначала ключ API, потом подписка: %+v", creds)
 	}
 	env := strings.Join(claudeEnv(creds[0]), "\n")
-	if !strings.Contains(env, "CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-tok") || strings.Contains(env, "ANTHROPIC_API_KEY=") {
-		t.Fatal("подписка должна вытеснять API-ключ")
+	if !strings.Contains(env, "ANTHROPIC_API_KEY=sk-ant-api03-key") || strings.Contains(env, "CLAUDE_CODE_OAUTH_TOKEN=") {
+		t.Fatal("ключ API должен вытеснять токен подписки")
 	}
 	if strings.Contains(env, "openrouter") || strings.Contains(env, "ANTHROPIC_AUTH_TOKEN=") {
 		t.Fatal("переменные чужого провайдера не должны доходить до CLI")
 	}
 	env = strings.Join(claudeEnv(creds[1]), "\n")
-	if !strings.Contains(env, "ANTHROPIC_API_KEY=sk-ant-api03-key") || strings.Contains(env, "CLAUDE_CODE_OAUTH_TOKEN=") {
-		t.Fatal("ключ API — без токена подписки")
+	if !strings.Contains(env, "CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat01-tok") || strings.Contains(env, "ANTHROPIC_API_KEY=") {
+		t.Fatal("подписка — без ключа API")
 	}
 }
 
@@ -152,7 +152,7 @@ func TestAskClaudePassesAskPayload(t *testing.T) {
 	if _, err := AskClaude(cfg, "", "  ", ""); err == nil {
 		t.Fatal("пустой вопрос должен отклоняться")
 	}
-	if _, err := AskClaude(config.Config{}, "", "вопрос", ""); err == nil || !strings.Contains(err.Error(), "CLAUDE_CODE_OAUTH_TOKEN") {
+	if _, err := AskClaude(config.Config{}, "", "вопрос", ""); err == nil || !strings.Contains(err.Error(), "ANTHROPIC_API_KEY") {
 		t.Fatalf("без доступа: %v", err)
 	}
 }
