@@ -197,6 +197,17 @@ func (d *Database) SetTrainingFeedReaction(packChatID, userMessageID, userID int
 	return true, nil
 }
 
+// AddTrainingFeedReactionIfAbsent — автоматическая реакция: уже стоящую не снимает и не меняет.
+func (d *Database) AddTrainingFeedReactionIfAbsent(packChatID, userMessageID, userID int64, username, emoji string) error {
+	_, err := d.db.Exec(
+		`INSERT INTO miniapp_training_feed_reactions (pack_chat_id, user_message_id, user_id, username, emoji)
+		 VALUES ($1, $2, $3, $4, $5)
+		 ON CONFLICT (user_message_id, user_id) DO NOTHING`,
+		packChatID, userMessageID, userID, strings.TrimSpace(username), strings.TrimSpace(emoji),
+	)
+	return err
+}
+
 // TrainingFeedThreadRow — одна реплика в треде.
 type TrainingFeedThreadRow struct {
 	ID            int64

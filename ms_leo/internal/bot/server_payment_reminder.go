@@ -11,6 +11,7 @@ import (
 // Напоминание админам об оплате ресурсов сервера: 20-го числа каждого месяца (МСК)
 // одному админу по очереди. Очередь — SERVER_PAYMENT_ADMIN_IDS (по порядку),
 // первый в ней платит в ноябре 2026, второй — в декабре, третий — в январе, и снова по кругу.
+// В сообщении — кнопка оплаты звёздами на SERVER_PAYMENT_STARS (0 — без кнопки).
 
 const (
 	serverPaymentReminderDay  = 20
@@ -50,6 +51,37 @@ func serverPaymentReminderText(month time.Time, nextAdminLabel string) string {
 		text += "\nВ следующем месяце — " + nextAdminLabel + "."
 	}
 	return text
+}
+
+// serverPaymentReminderMessage — сообщение админу; link пустой — без кнопки оплаты.
+func serverPaymentReminderMessage(adminID int64, text, link string, stars int) tgbotapi.MessageConfig {
+	m := tgbotapi.NewMessage(adminID, text)
+	if link != "" {
+		m.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonURL(fmt.Sprintf("Оплатить %d ⭐", stars), link),
+		))
+	}
+	return m
+}
+
+// serverPaymentInvoiceLink — счёт в звёздах за месяц; без ссылки напоминание всё равно уходит.
+func (b *Bot) serverPaymentInvoiceLink(adminID int64, month time.Time) string {
+	stars := b.config.ServerPaymentStars
+	if stars <= 0 {
+		return ""
+	}
+	donationID, err := b.db.InsertDonation(adminID, "stars", stars, "XTR")
+	if err != nil {
+		b.logger.Errorf("server payment invoice admin=%d: %v", adminID, err)
+		return ""
+	}
+	period := fmt.Sprintf("%s %d", monthNameNominative(month.Month()), month.Year())
+	link, err := b.createStarsInvoiceLink(donationID, stars, "Сервер Fat Leopard", "Оплата сервера Fat Leopard", "Оплата ресурсов сервера за "+period)
+	if err != nil {
+		b.logger.Errorf("server payment invoice admin=%d: %v", adminID, err)
+		return ""
+	}
+	return link
 }
 
 func monthNameNominative(m time.Month) string {
@@ -103,7 +135,8 @@ func (b *Bot) runServerPaymentReminder(now time.Time) bool {
 	if len(admins) > 1 {
 		next = b.supportDisplayName(admins[(idx+1)%len(admins)])
 	}
-	if _, err := b.api.Send(tgbotapi.NewMessage(adminID, serverPaymentReminderText(now, next))); err != nil {
+	link := b.serverPaymentInvoiceLink(adminID, now)
+	if _, err := b.api.Send(serverPaymentReminderMessage(adminID, serverPaymentReminderText(now, next), link, b.config.ServerPaymentStars)); err != nil {
 		b.logger.Errorf("server payment reminder %s to %d: %v", month, adminID, err)
 		if err := b.db.ReleaseServerPaymentReminder(month); err != nil {
 			b.logger.Errorf("server payment reminder %s release: %v", month, err)

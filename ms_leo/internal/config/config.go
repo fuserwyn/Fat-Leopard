@@ -22,6 +22,8 @@ type Config struct {
 	// через запятую, по порядку: первый платит в ноябре 2026, второй — в декабре и т.д.).
 	// Пусто — очередь из OWNER_ID + ADMIN_IDS.
 	ServerPaymentAdminIDs []int64
+	// ServerPaymentStars — сумма в звёздах для кнопки оплаты в напоминании (SERVER_PAYMENT_STARS); 0 — без кнопки.
+	ServerPaymentStars int
 	DatabaseURL           string
 	// TrackerDatabaseURL — Postgres только трекера (карточки, вложения, автономия, jobs).
 	// Пусто — доска остаётся в DatabaseURL (тесты и локалка).
@@ -226,6 +228,7 @@ func Load() (*Config, error) {
 		AdminIDs:                 adminIDs,
 		AlphaTesterIDs:           alphaTesterIDs,
 		ServerPaymentAdminIDs:    parseAdminIDs(getEnv("SERVER_PAYMENT_ADMIN_IDS", "")),
+		ServerPaymentStars:       parseServerPaymentStars(getEnv("SERVER_PAYMENT_STARS", "")),
 		DatabaseURL:              getEnv("DATABASE_URL", "postgresql://postgres:password@localhost:5432/leo_bot_db?sslmode=disable"),
 		TrackerDatabaseURL:       strings.TrimSpace(getEnv("TRACKER_DATABASE_URL", "")),
 		LogLevel:                 getEnv("LOG_LEVEL", "info"),
@@ -335,6 +338,14 @@ func (c *Config) AdminTelegramUserIDs() []int64 {
 		add(id)
 	}
 	return out
+}
+
+func parseServerPaymentStars(raw string) int {
+	n, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil || n < 0 {
+		return 0
+	}
+	return n
 }
 
 // ServerPaymentRotation — по кому идёт очередь оплаты сервера: SERVER_PAYMENT_ADMIN_IDS,

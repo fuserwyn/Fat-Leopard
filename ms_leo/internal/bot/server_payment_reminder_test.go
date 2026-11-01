@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"leo-bot/internal/config"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 func TestServerPaymentAdminIndex(t *testing.T) {
@@ -111,5 +113,16 @@ func TestServerPaymentReminderRotationIntegration(t *testing.T) {
 	// Анне: одна неудачная попытка (запрос ушёл) + одна успешная.
 	if n := len(tg.textsTo(anna)); n != 2 {
 		t.Fatalf("Анна: %d", n)
+	}
+}
+
+func TestServerPaymentReminderMessageButton(t *testing.T) {
+	if m := serverPaymentReminderMessage(1, "текст", "", 0); m.ReplyMarkup != nil {
+		t.Error("без ссылки кнопки нет")
+	}
+	m := serverPaymentReminderMessage(1, "текст", "https://t.me/$inv", 500)
+	kb, ok := m.ReplyMarkup.(tgbotapi.InlineKeyboardMarkup)
+	if !ok || len(kb.InlineKeyboard) != 1 || kb.InlineKeyboard[0][0].Text != "Оплатить 500 ⭐" || *kb.InlineKeyboard[0][0].URL != "https://t.me/$inv" {
+		t.Errorf("кнопка оплаты: %+v", m.ReplyMarkup)
 	}
 }
