@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"leo-bot/internal/ai"
@@ -27,17 +28,19 @@ import (
 )
 
 type Bot struct {
-	api                  *tgbotapi.BotAPI
-	db                   *database.Database
-	logger               logger.Logger
-	config               *config.Config
-	timers               map[int64]*domain.TimerInfo
-	aiClient             *ai.OpenRouterClient
-	ragStore             rag.Store
-	sickApprovalWatchers map[int64]chan struct{}
-	sickApprovalMutex    sync.Mutex
-	adminSessions        map[int64]*adminSession
-	adminSessionsMutex   sync.Mutex
+	// serverPaymentSuspended — счёт за сервер просрочен, бот на паузе (см. server_payment.go).
+	serverPaymentSuspended atomic.Bool
+	api                    *tgbotapi.BotAPI
+	db                     *database.Database
+	logger                 logger.Logger
+	config                 *config.Config
+	timers                 map[int64]*domain.TimerInfo
+	aiClient               *ai.OpenRouterClient
+	ragStore               rag.Store
+	sickApprovalWatchers   map[int64]chan struct{}
+	sickApprovalMutex      sync.Mutex
+	adminSessions          map[int64]*adminSession
+	adminSessionsMutex     sync.Mutex
 	// privateBottomKeyboardKind — последняя reply-клавиатура внизу лички: "admin" | "support".
 	privateBottomKeyboardKind sync.Map
 	userSupportSessions       map[int64]struct{}
@@ -215,6 +218,8 @@ func (b *Bot) Start(ctx context.Context) error {
 	go b.startScheduledAdminPostsWorker(ctx)
 	// Periodic-страховка от пропущенных киков (см. startInactivityKickWatchdog).
 	go b.startInactivityKickWatchdog(ctx)
+	// 20-го числа — счёт за сервер плательщику (см. server_payment.go).
+	go b.startServerPaymentScheduler(ctx)
 	// Напоминания «внеси тренировку» в локальный час пользователя (см. startWorkoutReminderScheduler).
 	go b.startWorkoutReminderScheduler(ctx)
 	// Подписка на «мудрость дня» в личку бота (см. startDailyWisdomSubscriptionScheduler).
@@ -319,6 +324,10 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 
 	metrics.BotUpdatesReceived.Inc()
 
+	if b.dropUpdateWhileSuspended(update) {
+		return
+	}
+
 	// Обрабатываем callback queries (нажатия на inline кнопки)
 	if update.CallbackQuery != nil {
 		b.handleCallbackQuery(update.CallbackQuery)
@@ -327,6 +336,10 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 
 	if update.PreCheckoutQuery != nil {
 		metrics.PaymentRequests.WithLabelValues("precheckout").Inc()
+		if isServerPaymentPayload(update.PreCheckoutQuery.InvoicePayload) {
+			b.handleServerPaymentPreCheckout(update.PreCheckoutQuery)
+			return
+		}
 		b.handlePaywallPreCheckout(update.PreCheckoutQuery)
 		return
 	}
@@ -348,6 +361,10 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 	msg := update.Message
 	if msg.SuccessfulPayment != nil {
 		metrics.PaymentRequests.WithLabelValues("success").Inc()
+		if isServerPaymentPayload(msg.SuccessfulPayment.InvoicePayload) {
+			b.handleServerPaymentSuccessfulPayment(msg)
+			return
+		}
 		b.handlePaywallSuccessfulPayment(msg)
 		return
 	}
@@ -2642,6 +2659,11 @@ func (b *Bot) handleCallbackQuery(callback *tgbotapi.CallbackQuery) {
 
 	if strings.HasPrefix(data, "admin_") {
 		b.handleAdminCallbackQuery(callback)
+		return
+	}
+
+	if strings.HasPrefix(data, serverPaymentCardCallbackPrefix) {
+		b.handleServerPaymentCardCallback(callback)
 		return
 	}
 

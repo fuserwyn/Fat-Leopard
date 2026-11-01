@@ -5,6 +5,15 @@ API_TOKEN=your_bot_token_here
 # Owner ID (ваш Telegram ID)
 OWNER_ID=your_telegram_id_here
 
+# Ежемесячный счёт за сервер: 1-го числа, сумма фиксированная.
+# Telegram ID плательщика; пусто — счета не выставляются.
+SERVER_PAYMENT_USER_ID=
+# Сумма: рубли для оплаты картой и звёзды; 0 отключает способ
+SERVER_PAYMENT_RUB=100
+SERVER_PAYMENT_STARS=86
+# true — счёт не оплачен за сутки: бот в Telegram на паузе и автоматические кики стоят, пока счёт не оплатят.
+SERVER_PAYMENT_SUSPEND_ENABLED=false
+
 # PostgreSQL Database Configuration
 # ВАЖНО: Используйте формат postgresql:// (не postgresql+asyncpg://)
 # Этот бот использует драйвер lib/pq, который требует формат postgresql://

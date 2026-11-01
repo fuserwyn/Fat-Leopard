@@ -439,7 +439,7 @@ func (b *Bot) handleHealthy(msg *tgbotapi.Message) {
 		b.notifyUserText(msg, replyText, "", 0)
 
 		// Удаляем пользователя — кик идёт по pack-row, чтобы корректно сработали ExpirePaywallAccessForUser и pack_removed в ленте мини-аппа.
-		b.removeUser(msg.From.ID, b.kickChatIDForMessage(msg), username)
+		b.removeUserForInactivity(msg.From.ID, b.kickChatIDForMessage(msg), username)
 		return
 	}
 

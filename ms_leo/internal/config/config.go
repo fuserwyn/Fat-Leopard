@@ -13,17 +13,22 @@ import (
 )
 
 type Config struct {
-	APIToken              string
-	OwnerID               int64
-	AdminIDs              []int64
-	AlphaTesterIDs        []int64 // §10: тестеры альфы — события тегируются is_alpha
-	DatabaseURL           string
-	LogLevel              string
-	OpenRouterAPIKey      string
-	OpenRouterModel       string        // Модель OpenRouter (по умолчанию deepseek/deepseek-chat)
-	OpenRouterVisionModel string        // Vision-модель для анализа фото (основная — текстовая); пусто = vision выключен
-	OpenRouterTimeout     time.Duration // HTTP-таймаут к OpenRouter (весь запрос + чтение тела)
-	ScanHistoryOnStart    bool          // Сканировать историю при старте (по умолчанию false)
+	APIToken       string
+	OwnerID        int64
+	AdminIDs       []int64
+	AlphaTesterIDs []int64 // §10: тестеры альфы — события тегируются is_alpha
+	// Счёт за сервер (см. bot/server_payment.go). ServerPaymentUserID = 0 — счета не выставляются.
+	ServerPaymentUserID         int64
+	ServerPaymentSuspendEnabled bool
+	ServerPaymentRub            int
+	ServerPaymentStars          int
+	DatabaseURL                 string
+	LogLevel                    string
+	OpenRouterAPIKey            string
+	OpenRouterModel             string        // Модель OpenRouter (по умолчанию deepseek/deepseek-chat)
+	OpenRouterVisionModel       string        // Vision-модель для анализа фото (основная — текстовая); пусто = vision выключен
+	OpenRouterTimeout           time.Duration // HTTP-таймаут к OpenRouter (весь запрос + чтение тела)
+	ScanHistoryOnStart          bool          // Сканировать историю при старте (по умолчанию false)
 
 	// Платный доступ к Fat Leopard MiniApp (Telegram Payments + ЮKassa).
 	// Архитектура mini-app-only: TG-группы как сущности больше нет, MonetizedChatID
@@ -161,6 +166,11 @@ func Load() (*Config, error) {
 		PaymentStarsEnabled:             starsAddonEnabled,
 		PaymentStarsAmount:              starsAddonAmount,
 
+		ServerPaymentUserID:         parseEnvInt64(getEnv("SERVER_PAYMENT_USER_ID", "")),
+		ServerPaymentSuspendEnabled: parseEnvBool(getEnv("SERVER_PAYMENT_SUSPEND_ENABLED", "false")),
+		ServerPaymentRub:            parseEnvAmount(getEnv("SERVER_PAYMENT_RUB", ""), 100),
+		ServerPaymentStars:          parseEnvAmount(getEnv("SERVER_PAYMENT_STARS", ""), 86),
+
 		YookassaShopID:          strings.TrimSpace(getEnv("YOOKASSA_SHOP_ID", "")),
 		YookassaSecretKey:       strings.TrimSpace(getEnv("YOOKASSA_SECRET_KEY", "")),
 		YookassaReturnURL:       ykReturn,
@@ -281,6 +291,23 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+func parseEnvInt64(s string) int64 {
+	n, err := strconv.ParseInt(strings.TrimSpace(s), 10, 64)
+	if err != nil || n < 0 {
+		return 0
+	}
+	return n
+}
+
+// parseEnvAmount — сумма из env; пусто или мусор — def, 0 отключает способ оплаты.
+func parseEnvAmount(s string, def int) int {
+	n, err := strconv.Atoi(strings.TrimSpace(s))
+	if err != nil || n < 0 {
+		return def
+	}
+	return n
 }
 
 func parseEnvBool(s string) bool {

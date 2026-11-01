@@ -1393,6 +1393,28 @@ var Migrations = []Migration{
 			DROP TABLE IF EXISTS miniapp_like_notifications;
 		`,
 	},
+	{
+		Version:     73,
+		Description: "Ежемесячные счета за сервер: одна строка на месяц",
+		UpSQL: `
+			CREATE TABLE IF NOT EXISTS server_payment_bills (
+				month                      TEXT PRIMARY KEY,
+				user_id                    BIGINT NOT NULL,
+				stars                      INTEGER NOT NULL DEFAULT 0,
+				rub                        INTEGER NOT NULL DEFAULT 0,
+				sent_at                    TIMESTAMP WITH TIME ZONE NOT NULL,
+				paid_at                    TIMESTAMP WITH TIME ZONE,
+				paid_via                   TEXT,
+				telegram_payment_charge_id TEXT,
+				yookassa_payment_id        TEXT,
+				card_confirm_url           TEXT,
+				suspend_notified_at        TIMESTAMP WITH TIME ZONE
+			);
+		`,
+		DownSQL: `
+			DROP TABLE IF EXISTS server_payment_bills;
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции

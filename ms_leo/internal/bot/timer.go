@@ -226,7 +226,7 @@ func (b *Bot) recoverTimersFromDatabase() error {
 			// Время истекло - удаляем пользователя
 			b.logger.Infof("Timer expired for user %d (%s), removing from chat", user.UserID, user.Username)
 			b.trackAccountDeletedInactivity(user.UserID, user.ChatID)
-			b.removeUser(user.UserID, user.ChatID, user.Username)
+			b.removeUserForInactivity(user.UserID, user.ChatID, user.Username)
 			continue
 		}
 
@@ -312,7 +312,7 @@ func (b *Bot) runInactivityKickSweep() {
 		}
 		b.logger.Warnf("inactivity kick watchdog: overdue user %d (%s) chat=%d — removing",
 			user.UserID, user.Username, user.ChatID)
-		b.removeUser(user.UserID, user.ChatID, user.Username)
+		b.removeUserForInactivity(user.UserID, user.ChatID, user.Username)
 		expired++
 	}
 	if expired > 0 {

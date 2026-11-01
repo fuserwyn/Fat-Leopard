@@ -147,7 +147,7 @@ func (b *Bot) scheduleLeopardMilestones(userID, chatID int64, username string, r
 		{
 			at:      removalAt,
 			ch:      chRem,
-			fn:      func() { b.removeUser(userID, chatID, username) },
+			fn:      func() { b.removeUserForInactivity(userID, chatID, username) },
 			removal: true,
 		},
 	}
