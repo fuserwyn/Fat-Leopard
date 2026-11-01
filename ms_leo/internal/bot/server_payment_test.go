@@ -153,6 +153,55 @@ func newServerPaymentTestBot(t *testing.T, tune func(*config.Config)) (*Bot, *se
 	return &Bot{api: api, db: db, logger: logger.New("error"), config: cfg}, tg
 }
 
+// Вебхук: адрес передаётся в платёж, чужой id и неоплаченный статус счёт не закрывают, оплата закрывает один раз.
+func TestServerPaymentWebhookIntegration(t *testing.T) {
+	oldCreate, oldGet, oldRounds := serverPaymentCreateCard, serverPaymentGetPayment, serverPaymentCardWatchRounds
+	defer func() {
+		serverPaymentCreateCard, serverPaymentGetPayment, serverPaymentCardWatchRounds = oldCreate, oldGet, oldRounds
+	}()
+	serverPaymentCardWatchRounds = 0
+	const webhook = "https://leo.test/api/v1/webhook/payment"
+	notifyURL, status := "", "pending"
+	serverPaymentCreateCard = func(_, _ string, _ int, _, _, _, url string, _ map[string]string) (string, string, error) {
+		notifyURL = url
+		return "yk-1", "https://kassa.test/1", nil
+	}
+	serverPaymentGetPayment = func(_, _, id string) (*yookassa.PaymentStatusInfo, error) {
+		return &yookassa.PaymentStatusInfo{Status: status, Paid: status == "succeeded"}, nil
+	}
+	b, tg := newServerPaymentTestBot(t, func(c *config.Config) { c.ServerPaymentWebhookURL = webhook })
+	if !b.runServerPaymentBilling(time.Date(2026, 11, 1, 15, 0, 0, 0, moscowLocation())) {
+		t.Fatal("счёт не ушёл")
+	}
+	b.handleUpdate(tgbotapi.Update{CallbackQuery: &tgbotapi.CallbackQuery{ID: "cb", From: &tgbotapi.User{ID: serverPaymentTestPayer}, Data: serverPaymentCardCallbackPrefix + "2026-11"}})
+	if notifyURL != webhook {
+		t.Fatalf("адрес вебхука в платеже: %q", notifyURL)
+	}
+	paid := func() bool {
+		bill, err := b.db.GetServerPaymentBill("2026-11")
+		if err != nil || bill == nil {
+			t.Fatalf("счёт: %+v %v", bill, err)
+		}
+		return bill.PaidAt.Valid
+	}
+	if err := b.ConfirmServerPaymentCard("чужой"); err != nil || paid() {
+		t.Fatalf("чужой платёж: err=%v paid=%v", err, paid())
+	}
+	if err := b.ConfirmServerPaymentCard("yk-1"); err != nil || paid() {
+		t.Fatalf("статус pending не закрывает счёт: err=%v paid=%v", err, paid())
+	}
+	status = "succeeded"
+	for i := 0; i < 2; i++ {
+		if err := b.ConfirmServerPaymentCard("yk-1"); err != nil || !paid() {
+			t.Fatalf("оплата: err=%v paid=%v", err, paid())
+		}
+	}
+	got := tg.texts(serverPaymentTestPayer)
+	if len(got) != 3 || !strings.Contains(got[2], "Счёт за сервер оплачен: 100 ₽") {
+		t.Fatalf("подтверждение один раз: %v", got)
+	}
+}
+
 // Оплата картой подтверждается сразу, а звёзды по уже оплаченному картой счёту не принимаются.
 func TestServerPaymentCardWatchIntegration(t *testing.T) {
 	oldCreate, oldGet, oldEvery, oldRounds := serverPaymentCreateCard, serverPaymentGetPayment, serverPaymentCardWatchEvery, serverPaymentCardWatchRounds

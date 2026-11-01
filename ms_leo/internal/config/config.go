@@ -22,6 +22,7 @@ type Config struct {
 	ServerPaymentSuspendEnabled bool
 	ServerPaymentRub            int
 	ServerPaymentStars          int
+	ServerPaymentWebhookURL     string // куда ЮKassa шлёт уведомление; пусто — только опрос статуса
 	DatabaseURL                 string
 	LogLevel                    string
 	OpenRouterAPIKey            string
@@ -170,6 +171,7 @@ func Load() (*Config, error) {
 		ServerPaymentSuspendEnabled: parseEnvBool(getEnv("SERVER_PAYMENT_SUSPEND_ENABLED", "false")),
 		ServerPaymentRub:            parseEnvAmount(getEnv("SERVER_PAYMENT_RUB", ""), 100),
 		ServerPaymentStars:          parseEnvAmount(getEnv("SERVER_PAYMENT_STARS", ""), 86),
+		ServerPaymentWebhookURL:     serverPaymentWebhookURL(getEnv("RAILWAY_PUBLIC_DOMAIN", "")),
 
 		YookassaShopID:          strings.TrimSpace(getEnv("YOOKASSA_SHOP_ID", "")),
 		YookassaSecretKey:       strings.TrimSpace(getEnv("YOOKASSA_SECRET_KEY", "")),
@@ -299,6 +301,15 @@ func parseEnvInt64(s string) int64 {
 		return 0
 	}
 	return n
+}
+
+// serverPaymentWebhookURL — адрес вебхука ms_leo на его публичном домене Railway.
+func serverPaymentWebhookURL(domain string) string {
+	domain = strings.TrimSpace(domain)
+	if domain == "" {
+		return ""
+	}
+	return "https://" + domain + "/api/v1/webhook/payment"
 }
 
 // parseEnvAmount — сумма из env; пусто или мусор — def, 0 отключает способ оплаты.

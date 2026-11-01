@@ -277,7 +277,24 @@ func (b *Bot) serverPaymentSyncCard(bill *database.ServerPaymentBill) (string, e
 	return status, nil
 }
 
-// syncServerPaymentCardPayments закрывает оплаченные картой счета: вебхук ms_payments обслуживает только pw_-платежи.
+// ConfirmServerPaymentCard — уведомление ЮKassa о платеже. Чужой id ни на что не влияет, а статус своего
+// платежа сверяем с ЮKassa, поэтому подделать оплату запросом на вебхук нельзя. Ошибка — стоит повторить.
+func (b *Bot) ConfirmServerPaymentCard(paymentID string) error {
+	bills, err := b.db.UnpaidServerPaymentBillsWithCard()
+	if err != nil {
+		return err
+	}
+	for _, bill := range bills {
+		if bill.YookassaPaymentID.String == paymentID {
+			b.logger.Infof("server payment card %s: webhook received", bill.Month)
+			_, err := b.serverPaymentSyncCard(bill)
+			return err
+		}
+	}
+	return nil
+}
+
+// syncServerPaymentCardPayments — запасной путь, если вебхук не дошёл: опрашивает неоплаченные счета с платежом.
 func (b *Bot) syncServerPaymentCardPayments() {
 	if b == nil || b.db == nil || b.config == nil || !b.serverPaymentCardReady() {
 		return
@@ -348,7 +365,7 @@ func (b *Bot) handleServerPaymentCardCallback(callback *tgbotapi.CallbackQuery) 
 			returnURL = "https://t.me"
 		}
 		paymentID, url, err := serverPaymentCreateCard(b.config.YookassaShopID, b.config.YookassaSecretKey, bill.Rub*100, "RUB",
-			fmt.Sprintf("Оплата сервера Fat Leopard, счёт %s — %d ₽", month, bill.Rub), returnURL, "",
+			fmt.Sprintf("Оплата сервера Fat Leopard, счёт %s — %d ₽", month, bill.Rub), returnURL, b.config.ServerPaymentWebhookURL,
 			map[string]string{"kind": "server_payment", "month": month})
 		if err == nil {
 			err = b.db.SetServerPaymentBillCardPayment(month, paymentID, url)
