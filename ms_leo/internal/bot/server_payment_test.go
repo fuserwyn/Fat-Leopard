@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -29,6 +30,41 @@ func TestServerPaymentDue(t *testing.T) {
 		if got := serverPaymentDue(time.Date(2026, 11, c.d, c.h, 0, 0, 0, loc)); got != c.want {
 			t.Errorf("day=%d hour=%d: got %v want %v", c.d, c.h, got, c.want)
 		}
+	}
+}
+
+// Telegram запоминает allowed_updates: кнопка и оплата звёздами должны быть запрошены явно.
+func TestGetUpdatesRequestsPaymentUpdates(t *testing.T) {
+	got := make(chan string, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/getMe") {
+			_, _ = w.Write([]byte(`{"ok":true,"result":{"id":1,"is_bot":true,"first_name":"t","username":"t"}}`))
+			return
+		}
+		_ = r.ParseForm()
+		select {
+		case got <- r.FormValue("allowed_updates"):
+		default:
+		}
+		_, _ = w.Write([]byte(`{"ok":true,"result":[]}`))
+	}))
+	defer srv.Close()
+	api, err := tgbotapi.NewBotAPIWithAPIEndpoint("1:T", srv.URL+"/bot%s/%s")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	(&Bot{api: api, logger: logger.New("error")}).runGetUpdatesWithWebApp(ctx)
+	select {
+	case allowed := <-got:
+		for _, want := range []string{"message", "chat_member", "callback_query", "pre_checkout_query"} {
+			if !strings.Contains(allowed, `"`+want+`"`) {
+				t.Errorf("allowed_updates %q: нет %s", allowed, want)
+			}
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("getUpdates не вызван")
 	}
 }
 

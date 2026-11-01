@@ -238,6 +238,10 @@ func (b *Bot) Start(ctx context.Context) error {
 	}
 }
 
+// botAllowedUpdates задаём явно: без этого Telegram продолжает применять список из прошлого вызова getUpdates,
+// и на проде кнопки и оплата звёздами не доходили до бота.
+var botAllowedUpdates = []string{"message", "chat_member", "callback_query", "pre_checkout_query"}
+
 // runGetUpdatesWithWebApp — long poll getUpdates + подстановка web_app_data в text (как в библиотеке, плюс merge).
 func (b *Bot) runGetUpdatesWithWebApp(ctx context.Context) <-chan tgbotapi.Update {
 	buf := 100
@@ -247,6 +251,7 @@ func (b *Bot) runGetUpdatesWithWebApp(ctx context.Context) <-chan tgbotapi.Updat
 	ch := make(chan tgbotapi.Update, buf)
 	config := tgbotapi.NewUpdate(0)
 	config.Timeout = 60
+	config.AllowedUpdates = botAllowedUpdates
 	go func() {
 		for {
 			select {
