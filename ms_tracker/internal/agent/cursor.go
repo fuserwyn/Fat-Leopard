@@ -32,7 +32,7 @@ type cursorLocalOut struct {
 func cursorModelID(cfg config.Config, job store.Job) string {
 	for _, raw := range []string{job.Model, cfg.CursorModel} {
 		m := strings.TrimSpace(raw)
-		if m == "" || strings.EqualFold(m, "cursor-composer") {
+		if m == "" || strings.EqualFold(m, "cursor-composer") || strings.EqualFold(m, "cursor") {
 			continue
 		}
 		return m

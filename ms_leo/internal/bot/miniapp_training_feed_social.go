@@ -201,6 +201,41 @@ func (b *Bot) ensureLeoDefaultTrainingFeedReaction(packChatID, userMessageID int
 	}
 }
 
+// trainingFeedAutoReactionAdmins — кто из админов ставит автореакцию: все, кроме автора тренировки.
+func trainingFeedAutoReactionAdmins(admins []int64, authorUserID int64) []int64 {
+	out := make([]int64, 0, len(admins))
+	seen := map[int64]struct{}{authorUserID: {}}
+	for _, id := range admins {
+		if _, dup := seen[id]; dup || id == 0 {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	return out
+}
+
+// ensureAdminTrainingFeedReactions — автоматические реакции админов на чужую тренировку.
+// Эмодзи стабильна для пары «пост + админ» и подходит виду спорта.
+func (b *Bot) ensureAdminTrainingFeedReactions(packChatID, userMessageID, authorUserID int64, reportText string) {
+	if b == nil || b.db == nil || b.config == nil || packChatID == 0 || userMessageID == 0 {
+		return
+	}
+	admins := b.config.AdminTelegramUserIDs()
+	if dynamic, err := b.db.LoadDynamicAdminIDs(); err != nil {
+		b.logger.Warnf("training feed admin reactions: %v", err)
+	} else {
+		admins = append(admins, dynamic...)
+	}
+	for _, adminID := range trainingFeedAutoReactionAdmins(admins, authorUserID) {
+		emoji := leoTrainingFeedReactionEmoji(userMessageID+adminID, reportText)
+		name, _, _ := strings.Cut(b.supportDisplayName(adminID), " · ") // без id: имя видно в ленте
+		if err := b.db.AddTrainingFeedReactionIfAbsent(packChatID, userMessageID, adminID, name, emoji); err != nil {
+			b.logger.Warnf("training feed admin reaction admin=%d: %v", adminID, err)
+		}
+	}
+}
+
 // PackTrainingFeedReact — реакция на карточку ленты с соц. активностью (повтор с той же эмодзи снимает).
 func (b *Bot) PackTrainingFeedReact(viewerUserID int64, initD initdata.InitData, userMessageID int64, emoji string) error {
 	if err := b.AssertMiniAppPackChatAligns(initD); err != nil {

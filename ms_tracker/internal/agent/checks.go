@@ -59,7 +59,7 @@ func checksForFiles(files []string) []branchCheck {
 		out = append(out,
 			branchCheck{Dir: "miniapp", Label: "miniapp: установка зависимостей", Name: "npm", Args: []string{"ci", "--no-audit", "--no-fund"}},
 			branchCheck{Dir: "miniapp", Label: "miniapp: сборка", Name: "npm", Args: []string{"run", "build"}},
-			branchCheck{Dir: "miniapp", Label: "miniapp: тесты", Name: "npx", Args: []string{"vitest", "run"}},
+			branchCheck{Dir: "miniapp", Label: "miniapp: тесты", Name: "npx", Args: []string{"vitest", "run", "--maxWorkers=2", "--minWorkers=1"}},
 		)
 	}
 	return out

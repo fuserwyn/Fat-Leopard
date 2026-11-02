@@ -6,6 +6,12 @@ FAT_LEOPARD_API_TOKEN=your_bot_token_here
 
 # Owner ID (ваш Telegram ID)
 OWNER_ID=your_telegram_id_here
+# Очередь оплаты сервера (напоминание 20-го числа): Telegram ID по порядку — Стас, Анна, lofi.
+# Первый платит в ноябре 2026, дальше по кругу. Не задано — порядок из кода (defaultServerPaymentAdminIDs).
+# SERVER_PAYMENT_ADMIN_IDS=
+# Сумма счёта считается по расходу Railway (RAILWAY_API_TOKEN, RAILWAY_PROJECT_ID) и курсу USD_PER_STAR.
+# Это запасная сумма в звёздах на случай, если Railway не ответил; пусто — тогда без кнопки
+SERVER_PAYMENT_STARS=
 
 # PostgreSQL Database Configuration
 # ВАЖНО: Используйте формат postgresql:// (не postgresql+asyncpg://)
@@ -62,13 +68,12 @@ OPENROUTER_VISION_MODEL=openai/gpt-4o-mini
 #   NOTIFY_SECRET=...   # тот же, что TRACKER_SECRET
 #   TRACKER_SECRET=...
 #
-# Исполнитель задач трекера (ms_tracker): Claude Agent SDK, запасной — Cursor SDK.
-# Cursor включается сам, если Claude недоступен: нет токена, кончились лимиты,
-# ошибка или таймаут.
-#   CLAUDE_CODE_OAUTH_TOKEN=...   # Claude Agent SDK по подписке (основной): токен из `claude setup-token`
-#   ANTHROPIC_API_KEY=...         # необязательно: только если нет токена подписки
-#   CURSOR_API_KEY=...            # Cursor (запасной)
-#   TRACKER_AGENT=cursor          # начинать сразу с Cursor (по умолчанию claude)
+# Исполнитель задач трекера (ms_tracker): по умолчанию Claude Agent SDK.
+# Cursor — если выбран на карточке, после трёх сорвавшихся повторов и на ревью и тесте.
+#   CLAUDE_CODE_OAUTH_TOKEN=...   # основной доступ Claude: токен из `claude setup-token`, оплата по подписке
+#   ANTHROPIC_API_KEY=...         # только если токена нет совсем: оплата API по токенам
+#   CURSOR_API_KEY=...            # передача после сбоев, ревью и тест
+#   TRACKER_AGENT=cursor          # начать с Cursor; пусто — Claude
 #   CLAUDE_MODEL=claude-opus-5-5   # модель Claude по умолчанию
 #   CLAUDE_MAX_TURNS=150      # лимит ходов агента на одну задачу
 # На отдельную задачу: модель карточки (model_key / BOARD_MODEL у ms_leo)

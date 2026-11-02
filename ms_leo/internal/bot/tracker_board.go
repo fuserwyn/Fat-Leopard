@@ -38,6 +38,48 @@ var trackerNextColumn = map[string]string{
 	trackerColDeploy:  trackerColDone,
 }
 
+func trackerWantsReview(t database.TrackerTask) bool {
+	return !t.FastTrack && !t.SkipReview
+}
+
+func trackerWantsTest(t database.TrackerTask) bool {
+	return !t.FastTrack && !t.SkipTest
+}
+
+func trackerColumnAfterDoing(t database.TrackerTask) string {
+	if trackerWantsReview(t) {
+		return trackerColReview
+	}
+	if trackerWantsTest(t) {
+		return trackerColTest
+	}
+	return trackerColDeploy
+}
+
+func trackerColumnAfterReview(t database.TrackerTask) string {
+	if trackerWantsTest(t) {
+		return trackerColTest
+	}
+	return trackerColDeploy
+}
+
+func trackerAdvanceColumn(t database.TrackerTask) (string, bool) {
+	switch strings.ToLower(strings.TrimSpace(t.DevColumn)) {
+	case trackerColTodo, trackerColApprove:
+		return trackerColDoing, true
+	case trackerColDoing:
+		return trackerColumnAfterDoing(t), true
+	case trackerColReview:
+		return trackerColumnAfterReview(t), true
+	case trackerColTest:
+		return trackerColDeploy, true
+	case trackerColDeploy:
+		return trackerColDone, true
+	default:
+		return "", false
+	}
+}
+
 func applyTrackerColumn(t *database.TrackerTask, col string) error {
 	col = strings.ToLower(strings.TrimSpace(col))
 	switch col {
@@ -293,6 +335,8 @@ func trackerTaskView(t database.TrackerTask, withAtts bool) map[string]any {
 		"auto_review":       t.AutoReview,
 		"manual_qa":         t.ManualQa,
 		"fast_track":        t.FastTrack,
+		"review":            trackerWantsReview(t),
+		"test":              trackerWantsTest(t),
 		"error":             t.Error,
 		"has_result":        strings.TrimSpace(t.Result) != "",
 		"phase":             phase,
@@ -314,13 +358,14 @@ func trackerTaskView(t database.TrackerTask, withAtts bool) map[string]any {
 		"steps":             t.Steps,
 		"steps_running": t.Status == "running" || t.Status == "reviewing" ||
 			(t.Status == "holding" && (t.DevColumn == trackerColTest && !t.ManualQa || t.DevColumn == trackerColDeploy)),
-		"model_key":  "",
-		"live_step":  live,
+		"model_key":    trackerDoingModelKey(t.Agent),
+		"agent":        normalizeTrackerAgent(t.Agent),
+		"live_step":    live,
 		"result":       t.Result,
 		"done_summary": doneSummary,
 		"created_at":   t.CreatedAt.Format(time.RFC3339),
-		"commit":     trackerTaskCommit(t),
-		"branch":     trackerTaskBranch(t),
+		"commit":       trackerTaskCommit(t),
+		"branch":       trackerTaskBranch(t),
 	}
 	if t.HasLastRun {
 		out["last_run_at"] = t.LastRunAt.Format(time.RFC3339)
@@ -449,7 +494,10 @@ func (b *Bot) localTrackerCreate(payload map[string]any, userID int64) (json.Raw
 		AutoReview: true,
 		ManualQa:   payloadBool(payload, "manual_qa"),
 		FastTrack:  payloadBool(payload, "fast_track"),
+		SkipReview: !payloadBoolOr(payload, "review", true),
+		SkipTest:   !payloadBoolOr(payload, "test", true),
 		AutoPush:   payloadBoolOr(payload, "auto_push", true),
+		Agent:      normalizeTrackerAgent(payloadString(payload, "agent")),
 		Steps:      []string{"Поставлена на доску стаи"},
 	}
 	if needsApproval {
@@ -619,7 +667,7 @@ func (b *Bot) localTrackerMove(taskID int64, payload map[string]any) (json.RawMe
 	}
 	col := payloadString(payload, "column")
 	if col == "" || col == "next" {
-		next, ok := trackerNextColumn[t.DevColumn]
+		next, ok := trackerAdvanceColumn(t)
 		if !ok {
 			return nil, fmt.Errorf("дальше этой карточке идти некуда")
 		}
@@ -745,18 +793,53 @@ func (b *Bot) localTrackerPrompt(taskID int64, payload map[string]any) (json.Raw
 	if err != nil {
 		return nil, err
 	}
-	if !trackerCanEditPrompt(t) {
-		return nil, fmt.Errorf("Задача уже началась — формулировку не меняем")
+	if _, ok := payload["review"]; ok {
+		skip := !payloadBool(payload, "review")
+		if skip != t.SkipReview {
+			t.SkipReview = skip
+			if skip {
+				appendTrackerStep(&t, "Ревью: нет")
+			} else {
+				appendTrackerStep(&t, "Ревью: да")
+			}
+		}
+	}
+	if _, ok := payload["test"]; ok {
+		skip := !payloadBool(payload, "test")
+		if skip != t.SkipTest {
+			t.SkipTest = skip
+			if skip {
+				appendTrackerStep(&t, "Тест: нет")
+			} else {
+				appendTrackerStep(&t, "Тест: да")
+			}
+		}
 	}
 	prompt := payloadString(payload, "prompt")
-	if prompt == "" {
-		return nil, fmt.Errorf("опиши задачу")
+	if strings.TrimSpace(prompt) == "" {
+		if err := b.db.SaveTrackerTask(t); err != nil {
+			return nil, err
+		}
+		return trackerJSON(map[string]any{"ok": true, "task": trackerTaskView(t, false)})
 	}
+	if !trackerCanEditPrompt(t) && strings.TrimSpace(prompt) != strings.TrimSpace(t.Prompt) {
+		return nil, fmt.Errorf("Задача уже началась — формулировку не меняем")
+	}
+	promptChanged := strings.TrimSpace(prompt) != strings.TrimSpace(t.Prompt)
 	t.Prompt = prompt
-	appendTrackerStep(&t, "Формулировку обновили")
-	if t.DevColumn == trackerColApprove {
-		t.Approvals = nil
-		appendTrackerStep(&t, "Аппрувы сброшены после правки")
+	if _, ok := payload["agent"]; ok {
+		next := normalizeTrackerAgent(payloadString(payload, "agent"))
+		if next != normalizeTrackerAgent(t.Agent) {
+			t.Agent = next
+			appendTrackerStep(&t, "Исполнитель: "+trackerAgentChoiceLabel(next))
+		}
+	}
+	if promptChanged {
+		appendTrackerStep(&t, "Формулировку обновили")
+		if t.DevColumn == trackerColApprove {
+			t.Approvals = nil
+			appendTrackerStep(&t, "Аппрувы сброшены после правки")
+		}
 	}
 	if err := b.db.SaveTrackerTask(t); err != nil {
 		return nil, err

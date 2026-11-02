@@ -1839,6 +1839,58 @@ var Migrations = []Migration{
 			DROP TABLE IF EXISTS joint_training_invites;
 		`,
 	},
+	{
+		Version:     92,
+		Description: "Напоминания админам об оплате сервера: одна строка на месяц",
+		UpSQL: `
+			-- Строка появляется, когда напоминание за месяц ушло: рестарт бота не шлёт его повторно.
+			CREATE TABLE IF NOT EXISTS server_payment_reminders (
+				month         TEXT   PRIMARY KEY,
+				admin_user_id BIGINT NOT NULL,
+				sent_at       TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+			);
+		`,
+		DownSQL: `
+			DROP TABLE IF EXISTS server_payment_reminders;
+		`,
+	},
+	{
+		Version:     93,
+		Description: "Исполнитель задачи трекера: auto, claude или cursor",
+		// В бою доска в TRACKER_DATABASE_URL, на базе Лео её таблиц нет —
+		// там колонку добавит migrateTrackerBoardOnDB.
+		UpSQL: `
+			ALTER TABLE IF EXISTS pack_tracker_tasks
+				ADD COLUMN IF NOT EXISTS agent TEXT NOT NULL DEFAULT 'auto';
+		`,
+		DownSQL: `
+			ALTER TABLE IF EXISTS pack_tracker_tasks DROP COLUMN IF EXISTS agent;
+		`,
+	},
+	{
+		Version:     94,
+		Description: "IANA-зона устройства в training_state: смещение от МСК пересчитывается при смене летнего/зимнего времени",
+		UpSQL: `
+			ALTER TABLE training_state ADD COLUMN IF NOT EXISTS timezone_name TEXT NOT NULL DEFAULT '';
+		`,
+		DownSQL: `
+			ALTER TABLE training_state DROP COLUMN IF EXISTS timezone_name;
+		`,
+	},
+	{
+		Version:     95,
+		Description: "Галочки ревью и теста на карточке трекера",
+		UpSQL: `
+			ALTER TABLE IF EXISTS pack_tracker_tasks
+				ADD COLUMN IF NOT EXISTS skip_review BOOLEAN NOT NULL DEFAULT FALSE;
+			ALTER TABLE IF EXISTS pack_tracker_tasks
+				ADD COLUMN IF NOT EXISTS skip_test BOOLEAN NOT NULL DEFAULT FALSE;
+		`,
+		DownSQL: `
+			ALTER TABLE IF EXISTS pack_tracker_tasks DROP COLUMN IF EXISTS skip_test;
+			ALTER TABLE IF EXISTS pack_tracker_tasks DROP COLUMN IF EXISTS skip_review;
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции

@@ -43,6 +43,36 @@ func trackerImplModel(b *Bot) string {
 	return ""
 }
 
+// trackerDoingModelKey — модель фазы «в работе».
+// По умолчанию и при выборе Claude стартует Claude. Cursor — если админ выбрал
+// его на карточке или карточку передали ему после сбоев.
+func trackerDoingModelKey(agent string) string {
+	if normalizeTrackerAgent(agent) == "cursor" {
+		return "cursor"
+	}
+	return "claude"
+}
+
+func normalizeTrackerAgent(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "claude", "cursor":
+		return strings.ToLower(strings.TrimSpace(raw))
+	default:
+		return "auto"
+	}
+}
+
+func trackerAgentChoiceLabel(agent string) string {
+	switch normalizeTrackerAgent(agent) {
+	case "claude":
+		return "Claude"
+	case "cursor":
+		return "Cursor"
+	default:
+		return "Авто"
+	}
+}
+
 // trackerAgentBoardUserID — кто в сессии create на внешней доске.
 // Всегда владелец: иначе гостевой SSO отвечает unauthorized.
 func (b *Bot) trackerAgentBoardUserID() int64 {
@@ -66,10 +96,21 @@ func trackerAgentName(phase string) string {
 const trackerAgentKickCooldown = 90 * time.Second
 const trackerAgentClaimWait = 45 * time.Second
 
-// Перезапускам агента нет предела: карточка должна доехать сама, без человека.
-// Чтобы сорванный старт (нет токена, лежит исполнитель) не долбил сервис каждые
-// полторы минуты, пауза растёт с каждой попыткой и упирается в полчаса.
+// Сорванный старт (нет токена, лимит подписки, лежит исполнитель) сам
+// перезапускаем не больше trackerAttemptCap раз, пауза растёт до получаса.
+// Дальше карточка ждёт человека: #167 сутки крутилась каждые 30 минут и жгла
+// токены. «Запустить снова» и «Обновить» (force) перезапускают сразу.
 const trackerAgentKickCooldownMax = 30 * time.Minute
+
+// trackerAttemptCap — сколько раз сами перезапускаем упавшего исполнителя.
+// Дальше автору уходит сигнал, лог пишется в карточку, и если это был не Cursor —
+// карточку один раз отдаём Cursor, тоже не больше чем на столько повторов.
+const trackerAttemptCap = 3
+
+const (
+	trackerCursorHandoffStep     = "Передали Cursor после ошибок"
+	trackerAttemptsExhaustedStep = "Попытки кончились"
+)
 
 // trackerAgentKickWait — сколько ждать перед очередным перезапуском агента.
 func trackerAgentKickWait(kicks int) time.Duration {
@@ -82,6 +123,7 @@ func trackerAgentKickWait(kicks int) time.Duration {
 	}
 	return wait
 }
+
 const trackerAgentWaitingStep = "ждёт очередь"
 
 func trackerLastStep(t database.TrackerTask) string {
@@ -91,10 +133,27 @@ func trackerLastStep(t database.TrackerTask) string {
 	return ""
 }
 
-func trackerAgentKickCount(t database.TrackerTask) int {
-	n := 0
+func trackerStepHas(t database.TrackerTask, needle string) bool {
 	for _, s := range t.Steps {
-		if strings.Contains(strings.ToLower(s), "снова запускаем агента") {
+		if strings.Contains(s, needle) {
+			return true
+		}
+	}
+	return false
+}
+
+// trackerStageKickCount — повторы текущего исполнителя. После передачи Cursor
+// считаем только шаги, которые идут следом.
+func trackerStageKickCount(t database.TrackerTask) int {
+	n := 0
+	afterHandoff := !trackerStepHas(t, trackerCursorHandoffStep)
+	for _, s := range t.Steps {
+		if strings.Contains(s, trackerCursorHandoffStep) {
+			afterHandoff = true
+			n = 0
+			continue
+		}
+		if afterHandoff && strings.Contains(strings.ToLower(s), "снова запускаем агента") {
 			n++
 		}
 	}
@@ -137,10 +196,13 @@ func trackerNeedsAgentKick(t database.TrackerTask, now time.Time, force bool) bo
 		return false
 	}
 	if failed {
+		if !force && trackerStageKickCount(t) >= trackerAttemptCap {
+			return false
+		}
 		if force {
 			return true
 		}
-		return !t.HasLastRun || now.Sub(t.LastRunAt) >= trackerAgentKickWait(trackerAgentKickCount(t))
+		return !t.HasLastRun || now.Sub(t.LastRunAt) >= trackerAgentKickWait(trackerStageKickCount(t))
 	}
 	// Remote ещё нет: аппрув, «ждёт очередь» или create ещё летит.
 	// Пустую карточку без last_run не трогаем — так выглядит свежий claim
@@ -435,6 +497,8 @@ func (b *Bot) runTrackerAgent(taskID int64, phase string) error {
 	model := trackerImplModel(b)
 	if phase == "review" || phase == "test" {
 		model = trackerComposerModel(b)
+	} else if phase == "doing" || phase == "" {
+		model = trackerDoingModelKey(t.Agent)
 	}
 	if phase == "doing" {
 		_ = applyTrackerColumn(&t, trackerColDoing)
@@ -656,9 +720,9 @@ pass false если нет коммита, только заметка, config.g
 				}
 			}
 		}
-		next := trackerColTest
-		if phase == "test" {
-			next = trackerColDeploy
+		next := trackerColDeploy
+		if phase == "review" {
+			next = trackerColumnAfterReview(t)
 		}
 		_ = applyTrackerColumn(&t, next)
 		if err := b.db.SaveTrackerTask(t); err != nil {

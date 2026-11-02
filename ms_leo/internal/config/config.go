@@ -18,7 +18,14 @@ type Config struct {
 	OwnerID        int64
 	AdminIDs       []int64
 	AlphaTesterIDs []int64 // §10: тестеры альфы — события тегируются is_alpha
-	DatabaseURL    string
+	// ServerPaymentAdminIDs — очередь админов, оплачивающих сервер (SERVER_PAYMENT_ADMIN_IDS,
+	// через запятую, по порядку: первый платит в ноябре 2026, второй — в декабре и т.д.).
+	// Не задано — defaultServerPaymentAdminIDs.
+	ServerPaymentAdminIDs []int64
+	// ServerPaymentStars — запасная сумма счёта за сервер (SERVER_PAYMENT_STARS), если Railway не ответил;
+	// обычно сумма считается по расходу Railway. 0 — тогда без кнопки оплаты.
+	ServerPaymentStars int
+	DatabaseURL           string
 	// TrackerDatabaseURL — Postgres только трекера (карточки, вложения, автономия, jobs).
 	// Пусто — доска остаётся в DatabaseURL (тесты и локалка).
 	TrackerDatabaseURL    string
@@ -221,6 +228,8 @@ func Load() (*Config, error) {
 		UsdPerStar:               parseFloatEnv("USD_PER_STAR", 0.013),
 		AdminIDs:                 adminIDs,
 		AlphaTesterIDs:           alphaTesterIDs,
+		ServerPaymentAdminIDs:    parseAdminIDs(getEnv("SERVER_PAYMENT_ADMIN_IDS", defaultServerPaymentAdminIDs)),
+		ServerPaymentStars:       parseServerPaymentStars(getEnv("SERVER_PAYMENT_STARS", "")),
 		DatabaseURL:              getEnv("DATABASE_URL", "postgresql://postgres:password@localhost:5432/leo_bot_db?sslmode=disable"),
 		TrackerDatabaseURL:       strings.TrimSpace(getEnv("TRACKER_DATABASE_URL", "")),
 		LogLevel:                 getEnv("LOG_LEVEL", "info"),
@@ -330,6 +339,29 @@ func (c *Config) AdminTelegramUserIDs() []int64 {
 		add(id)
 	}
 	return out
+}
+
+// defaultServerPaymentAdminIDs — очередь оплаты сервера: Стас, Анна, lofi.
+const defaultServerPaymentAdminIDs = "166039118,202498592,414802636"
+
+func parseServerPaymentStars(raw string) int {
+	n, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil || n < 0 {
+		return 0
+	}
+	return n
+}
+
+// ServerPaymentRotation — по кому идёт очередь оплаты сервера: SERVER_PAYMENT_ADMIN_IDS,
+// а если её нет — все админы из env.
+func (c *Config) ServerPaymentRotation() []int64 {
+	if c == nil {
+		return nil
+	}
+	if len(c.ServerPaymentAdminIDs) > 0 {
+		return c.ServerPaymentAdminIDs
+	}
+	return c.AdminTelegramUserIDs()
 }
 
 // PaywallUsesStars — счёт в Telegram Stars (XTR): режим PAYMENT_CURRENCY=XTR или доп. PAYMENT_STARS_ENABLED.

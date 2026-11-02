@@ -84,6 +84,15 @@ func TestTrackerComposerModel(t *testing.T) {
 		t.Fatalf("nil: %s", got)
 	}
 	b := &Bot{config: &config.Config{BoardReviewModel: "cursor-composer"}}
+	if got := trackerDoingModelKey("cursor"); got != "cursor" {
+		t.Fatalf("cursor: %s", got)
+	}
+	if got := trackerDoingModelKey("claude"); got != "claude" {
+		t.Fatalf("claude: %s", got)
+	}
+	if got := trackerDoingModelKey(""); got != "claude" {
+		t.Fatalf("auto: %s", got)
+	}
 	if got := trackerComposerModel(b); got != "cursor-composer" {
 		t.Fatalf("cfg: %s", got)
 	}

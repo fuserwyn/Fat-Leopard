@@ -569,6 +569,7 @@ func (b *Bot) handleLeopardMoneyTrainingDone(msg *tgbotapi.Message, personalRepl
 
 	if trainingUserMessageID > 0 && b.config.MonetizedChatID != 0 {
 		b.ensureLeoDefaultTrainingFeedReaction(b.config.MonetizedChatID, trainingUserMessageID, text)
+		b.ensureAdminTrainingFeedReactions(b.config.MonetizedChatID, trainingUserMessageID, msg.From.ID, text)
 		uid := msg.From.ID
 		packID := b.config.MonetizedChatID
 		un := username
@@ -611,7 +612,9 @@ func (b *Bot) handleLeopardMoneyTrainingDone(msg *tgbotapi.Message, personalRepl
 	// @-отметки в отчёте — совместная тренировка: участникам стаи уведомление,
 	// остальным инвайт в стаю от отметившего.
 	if packChatID != 0 && strings.TrimSpace(text) != "" {
-		b.notifyJointTrainingMentions(packChatID, msg.From.ID, username, text)
+		profName, _ := b.LeoUserProfileForFeedPrompt(msg.From.ID)
+		displayName := packMemberDisplayName(profName, username)
+		b.notifyJointTrainingMentions(packChatID, msg.From.ID, displayName, text)
 	}
 
 }

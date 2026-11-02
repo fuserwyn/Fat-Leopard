@@ -45,6 +45,24 @@ func TestAllMigrationsApplyOnEmptyDB(t *testing.T) {
 	}
 }
 
+// В бою доска живёт в TRACKER_DATABASE_URL, а с базы Лео её таблицы снесены
+// (dropTrackerTablesFromLeo). Миграция доски на такой базе не должна ронять
+// старт бота.
+func TestTrackerAgentMigrationWithoutBoardTables(t *testing.T) {
+	d := openMigratedTestDB(t)
+	if _, err := d.db.Exec(`
+		DROP TABLE IF EXISTS pack_tracker_attachments;
+		DROP TABLE IF EXISTS pack_tracker_settings;
+		DROP TABLE IF EXISTS pack_tracker_tasks;
+		DELETE FROM migrations WHERE version = 93;
+	`); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.RunMigrations(); err != nil {
+		t.Fatalf("миграции без таблиц доски: %v", err)
+	}
+}
+
 // Список оплат и «кто платил» в админке — на настоящей схеме.
 func TestAdminMoneyQueriesOnRealSchema(t *testing.T) {
 	d := openMigratedTestDB(t)

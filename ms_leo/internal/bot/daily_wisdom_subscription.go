@@ -88,7 +88,7 @@ func (b *Bot) startDailyWisdomSubscriptionScheduler(ctx context.Context) {
 }
 
 // runDailyWisdomSubscriptionSweep — одна итерация: всем, у кого сейчас «их» локальный час,
-// шлём свежую «мудрость дня» в личку. Идемпотентно по дате МСК.
+// шлём свежую «мудрость дня» в личку. Идемпотентно по локальной дате юзера.
 func (b *Bot) runDailyWisdomSubscriptionSweep() {
 	if b == nil || b.db == nil || b.config == nil {
 		return
@@ -112,23 +112,18 @@ func (b *Bot) runDailyWisdomSubscriptionSweep() {
 		// Мудрость ещё не сгенерирована (например, до первого 04:20 после деплоя) — молча ждём.
 		return
 	}
-	mskToday := utils.GetMoscowTime().Format("2006-01-02")
+	now := utils.GetMoscowTime()
 	sent := 0
 	for _, c := range candidates {
 		// Мудрость приходит в фиксированные 04:20 локального времени пользователя.
 		// Окно — с 04:20 до конца часа: если свип чуть опоздал, отправка всё равно
-		// сработает, а идемпотентность по МСК-дате не даст задублировать.
-		loc := userLocalLoc(c.TimezoneOffsetFromMoscow)
-		localNow := utils.GetMoscowTime().In(loc)
-		if localNow.Hour() != wisdomLocalHour || localNow.Minute() < wisdomLocalMinute {
-			continue
-		}
-		// Уже отправляли сегодня (по МСК-дате) — не дублируем.
-		if c.LastSentMskDate.Valid && strings.TrimSpace(c.LastSentMskDate.String) == mskToday {
+		// сработает, а идемпотентность по локальной дате не даст задублировать.
+		due, todayLocal := localDailySendDue(now, c.TimezoneOffsetFromMoscow, wisdomLocalHour, wisdomLocalMinute, c.LastSentMskDate.String)
+		if !due {
 			continue
 		}
 		b.sendDailyWisdomDM(c.UserID, c.Username, wisdom)
-		if err := b.db.MarkWisdomSubscriptionSent(c.UserID, packChatID, mskToday); err != nil {
+		if err := b.db.MarkWisdomSubscriptionSent(c.UserID, packChatID, todayLocal); err != nil {
 			b.logger.Warnf("daily wisdom subscription mark sent user=%d: %v", c.UserID, err)
 		}
 		sent++

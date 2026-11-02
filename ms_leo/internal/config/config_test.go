@@ -205,3 +205,29 @@ func TestLoad_PaymentCurrencyUppercaseAndXTR(t *testing.T) {
 			cfg.PaywallUsesStars(), cfg.PaywallPaymentReady(), cfg.PaywallUsesTelegramInvoice())
 	}
 }
+
+func TestServerPaymentRotation(t *testing.T) {
+	var nilCfg *Config
+	if nilCfg.ServerPaymentRotation() != nil {
+		t.Fatal("nil config → nil")
+	}
+	c := &Config{OwnerID: 1, AdminIDs: []int64{2, 3}}
+	if got := c.ServerPaymentRotation(); len(got) != 3 || got[0] != 1 || got[2] != 3 {
+		t.Fatalf("fallback на админов: %v", got)
+	}
+	c.ServerPaymentAdminIDs = []int64{30, 10, 20}
+	if got := c.ServerPaymentRotation(); len(got) != 3 || got[0] != 30 || got[1] != 10 {
+		t.Fatalf("явная очередь: %v", got)
+	}
+}
+
+func TestLoadServerPaymentAdminIDs(t *testing.T) {
+	t.Setenv("SERVER_PAYMENT_ADMIN_IDS", "111, 222;333")
+	c, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := c.ServerPaymentAdminIDs; len(got) != 3 || got[0] != 111 || got[2] != 333 {
+		t.Fatalf("SERVER_PAYMENT_ADMIN_IDS: %v", got)
+	}
+}

@@ -170,6 +170,7 @@ func (s *Server) handlePostProfileLoad(w http.ResponseWriter, r *http.Request) {
 		"display_name":               d,
 		"theme":                      theme,
 		"timezone_offset":            tz,
+		"timezone_name":              s.bot.GetTimezoneNameForAPI(parsed.User.ID, packID),
 		"xp":                         stats.XP,
 		"level":                      stats.Level,
 		"level_name":                 stats.LevelName,
@@ -276,6 +277,7 @@ func (s *Server) handlePostProfileSave(w http.ResponseWriter, r *http.Request) {
 		DisplayName    *string `json:"display_name"`
 		Age            *int    `json:"age"`
 		TimezoneOffset *int    `json:"timezone_offset"`
+		TimezoneName   *string `json:"timezone_name"`
 		Theme          *string `json:"theme"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -341,6 +343,11 @@ func (s *Server) handlePostProfileSave(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if body.TimezoneName != nil {
+		if err := s.bot.SaveTimezoneNameFromMiniapp(parsed.User.ID, packID, *body.TimezoneName); err != nil {
+			s.logger.Errorf("miniapp tz name save: %v", err)
+		}
+	}
 	g, d, a := s.bot.GetMiniappUserProfileJSONForAPI(parsed.User.ID, packID)
 	tz := s.bot.GetTimezoneOffsetForAPI(parsed.User.ID, packID)
 	stats := s.bot.GetMiniappProfileStatsForAPI(parsed.User.ID, packID)
@@ -354,6 +361,7 @@ func (s *Server) handlePostProfileSave(w http.ResponseWriter, r *http.Request) {
 		"display_name":               d,
 		"theme":                      theme,
 		"timezone_offset":            tz,
+		"timezone_name":              s.bot.GetTimezoneNameForAPI(parsed.User.ID, packID),
 		"xp":                         stats.XP,
 		"level":                      stats.Level,
 		"level_name":                 stats.LevelName,

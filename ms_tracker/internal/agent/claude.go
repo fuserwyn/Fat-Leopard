@@ -14,8 +14,8 @@ import (
 	"leo-tracker/internal/store"
 )
 
-// Claude Agent SDK — основной исполнитель задач; Cursor SDK — запасной.
-// Запускается так же: python-скрипт в клоне репо, JSON через stdin/stdout.
+// Cursor SDK — основной исполнитель задач; Claude Agent SDK — только если
+// карточке явно выбрали Claude. Запуск тот же: python-скрипт в клоне репо.
 
 const (
 	// С запасным Cursor (20 мин) укладываемся в час, после которого задачу
@@ -39,9 +39,8 @@ func isCursorModel(m string) bool {
 	return m == "cursor" || strings.HasPrefix(m, "cursor") || strings.HasPrefix(m, "composer")
 }
 
-// claudeReady — есть доступ к Claude Agent SDK. Основной путь — токен
-// подписки Claude Code (CLAUDE_CODE_OAUTH_TOKEN, `claude setup-token`);
-// ANTHROPIC_API_KEY — запасной, если токена нет.
+// claudeReady — есть доступ к Claude Agent SDK. Основной — токен подписки
+// (CLAUDE_CODE_OAUTH_TOKEN). ANTHROPIC_API_KEY — только если токена нет совсем.
 func claudeReady(cfg config.Config) bool {
 	return len(claudeCreds(cfg)) > 0
 }
@@ -52,17 +51,16 @@ func cursorReady(cfg config.Config) bool {
 
 // agentEngine — с кого начинать задачу:
 //  1. модель карточки: claude-* → Claude, composer-*/cursor-* → Cursor;
-//  2. TRACKER_AGENT=claude|cursor;
+//  2. TRACKER_AGENT=cursor — явно начать с Cursor;
 //  3. по умолчанию Claude, а если у Claude нет доступа — Cursor.
 //
-// Если первый исполнитель недоступен (нет токенов, лимит, ошибка, таймаут) —
-// runAgentLocal сам передаёт задачу второму.
+// Повтор и смена исполнителя после сбоев — на карточке доски.
 func agentEngine(cfg config.Config, job store.Job) string {
 	pick := engineClaude
 	switch {
 	case isClaudeModel(job.Model):
 		pick = engineClaude
-	case isCursorModel(job.Model) && !strings.EqualFold(strings.TrimSpace(job.Model), "cursor-composer"):
+	case isCursorModel(job.Model):
 		pick = engineCursor
 	case strings.EqualFold(strings.TrimSpace(cfg.TrackerAgent), engineCursor):
 		pick = engineCursor
@@ -80,7 +78,7 @@ func agentEngine(cfg config.Config, job store.Job) string {
 func agentKeyError(cfg config.Config, job store.Job) error {
 	if agentEngine(cfg, job) == engineClaude {
 		if !claudeReady(cfg) {
-			return fmt.Errorf("нет CLAUDE_CODE_OAUTH_TOKEN для Claude Agent SDK")
+			return fmt.Errorf("нет ANTHROPIC_API_KEY или CLAUDE_CODE_OAUTH_TOKEN для Claude Agent SDK")
 		}
 		return nil
 	}
@@ -90,46 +88,17 @@ func agentKeyError(cfg config.Config, job store.Job) error {
 	return nil
 }
 
-// runAgentLocal запускает основного исполнителя, а при его сбое — запасного.
-// Кто именно сделал задачу, в заметку не пишем: на доске это шум.
+// runAgentLocal запускает одного исполнителя. Повтор и смена на Cursor —
+// на карточке доски, не здесь: иначе каждый сбой снова жжёт квоту Claude.
 func runAgentLocal(cfg config.Config, job store.Job, repoDir, branch string) (string, error) {
 	if agentEngine(cfg, job) == engineClaude {
-		note, err := runClaudeLocal(cfg, job, repoDir, branch)
-		if err == nil || !cursorReady(cfg) {
-			return note, err
-		}
-		resetWorktree(repoDir)
-		cnote, cerr := runCursorLocal(cfg, job, repoDir, branch)
-		if cerr != nil {
-			return "", fmt.Errorf("%v; запасной Cursor: %v", err, cerr)
-		}
-		return cnote, nil
+		return runClaudeLocal(cfg, job, repoDir, branch)
 	}
 	note, err := runCursorLocal(cfg, job, repoDir, branch)
-	if !claudeReady(cfg) {
-		return note, err
+	if err == nil && !dirtyHasImpl(repoDir) && len(parseImplReply(note).Files) == 0 {
+		return "", fmt.Errorf("cursor sdk сдал задачу без правок")
 	}
-	if err == nil {
-		// Cursor «сдал», но в репо нет правок и нет JSON с файлами —
-		// считаем, что он не справился, и отдаём задачу Claude.
-		if dirtyHasImpl(repoDir) || len(parseImplReply(note).Files) > 0 {
-			return note, nil
-		}
-		err = fmt.Errorf("cursor sdk сдал задачу без правок")
-	}
-	resetWorktree(repoDir)
-	cnote, cerr := runClaudeLocal(cfg, job, repoDir, branch)
-	if cerr != nil {
-		return "", fmt.Errorf("%v; запасной Claude: %v", err, cerr)
-	}
-	return cnote, nil
-}
-
-// resetWorktree откатывает недоделки первого исполнителя, чтобы запасной
-// начал с чистой ветки.
-func resetWorktree(repoDir string) {
-	_ = run(repoDir, "git", "reset", "--hard", "HEAD")
-	_ = run(repoDir, "git", "clean", "-fd")
+	return note, err
 }
 
 func claudeModelID(cfg config.Config, job store.Job) string {
@@ -189,7 +158,7 @@ func claudeRunPath() string {
 func runClaudeLocal(cfg config.Config, job store.Job, repoDir, branch string) (string, error) {
 	creds := claudeCreds(cfg)
 	if len(creds) == 0 {
-		return "", fmt.Errorf("нет CLAUDE_CODE_OAUTH_TOKEN для Claude Agent SDK")
+		return "", fmt.Errorf("нет ANTHROPIC_API_KEY или CLAUDE_CODE_OAUTH_TOKEN для Claude Agent SDK")
 	}
 	repoDir = strings.TrimSpace(repoDir)
 	if repoDir == "" {
@@ -202,8 +171,7 @@ func runClaudeLocal(cfg config.Config, job store.Job, repoDir, branch string) (s
 			return note, nil
 		}
 		errs = append(errs, err.Error())
-		// Дальше пробуем второй доступ только если этот не пустили:
-		// протухший токен подписки не должен ронять задачу при живом ключе API.
+		// Дальше пробуем следующий доступ только если этот не пустили.
 		if !isClaudeAuthError(err.Error()) {
 			break
 		}
@@ -217,10 +185,31 @@ func runClaudeOnce(cfg config.Config, job store.Job, repoDir, branch string, cre
 		"prompt": claudeDoingPrompt(job, branch),
 		"model":  claudeModelID(cfg, job),
 	})
+	if err == nil && claudeCapacityExhausted(note) {
+		return "", fmt.Errorf("claude sdk: сессия закончилась: %s", clip(note, 180))
+	}
 	if err == nil && note == "" {
 		note = "Claude сдал задачу."
 	}
 	return note, err
+}
+
+// claudeCapacityExhausted — Claude не смог довести задачу: кончились токены
+// сессии, лимит ходов или бюджет. Тогда runAgentLocal отдаёт задачу Cursor.
+func claudeCapacityExhausted(msg string) bool {
+	low := strings.ToLower(msg)
+	for _, s := range []string{
+		"rate_limit", "rate limit", "usage limit", "session limit",
+		"extra usage", "credit balance", "hit your limit",
+		"token limit", "max_tokens", "out of credits",
+		"error_max_budget", "error_max_turns", "overloaded_error",
+		"сессия закончилась", "лимит токен", "упёрся в лимит",
+	} {
+		if strings.Contains(low, s) {
+			return true
+		}
+	}
+	return false
 }
 
 // claudeAskWait — потолок на один ответ без инструментов.
@@ -236,7 +225,7 @@ func AskClaude(cfg config.Config, system, prompt, model string) (string, error) 
 	}
 	creds := claudeCreds(cfg)
 	if len(creds) == 0 {
-		return "", fmt.Errorf("нет CLAUDE_CODE_OAUTH_TOKEN для Claude Agent SDK")
+		return "", fmt.Errorf("нет ANTHROPIC_API_KEY или CLAUDE_CODE_OAUTH_TOKEN для Claude Agent SDK")
 	}
 	dir, err := os.MkdirTemp("", "leo-tracker-ask-*")
 	if err != nil {
@@ -350,7 +339,9 @@ func claudeSecret(v string) string {
 	return v
 }
 
-// claudeCreds — доступы по порядку: сначала подписка, потом ключ API.
+// claudeCreds — доступы по порядку. Есть токен подписки — только он: оплата
+// идёт по подписке, и сбой токена не должен незаметно уводить задачу в платный
+// API. Ключ API — только если токена нет совсем.
 // Значение раскладываем по виду, а не по имени переменной: токен подписки,
 // положенный в ANTHROPIC_API_KEY (или наоборот), даёт «401 API key is invalid».
 func claudeCreds(cfg config.Config) []claudeCred {
@@ -373,7 +364,10 @@ func claudeCreds(cfg config.Config) []claudeCred {
 			key = append(key, claudeCred{value: v})
 		}
 	}
-	return append(oauth, key...)
+	if len(oauth) > 0 {
+		return oauth
+	}
+	return key
 }
 
 func isClaudeAuthError(msg string) bool {

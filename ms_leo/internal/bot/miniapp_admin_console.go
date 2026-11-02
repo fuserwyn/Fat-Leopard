@@ -130,30 +130,11 @@ func (b *Bot) MiniappAdminResources(viewerUserID int64, initD initdata.InitData)
 	if strings.TrimSpace(b.config.RailwayToken) == "" || strings.TrimSpace(b.config.RailwayProjectID) == "" {
 		out.CostNote = "Не задан RAILWAY_API_TOKEN или RAILWAY_PROJECT_ID — расход Railway не показать."
 	} else {
-		raw, err := b.railwayUsage()
+		parts, total, err := b.railwayCost()
 		if err != nil {
 			out.CostNote = "Railway не ответил: " + err.Error()
 		} else {
-			minutes := b.config.UsageMinutesPerMonth
-			if minutes <= 0 {
-				minutes = 43800
-			}
-			parts := []MiniappCostPart{
-				{Key: "MEMORY_USAGE_GB", Label: "Память", Raw: raw["MEMORY_USAGE_GB"],
-					USD: raw["MEMORY_USAGE_GB"] / minutes * b.config.UsagePriceRAMGBMonth},
-				{Key: "CPU_USAGE", Label: "CPU", Raw: raw["CPU_USAGE"],
-					USD: raw["CPU_USAGE"] / minutes * b.config.UsagePriceCPUMonth},
-				{Key: "DISK_USAGE_GB", Label: "Диск", Raw: raw["DISK_USAGE_GB"],
-					USD: raw["DISK_USAGE_GB"] / minutes * b.config.UsagePriceDiskGBMonth},
-				// Трафик тарифицируется разово за гигабайт — на время не делим.
-				{Key: "NETWORK_TX_GB", Label: "Трафик", Raw: raw["NETWORK_TX_GB"],
-					USD: raw["NETWORK_TX_GB"] * b.config.UsagePriceEgressGB},
-			}
-			for i := range parts {
-				parts[i].USD = round2(parts[i].USD)
-				out.CostUSD += parts[i].USD
-			}
-			out.CostUSD = round2(out.CostUSD)
+			out.CostUSD = total
 			out.CostParts = parts
 			out.CostNote = fmt.Sprintf(
 				"Ставки: RAM $%.2f/ГБ·мес · CPU $%.2f/vCPU·мес · диск $%.2f/ГБ·мес · трафик $%.2f/ГБ",
@@ -203,6 +184,35 @@ func (b *Bot) MiniappAdminResources(viewerUserID int64, initD initdata.InitData)
 		out.PaymentsNote = "Доступ — покупка входа/возврата; донат — поддержка из профиля. Завершённые за месяц."
 	}
 	return out, nil
+}
+
+// railwayCost — расход проекта на Railway в долларах: по статьям и итог.
+func (b *Bot) railwayCost() ([]MiniappCostPart, float64, error) {
+	raw, err := b.railwayUsage()
+	if err != nil {
+		return nil, 0, err
+	}
+	minutes := b.config.UsageMinutesPerMonth
+	if minutes <= 0 {
+		minutes = 43800
+	}
+	parts := []MiniappCostPart{
+		{Key: "MEMORY_USAGE_GB", Label: "Память", Raw: raw["MEMORY_USAGE_GB"],
+			USD: raw["MEMORY_USAGE_GB"] / minutes * b.config.UsagePriceRAMGBMonth},
+		{Key: "CPU_USAGE", Label: "CPU", Raw: raw["CPU_USAGE"],
+			USD: raw["CPU_USAGE"] / minutes * b.config.UsagePriceCPUMonth},
+		{Key: "DISK_USAGE_GB", Label: "Диск", Raw: raw["DISK_USAGE_GB"],
+			USD: raw["DISK_USAGE_GB"] / minutes * b.config.UsagePriceDiskGBMonth},
+		// Трафик тарифицируется разово за гигабайт — на время не делим.
+		{Key: "NETWORK_TX_GB", Label: "Трафик", Raw: raw["NETWORK_TX_GB"],
+			USD: raw["NETWORK_TX_GB"] * b.config.UsagePriceEgressGB},
+	}
+	total := 0.0
+	for i := range parts {
+		parts[i].USD = round2(parts[i].USD)
+		total += parts[i].USD
+	}
+	return parts, round2(total), nil
 }
 
 func (b *Bot) railwayUsage() (map[string]float64, error) {

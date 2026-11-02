@@ -34,6 +34,10 @@ export type TrackerTask = {
   auto_review: boolean;
   manual_qa: boolean;
   fast_track: boolean;
+  /** Галочка «Ревью». Пустое значение на старых карточках — ревью есть. */
+  review?: boolean;
+  /** Галочка «Тест». Пустое значение на старых карточках — тест есть. */
+  test?: boolean;
   error: string;
   has_result: boolean;
   phase: string;
@@ -69,6 +73,8 @@ export type TrackerTask = {
   created_at?: string;
   last_run_at?: string;
   model_key?: string;
+  /** Кто пишет код: claude по умолчанию, auto тоже Claude; cursor — явный выбор или передача после сбоев. */
+  agent?: "auto" | "claude" | "cursor" | string;
 };
 
 export type SprintIdea = {
@@ -183,11 +189,17 @@ export function trackerCreate(
     auto_review?: boolean;
     manual_qa?: boolean;
     fast_track?: boolean;
+    /** false — пропустить ревью. По умолчанию ревью есть. */
+    review?: boolean;
+    /** false — пропустить тест. По умолчанию тест есть. */
+    test?: boolean;
     needs_approval?: boolean;
     /** Агент пушит сам, иначе «выполнено» не попадёт на сервер. */
     auto_push?: boolean;
     /** Задачу придумал Лео: на доске автором пишем его. */
     leo?: boolean;
+    /** claude — основной; cursor — только если выбрать явно. */
+    agent?: "auto" | "claude" | "cursor";
   },
 ) {
   return call<{ id: number; when: string }>(initData, "create", {
@@ -265,10 +277,22 @@ export function trackerQa(initData: string, taskId: number, action: "start" | "p
 }
 
 /** Обновить формулировку задачи, пока она ещё не началась. */
-export function trackerPrompt(initData: string, taskId: number, prompt: string) {
+export function trackerPrompt(
+  initData: string,
+  taskId: number,
+  prompt: string,
+  agent?: string,
+  phases?: { review?: boolean; test?: boolean },
+) {
   return call<{ ok: boolean; task?: TrackerTask }>(initData, "prompt", {
     task_id: taskId,
-    payload: { id: taskId, prompt },
+    payload: {
+      id: taskId,
+      prompt,
+      ...(agent ? { agent } : {}),
+      ...(phases?.review === undefined ? {} : { review: phases.review }),
+      ...(phases?.test === undefined ? {} : { test: phases.test }),
+    },
   });
 }
 

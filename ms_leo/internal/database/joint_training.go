@@ -15,6 +15,42 @@ func normalizeTelegramUsername(username string) string {
 	return strings.ToLower(strings.TrimLeft(strings.TrimSpace(username), "@"))
 }
 
+// FindBotUserOutsidePackByDisplayName — знакомый боту человек вне стаи по display_name
+// (или по имени в training_state), если его отметили кириллицей, а не Telegram-ником.
+func (d *Database) FindBotUserOutsidePackByDisplayName(packChatID int64, displayName string) (int64, error) {
+	name := normalizeTelegramUsername(displayName)
+	if d == nil || packChatID == 0 || name == "" {
+		return 0, nil
+	}
+	var userID int64
+	err := d.db.QueryRow(`
+		SELECT c.user_id FROM (
+			SELECT p.user_id, 1 AS pri
+			FROM miniapp_user_profile p
+			WHERE p.pack_chat_id = $1
+			  AND LOWER(BTRIM(COALESCE(p.display_name, ''))) = $2
+			UNION ALL
+			SELECT ts.user_id, 2 AS pri
+			FROM training_state ts
+			WHERE ts.chat_id = $1
+			  AND LOWER(BTRIM(COALESCE(ts.username, ''))) = $2
+		) c
+		WHERE c.user_id <> 0
+		  AND NOT EXISTS (
+			SELECT 1 FROM training_state m
+			WHERE m.user_id = c.user_id AND m.chat_id = $1 AND m.is_deleted = FALSE
+		  )
+		ORDER BY c.pri
+		LIMIT 1`, packChatID, name).Scan(&userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("find bot user by display name: %w", err)
+	}
+	return userID, nil
+}
+
 // FindBotUserOutsidePackByUsername ищет человека, который уже писал боту (визит или
 // бывший профиль), по Telegram-нику — но только если он сейчас не участник стаи.
 // 0 — не найден: написать ему первым бот не может.

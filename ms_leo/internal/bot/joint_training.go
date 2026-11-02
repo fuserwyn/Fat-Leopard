@@ -52,9 +52,10 @@ func jointTrainingInviteText(authorName, gender, reportText string) string {
 		preview + "»\n\nПрисоединяйся к стае — тренироваться вместе веселее!"
 }
 
-// jointTrainingForwardText — отметившему: бот не знает @ника, ссылку нужно переслать самому.
+// jointTrainingForwardText — отметившему: бот не знает человека, ссылку нужно переслать самому.
+// username может быть уже с «@» (label) или без: в тексте всегда один @.
 func jointTrainingForwardText(username, link string) string {
-	return "🤝 @" + username + " пока нет в стае, а Лео не может написать первым. " +
+	return "🤝 " + jointTrainingMentionLabel(username) + " пока нет в стае, а Лео не может написать первым. " +
 		"Перешли другу приглашение на совместные тренировки:\n" + link
 }
 
@@ -102,26 +103,35 @@ func (b *Bot) notifyJointTrainingMentions(packChatID, authorUserID int64, author
 		return
 	}
 	for _, tok := range outside {
-		if !isTelegramUsernameToken(tok) {
-			continue
-		}
 		b.inviteToJointTraining(packChatID, authorUserID, cn, gender, tok, text, link)
 	}
 }
 
 // inviteToJointTraining — инвайт в стаю отмеченному @username, которого в стае нет.
-func (b *Bot) inviteToJointTraining(packChatID, authorUserID int64, authorName, gender, username, text, link string) {
-	inviteeID, err := b.db.FindBotUserOutsidePackByUsername(packChatID, username)
+func (b *Bot) inviteToJointTraining(packChatID, authorUserID int64, authorName, gender, mentionToken, text, link string) {
+	mentionToken = strings.TrimSpace(mentionToken)
+	if mentionToken == "" {
+		return
+	}
+	var (
+		inviteeID int64
+		err       error
+	)
+	if isTelegramUsernameToken(mentionToken) {
+		inviteeID, err = b.db.FindBotUserOutsidePackByUsername(packChatID, mentionToken)
+	} else {
+		inviteeID, err = b.db.FindBotUserOutsidePackByDisplayName(packChatID, mentionToken)
+	}
 	if err != nil {
-		b.logger.Warnf("joint training invitee lookup @%s: %v", username, err)
+		b.logger.Warnf("joint training invitee lookup @%s: %v", mentionToken, err)
 		return
 	}
 	if inviteeID == authorUserID {
 		return
 	}
-	ok, err := b.db.ClaimJointTrainingInvite(authorUserID, username, inviteeID, jointTrainingInviteCooldownDays)
+	ok, err := b.db.ClaimJointTrainingInvite(authorUserID, mentionToken, inviteeID, jointTrainingInviteCooldownDays)
 	if err != nil {
-		b.logger.Warnf("joint training invite claim @%s: %v", username, err)
+		b.logger.Warnf("joint training invite claim @%s: %v", mentionToken, err)
 		return
 	}
 	if !ok {
@@ -131,8 +141,9 @@ func (b *Bot) inviteToJointTraining(packChatID, authorUserID int64, authorName, 
 		Name: database.EventJointTrainingInvite, UserID: authorUserID, TelegramID: authorUserID,
 		Payload: map[string]any{"invitee_user_id": inviteeID, "delivered": inviteeID != 0},
 	})
+	label := jointTrainingMentionLabel(mentionToken)
 	if inviteeID == 0 {
-		b.notifyUserTextByID(authorUserID, authorUserID, jointTrainingForwardText(username, link), "", 0)
+		b.notifyUserTextByID(authorUserID, authorUserID, jointTrainingForwardText(label, link), "", 0)
 		return
 	}
 	if b.api == nil {
@@ -144,11 +155,22 @@ func (b *Bot) inviteToJointTraining(packChatID, authorUserID int64, authorName, 
 	)
 	if _, err := b.api.Send(m); err != nil {
 		b.logger.Warnf("joint training invite DM user=%d: %v", inviteeID, err)
-		b.notifyUserTextByID(authorUserID, authorUserID, jointTrainingForwardText(username, link), "", 0)
+		b.notifyUserTextByID(authorUserID, authorUserID, jointTrainingForwardText(label, link), "", 0)
 		return
 	}
 	b.notifyUserTextByID(authorUserID, authorUserID,
-		"🤝 Отправил @"+username+" приглашение в стаю на совместные тренировки.", "", 0)
+		"🤝 Отправил "+label+" приглашение в стаю на совместные тренировки.", "", 0)
+}
+
+func jointTrainingMentionLabel(token string) string {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return "@"
+	}
+	if strings.HasPrefix(token, "@") {
+		return token
+	}
+	return "@" + token
 }
 
 // JointTrainingMention — подсказка в мини-аппе при наборе «@» в описании тренировки.

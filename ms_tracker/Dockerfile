@@ -27,7 +27,12 @@ RUN apt-get update \
 
 COPY --from=build /usr/local/go /usr/local/go
 ENV PATH=/usr/local/go/bin:$PATH
-ENV GOFLAGS=-buildvcs=false
+# Сборки агента не больше чем на 2 ядрах: на хосте Railway ядер десятки, go запускает
+# компиляторы и тесты по их числу, и память контейнера улетает за 10 ГБ.
+ENV GOMAXPROCS=2
+ENV GOFLAGS="-buildvcs=false -p=2"
+# Уборка после задачи: временный Postgres и кэши сборки (см. agent/release.go).
+ENV LEO_TRACKER_RELEASE=1
 
 WORKDIR /app
 COPY --from=build /out/main /app/main

@@ -116,27 +116,9 @@ func (b *Bot) CreateDonateStarsInvoiceLink(userID int64, stars int) (link string
 		return "", 0, err
 	}
 
-	prices, err := json.Marshal([]tgbotapi.LabeledPrice{{Label: "Поддержка Fat Leopard", Amount: stars}})
+	link, err = b.createStarsInvoiceLink(donationID, stars, "Поддержка Fat Leopard", "Поддержать Fat Leopard", donateStarsInvoiceDescription(stars))
 	if err != nil {
-		return "", 0, fmt.Errorf("donate stars prices: %w", err)
-	}
-	params := tgbotapi.Params{
-		"title":       paywallInvoiceClipTitle("Поддержать Fat Leopard"),
-		"description": paywallInvoiceClipDescription(donateStarsInvoiceDescription(stars)),
-		"payload":     donatePayload(donationID),
-		"currency":    "XTR",
-		"prices":      string(prices),
-	}
-	resp, err := b.api.MakeRequest("createInvoiceLink", params)
-	if err != nil {
-		return "", 0, fmt.Errorf("createInvoiceLink: %w", err)
-	}
-	if err := json.Unmarshal(resp.Result, &link); err != nil {
-		return "", 0, fmt.Errorf("createInvoiceLink result: %w", err)
-	}
-	link = strings.TrimSpace(link)
-	if link == "" {
-		return "", 0, fmt.Errorf("createInvoiceLink: empty link")
+		return "", 0, err
 	}
 
 	b.db.TrackEvent(database.AnalyticsEvent{
@@ -146,6 +128,35 @@ func (b *Bot) CreateDonateStarsInvoiceLink(userID int64, stars int) (link string
 		Payload:    map[string]any{"provider": "stars", "amount": stars, "currency": "XTR"},
 	})
 	return link, donationID, nil
+}
+
+// createStarsInvoiceLink — createInvoiceLink в звёздах на готовую запись donations:
+// оплату закрывают те же обработчики, что и у доната (payload dn_<id>).
+func (b *Bot) createStarsInvoiceLink(donationID int64, stars int, priceLabel, title, description string) (string, error) {
+	prices, err := json.Marshal([]tgbotapi.LabeledPrice{{Label: priceLabel, Amount: stars}})
+	if err != nil {
+		return "", fmt.Errorf("donate stars prices: %w", err)
+	}
+	params := tgbotapi.Params{
+		"title":       paywallInvoiceClipTitle(title),
+		"description": paywallInvoiceClipDescription(description),
+		"payload":     donatePayload(donationID),
+		"currency":    "XTR",
+		"prices":      string(prices),
+	}
+	resp, err := b.api.MakeRequest("createInvoiceLink", params)
+	if err != nil {
+		return "", fmt.Errorf("createInvoiceLink: %w", err)
+	}
+	var link string
+	if err := json.Unmarshal(resp.Result, &link); err != nil {
+		return "", fmt.Errorf("createInvoiceLink result: %w", err)
+	}
+	link = strings.TrimSpace(link)
+	if link == "" {
+		return "", fmt.Errorf("createInvoiceLink: empty link")
+	}
+	return link, nil
 }
 
 func donateStarsInvoiceDescription(stars int) string {
