@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { TrackerTask } from "../lib/trackerApi";
 
 const trackerList = vi.fn();
@@ -159,6 +159,49 @@ describe("TrackerScreen restart", () => {
     fireEvent.click(screen.getByRole("button", { name: "Перезапустить задачу" }));
     await waitFor(() => expect(trackerRestart).toHaveBeenCalledWith("admin", 11));
     expect(alerts.some((a) => a.includes("перезапущена"))).toBe(true);
+  });
+});
+
+describe("TrackerScreen agent change", () => {
+  const failed: TrackerTask = {
+    ...running,
+    status: "error",
+    error: "Агент не стартовал: cursor run error",
+    agent: "cursor",
+    can_edit_prompt: false,
+    can_restart: true,
+  };
+
+  it("offers another agent on a failed started task", async () => {
+    trackerList.mockResolvedValue({ tasks: [failed], started: 0 });
+    trackerAuthors.mockResolvedValue([]);
+    trackerTask.mockResolvedValue({ task: failed });
+    trackerPrompt.mockResolvedValue({ ok: true, task: { ...failed, agent: "claude" } });
+
+    render(<TrackerScreen initData="admin" showAlert={() => undefined} />);
+    await waitFor(() => expect(screen.getByText("#1")).toBeTruthy());
+    fireEvent.click(screen.getByText("#1"));
+    const dialog = await screen.findByRole("dialog");
+
+    const select = within(dialog).getByLabelText("Исполнитель") as HTMLSelectElement;
+    expect(select.value).toBe("cursor");
+    fireEvent.change(select, { target: { value: "claude" } });
+    await waitFor(() =>
+      expect(trackerPrompt).toHaveBeenCalledWith("admin", failed.id, failed.prompt, "claude"),
+    );
+  });
+
+  it("keeps the agent fixed while the task is running", async () => {
+    const live: TrackerTask = { ...running, can_edit_prompt: false, can_restart: false };
+    trackerList.mockResolvedValue({ tasks: [live], started: 0 });
+    trackerAuthors.mockResolvedValue([]);
+    trackerTask.mockResolvedValue({ task: live });
+
+    render(<TrackerScreen initData="admin" showAlert={() => undefined} />);
+    await waitFor(() => expect(screen.getByText("#1")).toBeTruthy());
+    fireEvent.click(screen.getByText("#1"));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).queryByLabelText("Исполнитель")).toBeNull();
   });
 });
 

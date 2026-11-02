@@ -110,6 +110,7 @@ const trackerAttemptCap = 3
 const (
 	trackerCursorHandoffStep     = "Передали Cursor после ошибок"
 	trackerAttemptsExhaustedStep = "Попытки кончились"
+	trackerAgentChosenStepPrefix = "Исполнитель: "
 )
 
 // trackerAgentKickWait — сколько ждать перед очередным перезапуском агента.
@@ -142,22 +143,36 @@ func trackerStepHas(t database.TrackerTask, needle string) bool {
 	return false
 }
 
-// trackerStageKickCount — повторы текущего исполнителя. После передачи Cursor
-// считаем только шаги, которые идут следом.
+// trackerCurrentAgentSteps — шаги с момента, когда карточка досталась текущему
+// исполнителю: после передачи Cursor или смены исполнителя вручную.
+func trackerCurrentAgentSteps(t database.TrackerTask) []string {
+	for i := len(t.Steps) - 1; i >= 0; i-- {
+		if strings.Contains(t.Steps[i], trackerCursorHandoffStep) || strings.Contains(t.Steps[i], trackerAgentChosenStepPrefix) {
+			return t.Steps[i+1:]
+		}
+	}
+	return t.Steps
+}
+
+// trackerStageKickCount — повторы текущего исполнителя: новому даём весь лимит заново.
 func trackerStageKickCount(t database.TrackerTask) int {
 	n := 0
-	afterHandoff := !trackerStepHas(t, trackerCursorHandoffStep)
-	for _, s := range t.Steps {
-		if strings.Contains(s, trackerCursorHandoffStep) {
-			afterHandoff = true
-			n = 0
-			continue
-		}
-		if afterHandoff && strings.Contains(strings.ToLower(s), "снова запускаем агента") {
+	for _, s := range trackerCurrentAgentSteps(t) {
+		if strings.Contains(strings.ToLower(s), "снова запускаем агента") {
 			n++
 		}
 	}
 	return n
+}
+
+// trackerAgentAttemptsExhausted — текущий исполнитель уже исчерпал повторы и автор об этом знает.
+func trackerAgentAttemptsExhausted(t database.TrackerTask) bool {
+	for _, s := range trackerCurrentAgentSteps(t) {
+		if strings.Contains(s, trackerAttemptsExhaustedStep) {
+			return true
+		}
+	}
+	return false
 }
 
 // trackerAgentStartFailed — агент уже отработал и сорвался. Старый агент:#N

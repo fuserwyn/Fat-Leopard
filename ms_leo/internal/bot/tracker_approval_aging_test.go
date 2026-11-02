@@ -183,3 +183,37 @@ func TestAgentRestartsStopAfterCap(t *testing.T) {
 		t.Error("кнопка «Обновить» перезапускает сразу")
 	}
 }
+
+// Сменили исполнителя вручную (был Cursor, выбрали Claude): новый получает все
+// повторы заново и снова может сообщить, что они кончились.
+func TestAgentChangeResetsAttempts(t *testing.T) {
+	now := time.Now()
+	failed := database.TrackerTask{
+		DevColumn: trackerColDoing, Status: "error", Error: "Агент не стартовал: cursor run error",
+		HasLastRun: true, LastRunAt: now.Add(-31 * time.Minute), Agent: "cursor",
+	}
+	for i := 0; i < trackerAttemptCap; i++ {
+		failed.Steps = append(failed.Steps, "Снова запускаем агента")
+	}
+	failed.Steps = append(failed.Steps, trackerAttemptsExhaustedStep)
+	if trackerNeedsAgentKick(failed, now, false) || !trackerAgentAttemptsExhausted(failed) {
+		t.Fatal("Cursor исчерпал повторы")
+	}
+
+	failed.Agent = "claude"
+	failed.Steps = append(failed.Steps, trackerAgentChosenStepPrefix+"Claude")
+	if trackerStageKickCount(failed) != 0 || trackerAgentAttemptsExhausted(failed) {
+		t.Errorf("после смены счёт с нуля: %d", trackerStageKickCount(failed))
+	}
+	if !trackerNeedsAgentKick(failed, now, false) {
+		t.Error("новому исполнителю повторы доступны")
+	}
+	if got := trackerDoingModelKey(failed.Agent); got != "claude" {
+		t.Errorf("запуск идёт на новом исполнителе: %s", got)
+	}
+
+	failed.Steps = append(failed.Steps, "Снова запускаем агента")
+	if trackerStageKickCount(failed) != 1 {
+		t.Errorf("повторы нового считаем заново: %d", trackerStageKickCount(failed))
+	}
+}

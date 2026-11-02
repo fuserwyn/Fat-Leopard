@@ -127,6 +127,11 @@ function canReturnToWork(task: TrackerTask): boolean {
     || ["canceled", "cancelled", "done"].includes(column);
 }
 
+/** Исполнителя меняем до старта и когда задачу можно запустить снова: был Cursor — выбрали Claude. */
+function canChangeAgent(task: TrackerTask): boolean {
+  return canEditPrompt(task) || canReturnToWork(task);
+}
+
 /** Пуш и сборка: агент уже закончил. Коммит не обязателен — с сервера git push часто закрыт. */
 function canShipTask(task: TrackerTask): boolean {
   const status = String(task.status || "").toLowerCase();
@@ -1640,7 +1645,7 @@ export function TrackerScreen({ initData, showAlert }: Props) {
                 </span>
               </div>
             ) : null}
-            {canEditPrompt(detail) ? (
+            {canChangeAgent(detail) ? (
               <label className="tracker__agent">
                 Исполнитель
                 <select

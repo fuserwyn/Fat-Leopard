@@ -831,7 +831,7 @@ func (b *Bot) localTrackerPrompt(taskID int64, payload map[string]any) (json.Raw
 		next := normalizeTrackerAgent(payloadString(payload, "agent"))
 		if next != normalizeTrackerAgent(t.Agent) {
 			t.Agent = next
-			appendTrackerStep(&t, "Исполнитель: "+trackerAgentChoiceLabel(next))
+			appendTrackerStep(&t, trackerAgentChosenStepPrefix+trackerAgentChoiceLabel(next))
 		}
 	}
 	if promptChanged {

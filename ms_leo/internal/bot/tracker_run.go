@@ -236,7 +236,7 @@ func (b *Bot) settleExhaustedTrackerAttempt(t *database.TrackerTask) bool {
 		b.dispatchTrackerAgent(*t, "doing")
 		return true
 	}
-	if trackerStepHas(*t, trackerAttemptsExhaustedStep) {
+	if trackerAgentAttemptsExhausted(*t) {
 		return false
 	}
 	appendTrackerFailureLog(t, logText)
