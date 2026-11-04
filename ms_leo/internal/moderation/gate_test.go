@@ -25,6 +25,45 @@ func TestGateBlocksLink(t *testing.T) {
 	}
 }
 
+// Задача #170: отметка напарника через @ник в отчёте о совместной тренировке
+// не должна блокироваться как ссылка.
+func TestGateAllowsJointTrainingMention(t *testing.T) {
+	g := NewGate(NewLimiter())
+	for _, tc := range []struct {
+		text    string
+		surface Surface
+	}{
+		{"Тренировались вместе с @stas_runner, 5 км", SurfaceTrainingNote},
+		{"@anna_fit присоединяйся", SurfaceTrainingNote},
+		{"бег, 30 мин\n\nс (@lofi_leo) и @Анна", SurfaceTrainingNote},
+		{"@stas_runner красавчик!", SurfaceFeedComment},
+		{"кто завтра? @anna_fit", SurfacePackGroupChat},
+	} {
+		res := g.Check(TextForTrainingModeration(tc.text), tc.surface, 1, time.Now())
+		if !res.Allowed {
+			t.Fatalf("mention %q blocked: %+v", tc.text, res)
+		}
+	}
+}
+
+func TestGateStillBlocksLinksWithMention(t *testing.T) {
+	g := NewGate(NewLimiter())
+	for _, text := range []string{
+		"с @stas_runner, видео https://example.com",
+		"заходи www.spam.ru",
+		"@stas tg://resolve?domain=x",
+		"telegram.me/channel",
+	} {
+		res := g.CheckContent(text, SurfaceTrainingNote, time.Now())
+		if res.Allowed || res.Reason != ReasonLink || res.APICode != "moderation_link" {
+			t.Fatalf("expected link block for %q, got %+v", text, res)
+		}
+		if strings.Contains(res.UserMessage, "@") {
+			t.Fatalf("warning should not mention @: %q", res.UserMessage)
+		}
+	}
+}
+
 func TestGateBlocksCriticalRU(t *testing.T) {
 	g := NewGate(NewLimiter())
 	res := g.Check("продаю героин", SurfaceFeedComment, 1, time.Now())
