@@ -2,7 +2,7 @@
 
 const MODERATION_MESSAGES: Record<string, string> = {
   moderation_profanity: "Не опубликовал — в тексте есть недопустимые слова. Перепиши без оскорблений и мата.",
-  moderation_link: "Не опубликовал — ссылки и упоминания @-каналов в Стае пока запрещены.",
+  moderation_link: "Не опубликовал — ссылки в Стае пока запрещены.",
   moderation_critical: "Не опубликовал — такой текст нельзя публиковать.",
   moderation_too_long: "Слишком длинно — сократи текст.",
   moderation_rate_limited: "Подожди немного перед следующим сообщением.",
