@@ -9,6 +9,7 @@ import { hapticImpact, hapticNotification } from "../lib/haptics";
 import "./NewWorkoutScreen.css";
 import { clipboardImageFile } from "../lib/clipboardImage";
 import { WORKOUT_NOTE_PLACEHOLDER } from "../lib/workoutNote";
+import { useWorkoutMention } from "../lib/useWorkoutMention";
 
 type ViewportMetrics = {
   /** Высота видимой области (над клавиатурой). */
@@ -128,6 +129,8 @@ type Props = {
   onNonSportInterest?: () => boolean | void;
   /** Персональный порядок типов с сервера (история + контекст). */
   suggestedWorkoutTypes?: readonly WorkoutCategoryId[];
+  /** initData Telegram — для подсказки участников стаи при наборе «@» в описании. */
+  initData?: string;
   /** Сохранение отчёта: верни false, чтобы не закрывать шторку (например, при ошибке сети). */
   onSave: (payload: {
     /** Один или несколько видов спорта (мультивыбор). Кубки — за самый эффективный. */
@@ -155,6 +158,7 @@ export function NewWorkoutScreen({
   showAlert,
   onNonSportInterest,
   suggestedWorkoutTypes,
+  initData,
 }: Props) {
   const { visualH } = useViewportMetrics();
   const workoutTypes = useMemo(
@@ -198,6 +202,8 @@ export function NewWorkoutScreen({
   const [minDraft, setMinDraft] = useState("15");
   const [intensity, setIntensity] = useState<1 | 2 | 3 | 4 | 5>(3);
   const [note, setNote] = useState("");
+  // Подсказка «@»: совместная тренировка — отмеченный участник стаи получит уведомление.
+  const mention = useWorkoutMention(noteTaRef, note, setNote, initData, NOTE_MAX);
   const [otherLabel, setOtherLabel] = useState("");
   const [busy, setBusy] = useState(false);
   const [photo, setPhoto] = useState<File | null>(null);
@@ -449,7 +455,11 @@ export function NewWorkoutScreen({
             className="nwo__note"
             value={note}
             rows={3}
-            onChange={(e) => setNote(e.target.value.slice(0, NOTE_MAX))}
+            onChange={(e) => {
+              setNote(e.target.value.slice(0, NOTE_MAX));
+              mention.track(e.target);
+            }}
+            onSelect={(e) => mention.track(e.currentTarget)}
             maxLength={NOTE_MAX}
             placeholder={WORKOUT_NOTE_PLACEHOLDER}
             enterKeyHint="done"
@@ -471,6 +481,7 @@ export function NewWorkoutScreen({
             }}
             onBlur={() => {
               noteFocusedRef.current = false;
+              mention.close();
               if (activeFieldRef.current === noteTaRef.current) activeFieldRef.current = null;
               window.setTimeout(() => {
                 if (!document.activeElement?.closest(".nwo")) setInputFocused(false);
@@ -481,6 +492,29 @@ export function NewWorkoutScreen({
             {note.length}/{NOTE_MAX}
           </span>
           </div>
+          {mention.hits.length > 0 && (
+            <ul className="nwo__mentions" role="listbox" aria-label="Отметить напарника">
+              {mention.hits.map((c) => (
+                <li key={c.userId}>
+                  <button
+                    type="button"
+                    className="nwo__mention"
+                    role="option"
+                    aria-selected={false}
+                    // mousedown, а не click: иначе поле теряет фокус и курсор до вставки.
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      hapticImpact("light");
+                      mention.pick(c);
+                    }}
+                  >
+                    <span className="nwo__mention-name">{c.name}</span>
+                    <span className="nwo__mention-tag">@{c.mention}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
           {PHOTO_ENABLED && (
             <div className="nwo__photo-row">
               <div className="nwo__photo-picks">

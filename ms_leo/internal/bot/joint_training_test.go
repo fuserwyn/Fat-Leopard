@@ -46,3 +46,20 @@ func TestJointTrainingTexts(t *testing.T) {
 	var nilBot *Bot
 	nilBot.notifyJointTrainingMentions(1, 1, "x", "@vasya")
 }
+
+func TestJointTrainingMentionToken(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct{ username, name, want string }{
+		{"Vasya", "Вася Пупкин", "Vasya"},
+		{"@petya_fit", "", "petya_fit"},
+		{"", "Аня", "Аня"},
+		{"", "Анна Петрова", ""},
+		{"", "Аня!", ""},
+		{"", "", ""},
+		{"", strings.Repeat("я", 41), ""},
+	} {
+		if got := jointTrainingMentionToken(c.username, c.name); got != c.want {
+			t.Errorf("jointTrainingMentionToken(%q, %q) = %q, want %q", c.username, c.name, got, c.want)
+		}
+	}
+}

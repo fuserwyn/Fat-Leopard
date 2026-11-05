@@ -682,6 +682,7 @@ export function App() {
       {workoutOpen && (
         <NewWorkoutScreen
           suggestedWorkoutTypes={suggestedWorkoutTypes ?? undefined}
+          initData={inTelegram ? initData ?? undefined : undefined}
           showAlert={showAlert}
           onNonSportInterest={() => {
             if (inTelegram && initData?.trim()) {
