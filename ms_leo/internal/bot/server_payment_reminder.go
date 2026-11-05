@@ -14,12 +14,20 @@ import (
 // одному админу по очереди. Очередь — SERVER_PAYMENT_ADMIN_IDS (по порядку),
 // первый в ней платит в ноябре 2026, второй — в декабре, третий — в январе, и снова по кругу.
 // В сообщении — кнопка оплаты звёздами на сумму расхода Railway по курсу USD_PER_STAR.
-// Railway не ответил — берём SERVER_PAYMENT_STARS; и его нет — напоминание без кнопки.
+// Railway не ответил — берём SERVER_PAYMENT_STARS; и его нет — тариф Railway Hobby ($5).
+// Ссылка на оплату приходит всегда: если Telegram не выдал счёт, напоминание
+// откладывается до следующего тика и только после serverPaymentLinkRetryDays уходит без кнопки.
 
 const (
 	serverPaymentReminderDay  = 20
 	serverPaymentReminderHour = 10 // с 10:00 МСК, чтобы не будить ночью
 	serverPaymentReminderTick = 5 * time.Minute
+	// serverPaymentDefaultUSD — запасная сумма, если ни Railway, ни SERVER_PAYMENT_STARS нет: тариф Hobby.
+	serverPaymentDefaultUSD = 5.0
+	// serverPaymentDefaultUsdPerStar — курс звезды, если USD_PER_STAR не задан (как в config).
+	serverPaymentDefaultUsdPerStar = 0.013
+	// serverPaymentLinkRetryDays — сколько дней после 20-го ждём ссылку на счёт, прежде чем слать без неё.
+	serverPaymentLinkRetryDays = 3
 )
 
 // serverPaymentRotationStart — месяц, когда платит первый админ очереди.
@@ -75,7 +83,19 @@ func (b *Bot) serverPaymentAmount() (stars int, usd float64) {
 			return n, total
 		}
 	}
-	return b.config.ServerPaymentStars, 0
+	if b.config.ServerPaymentStars > 0 {
+		return b.config.ServerPaymentStars, 0
+	}
+	rate := b.config.UsdPerStar
+	if rate <= 0 {
+		rate = serverPaymentDefaultUsdPerStar
+	}
+	return serverPaymentStarsForCost(serverPaymentDefaultUSD, rate), 0
+}
+
+// serverPaymentWaitLink — счёт не создался: подождать и повторить, а не слать напоминание без ссылки.
+func serverPaymentWaitLink(now time.Time, stars int, link string) bool {
+	return link == "" && stars > 0 && now.Day() < serverPaymentReminderDay+serverPaymentLinkRetryDays
 }
 
 // serverPaymentAmountLine — строка с суммой в напоминании.
@@ -172,9 +192,18 @@ func (b *Bot) runServerPaymentReminder(now time.Time) bool {
 	}
 	stars, usd := b.serverPaymentAmount()
 	link := b.serverPaymentInvoiceLink(adminID, now, stars)
+	if serverPaymentWaitLink(now, stars, link) {
+		b.logger.Errorf("server payment reminder %s: no invoice link, retry later", month)
+		if err := b.db.ReleaseServerPaymentReminder(month); err != nil {
+			b.logger.Errorf("server payment reminder %s release: %v", month, err)
+		}
+		return false
+	}
 	text := serverPaymentReminderText(now, next)
 	if link != "" {
 		text += serverPaymentAmountLine(stars, usd)
+	} else if stars > 0 {
+		text += "\n\nСсылку на оплату создать не удалось — оплати напрямую в Railway."
 	}
 	if _, err := b.api.Send(serverPaymentReminderMessage(adminID, text, link, stars)); err != nil {
 		b.logger.Errorf("server payment reminder %s to %d: %v", month, adminID, err)

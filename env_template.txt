@@ -10,7 +10,7 @@ OWNER_ID=your_telegram_id_here
 # Первый платит в ноябре 2026, дальше по кругу. Не задано — порядок из кода (defaultServerPaymentAdminIDs).
 # SERVER_PAYMENT_ADMIN_IDS=
 # Сумма счёта считается по расходу Railway (RAILWAY_API_TOKEN, RAILWAY_PROJECT_ID) и курсу USD_PER_STAR.
-# Это запасная сумма в звёздах на случай, если Railway не ответил; пусто — тогда без кнопки
+# Это запасная сумма в звёздах на случай, если Railway не ответил; пусто — счёт на тариф Hobby ($5 по USD_PER_STAR).
 SERVER_PAYMENT_STARS=
 
 # PostgreSQL Database Configuration

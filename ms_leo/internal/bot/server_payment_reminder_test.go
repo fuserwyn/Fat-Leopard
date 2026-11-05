@@ -83,8 +83,12 @@ func TestServerPaymentReminderRotationIntegration(t *testing.T) {
 	if b.runServerPaymentReminder(time.Date(2026, 11, 20, 10, 10, 0, 0, loc)) {
 		t.Fatal("повтор в тот же месяц не шлём")
 	}
-	if got := tg.textsTo(stas); len(got) != 1 || !strings.Contains(got[0], "ноябрь 2026") {
+	if got := tg.textsTo(stas); len(got) != 1 || !strings.Contains(got[0], "ноябрь 2026") || !strings.Contains(got[0], "К оплате: 385 ⭐") {
 		t.Fatalf("Стас: %v", got)
+	}
+	// Без Railway и SERVER_PAYMENT_STARS ссылка всё равно есть — на тариф Hobby.
+	if msgs := tg.sent("sendMessage"); len(msgs) != 1 || !strings.Contains(msgs[0].Form.Get("reply_markup"), "https://t.me/$invoice-test") {
+		t.Fatalf("кнопка оплаты Стасу: %+v", msgs)
 	}
 
 	// Декабрь — Анна, но Telegram отвечает ошибкой: отметка снимается, следующий тик пробует снова.
@@ -153,5 +157,60 @@ func TestServerPaymentAmountLine(t *testing.T) {
 	}
 	if got := serverPaymentAmountLine(1027, 13.34); !strings.Contains(got, "$13.34") || !strings.Contains(got, "1027 ⭐") {
 		t.Errorf("расход Railway: %q", got)
+	}
+}
+
+func TestServerPaymentReminderRetriesInvoiceLink(t *testing.T) {
+	const stas = int64(9101)
+	b, tg, _ := newIntegrationBot(t, func(c *config.Config) {
+		c.ServerPaymentAdminIDs = []int64{stas}
+		c.ServerPaymentStars = 700
+	})
+	loc := moscowLocation()
+
+	// Telegram не выдал счёт — напоминание без ссылки не шлём, ждём следующего тика.
+	tg.fail["createInvoiceLink"] = true
+	if b.runServerPaymentReminder(time.Date(2026, 11, 20, 10, 0, 0, 0, loc)) {
+		t.Fatal("без ссылки 20-го не шлём")
+	}
+	if got := tg.textsTo(stas); len(got) != 0 {
+		t.Fatalf("напоминание без ссылки: %v", got)
+	}
+	tg.fail["createInvoiceLink"] = false
+	if !b.runServerPaymentReminder(time.Date(2026, 11, 20, 10, 5, 0, 0, loc)) {
+		t.Fatal("счёт создался — напоминание уходит")
+	}
+	msgs := tg.sent("sendMessage")
+	if len(msgs) != 1 || !strings.Contains(msgs[0].Form.Get("text"), "К оплате: 700 ⭐") ||
+		!strings.Contains(msgs[0].Form.Get("reply_markup"), "Оплатить 700") {
+		t.Fatalf("напоминание с кнопкой: %+v", msgs)
+	}
+
+	// Декабрь: счёт так и не создаётся — после окна повторов шлём без кнопки, но с пояснением.
+	tg.reset()
+	tg.fail["createInvoiceLink"] = true
+	if b.runServerPaymentReminder(time.Date(2026, 12, 22, 23, 0, 0, 0, loc)) {
+		t.Fatal("22-го ещё ждём ссылку")
+	}
+	if !b.runServerPaymentReminder(time.Date(2026, 12, 23, 10, 0, 0, 0, loc)) {
+		t.Fatal("23-го шлём без ссылки")
+	}
+	msgs = tg.sent("sendMessage")
+	if len(msgs) != 1 || msgs[0].Form.Get("reply_markup") != "" || !strings.Contains(msgs[0].Form.Get("text"), "Ссылку на оплату создать не удалось") {
+		t.Fatalf("напоминание без ссылки: %+v", msgs)
+	}
+}
+
+func TestServerPaymentWaitLink(t *testing.T) {
+	loc := moscowLocation()
+	d20 := time.Date(2026, 11, 20, 10, 0, 0, 0, loc)
+	if !serverPaymentWaitLink(d20, 385, "") {
+		t.Error("20-го без ссылки ждём")
+	}
+	if serverPaymentWaitLink(d20, 385, "https://t.me/$inv") || serverPaymentWaitLink(d20, 0, "") {
+		t.Error("есть ссылка или нет суммы — не ждём")
+	}
+	if serverPaymentWaitLink(time.Date(2026, 11, 23, 0, 0, 0, 0, loc), 385, "") {
+		t.Error("после окна повторов не ждём")
 	}
 }
