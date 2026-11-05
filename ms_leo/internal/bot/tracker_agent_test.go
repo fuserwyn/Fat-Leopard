@@ -2,6 +2,7 @@ package bot
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -168,6 +169,33 @@ func TestShipTrackerToMain(t *testing.T) {
 	}
 	if int(got["source_task_id"].(float64)) != 11 || got["branch"] != "tracker/4-43" {
 		t.Fatalf("payload %#v", got)
+	}
+}
+
+// #171: ветку влили, а заказ сборки упал на доступе к Railway — это не срыв
+// пуша, в работу такую карточку не возвращают.
+func TestShipTrackerToMainMergedButNoDeploy(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"ok":false,"merged":true,"base":"main","deployed":false,"error":"Not Authorized"}`))
+	}))
+	defer srv.Close()
+	b := &Bot{config: &config.Config{BoardURL: srv.URL, BoardSecret: "sec"}}
+	_, _, err := b.shipTrackerToMain(database.TrackerTask{ID: 175, Num: 171, Result: "ветка tracker/171-1590"})
+	var deployErr *trackerShipDeployError
+	if !errors.As(err, &deployErr) || deployErr.Base != "main" || deployErr.Msg != "Not Authorized" {
+		t.Fatalf("влито без сборки: %v", err)
+	}
+
+	srv2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"ok":false,"error":"конфликт с main"}`))
+	}))
+	defer srv2.Close()
+	b.config.BoardURL = srv2.URL
+	_, _, err = b.shipTrackerToMain(database.TrackerTask{ID: 175, Num: 171, Result: "ветка tracker/171-1590"})
+	if err == nil || errors.As(err, &deployErr) {
+		t.Fatalf("не влили — это обычный срыв пуша: %v", err)
 	}
 }
 

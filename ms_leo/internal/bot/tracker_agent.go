@@ -3,6 +3,7 @@ package bot
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -852,6 +853,14 @@ func (b *Bot) finishTrackerBuild(taskID int64) {
 	if !trackerTaskShippedToStand(t) {
 		base, pinned, err := b.shipTrackerToMain(t)
 		shippedPinned = pinned
+		// Ветка уже в main, не вышел только заказ сборки (нет доступа к Railway):
+		// код не виноват, в работу не возвращаем — дальше проверяем стенд сами.
+		var deployErr *trackerShipDeployError
+		if errors.As(err, &deployErr) {
+			base = deployErr.Base
+			appendTrackerStep(&t, "Railway не принял заказ сборки: "+deployErr.Msg)
+			err = nil
+		}
 		if err != nil {
 			t.Error = "не влили в main: " + err.Error()
 			t.Result = strings.TrimSpace(t.Result + "\n\nПуш в main не вышел: " + err.Error())
@@ -899,7 +908,7 @@ func (b *Bot) finishTrackerBuild(taskID int64) {
 	}
 	if len(order.Pinned) == 0 {
 		b.clearTrackerDeployOrder(t.ID)
-		b.returnTrackerFromFailedStand(&t, fmt.Errorf("нет заказанной сборки Railway"))
+		b.closeTrackerShippedUnwatched(&t)
 		return
 	}
 	if err := b.waitStandBuild(started, order.Pinned); err != nil {
@@ -918,6 +927,39 @@ func (b *Bot) finishTrackerBuild(taskID int64) {
 		return
 	}
 	b.notifyTrackerShippedOnce(t)
+}
+
+// closeTrackerShippedUnwatched — код уже в main, но заказать или проверить сборку
+// на Railway не вышло (нет доступа). Возвращать в работу нечего: агент
+// переделывал готовое, ревью не находило нового коммита, и карточка крутилась (#171).
+func (b *Bot) closeTrackerShippedUnwatched(t *database.TrackerTask) {
+	if t == nil {
+		return
+	}
+	_ = applyTrackerColumn(t, trackerColDone)
+	appendTrackerStep(t, trackerShippedUnwatchedStep)
+	t.Error = ""
+	t.Result = strings.TrimSpace(t.Result + "\n\nВлито в main. Сборку на Railway трекер проверить не смог: " +
+		"Railway соберёт её сам по пушу в main. Проверь RAILWAY_API_TOKEN у ms_leo и ms-tracker.")
+	if err := b.db.SaveTrackerTask(*t); err != nil {
+		if b.logger != nil {
+			b.logger.Warnf("трекер: не закрыть #%d без стенда: %v", trackerDueNum(*t), err)
+		}
+		return
+	}
+	b.notifyTrackerShippedOnce(*t)
+}
+
+const trackerShippedUnwatchedStep = "влито в main, сборку на Railway не проверили"
+
+// trackerShipDeployError — трекер влил ветку в main, но сборку на Railway не заказал.
+type trackerShipDeployError struct {
+	Base string
+	Msg  string
+}
+
+func (e *trackerShipDeployError) Error() string {
+	return "влили в " + e.Base + ", но не заказали сборку Railway: " + e.Msg
 }
 
 func (b *Bot) returnTrackerFromFailedStand(t *database.TrackerTask, waitErr error) {
@@ -1097,22 +1139,26 @@ func (b *Bot) shipTrackerToMain(t database.TrackerTask) (string, map[string]stri
 		Base   string            `json:"base"`
 		Head   string            `json:"head"`
 		Error  string            `json:"error"`
+		Merged bool              `json:"merged"`
 		Pinned map[string]string `json:"pinned"`
 	}
 	_ = json.Unmarshal(raw, &parsed)
+	base := strings.TrimSpace(parsed.Base)
+	if base == "" {
+		base = "main"
+	}
 	if resp.StatusCode >= 300 || !parsed.OK {
 		msg := strings.TrimSpace(parsed.Error)
 		if msg == "" {
 			msg = fmt.Sprintf("HTTP %d", resp.StatusCode)
 		}
+		if parsed.Merged {
+			return "", nil, &trackerShipDeployError{Base: base, Msg: msg}
+		}
 		return "", nil, fmt.Errorf("%s", msg)
 	}
 	if len(parsed.Pinned) == 0 {
-		return "", nil, fmt.Errorf("трекер влил в main, но не заказал сборку Railway")
-	}
-	base := strings.TrimSpace(parsed.Base)
-	if base == "" {
-		base = "main"
+		return "", nil, &trackerShipDeployError{Base: base, Msg: "Railway не вернул id сборок"}
 	}
 	return base, parsed.Pinned, nil
 }
