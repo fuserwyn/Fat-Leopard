@@ -220,13 +220,19 @@ func trackerAgentStartFailed(t database.TrackerTask) bool {
 // trackerNeedsAgentKick — карточка в «В работе», а живого агента нет:
 // срыв старта (в том числе «только заметка» при уже записанном агент:#N),
 // два аппрува без запуска, или очередь так и не дошла.
-func trackerNeedsAgentKick(t database.TrackerTask, now time.Time, force bool) bool {
+// trackerCardInDoing — карточка в «В работе»: отменённые, закрытые и стоящие
+// на сборке агента не ждут.
+func trackerCardInDoing(t database.TrackerTask) bool {
 	status := strings.ToLower(strings.TrimSpace(t.Status))
 	col := strings.ToLower(strings.TrimSpace(t.DevColumn))
 	if col != trackerColDoing && status != "running" {
 		return false
 	}
-	if col != "" && col != trackerColDoing {
+	return col == "" || col == trackerColDoing
+}
+
+func trackerNeedsAgentKick(t database.TrackerTask, now time.Time, force bool) bool {
+	if !trackerCardInDoing(t) {
 		return false
 	}
 	failed := trackerAgentStartFailed(t)
@@ -913,7 +919,7 @@ func (b *Bot) finishTrackerBuild(taskID int64) {
 	}
 	if err := b.waitStandBuild(started, order.Pinned); err != nil {
 		b.clearTrackerDeployOrder(t.ID)
-		b.returnTrackerFromFailedStand(&t, err)
+		b.stopTrackerOnFailedStand(&t, err)
 		return
 	}
 	b.clearTrackerDeployOrder(t.ID)
@@ -962,7 +968,14 @@ func (e *trackerShipDeployError) Error() string {
 	return "влили в " + e.Base + ", но не заказали сборку Railway: " + e.Msg
 }
 
-func (b *Bot) returnTrackerFromFailedStand(t *database.TrackerTask, waitErr error) {
+// trackerStandFailedStep — сборка на стенде упала, карточка ждёт человека.
+const trackerStandFailedStep = "сборка не прошла: ждём человека"
+
+// stopTrackerOnFailedStand — сборка на стенде упала. Задачу заново не делаем:
+// агент переписывал готовый код по логам сборки и крутил карточку. Карточка
+// остаётся в «Сборке» с ошибкой, автору уходит сообщение с логами, дальше —
+// «Запустить снова» руками.
+func (b *Bot) stopTrackerOnFailedStand(t *database.TrackerTask, waitErr error) {
 	if t == nil {
 		return
 	}
@@ -988,13 +1001,26 @@ func (b *Bot) returnTrackerFromFailedStand(t *database.TrackerTask, waitErr erro
 		}
 		return
 	}
-	_ = applyTrackerColumn(t, trackerColDoing)
-	appendTrackerStep(t, "вернули в работу: сборка не прошла")
-	if serr := b.db.SaveTrackerTask(*t); serr != nil && b.logger != nil {
-		b.logger.Warnf("трекер: не сохранить возврат #%d со стенда: %v", trackerDueNum(*t), serr)
+	t.Status = "error"
+	appendTrackerStep(t, trackerStandFailedStep)
+	if serr := b.db.SaveTrackerTask(*t); serr != nil {
+		if b.logger != nil {
+			b.logger.Warnf("трекер: не сохранить срыв стенда #%d: %v", trackerDueNum(*t), serr)
+		}
 		return
 	}
-	b.kickTrackerPipeline(*t)
+	b.notifyTrackerAttempt(*t, trackerStandFailedNotice(trackerDueNum(*t), reason, logs))
+}
+
+// trackerStandFailedNotice — сообщение автору: сборка упала, код уже в main.
+func trackerStandFailedNotice(num int, reason, logs string) string {
+	text := fmt.Sprintf("Задача #%d: сборка на стенде не прошла — %s.\n\n"+
+		"Код уже в main, Railway оставил прошлую версию. Сама задача не перезапускается: "+
+		"почини сборку или нажми «Запустить снова» на карточке.", num, reason)
+	if strings.TrimSpace(logs) != "" {
+		text += "\n\nЛоги сборки Railway:\n" + logs
+	}
+	return clipNotifyText(text)
 }
 
 func trackerTaskBranch(t database.TrackerTask) string {

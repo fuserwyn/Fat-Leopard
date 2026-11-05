@@ -163,3 +163,34 @@ func TestTryBeginTrackerStandOnce(t *testing.T) {
 	}
 	endTrackerStand(42)
 }
+
+// Сборка упала — задачу заново не делаем: автору сообщение с логами, а
+// автодожим сборки и перезапуск агента такую карточку не трогают.
+func TestFailedStandWaitsForHuman(t *testing.T) {
+	note := trackerStandFailedNotice(171, "Deployment failed", "Build Failed: exit 1")
+	for _, want := range []string{"#171", "Deployment failed", "Код уже в main", "Запустить снова", "Build Failed"} {
+		if !strings.Contains(note, want) {
+			t.Errorf("в сообщении нет %q: %s", want, note)
+		}
+	}
+	if strings.Contains(trackerStandFailedNotice(1, "timeout", ""), "Логи") {
+		t.Error("без логов блока логов нет")
+	}
+	failed := database.TrackerTask{DevColumn: trackerColDeploy, Status: "error",
+		Error: "сборка на стенде: Deployment failed", Steps: []string{trackerStandFailedStep}}
+	if trackerNeedsAgentKick(failed, time.Now(), false) || trackerCardInDoing(failed) {
+		t.Error("упавшую сборку агент не переделывает")
+	}
+}
+
+// Отменённая карточка с ошибкой агента не уходит Cursor (#171).
+func TestCanceledCardIsNotInDoing(t *testing.T) {
+	canceled := database.TrackerTask{DevColumn: trackerColCanceled, Status: "error",
+		Error: "нет правок в репозитории: агент сдал только заметку"}
+	if trackerCardInDoing(canceled) {
+		t.Error("отменённая карточка не в работе")
+	}
+	if !trackerCardInDoing(database.TrackerTask{DevColumn: trackerColDoing, Status: "error"}) {
+		t.Error("упавшая в работе — в работе")
+	}
+}

@@ -139,7 +139,8 @@ func (b *Bot) resumeTrackerStandBuilds() int {
 		if col != trackerColDeploy {
 			continue
 		}
-		if t.Status == "canceled" || t.Status == "done" {
+		// error — сборка упала и ждёт человека, сами не пересобираем.
+		if t.Status == "canceled" || t.Status == "done" || t.Status == "error" {
 			continue
 		}
 		if !trackerTaskHasCode(t) && !trackerTaskShippedToStand(t) {
@@ -176,7 +177,8 @@ func (b *Bot) kickStuckTrackerAgents(force bool) int {
 			n++
 			continue
 		}
-		if trackerAgentStartFailed(t) && !force && trackerStageKickCount(t) >= trackerAttemptCap {
+		// Только карточки в работе: отменённую #171 по старой ошибке передавали Cursor.
+		if trackerCardInDoing(t) && trackerAgentStartFailed(t) && !force && trackerStageKickCount(t) >= trackerAttemptCap {
 			if b.settleExhaustedTrackerAttempt(&t) {
 				n++
 			}
