@@ -1074,7 +1074,7 @@ export function TrackerScreen({ initData, showAlert }: Props) {
           <p className="tracker__hint">
             {isQa
               ? "После сдачи можно принять, вернуть в работу или попросить Лео написать чек-лист."
-              : "Ожидает → в работе (агент пишет код) → Review (Composer) → тест (Composer) → сборка → выполнено и уведомление. На сервер код уедет, когда напишешь «запушь»."}
+              : "Ожидает → в работе (агент пишет код) → Review (проверка ветки) → тест (сборка и тесты) → сборка → выполнено и уведомление. На сервер код уедет, когда напишешь «запушь»."}
           </p>
 
           {loading ? (
@@ -1943,10 +1943,10 @@ export function TrackerScreen({ initData, showAlert }: Props) {
                   className="tracker-modal__accent"
                   disabled={busy}
                   onClick={() =>
-                    void actOnDetail(() => trackerReview(initData, detail.id), "Composer взял ревью.")
+                    void actOnDetail(() => trackerReview(initData, detail.id), "Ревью запущено.")
                   }
                 >
-                  Ревью Composer
+                  Запустить ревью
                 </button>
               ) : null}
               {!isQa && detail.dev_column === "test" ? (
@@ -1955,10 +1955,10 @@ export function TrackerScreen({ initData, showAlert }: Props) {
                   className="tracker-modal__accent"
                   disabled={busy}
                   onClick={() =>
-                    void actOnDetail(() => trackerAutoTest(initData, detail.id), "Composer взял тест.")
+                    void actOnDetail(() => trackerAutoTest(initData, detail.id), "Тест запущен.")
                   }
                 >
-                  Тест Composer
+                  Запустить тест
                 </button>
               ) : null}
               {!isQa && (detail.dev_column === "deploy" || detail.dev_column === "done") ? (
@@ -2026,9 +2026,9 @@ export function TrackerScreen({ initData, showAlert }: Props) {
                   <button
                     type="button"
                     disabled={busy}
-                    onClick={() => void act(() => trackerAutoTest(initData, detail.id), "Composer взял тест.")}
+                    onClick={() => void act(() => trackerAutoTest(initData, detail.id), "Тест запущен.")}
                   >
-                    Тест Composer
+                    Запустить тест
                   </button>
                 </>
               ) : null}

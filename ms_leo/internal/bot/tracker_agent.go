@@ -102,6 +102,31 @@ const trackerAgentClaimWait = 45 * time.Second
 // токены. «Запустить снова» и «Обновить» (force) перезапускают сразу.
 const trackerAgentKickCooldownMax = 30 * time.Minute
 
+// trackerAgentLimitWait — пауза перед повтором, когда Claude упёрся в лимит
+// подписки: сессия сбрасывается раз в 5 часов, и повторы через минуты сгорали
+// впустую. Три повтора по 2 часа ждут сброса, потом карточка уходит Cursor.
+const trackerAgentLimitWait = 2 * time.Hour
+
+// trackerAgentHitLimit — агент сорвался на лимите подписки или тарифа.
+func trackerAgentHitLimit(errText string) bool {
+	low := strings.ToLower(errText)
+	for _, s := range []string{"hit your", "session limit", "weekly limit", "usage limit", "rate limit"} {
+		if strings.Contains(low, s) {
+			return true
+		}
+	}
+	return false
+}
+
+// trackerAgentRetryWait — сколько ждать перед повтором упавшей карточки.
+func trackerAgentRetryWait(t database.TrackerTask) time.Duration {
+	wait := trackerAgentKickWait(trackerStageKickCount(t))
+	if trackerAgentHitLimit(t.Error) && wait < trackerAgentLimitWait {
+		return trackerAgentLimitWait
+	}
+	return wait
+}
+
 // trackerAttemptCap — сколько раз сами перезапускаем упавшего исполнителя.
 // Дальше автору уходит сигнал, лог пишется в карточку, и если это был не Cursor —
 // карточку один раз отдаём Cursor, тоже не больше чем на столько повторов.
@@ -217,7 +242,7 @@ func trackerNeedsAgentKick(t database.TrackerTask, now time.Time, force bool) bo
 		if force {
 			return true
 		}
-		return !t.HasLastRun || now.Sub(t.LastRunAt) >= trackerAgentKickWait(trackerStageKickCount(t))
+		return !t.HasLastRun || now.Sub(t.LastRunAt) >= trackerAgentRetryWait(t)
 	}
 	// Remote ещё нет: аппрув, «ждёт очередь» или create ещё летит.
 	// Пустую карточку без last_run не трогаем — так выглядит свежий claim

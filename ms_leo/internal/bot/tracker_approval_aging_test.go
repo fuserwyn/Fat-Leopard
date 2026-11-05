@@ -217,3 +217,28 @@ func TestAgentChangeResetsAttempts(t *testing.T) {
 		t.Errorf("повторы нового считаем заново: %d", trackerStageKickCount(failed))
 	}
 }
+
+// Claude упёрся в лимит подписки: повтор ждёт сброса, а не сгорает через минуты.
+func TestAgentRetryWaitsOutSubscriptionLimit(t *testing.T) {
+	now := time.Now()
+	limited := database.TrackerTask{
+		DevColumn: trackerColDoing, Status: "error", HasLastRun: true, LastRunAt: now.Add(-31 * time.Minute),
+		Error: "Агент не стартовал: claude sdk (подписка): You've hit your session limit · resets 1pm (UTC)",
+	}
+	if trackerNeedsAgentKick(limited, now, false) {
+		t.Error("на лимите через полчаса не повторяем")
+	}
+	limited.LastRunAt = now.Add(-trackerAgentLimitWait - time.Minute)
+	if !trackerNeedsAgentKick(limited, now, false) {
+		t.Error("после паузы повторяем")
+	}
+	if !trackerNeedsAgentKick(database.TrackerTask{
+		DevColumn: trackerColDoing, Status: "error", HasLastRun: true, LastRunAt: now.Add(-31 * time.Minute),
+		Error: "Агент не стартовал: cursor run error",
+	}, now, false) {
+		t.Error("обычный сбой повторяем без долгой паузы")
+	}
+	if !trackerNeedsAgentKick(limited, now.Add(-trackerAgentLimitWait), true) {
+		t.Error("«Запустить снова» не ждёт")
+	}
+}

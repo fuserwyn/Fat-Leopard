@@ -327,13 +327,13 @@ describe("TrackerScreen refresh button", () => {
     expect(document.querySelector(".tracker-card__live--result")?.textContent).toContain("выполнена");
   });
 
-  it("shows the build column and the Composer pipeline hint", async () => {
+  it("shows the build column and the pipeline hint", async () => {
     trackerList.mockResolvedValue({ tasks: [reviewed], started: 0 });
     trackerAuthors.mockResolvedValue([]);
 
     render(<TrackerScreen initData="admin" showAlert={() => undefined} />);
     await waitFor(() => expect(screen.getByText("#1")).toBeTruthy());
     expect(document.querySelector('[data-col="deploy"]')?.textContent).toContain("Сборка");
-    expect(screen.getByText(/Composer/)).toBeTruthy();
+    expect(screen.getByText(/Review \(проверка ветки\)/)).toBeTruthy();
   });
 });
