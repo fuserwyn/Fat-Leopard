@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ChangeEvent } from "react";
 import { clearLeoPersonalInbox } from "../lib/leoPersonalInbox";
+import { LeoTranslatableText } from "./LeoTranslatableText";
 import {
   createChatScrollScheduler,
   isChatLogNearBottom,
@@ -624,7 +625,9 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
             <div key={m.uiKey} className="chat__row chat__row--sys">
               <img className="chat__bubble-avatar" src={LEO_AVATAR_URL} width={32} height={32} alt="" aria-hidden="true" />
               <div className="chat__bubble-wrap chat__bubble-wrap--sys">
-                <div className="chat__bubble chat__bubble--sys">{m.text}</div>
+                <div className="chat__bubble chat__bubble--sys">
+                  <LeoTranslatableText text={m.text} initData={initData} as="div" className="chat__bubble-text" />
+                </div>
                 <div className="chat__meta">
                   <time className="chat__time chat__time--sys" dateTime={m.createdAt}>
                     {formatChatTime(m.createdAt)}

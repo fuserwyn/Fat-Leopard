@@ -10,6 +10,7 @@ import { WORKOUT_CATEGORY_OPTIONS, type WorkoutCategoryId } from "../lib/workout
 import { clipboardImageFile } from "../lib/clipboardImage";
 import { streakStreakAriaLabel } from "../lib/streakLabel";
 import { hapticImpact } from "../lib/haptics";
+import { LeoTranslatableText } from "./LeoTranslatableText";
 import "./ActivityCard.css";
 
 function avatarLooksLikeImageSrc(avatar: string): boolean {
@@ -433,6 +434,8 @@ export type ActivityCardProps = {
   onThreadOpened?: () => void;
   /** Лео-реплай показан пользователю (тред раскрыт) — для аналитики leo_comment_displayed. */
   onLeoReplyDisplayed?: (threadReplyId: number) => void;
+  /** initData для перевода постов Лео на English. */
+  initData?: string;
 };
 
 export function ActivityCard({
@@ -482,6 +485,7 @@ export function ActivityCard({
   onThreadReplyEdit,
   hasUnreadThread = false,
   onThreadOpened,
+  initData,
 }: ActivityCardProps) {
   const threadBodyRef = useRef<HTMLDivElement>(null);
   const threadComposeRef = useRef<HTMLDivElement>(null);
@@ -945,11 +949,13 @@ export function ActivityCard({
           comment &&
           (canCollapseComment ? (
             <div className="act-card__comment-collapsible">
-              <p
-                className={`act-card__comment${commentExpanded ? "" : ` ${commentClampClass}`}`}
-              >
-                {comment}
-              </p>
+              {isLeoCard ? (
+                <LeoTranslatableText text={comment} initData={initData} className={`act-card__comment${commentExpanded ? "" : ` ${commentClampClass}`}`} />
+              ) : (
+                <p className={`act-card__comment${commentExpanded ? "" : ` ${commentClampClass}`}`}>
+                  {comment}
+                </p>
+              )}
               <button
                 type="button"
                 className="act-card__comment-toggle"
@@ -961,9 +967,15 @@ export function ActivityCard({
             </div>
           ) : reactionInComment ? (
             <div className="act-card__msg-row">
-              <p className="act-card__comment">{comment}</p>
+              {isLeoCard ? (
+                <LeoTranslatableText text={comment} initData={initData} className="act-card__comment" />
+              ) : (
+                <p className="act-card__comment">{comment}</p>
+              )}
               {reactionsNode}
             </div>
+          ) : isLeoCard ? (
+            <LeoTranslatableText text={comment} initData={initData} className="act-card__comment" />
           ) : (
             <p className="act-card__comment">{comment}</p>
           ))
@@ -1156,9 +1168,16 @@ export function ActivityCard({
                                       )}
                                     </div>
                                   )}
-                                {(tr.text || "").trim() !== "" && (
-                                  <p className="act-card__thread-text">{tr.text}</p>
-                                )}
+                                {(tr.text || "").trim() !== "" &&
+                                  (leo ? (
+                                    <LeoTranslatableText
+                                      text={tr.text}
+                                      initData={initData}
+                                      className="act-card__thread-text"
+                                    />
+                                  ) : (
+                                    <p className="act-card__thread-text">{tr.text}</p>
+                                  ))}
                                 {tr.photoUrl ? (
                                   <button
                                     type="button"

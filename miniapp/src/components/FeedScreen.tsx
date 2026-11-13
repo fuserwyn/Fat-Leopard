@@ -2159,6 +2159,7 @@ export function FeedScreen({
                       <ActivityCard
                         {...base}
                         {...followProps}
+                        initData={initData}
                         reactions={mergeFeedReactionsForType("pack_message", it.reactions)}
                         onReactionClick={(emoji) => void postMessageReact(it.id, emoji)}
                         onReport={!it.is_you ? () => void confirmReportMessage(it.id) : undefined}
@@ -2226,6 +2227,7 @@ export function FeedScreen({
                         {...pinnedLeoProps}
                         {...followProps}
                         {...postEditProps}
+                        initData={initData}
                         comment={adminPostText ?? base.comment}
                         pinned={isPinnedAnnouncement}
                         commentAlwaysFull={alwaysFullComment}
@@ -2272,6 +2274,7 @@ export function FeedScreen({
                       {...pinnedLeoProps}
                       {...followProps}
                       {...postEditProps}
+                      initData={initData}
                       comment={adminPostText ?? base.comment}
                       pinned={isPinnedAnnouncement}
                       commentAlwaysFull={alwaysFullComment}

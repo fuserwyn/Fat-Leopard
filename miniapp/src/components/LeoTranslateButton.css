@@ -1,0 +1,36 @@
+.leo-translate {
+  margin-top: 0.35rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.leo-translate__btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-size: 0.78rem;
+  line-height: 1.2;
+  color: var(--muted, #8a8494);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+  cursor: pointer;
+}
+
+.leo-translate__btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.leo-translate__btn[aria-pressed="true"] {
+  color: var(--accent, #c4a574);
+}
+
+.leo-translate__err {
+  font-size: 0.72rem;
+  color: #c45c5c;
+}

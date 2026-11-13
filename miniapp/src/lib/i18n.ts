@@ -42,6 +42,10 @@ const en: Dict = {
 
   "profile.kickBanner": "WORK OUT BEFORE MIDNIGHT OR LEO WILL EAT YOU",
   "profile.language": "Language",
+
+  "leo.translateEn": "Translate to English",
+  "leo.showOriginal": "Show original",
+  "leo.translateFail": "Couldn't translate",
 };
 
 const ru: Dict = {
@@ -84,6 +88,10 @@ const ru: Dict = {
 
   "profile.kickBanner": "ТРЕНИРУЙСЯ ДО ПОЛНОЧИ ИЛИ ЛЕО ТЕБЯ СЪЕСТ",
   "profile.language": "Язык",
+
+  "leo.translateEn": "Перевести на English",
+  "leo.showOriginal": "Показать оригинал",
+  "leo.translateFail": "Не удалось перевести",
 };
 
 const catalogs: Record<UILang, Dict> = { en, ru };
