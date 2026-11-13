@@ -27,6 +27,21 @@ def _text(result: object) -> str:
     return str(raw or "").strip()
 
 
+def _error_text(result: object) -> str:
+    err = getattr(result, "error", None)
+    if err is None:
+        return ""
+    if isinstance(err, dict):
+        return str(err.get("message") or err.get("code") or "").strip()
+    msg = getattr(err, "message", None)
+    if msg:
+        return str(msg).strip()
+    code = getattr(err, "code", None)
+    if code:
+        return str(code).strip()
+    return str(err).strip()
+
+
 FALLBACK_MODEL = "default"
 
 
@@ -55,14 +70,18 @@ def _run(api_key: str, model: str, cwd: str, prompt: str) -> object:
 
 def _failed_silently(result: object) -> bool:
     status = str(getattr(result, "status", "") or "").lower()
-    return status == "error" and not _text(result)
+    return status == "error" and not _text(result) and not _error_text(result)
+
+
+def _emit(payload: dict) -> None:
+    print(json.dumps(payload, ensure_ascii=False), flush=True)
 
 
 def main() -> int:
     try:
         payload = json.load(sys.stdin)
     except json.JSONDecodeError as exc:
-        print(json.dumps({"ok": False, "error": f"stdin json: {exc}"}), flush=True)
+        _emit({"ok": False, "error": f"stdin json: {exc}"})
         return 1
 
     cwd = str(payload.get("cwd") or "").strip()
@@ -70,54 +89,74 @@ def main() -> int:
     model = str(payload.get("model") or "composer-2.5").strip() or "composer-2.5"
     api_key = (os.environ.get("CURSOR_API_KEY") or "").strip()
     if not api_key:
-        print(json.dumps({"ok": False, "error": "нет CURSOR_API_KEY"}), flush=True)
+        _emit({"ok": False, "error": "нет CURSOR_API_KEY"})
         return 1
     if not cwd or not os.path.isdir(cwd):
-        print(json.dumps({"ok": False, "error": "нет каталога репозитория"}), flush=True)
+        _emit({"ok": False, "error": "нет каталога репозитория"})
         return 1
     if not prompt:
-        print(json.dumps({"ok": False, "error": "пустой промпт"}), flush=True)
+        _emit({"ok": False, "error": "пустой промпт"})
         return 1
 
+    used_model = model
+    result: object | None = None
     try:
         result = _run(api_key, model, cwd, prompt)
-        # Модель вне лимита тарифа Cursor сдаётся молча: status=error без
-        # текста за пару секунд (сентябрь 2026, composer-2.5). Auto
-        # («default») при этом работает — пробуем её, а не валим задачу.
+        # Именованная модель вне лимита тарифа Cursor сдаётся молча: status=error
+        # без текста (resource_exhausted / 429). Auto («default») при этом часто
+        # ещё работает — пробуем её, а не валим задачу на первой же попытке.
         if _failed_silently(result) and model != FALLBACK_MODEL:
+            used_model = FALLBACK_MODEL
             result = _run(api_key, FALLBACK_MODEL, cwd, prompt)
     except CursorAgentError as err:
-        print(
-            json.dumps(
+        if model != FALLBACK_MODEL:
+            try:
+                used_model = FALLBACK_MODEL
+                result = _run(api_key, FALLBACK_MODEL, cwd, prompt)
+            except Exception:  # noqa: BLE001
+                _emit(
+                    {
+                        "ok": False,
+                        "error": err.message,
+                        "retryable": bool(getattr(err, "is_retryable", False)),
+                    }
+                )
+                return 1
+        else:
+            _emit(
                 {
                     "ok": False,
                     "error": err.message,
                     "retryable": bool(getattr(err, "is_retryable", False)),
-                },
-                ensure_ascii=False,
-            ),
-            flush=True,
-        )
-        return 1
+                }
+            )
+            return 1
     except Exception as exc:  # noqa: BLE001
-        print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False), flush=True)
-        return 1
+        if model != FALLBACK_MODEL:
+            try:
+                used_model = FALLBACK_MODEL
+                result = _run(api_key, FALLBACK_MODEL, cwd, prompt)
+            except Exception as fallback_exc:  # noqa: BLE001
+                _emit({"ok": False, "error": str(fallback_exc)})
+                return 1
+        else:
+            _emit({"ok": False, "error": str(exc)})
+            return 1
 
     status = str(getattr(result, "status", "") or "").lower()
     text = _text(result)
+    detail = _error_text(result)
     if status == "error":
-        print(
-            json.dumps(
-                {"ok": False, "error": text or f"cursor run error (model {model})", "status": status},
-                ensure_ascii=False,
-            ),
-            flush=True,
-        )
+        if not text and not detail:
+            detail = (
+                f"cursor run error (model {used_model}): "
+                "likely Cursor usage limit — named models blocked; Auto also failed"
+            )
+        elif not text:
+            detail = f"{detail} (model {used_model})"
+        _emit({"ok": False, "error": text or detail, "status": status})
         return 2
-    print(
-        json.dumps({"ok": True, "status": status or "finished", "result": text}, ensure_ascii=False),
-        flush=True,
-    )
+    _emit({"ok": True, "status": status or "finished", "result": text})
     return 0
 
 
