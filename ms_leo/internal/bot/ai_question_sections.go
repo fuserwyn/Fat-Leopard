@@ -16,11 +16,11 @@ type aiQuestionSections struct {
 	thread strings.Builder
 }
 
-func (s *aiQuestionSections) initRules() {
+func (s *aiQuestionSections) initRules(lang string) {
 	if s.rules.Len() > 0 {
 		return
 	}
-	s.rules.WriteString(prompts.GameRulesBlock())
+	s.rules.WriteString(prompts.GameRulesBlockLang(lang))
 }
 
 func formatUserEntityLine(u *domain.MessageLog, cups int, remaining string) string {

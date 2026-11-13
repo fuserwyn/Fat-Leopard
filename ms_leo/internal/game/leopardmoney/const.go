@@ -19,6 +19,24 @@ const (
 	FullTimerDuration = time.Duration(InactiveRemovalDays) * 24 * time.Hour
 )
 
-// LevelNames — имена уровней по саванне (индекс = номер уровня 1…6+).
+// LevelNames — имена уровней по саванне (EN, индекс = номер уровня 1…6+).
 // Леопард — НЕ уровень, это бренд продукта и образ тренера Лео.
 var LevelNames = []string{"", "Meerkat", "Gazelle", "Zebra", "Cheetah", "Lion", "Elephant"}
+
+// LevelNamesRU — русские имена уровней (тот же индекс).
+var LevelNamesRU = []string{"", "Сурикат", "Газель", "Зебра", "Гепард", "Лев", "Слон"}
+
+// LevelNameForLang — имя уровня для ui_lang (ru|en); иначе EN.
+func LevelNameForLang(lang string, level int) string {
+	names := LevelNames
+	if lang == "ru" {
+		names = LevelNamesRU
+	}
+	if level < 1 || level >= len(names) {
+		if level >= len(LevelNames) {
+			return LevelNames[len(LevelNames)-1]
+		}
+		return ""
+	}
+	return names[level]
+}

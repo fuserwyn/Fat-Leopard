@@ -139,7 +139,7 @@ func (b *Bot) activateSickLeave(msg *tgbotapi.Message, messageLog *domain.Messag
 		ctxBuilder.WriteString("Event: sick leave started (timer paused).\n")
 		ctxBuilder.WriteString(fmt.Sprintf("After recovery, time left until removal: %s\n", remainingTimeFormatted))
 		ctxBuilder.WriteString(fmt.Sprintf("Total cups: %d\n", totalCups))
-		if addendum, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
+		if addendum, err := b.leoAnswer(msg.From.ID, question, ctxBuilder.String()); err == nil {
 			addendum = ai.SanitizeTextForUser(addendum)
 			if addendum != "" {
 				messageText = messageText + "\n\n" + addendum
@@ -502,7 +502,7 @@ func (b *Bot) handleHealthy(msg *tgbotapi.Message) {
 		}
 		ctxBuilder.WriteString(fmt.Sprintf("After recovery, time left until removal: %s\n", remainingTimeFormatted))
 		ctxBuilder.WriteString(fmt.Sprintf("Total cups: %d\n", totalCups))
-		if addendum, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
+		if addendum, err := b.leoAnswer(msg.From.ID, question, ctxBuilder.String()); err == nil {
 			addendum = ai.SanitizeTextForUser(addendum)
 			if addendum != "" {
 				messageText = messageText + "\n\n" + addendum

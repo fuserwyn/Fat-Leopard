@@ -25,7 +25,11 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message, personalReplyCh chan<- string
 	b.tryHandleSickApprovalReply(msg, text)
 
 	if text != "" && strings.Contains(strings.ToLower(text), "#change") {
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "⚠️ #change no longer works: calorie exchange was removed. The game is cups and streak — log workouts in the mini app («+»).")
+		body := "⚠️ #change no longer works: calorie exchange was removed. The game is cups and streak — log workouts in the mini app («+»)."
+		if msg.From != nil {
+			body = b.Msg(msg.From.ID, "change_deprecated")
+		}
+		reply := tgbotapi.NewMessage(msg.Chat.ID, body)
 		if _, err := b.api.Send(reply); err != nil {
 			b.logger.Errorf("send #change deprecation reply: %v", err)
 		}

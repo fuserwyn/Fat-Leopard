@@ -87,7 +87,7 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 	}
 
 	var aiSec aiQuestionSections
-	aiSec.initRules()
+	aiSec.initRules(string(b.EffectiveUILang(msg.From.ID)))
 
 	interlocutorName := strings.TrimSpace(msg.From.UserName)
 	if interlocutorName == "" {
@@ -429,7 +429,7 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 		Question:         finalQuestion,
 	})
 
-	answer, err := b.aiClient.AnswerUserQuestion("", userPrompt)
+	answer, err := b.leoAnswer(msg.From.ID, "", userPrompt)
 	if err != nil {
 		b.logger.Errorf("Failed to generate AI answer: %v", err)
 

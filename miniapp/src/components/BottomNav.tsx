@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { measureBottomNavOffset } from "../lib/bottomNavOffset";
+import { useI18n } from "../lib/I18nContext";
 import { CameraButton } from "./CameraButton";
 import "./BottomNav.css";
 
@@ -34,6 +35,7 @@ export function BottomNav({
   onSendMessage,
   showCompose = true,
 }: Props) {
+  const { t } = useI18n();
   const leoBadge = leoBadgeCount > 0 ? (leoBadgeCount > 9 ? "9+" : String(leoBadgeCount)) : null;
   const feedBadge = feedBadgeCount > 0 ? (feedBadgeCount > 9 ? "9+" : String(feedBadgeCount)) : null;
   const navRef = useRef<HTMLElement>(null);
@@ -84,11 +86,11 @@ export function BottomNav({
   };
 
   const submitMessage = async () => {
-    const t = msg.trim();
-    if ((!t && !photo) || sending || !onSendMessage) return;
+    const text = msg.trim();
+    if ((!text && !photo) || sending || !onSendMessage) return;
     setSending(true);
     try {
-      const ok = await onSendMessage(t, photo);
+      const ok = await onSendMessage(text, photo);
       if (ok) {
         setMsg("");
         setPhoto(null);
@@ -100,7 +102,7 @@ export function BottomNav({
   };
 
   return (
-    <nav ref={navRef} className="bottom-nav" role="navigation" aria-label="Main menu">
+    <nav ref={navRef} className="bottom-nav" role="navigation" aria-label={t("nav.menu")}>
       {/* Компоуз-поле вынесено отдельной строкой НАД таббаром: текст → сообщение
           в ленту, «+» → форма тренировки. Скрыто на экране тренировки/поддержки. */}
       <div
@@ -133,8 +135,8 @@ export function BottomNav({
               className={`bottom-nav__compose-attach${photo ? " bottom-nav__compose-attach--on" : ""}`}
               disabled={sending || !showCompose}
               onClick={() => photoInputRef.current?.click()}
-              aria-label={photo ? "Replace photo from gallery" : "Attach photo from gallery"}
-              title={photo ? "Replace photo from gallery" : "Attach photo from gallery"}
+              aria-label={photo ? t("nav.replacePhoto") : t("nav.attachPhoto")}
+              title={photo ? t("nav.replacePhoto") : t("nav.attachPhoto")}
             >
               📎
             </button>
@@ -153,7 +155,7 @@ export function BottomNav({
                   type="button"
                   className="bottom-nav__compose-thumb-x"
                   onClick={() => setPhoto(null)}
-                  aria-label="Remove photo"
+                  aria-label={t("nav.removePhoto")}
                 >
                   ✕
                 </button>
@@ -166,8 +168,8 @@ export function BottomNav({
               onChange={(e) => setMsg(e.target.value)}
               onFocus={onComposeFocus}
               onBlur={onComposeBlur}
-              placeholder={photo ? "Add a caption…" : "Post to feed…"}
-              aria-label="Message to pack feed"
+              placeholder={t("nav.composePlaceholder")}
+              aria-label={t("nav.composeAria")}
               maxLength={4000}
               autoComplete="off"
               enterKeyHint="send"
@@ -177,8 +179,8 @@ export function BottomNav({
               type="submit"
               className="bottom-nav__compose-send"
               disabled={sending || !showCompose || (!msg.trim() && !photo)}
-              aria-label="Send message to feed"
-              title="Send to feed"
+              aria-label={t("nav.sendFeed")}
+              title={t("nav.sendFeed")}
             >
               {sending ? "…" : "➤"}
             </button>
@@ -191,34 +193,34 @@ export function BottomNav({
         className={`bottom-nav__item ${active === "feed" ? "is-active" : ""}`}
         onClick={onFeed}
         aria-current={active === "feed" ? "page" : undefined}
-        aria-label={feedBadge ? `Pack, unread: ${feedBadgeCount}` : "Pack"}
+        aria-label={feedBadge ? t("nav.packUnread", { n: feedBadgeCount }) : t("nav.pack")}
       >
         <span className="bottom-nav__icon-wrap" aria-hidden>
           <span className="bottom-nav__icon">🐆</span>
           {feedBadge && (
-            <span className="bottom-nav__badge bottom-nav__badge--feed" title="New replies in pack feed">
+            <span className="bottom-nav__badge bottom-nav__badge--feed" title={t("nav.newFeedReplies")}>
               {feedBadge}
             </span>
           )}
         </span>
-        <span className="bottom-nav__label">Pack</span>
+        <span className="bottom-nav__label">{t("nav.pack")}</span>
       </button>
       <button
         type="button"
         className={`bottom-nav__item ${active === "chat" ? "is-active" : ""}`}
         onClick={onChat}
         aria-current={active === "chat" ? "page" : undefined}
-        aria-label={leoBadge ? `Leo, unread: ${leoBadgeCount}` : "Leo"}
+        aria-label={leoBadge ? t("nav.leoUnread", { n: leoBadgeCount }) : t("nav.leo")}
       >
         <span className="bottom-nav__icon-wrap" aria-hidden>
           <span className="bottom-nav__icon">💬</span>
           {leoBadge && (
-            <span className="bottom-nav__badge" title="New from Leo">
+            <span className="bottom-nav__badge" title={t("nav.newFromLeo")}>
               {leoBadge}
             </span>
           )}
         </span>
-        <span className="bottom-nav__label">Leo</span>
+        <span className="bottom-nav__label">{t("nav.leo")}</span>
       </button>
 
       {/* «+» всегда по центру таб-бара — добавить тренировку можно отовсюду. */}
@@ -226,8 +228,8 @@ export function BottomNav({
         type="button"
         className="bottom-nav__add"
         onClick={onAddWorkout}
-        aria-label="Log workout"
-        title="Log workout"
+        aria-label={t("nav.addWorkout")}
+        title={t("nav.addWorkout")}
       >
         <svg className="bottom-nav__add-plus" viewBox="0 0 24 24" aria-hidden focusable="false">
           <path d="M12 5v14M5 12h14" />
@@ -243,7 +245,7 @@ export function BottomNav({
         <span className="bottom-nav__icon" aria-hidden>
           📔
         </span>
-        <span className="bottom-nav__label">Rules</span>
+        <span className="bottom-nav__label">{t("nav.rules")}</span>
       </button>
       <button
         type="button"
@@ -254,7 +256,7 @@ export function BottomNav({
         <span className="bottom-nav__icon" aria-hidden>
           👤
         </span>
-        <span className="bottom-nav__label">Profile</span>
+        <span className="bottom-nav__label">{t("nav.profile")}</span>
       </button>
       </div>
     </nav>

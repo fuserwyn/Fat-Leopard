@@ -3,39 +3,123 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 )
 
 // SaveDailyWisdomOfDay сохраняет сгенерированную «мудрость дня» за конкретную дату (МСК).
 // Upsert: если за день уже есть запись — перезаписываем текстом последней генерации.
+// text остаётся EN-совместимым fallback; text_ru/text_en — двуязычные колонки.
 func (d *Database) SaveDailyWisdomOfDay(mskDate, text string) error {
-	if d == nil || mskDate == "" || text == "" {
+	return d.SaveDailyWisdomOfDayBilingual(mskDate, text, text)
+}
+
+// SaveDailyWisdomOfDayBilingual — сохраняет RU и EN варианты; text = EN (legacy).
+func (d *Database) SaveDailyWisdomOfDayBilingual(mskDate, textRU, textEN string) error {
+	if d == nil || mskDate == "" {
 		return nil
 	}
+	textRU = strings.TrimSpace(textRU)
+	textEN = strings.TrimSpace(textEN)
+	if textRU == "" && textEN == "" {
+		return nil
+	}
+	legacy := textEN
+	if legacy == "" {
+		legacy = textRU
+	}
 	const q = `
-		INSERT INTO daily_wisdom_log (msk_date, text)
-		VALUES ($1, $2)
-		ON CONFLICT (msk_date) DO UPDATE SET text = EXCLUDED.text`
-	if _, err := d.db.Exec(q, mskDate, text); err != nil {
+		INSERT INTO daily_wisdom_log (msk_date, text, text_ru, text_en)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (msk_date) DO UPDATE SET
+			text = EXCLUDED.text,
+			text_ru = EXCLUDED.text_ru,
+			text_en = EXCLUDED.text_en`
+	if _, err := d.db.Exec(q, mskDate, legacy, textRU, textEN); err != nil {
 		return fmt.Errorf("save daily wisdom of day: %w", err)
 	}
 	return nil
 }
 
-// GetLatestDailyWisdom возвращает самую свежую «мудрость дня». ok=false, если лог пуст
-// (например, до первой генерации после деплоя).
+// GetLatestDailyWisdom возвращает самую свежую «мудрость дня» (legacy text / EN).
 func (d *Database) GetLatestDailyWisdom() (text string, ok bool, err error) {
-	if d == nil {
-		return "", false, nil
+	text, _, ok, err = d.GetLatestDailyWisdomBilingual()
+	if !ok {
+		return "", false, err
 	}
-	const q = `SELECT text FROM daily_wisdom_log ORDER BY msk_date DESC LIMIT 1`
-	err = d.db.QueryRow(q).Scan(&text)
+	return text, true, err
+}
+
+// GetLatestDailyWisdomBilingual — EN (или legacy text) и RU.
+func (d *Database) GetLatestDailyWisdomBilingual() (textEN, textRU string, ok bool, err error) {
+	if d == nil {
+		return "", "", false, nil
+	}
+	const q = `
+		SELECT COALESCE(NULLIF(BTRIM(text_en), ''), NULLIF(BTRIM(text), ''), ''),
+		       COALESCE(NULLIF(BTRIM(text_ru), ''), NULLIF(BTRIM(text), ''), '')
+		FROM daily_wisdom_log
+		ORDER BY msk_date DESC
+		LIMIT 1`
+	err = d.db.QueryRow(q).Scan(&textEN, &textRU)
 	if err == sql.ErrNoRows {
-		return "", false, nil
+		return "", "", false, nil
 	}
 	if err != nil {
-		return "", false, fmt.Errorf("get latest daily wisdom: %w", err)
+		return "", "", false, fmt.Errorf("get latest daily wisdom: %w", err)
 	}
-	return text, true, nil
+	if textEN == "" && textRU == "" {
+		return "", "", false, nil
+	}
+	return textEN, textRU, true, nil
+}
+
+// GetDailyWisdomByMSKDate — пара EN/RU за дату МСК (YYYY-MM-DD).
+func (d *Database) GetDailyWisdomByMSKDate(mskDate string) (textEN, textRU string, ok bool, err error) {
+	if d == nil || strings.TrimSpace(mskDate) == "" {
+		return "", "", false, nil
+	}
+	const q = `
+		SELECT COALESCE(NULLIF(BTRIM(text_en), ''), NULLIF(BTRIM(text), ''), ''),
+		       COALESCE(NULLIF(BTRIM(text_ru), ''), NULLIF(BTRIM(text), ''), '')
+		FROM daily_wisdom_log
+		WHERE msk_date = $1::date`
+	err = d.db.QueryRow(q, mskDate).Scan(&textEN, &textRU)
+	if err == sql.ErrNoRows {
+		return "", "", false, nil
+	}
+	if err != nil {
+		return "", "", false, fmt.Errorf("get daily wisdom by date: %w", err)
+	}
+	if textEN == "" && textRU == "" {
+		return "", "", false, nil
+	}
+	return textEN, textRU, true, nil
+}
+
+// GetDailyWisdomMatchingStored — найти запись, где stored совпадает с text / text_en / text_ru.
+func (d *Database) GetDailyWisdomMatchingStored(stored string) (textEN, textRU string, ok bool, err error) {
+	stored = strings.TrimSpace(stored)
+	if d == nil || stored == "" {
+		return "", "", false, nil
+	}
+	const q = `
+		SELECT COALESCE(NULLIF(BTRIM(text_en), ''), NULLIF(BTRIM(text), ''), ''),
+		       COALESCE(NULLIF(BTRIM(text_ru), ''), NULLIF(BTRIM(text), ''), '')
+		FROM daily_wisdom_log
+		WHERE BTRIM(text) = $1 OR BTRIM(text_en) = $1 OR BTRIM(text_ru) = $1
+		ORDER BY msk_date DESC
+		LIMIT 1`
+	err = d.db.QueryRow(q, stored).Scan(&textEN, &textRU)
+	if err == sql.ErrNoRows {
+		return "", "", false, nil
+	}
+	if err != nil {
+		return "", "", false, fmt.Errorf("get daily wisdom matching stored: %w", err)
+	}
+	if textEN == "" && textRU == "" {
+		return "", "", false, nil
+	}
+	return textEN, textRU, true, nil
 }
 
 // WisdomSubscriptionSettings — настройки подписки на «мудрость дня» для пары (user, стая).

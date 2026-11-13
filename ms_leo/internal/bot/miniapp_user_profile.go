@@ -9,6 +9,7 @@ import (
 
 	"leo-bot/internal/database"
 	"leo-bot/internal/game/leopardmoney"
+	"leo-bot/internal/i18n"
 	"leo-bot/internal/utils"
 )
 
@@ -261,6 +262,91 @@ func (b *Bot) SaveMiniappThemeFromMiniapp(userID, packChatID int64, theme string
 	return b.db.UpsertMiniappTheme(userID, packChatID, normalized)
 }
 
+// GetMiniappUILangForAPI — сохранённый ui_lang; пусто — ещё не задан.
+func (b *Bot) GetMiniappUILangForAPI(userID, packChatID int64) string {
+	if b == nil || b.db == nil || packChatID == 0 || userID == 0 {
+		return ""
+	}
+	p, err := b.db.GetMiniappUserProfile(userID, packChatID)
+	if err != nil || p == nil {
+		return ""
+	}
+	return string(i18n.Normalize(p.UILang))
+}
+
+// SaveMiniappUILangFromMiniapp — только ui_lang (ru|en).
+func (b *Bot) SaveMiniappUILangFromMiniapp(userID, packChatID int64, uiLang string) error {
+	if b == nil || b.db == nil {
+		return nil
+	}
+	lang := i18n.Normalize(uiLang)
+	if lang == "" {
+		return errors.New("invalid ui_lang")
+	}
+	return b.db.UpsertMiniappUILang(userID, packChatID, string(lang))
+}
+
+// SeedMiniappUILangIfEmpty — первый старт: если язык ещё не задан.
+// Уже известные участники стаи (есть training_state) → ru (язык до EN-миграции).
+// Совсем новые → из Telegram language_code.
+func (b *Bot) SeedMiniappUILangIfEmpty(userID, packChatID int64, telegramLanguageCode string) string {
+	if b == nil || b.db == nil || packChatID == 0 || userID == 0 {
+		return string(i18n.FromTelegram(telegramLanguageCode))
+	}
+	if existing := b.GetMiniappUILangForAPI(userID, packChatID); existing != "" {
+		return existing
+	}
+	lang := i18n.FromTelegram(telegramLanguageCode)
+	if b.userHasPackTrainingState(userID, packChatID) {
+		lang = i18n.RU
+	}
+	if err := b.db.UpsertMiniappUILang(userID, packChatID, string(lang)); err != nil {
+		b.logger.Errorf("seed ui_lang user=%d: %v", userID, err)
+	}
+	return string(lang)
+}
+
+func (b *Bot) userHasPackTrainingState(userID, packChatID int64) bool {
+	if b == nil || b.db == nil || userID == 0 || packChatID == 0 {
+		return false
+	}
+	ok, err := b.db.UserHasActiveMessageLogInChat(userID, packChatID)
+	if err != nil {
+		// Любая строка training_state (в т.ч. удалённые) — всё равно «существующий» юзер.
+		if log, e2 := b.db.GetMessageLogAnyState(userID, packChatID); e2 == nil && log != nil {
+			return true
+		}
+		return false
+	}
+	if ok {
+		return true
+	}
+	if log, e2 := b.db.GetMessageLogAnyState(userID, packChatID); e2 == nil && log != nil {
+		return true
+	}
+	return false
+}
+
+// EffectiveUILang — язык пользователя для бота/Лео: профиль → ru для старожилов → en.
+func (b *Bot) EffectiveUILang(userID int64) i18n.Lang {
+	if b == nil || b.db == nil || b.config == nil || b.config.MonetizedChatID == 0 || userID == 0 {
+		return i18n.EN
+	}
+	packID := b.config.MonetizedChatID
+	if lang := i18n.Normalize(b.GetMiniappUILangForAPI(userID, packID)); lang != "" {
+		return lang
+	}
+	if b.userHasPackTrainingState(userID, packID) {
+		return i18n.RU
+	}
+	return i18n.EN
+}
+
+// Msg — локализованная строка для userID.
+func (b *Bot) Msg(userID int64, key string, args ...any) string {
+	return i18n.T(b.EffectiveUILang(userID), key, args...)
+}
+
 type MiniappProfileStats struct {
 	XP                      int
 	Level                   int
@@ -380,7 +466,7 @@ func (b *Bot) GetMiniappProfileStatsForAPI(userID, packChatID int64) MiniappProf
 
 	// Уровень и попытки спасения стрика — только от накопленных кубков (pack-row).
 	out.Level = leopardmoney.LevelFromTotalCups(out.XP)
-	out.LevelName = leopardmoney.LevelName(out.Level)
+	out.LevelName = leopardmoney.LevelNameForLang(string(b.EffectiveUILang(userID)), out.Level)
 	// Сверх уровня — попытки за друзей, которые пришли по ссылке и записали тренировку.
 	out.StreakSaveAttemptsMax = StreakSaveAttemptsMaxForLevel(out.Level) + b.referralRewardBonus(userID)
 	if used, err := b.db.GetStreakSaveAttemptsUsed(userID, packChatID); err == nil {

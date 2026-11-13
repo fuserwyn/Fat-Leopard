@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"leo-bot/internal/i18n"
 	"leo-bot/internal/logger"
 	"leo-bot/internal/prompts"
 )
@@ -348,13 +349,24 @@ func (c *OpenRouterClient) GenerateContactJoinedPack(recipientName, contactName 
 	return c.Chat(messages, "")
 }
 
-// AnswerUserQuestion отвечает на вопрос пользователя.
-// userContext — либо полный structured user-message (с «Контекст для этого ответа»), либо legacy-плоский контекст + question.
+// AnswerUserQuestion отвечает на вопрос пользователя (язык EN по умолчанию).
+// userContext — либо полный structured user-message, либо legacy-плоский контекст + question.
 func (c *OpenRouterClient) AnswerUserQuestion(question string, userContext string) (string, error) {
+	return c.AnswerUserQuestionLang(question, userContext, i18n.EN)
+}
+
+// AnswerUserQuestionLang — ответ Лео на языке пользователя (ru|en).
+func (c *OpenRouterClient) AnswerUserQuestionLang(question string, userContext string, lang i18n.Lang) (string, error) {
+	lang = i18n.Or(lang, i18n.EN)
 	systemPrompt := c.bundle().AnswerUserQuestion
+	if lang == i18n.RU {
+		systemPrompt += "\n\n" + i18n.T(i18n.RU, "leo_lang_ru")
+	} else {
+		systemPrompt += "\n\n" + i18n.T(i18n.EN, "leo_lang_en")
+	}
 
 	userContent := strings.TrimSpace(userContext)
-	if question != "" && !strings.Contains(userContent, "Контекст для этого ответа") {
+	if question != "" && !strings.Contains(userContent, "Контекст для этого ответа") && !strings.Contains(userContent, "Context for this answer") {
 		userContent = prompts.FormatLegacyUserPrompt(question, userContext)
 	} else if userContent == "" && question != "" {
 		userContent = prompts.FormatLegacyUserPrompt(question, "")
@@ -368,34 +380,27 @@ func (c *OpenRouterClient) AnswerUserQuestion(question string, userContext strin
 	return c.Chat(messages, "")
 }
 
-// GenerateDailyWisdom генерирует короткую «мудрость дня» о тренировках и дисциплине
-// (системный промпт ротируется между daily_wisdom_training и вариациями).
+// GenerateDailyWisdom генерирует «мудрость дня» на английском (legacy).
 func (c *OpenRouterClient) GenerateDailyWisdom() (string, error) {
+	return c.GenerateDailyWisdomLang(i18n.EN)
+}
+
+// GenerateDailyWisdomLang — мудрость дня на конкретном языке.
+func (c *OpenRouterClient) GenerateDailyWisdomLang(lang i18n.Lang) (string, error) {
+	lang = i18n.Or(lang, i18n.EN)
 	live := c.bundle()
 	systemPrompt := live.DailyWisdomTrainingVariant(time.Now())
+	if lang == i18n.RU {
+		systemPrompt += "\n\n" + i18n.T(i18n.RU, "leo_lang_ru")
+		systemPrompt += "\nWrite the wisdom in Russian."
+	} else {
+		systemPrompt += "\n\n" + live.DailyWisdomLangRule
+		systemPrompt += "\nWrite the wisdom in English."
+	}
 
-	systemPrompt += "\n\n" + live.DailyWisdomLangRule
-
-	// Добавляем ежедневное семя (дата + тема дня), чтобы повысить вариативность
 	today := time.Now().Format("2006-01-02")
 	weekday := time.Now().Weekday()
-	theme := "дисциплина"
-	switch weekday {
-	case time.Monday:
-		theme = "старт и дисциплина"
-	case time.Tuesday:
-		theme = "выносливость"
-	case time.Wednesday:
-		theme = "равновесие и техника"
-	case time.Thursday:
-		theme = "терпение и прогресс"
-	case time.Friday:
-		theme = "радость движения без спешки"
-	case time.Saturday:
-		theme = "осознанность и восстановление"
-	case time.Sunday:
-		theme = "тихая сила духа"
-	}
+	theme := wisdomTheme(lang, weekday)
 
 	userPrompt := fmt.Sprintf(live.DailyWisdomUserTemplate, today, theme)
 
@@ -405,4 +410,41 @@ func (c *OpenRouterClient) GenerateDailyWisdom() (string, error) {
 	}
 
 	return c.Chat(messages, "")
+}
+
+func wisdomTheme(lang i18n.Lang, weekday time.Weekday) string {
+	if lang == i18n.RU {
+		switch weekday {
+		case time.Monday:
+			return "старт и дисциплина"
+		case time.Tuesday:
+			return "выносливость"
+		case time.Wednesday:
+			return "равновесие и техника"
+		case time.Thursday:
+			return "терпение и прогресс"
+		case time.Friday:
+			return "радость движения без спешки"
+		case time.Saturday:
+			return "осознанность и восстановление"
+		default:
+			return "тихая сила духа"
+		}
+	}
+	switch weekday {
+	case time.Monday:
+		return "start and discipline"
+	case time.Tuesday:
+		return "endurance"
+	case time.Wednesday:
+		return "balance and technique"
+	case time.Thursday:
+		return "patience and progress"
+	case time.Friday:
+		return "joy of movement without rush"
+	case time.Saturday:
+		return "awareness and recovery"
+	default:
+		return "quiet strength of spirit"
+	}
 }

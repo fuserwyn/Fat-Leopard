@@ -11,25 +11,28 @@ import (
 
 // MiniappUserProfile — опциональные поля мини-аппа (стая / MONETIZED_CHAT_ID).
 type MiniappUserProfile struct {
-	UserID            int64
-	PackChatID        int64
-	Gender            string
-	DisplayName       string
-	AgeYears          sql.NullInt64
-	TelegramPhotoURL  string
-	Theme             string
-	UpdatedAt         time.Time
+	UserID           int64
+	PackChatID       int64
+	Gender           string
+	DisplayName      string
+	AgeYears         sql.NullInt64
+	TelegramPhotoURL string
+	Theme            string
+	UILang           string
+	UpdatedAt        time.Time
 }
 
 // GetMiniappUserProfile — профиль.
 func (d *Database) GetMiniappUserProfile(userID, packChatID int64) (*MiniappUserProfile, error) {
 	const q = `
-		SELECT user_id, pack_chat_id, gender, display_name, age_years, telegram_photo_url, COALESCE(theme, ''), updated_at
+		SELECT user_id, pack_chat_id, gender, display_name, age_years, telegram_photo_url,
+		       COALESCE(theme, ''), COALESCE(ui_lang, ''), updated_at
 		FROM miniapp_user_profile
 		WHERE user_id = $1 AND pack_chat_id = $2`
 	var p MiniappUserProfile
 	err := d.db.QueryRow(q, userID, packChatID).Scan(
-		&p.UserID, &p.PackChatID, &p.Gender, &p.DisplayName, &p.AgeYears, &p.TelegramPhotoURL, &p.Theme, &p.UpdatedAt,
+		&p.UserID, &p.PackChatID, &p.Gender, &p.DisplayName, &p.AgeYears, &p.TelegramPhotoURL,
+		&p.Theme, &p.UILang, &p.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -142,6 +145,28 @@ func (d *Database) UpsertMiniappTheme(userID, packChatID int64, theme string) er
 	_, err := d.db.Exec(q, userID, packChatID, theme)
 	if err != nil {
 		return fmt.Errorf("upsert miniapp theme: %w", err)
+	}
+	return nil
+}
+
+// UpsertMiniappUILang — только колонка ui_lang (ru|en); остальные поля не трогает.
+func (d *Database) UpsertMiniappUILang(userID, packChatID int64, uiLang string) error {
+	uiLang = strings.TrimSpace(strings.ToLower(uiLang))
+	if d == nil || packChatID == 0 || userID == 0 {
+		return nil
+	}
+	if uiLang != "ru" && uiLang != "en" {
+		return fmt.Errorf("invalid ui_lang")
+	}
+	const q = `
+		INSERT INTO miniapp_user_profile (user_id, pack_chat_id, gender, display_name, age_years, ui_lang, updated_at)
+		VALUES ($1, $2, '', '', NULL, $3, NOW())
+		ON CONFLICT (user_id, pack_chat_id) DO UPDATE SET
+			ui_lang = EXCLUDED.ui_lang,
+			updated_at = EXCLUDED.updated_at`
+	_, err := d.db.Exec(q, userID, packChatID, uiLang)
+	if err != nil {
+		return fmt.Errorf("upsert miniapp ui_lang: %w", err)
 	}
 	return nil
 }

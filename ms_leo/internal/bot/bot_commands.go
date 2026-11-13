@@ -87,6 +87,7 @@ func (b *Bot) handleStart(msg *tgbotapi.Message) {
 	}
 	// Фиксируем визит в личке
 	if msg.From != nil && msg.Chat.IsPrivate() && b.db != nil {
+		b.SeedMiniappUILangIfEmpty(msg.From.ID, b.MonetizedChatID(), msg.From.LanguageCode)
 		username := msg.From.UserName
 		firstName := msg.From.FirstName
 		lastName := msg.From.LastName
@@ -197,8 +198,8 @@ func (b *Bot) handleRejoin(msg *tgbotapi.Message) {
 			reply.ReplyMarkup = kb
 		}
 		if _, err := b.api.Send(reply); err == nil {
-			if ik := b.paywallUnpaidInlineKeyboard(); ik != nil {
-				methods := tgbotapi.NewMessage(msg.Chat.ID, "Payment methods:")
+			if ik := b.paywallUnpaidInlineKeyboard(msg.From.ID); ik != nil {
+				methods := tgbotapi.NewMessage(msg.Chat.ID, b.Msg(msg.From.ID, "paywall_methods"))
 				methods.ReplyMarkup = ik
 				_, _ = b.api.Send(methods)
 			}

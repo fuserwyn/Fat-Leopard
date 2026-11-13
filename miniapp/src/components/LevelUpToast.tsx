@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { miniappLevelName, MAX_CUP_LEVEL } from "../lib/miniappLevel";
 import { LEO_AVATAR_URL } from "../lib/leoAvatar";
+import { useI18n } from "../lib/I18nContext";
 import "./AchievementToast.css";
 import "./ShareCardSheet.css";
 
@@ -35,6 +36,7 @@ function levelCheer(level: number): string {
  * chip, sparkles. Auto-hides; tap closes sooner. Queue/dedup in App (by level number).
  */
 export function LevelUpToast({ level, onDone, onShare }: Props) {
+  const { lang } = useI18n();
   const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
@@ -73,7 +75,7 @@ export function LevelUpToast({ level, onDone, onShare }: Props) {
 
         <div className="achievement-toast__title">New level!</div>
         <div className="achievement-toast__label">
-          {levelEmoji(level)} {miniappLevelName(level)}
+          {levelEmoji(level)} {miniappLevelName(level, lang)}
         </div>
         <div className="achievement-toast__cheer">{levelCheer(level)}</div>
         {onShare ? (

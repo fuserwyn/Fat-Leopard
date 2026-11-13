@@ -1891,6 +1891,66 @@ var Migrations = []Migration{
 			ALTER TABLE IF EXISTS pack_tracker_tasks DROP COLUMN IF EXISTS skip_review;
 		`,
 	},
+	{
+		Version:     96,
+		Description: "ui_lang в профиле мини-аппа + RU/EN тексты мудрости дня",
+		UpSQL: `
+			ALTER TABLE miniapp_user_profile
+				ADD COLUMN IF NOT EXISTS ui_lang TEXT NOT NULL DEFAULT '';
+			ALTER TABLE daily_wisdom_log
+				ADD COLUMN IF NOT EXISTS text_ru TEXT NOT NULL DEFAULT '';
+			ALTER TABLE daily_wisdom_log
+				ADD COLUMN IF NOT EXISTS text_en TEXT NOT NULL DEFAULT '';
+			UPDATE daily_wisdom_log
+				SET text_en = text
+				WHERE COALESCE(NULLIF(BTRIM(text_en), ''), '') = ''
+				  AND COALESCE(NULLIF(BTRIM(text), ''), '') <> '';
+			UPDATE daily_wisdom_log
+				SET text_ru = text
+				WHERE COALESCE(NULLIF(BTRIM(text_ru), ''), '') = ''
+				  AND COALESCE(NULLIF(BTRIM(text), ''), '') <> '';
+		`,
+		DownSQL: `
+			ALTER TABLE daily_wisdom_log DROP COLUMN IF EXISTS text_en;
+			ALTER TABLE daily_wisdom_log DROP COLUMN IF EXISTS text_ru;
+			ALTER TABLE miniapp_user_profile DROP COLUMN IF EXISTS ui_lang;
+		`,
+	},
+	{
+		Version:     97,
+		Description: "Существующие участники стаи — ui_lang=ru (язык до EN-миграции); новым — выбор при старте",
+		UpSQL: `
+			-- Уже есть профиль мини-аппа: фиксируем русский, если язык ещё не задан.
+			UPDATE miniapp_user_profile
+			SET ui_lang = 'ru', updated_at = NOW()
+			WHERE COALESCE(NULLIF(BTRIM(ui_lang), ''), '') = '';
+
+			-- Участники из training_state без профиля / с пустым ui_lang — тоже русский.
+			INSERT INTO miniapp_user_profile (user_id, pack_chat_id, gender, display_name, age_years, ui_lang, updated_at)
+			SELECT ts.user_id,
+			       ts.chat_id,
+			       '',
+			       COALESCE(NULLIF(BTRIM(ts.username), ''), ''),
+			       NULL,
+			       'ru',
+			       NOW()
+			FROM training_state ts
+			WHERE ts.user_id <> 0
+			  AND ts.chat_id <> 0
+			ON CONFLICT (user_id, pack_chat_id) DO UPDATE SET
+				ui_lang = CASE
+					WHEN COALESCE(NULLIF(BTRIM(miniapp_user_profile.ui_lang), ''), '') = '' THEN 'ru'
+					ELSE miniapp_user_profile.ui_lang
+				END,
+				updated_at = CASE
+					WHEN COALESCE(NULLIF(BTRIM(miniapp_user_profile.ui_lang), ''), '') = '' THEN NOW()
+					ELSE miniapp_user_profile.updated_at
+				END;
+		`,
+		DownSQL: `
+			-- Обратный откат языков не делаем: выбор пользователя мог уже смениться.
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции

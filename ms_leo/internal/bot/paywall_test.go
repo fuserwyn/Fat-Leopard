@@ -4,6 +4,8 @@ import (
 	"errors"
 	"testing"
 
+	"leo-bot/internal/i18n"
+
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
@@ -33,13 +35,13 @@ func TestParsePaywallPayload(t *testing.T) {
 }
 
 func TestPaywallInvoiceErrLogAndShortHint(t *testing.T) {
-	if paywallInvoiceErrLog(nil) != "" || paywallInvoiceShortHintForUser(nil) != "" {
+	if paywallInvoiceErrLog(nil) != "" || paywallInvoiceShortHintForLang(i18n.EN, nil) != "" {
 		t.Fatal("nil err")
 	}
 	if paywallInvoiceErrLog(errors.New("net")) != "net" {
 		t.Fatal("plain error log")
 	}
-	h := paywallInvoiceShortHintForUser(errors.New("net"))
+	h := paywallInvoiceShortHintForLang(i18n.EN, errors.New("net"))
 	if h == "" {
 		t.Fatal("expected generic short hint")
 	}
@@ -48,7 +50,7 @@ func TestPaywallInvoiceErrLogAndShortHint(t *testing.T) {
 	if log == "" {
 		t.Fatal("expected tg log line")
 	}
-	sh := paywallInvoiceShortHintForUser(tgAPI)
+	sh := paywallInvoiceShortHintForLang(i18n.EN, tgAPI)
 	if sh == "" || len(sh) > 300 {
 		t.Fatalf("short hint: %q", sh)
 	}

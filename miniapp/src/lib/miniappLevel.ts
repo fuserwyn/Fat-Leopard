@@ -14,6 +14,9 @@ export const MAX_CUP_LEVEL = CUP_LEVEL_STARTS.length;
  */
 export const MINIAPP_LEVEL_NAMES: readonly string[] = ["", "Meerkat", "Gazelle", "Zebra", "Cheetah", "Lion", "Elephant"];
 
+/** Русские имена уровней (индекс = номер уровня 1-based). */
+export const MINIAPP_LEVEL_NAMES_RU: readonly string[] = ["", "Сурикат", "Газель", "Зебра", "Гепард", "Лев", "Слон"];
+
 /**
  * Эмодзи-животные уровней (индекс = номер уровня 1-based, как в правилах Стаи).
  * Отдельного эмодзи суриката нет — используется 🦫, как в таблице уровней в правилах.
@@ -34,10 +37,11 @@ export function miniappLevelMinCups(level: number): number {
 }
 
 /** Имя уровня по номеру 1-based. */
-export function miniappLevelName(level: number): string {
+export function miniappLevelName(level: number, lang: "en" | "ru" = "en"): string {
+  const names = lang === "ru" ? MINIAPP_LEVEL_NAMES_RU : MINIAPP_LEVEL_NAMES;
   if (level < 1) return "";
-  if (level >= MINIAPP_LEVEL_NAMES.length) return MINIAPP_LEVEL_NAMES[MINIAPP_LEVEL_NAMES.length - 1] ?? "";
-  return MINIAPP_LEVEL_NAMES[level] ?? "";
+  if (level >= names.length) return names[names.length - 1] ?? "";
+  return names[level] ?? "";
 }
 
 /** Размер сегмента прогресса на максимальном уровне (L6+, endgame). */

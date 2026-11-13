@@ -22,6 +22,8 @@ import {
   themeAllowedForLevel,
   type ThemeMode,
 } from "../lib/theme";
+import { useI18n } from "../lib/I18nContext";
+import { hydrateUILangFromServer } from "../lib/uiLang";
 import {
   createCardDonatePayment,
   createStarsDonateInvoice,
@@ -135,6 +137,7 @@ export function ProfileScreen({
   onRefreshStats,
   active = true,
 }: Props) {
+  const { lang, setLang, t } = useI18n();
   const [cups, setCups] = useState(xp);
   const [theme, setThemeState] = useState<ThemeMode>(() => getStoredTheme());
   const [themeLevelReady, setThemeLevelReady] = useState(false);
@@ -330,6 +333,7 @@ export function ProfileScreen({
         timezone_offset?: number;
         xp?: number;
         theme?: string;
+        ui_lang?: string;
         streak_days?: number;
         max_streak_days?: number;
         workouts_total?: number;
@@ -372,6 +376,7 @@ export function ProfileScreen({
         setTheme(next);
         setThemeState(next);
       }
+      hydrateUILangFromServer(j.ui_lang);
       setThemeLevelReady(true);
       if (typeof j.streak_save_attempts_used === "number") {
         setSaveStreakUsed(Math.max(0, j.streak_save_attempts_used));
@@ -1079,7 +1084,7 @@ export function ProfileScreen({
           {onSick ? <span className="profile__avatar-med">🌡️</span> : null}
         </div>
         <div>
-          <h1 className="profile__name">{(profile.displayName || name).trim() || "Pack member"}</h1>
+          <h1 className="profile__name">{(profile.displayName || name).trim() || t("common.packMember")}</h1>
           <LevelCarousel currentLevel={level} />
           {showDaysWithoutTraining ? (
             <p
@@ -1090,7 +1095,7 @@ export function ProfileScreen({
             </p>
           ) : null}
           {showKickBanner ? (
-            <p className="profile__danger">WORK OUT BEFORE MIDNIGHT OR LEO WILL EAT YOU</p>
+            <p className="profile__danger">{t("profile.kickBanner")}</p>
           ) : null}
         </div>
         {onSick && removalRemaining ? (
@@ -1699,13 +1704,35 @@ export function ProfileScreen({
       </section>
 
       <section className="profile__theme">
+        <h2 className="section-title profile__theme-title">{t("profile.language")}</h2>
+        <div className="profile__theme-seg" role="group" aria-label={t("lang.group")}>
+          <button
+            type="button"
+            className={`profile__theme-opt ${lang === "ru" ? "is-active" : ""}`}
+            aria-pressed={lang === "ru"}
+            onClick={() => setLang("ru")}
+          >
+            {t("lang.ru")}
+          </button>
+          <button
+            type="button"
+            className={`profile__theme-opt ${lang === "en" ? "is-active" : ""}`}
+            aria-pressed={lang === "en"}
+            onClick={() => setLang("en")}
+          >
+            {t("lang.en")}
+          </button>
+        </div>
+      </section>
+
+      <section className="profile__theme">
         <button
           type="button"
           className={`section-title profile__theme-title profile__notif-toggle${themeOpen ? " is-open" : ""}`}
           aria-expanded={themeOpen}
           onClick={() => setThemeOpen((open) => !open)}
         >
-          Theme{!themeOpen ? ` · ${THEME_LABELS[theme]}` : ""}
+          {t("theme.label")}{!themeOpen ? ` · ${THEME_LABELS[theme]}` : ""}
           <span className="profile__notif-chevron" aria-hidden>
             {themeOpen ? "▲" : "▼"}
           </span>

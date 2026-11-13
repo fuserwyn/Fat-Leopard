@@ -29,6 +29,8 @@ import { fetchPackWeekSummary, markPackWeekSummarySeen, type PackWeekSummary } f
 import { earnedAchievementKeys, freshAchievementKeys, type AchievementKey } from "./lib/achievements";
 import { miniappLevelFromCups } from "./lib/miniappLevel";
 import { getStoredTheme, hasStoredTheme, hydrateThemeFromCloud, hydrateThemeFromServer, isThemeMode, persistTheme, persistThemeToServer } from "./lib/theme";
+import { I18nProvider } from "./lib/I18nContext";
+import { hydrateUILangFromServer } from "./lib/uiLang";
 import { PACK_WEEKLY_GOAL_DEFAULT } from "./lib/packWeeklyGoal";
 import { buildOptimisticTrainingFeedItem, type PackFeedItemDTO } from "./lib/packFeed";
 import { WORKOUT_CATEGORY_OPTIONS, type WorkoutCategoryId } from "./lib/workoutCategories";
@@ -54,7 +56,7 @@ type AccessGateStatus = "checking" | "ok" | "deleted" | "guest";
 
 export function App() {
   useAppKeyboardInset();
-  const { name, streak: hookStreak, initData, userId, photoUrl, inTelegram, tg } = useTelegramWebApp();
+  const { name, streak: hookStreak, initData, userId, photoUrl, languageCode, inTelegram, tg } = useTelegramWebApp();
   const showAlert = useCallback((m: string) => {
     if (tg?.showAlert) void tg.showAlert(m);
     else window.alert(m);
@@ -253,6 +255,7 @@ export function App() {
         last_training_date?: string;
         is_admin?: boolean;
         theme?: string;
+        ui_lang?: string;
         suggested_workout_types?: unknown;
         pack_workouts_week?: number;
         pack_workouts_goal?: number;
@@ -283,6 +286,7 @@ export function App() {
         packBonusThemeActive: packBonusActive,
       };
       hydrateThemeFromServer(j.theme, levelNow, themeUnlock);
+      hydrateUILangFromServer(j.ui_lang, languageCode);
       if (!isThemeMode(j.theme) && hasStoredTheme()) {
         void persistThemeToServer(initData, getStoredTheme());
       }
@@ -303,7 +307,7 @@ export function App() {
     } catch {
       return;
     }
-  }, [accessGateStatus, inTelegram, initData, userId, notifyNewAchievements, notifyLevelUp]);
+  }, [accessGateStatus, inTelegram, initData, userId, languageCode, notifyNewAchievements, notifyLevelUp]);
 
   useEffect(() => {
     void refreshAccessStatus();
@@ -459,26 +463,35 @@ export function App() {
   const tabsVisible = !supportOpen && !workoutOpen;
 
   if (accessGateStatus === "checking") {
-    return <div className="app" />;
+    return (
+      <I18nProvider initData={initData} telegramLanguageCode={languageCode}>
+        <div className="app" />
+      </I18nProvider>
+    );
   }
 
   if (accessGateStatus === "guest") {
     return (
-      <div className="app">
-        <GuestFeedScreen initData={initData} onInPack={leaveGuestMode} />
-      </div>
+      <I18nProvider initData={initData} telegramLanguageCode={languageCode}>
+        <div className="app">
+          <GuestFeedScreen initData={initData} onInPack={leaveGuestMode} />
+        </div>
+      </I18nProvider>
     );
   }
 
   if (accessGateStatus === "deleted") {
     return (
-      <div className="app">
-        <MiniappRemovedScreen />
-      </div>
+      <I18nProvider initData={initData} telegramLanguageCode={languageCode}>
+        <div className="app">
+          <MiniappRemovedScreen />
+        </div>
+      </I18nProvider>
     );
   }
 
   return (
+    <I18nProvider initData={initData} telegramLanguageCode={languageCode}>
     <div className="app">
       <div className="app__tabs">
         <TabKeepAlive active={tab === "feed"} hidden={!tabsVisible} label="Feed">
@@ -727,5 +740,6 @@ export function App() {
         />
       )}
     </div>
+    </I18nProvider>
   );
 }

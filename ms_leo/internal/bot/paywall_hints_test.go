@@ -4,6 +4,8 @@ import (
 	"errors"
 	"testing"
 
+	"leo-bot/internal/i18n"
+
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
@@ -20,14 +22,14 @@ func TestPaywallInvoiceShortHintBranches(t *testing.T) {
 		{&tgbotapi.Error{Code: 500, Message: "internal"}, "Couldn't send the invoice. Try card payment with another button or /start later."},
 	}
 	for _, tc := range cases {
-		if got := paywallInvoiceShortHintForUser(tc.err); got != tc.want {
+		if got := paywallInvoiceShortHintForLang(i18n.EN, tc.err); got != tc.want {
 			t.Fatalf("%q: %q, want %q", tc.err.Message, got, tc.want)
 		}
 	}
 }
 
 func TestPaywallYookassaShortHint(t *testing.T) {
-	if paywallYookassaShortHintForUser(nil) != "" {
+	if paywallYookassaShortHintForLang(i18n.EN, nil) != "" {
 		t.Fatal("nil err")
 	}
 	cases := map[string]string{
@@ -42,7 +44,7 @@ func TestPaywallYookassaShortHint(t *testing.T) {
 		"something else":                  "Payment link wasn't created. Try again later.",
 	}
 	for in, want := range cases {
-		if got := paywallYookassaShortHintForUser(errors.New(in)); got != want {
+		if got := paywallYookassaShortHintForLang(i18n.EN, errors.New(in)); got != want {
 			t.Fatalf("%q: %q, want %q", in, got, want)
 		}
 	}

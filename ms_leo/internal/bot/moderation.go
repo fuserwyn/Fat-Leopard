@@ -200,7 +200,8 @@ func (b *Bot) deliverModerationWarning(userID int64, surface moderation.Surface,
 	}
 	// Системный текст в личку Telegram (не LLM).
 	if b.api != nil {
-		m := tgbotapi.NewMessage(userID, "⚠️ "+res.UserMessage)
+		text := b.Msg(userID, "mod_warn_header") + "\n\n" + res.UserMessage
+		m := tgbotapi.NewMessage(userID, text)
 		if _, err := b.api.Send(m); err != nil {
 			b.logger.Warnf("moderation warning DM user=%d: %v", userID, err)
 		}

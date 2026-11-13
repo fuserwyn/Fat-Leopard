@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { MAX_CUP_LEVEL, miniappLevelEmoji, miniappLevelMinCups, miniappLevelName } from "../lib/miniappLevel";
+import { useI18n } from "../lib/I18nContext";
 import "./LevelCarousel.css";
 
 type Props = {
@@ -21,6 +22,7 @@ function cupsHint(level: number): string {
  * paged with arrows. Current and past levels are bright; locked ones are muted but visible.
  */
 export function LevelCarousel({ currentLevel }: Props) {
+  const { lang } = useI18n();
   const current = Math.min(Math.max(1, Math.floor(currentLevel) || 1), MAX_CUP_LEVEL);
   const [shown, setShown] = useState(current);
 
@@ -54,7 +56,7 @@ export function LevelCarousel({ currentLevel }: Props) {
         </span>
         <span className="level-carousel__text">
           <span className="level-carousel__title">
-            Level {shown} · {miniappLevelName(shown)}
+            Level {shown} · {miniappLevelName(shown, lang)}
             {!unlocked ? <span className="level-carousel__lock" aria-hidden> 🔒</span> : null}
           </span>
           <span className="level-carousel__hint">

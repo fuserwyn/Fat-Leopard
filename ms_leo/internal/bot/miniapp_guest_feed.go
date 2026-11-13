@@ -99,5 +99,3 @@ func (b *Bot) PackGuestFeedForViewer(viewerUserID int64) (GuestFeedView, error) 
 	return out, nil
 }
 
-// guestFeedButtonText — web_app-кнопка под способами оплаты: открыть ленту стаи гостем.
-const guestFeedButtonText = "👀 Browse Pack feed (guest)"

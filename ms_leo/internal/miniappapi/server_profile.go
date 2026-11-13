@@ -155,6 +155,7 @@ func (s *Server) handlePostProfileLoad(w http.ResponseWriter, r *http.Request) {
 		s.jsonErr(w, http.StatusServiceUnavailable, "pack_not_configured")
 		return
 	}
+	uiLang := s.bot.SeedMiniappUILangIfEmpty(parsed.User.ID, packID, parsed.User.LanguageCode)
 	g, d, a := s.bot.GetMiniappUserProfileJSONForAPI(parsed.User.ID, packID)
 	tz := s.bot.GetTimezoneOffsetForAPI(parsed.User.ID, packID)
 	stats := s.bot.GetMiniappProfileStatsForAPI(parsed.User.ID, packID)
@@ -169,6 +170,7 @@ func (s *Server) handlePostProfileLoad(w http.ResponseWriter, r *http.Request) {
 		"gender":                     g,
 		"display_name":               d,
 		"theme":                      theme,
+		"ui_lang":                    uiLang,
 		"timezone_offset":            tz,
 		"timezone_name":              s.bot.GetTimezoneNameForAPI(parsed.User.ID, packID),
 		"xp":                         stats.XP,
@@ -279,6 +281,7 @@ func (s *Server) handlePostProfileSave(w http.ResponseWriter, r *http.Request) {
 		TimezoneOffset *int    `json:"timezone_offset"`
 		TimezoneName   *string `json:"timezone_name"`
 		Theme          *string `json:"theme"`
+		UILang         *string `json:"ui_lang"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		s.jsonErr(w, http.StatusBadRequest, "invalid_json")
@@ -336,6 +339,13 @@ func (s *Server) handlePostProfileSave(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if body.UILang != nil {
+		if err := s.bot.SaveMiniappUILangFromMiniapp(parsed.User.ID, packID, *body.UILang); err != nil {
+			s.logger.Errorf("miniapp ui_lang save: %v", err)
+			s.jsonErr(w, http.StatusBadRequest, "invalid_ui_lang")
+			return
+		}
+	}
 	if body.TimezoneOffset != nil {
 		if err := s.bot.SaveTimezoneOffsetFromMiniapp(parsed.User.ID, packID, *body.TimezoneOffset); err != nil {
 			s.logger.Errorf("miniapp tz save: %v", err)
@@ -354,12 +364,17 @@ func (s *Server) handlePostProfileSave(w http.ResponseWriter, r *http.Request) {
 	kickAt := s.bot.GetMiniappInactivityRemovalDeadlineRFC3339(parsed.User.ID, packID)
 	packWeekly := s.bot.GetMiniappPackWeeklyProgressForAPI(packID)
 	theme := s.bot.GetMiniappThemeForAPI(parsed.User.ID, packID)
+	uiLang := s.bot.GetMiniappUILangForAPI(parsed.User.ID, packID)
+	if uiLang == "" {
+		uiLang = s.bot.SeedMiniappUILangIfEmpty(parsed.User.ID, packID, parsed.User.LanguageCode)
+	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	out := map[string]any{
 		"ok":                         true,
 		"gender":                     g,
 		"display_name":               d,
 		"theme":                      theme,
+		"ui_lang":                    uiLang,
 		"timezone_offset":            tz,
 		"timezone_name":              s.bot.GetTimezoneNameForAPI(parsed.User.ID, packID),
 		"xp":                         stats.XP,

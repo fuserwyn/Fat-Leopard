@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"leo-bot/internal/config"
+	"leo-bot/internal/i18n"
 )
 
 func TestGuestFeedName(t *testing.T) {
@@ -54,7 +55,8 @@ func TestPackGuestFeedForViewer_NoDB(t *testing.T) {
 func TestPaywallUnpaidInlineKeyboard_GuestFeedButton(t *testing.T) {
 	cfg := &config.Config{PaymentCurrency: "XTR", PaymentAmountMinorUnits: 100}
 	b := &Bot{config: cfg}
-	kb := b.paywallUnpaidInlineKeyboard()
+	const testUserID int64 = 42
+	kb := b.paywallUnpaidInlineKeyboard(testUserID)
 	if kb == nil {
 		t.Fatal("нет клавиатуры оплаты")
 	}
@@ -67,14 +69,14 @@ func TestPaywallUnpaidInlineKeyboard_GuestFeedButton(t *testing.T) {
 	}
 
 	cfg.MiniappWebAppURL = "https://app.example.test/"
-	kb = b.paywallUnpaidInlineKeyboard()
+	kb = b.paywallUnpaidInlineKeyboard(testUserID)
 	last := kb.InlineKeyboard[len(kb.InlineKeyboard)-1][0]
-	if last.Text != guestFeedButtonText || last.WebApp == nil || last.WebApp.URL != "https://app.example.test/" {
+	if last.Text != i18n.T(i18n.EN, "guest_feed_btn") || last.WebApp == nil || last.WebApp.URL != "https://app.example.test/" {
 		t.Fatalf("кнопка гостевой ленты: %+v", last)
 	}
 
 	// Нет ни одного способа оплаты — и кнопки ленты нет: экран оплаты не отправляется.
-	if kb := (&Bot{config: &config.Config{MiniappWebAppURL: "https://app.example.test/"}}).paywallUnpaidInlineKeyboard(); kb != nil {
+	if kb := (&Bot{config: &config.Config{MiniappWebAppURL: "https://app.example.test/"}}).paywallUnpaidInlineKeyboard(testUserID); kb != nil {
 		t.Fatalf("без способов оплаты клавиатура не нужна: %+v", kb)
 	}
 }

@@ -8,6 +8,7 @@ import (
 
 	"leo-bot/internal/domain"
 	"leo-bot/internal/game/leopardmoney"
+	"leo-bot/internal/i18n"
 	"leo-bot/internal/utils"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -176,9 +177,9 @@ func (b *Bot) generateAndSendDailyWisdom() {
 		return
 	}
 
-	wisdom, err := b.aiClient.GenerateDailyWisdom()
-	if err != nil {
-		b.logger.Errorf("Failed to generate daily wisdom: %v", err)
+	wisdomEN, errEN := b.aiClient.GenerateDailyWisdomLang(i18n.EN)
+	if errEN != nil {
+		b.logger.Errorf("Failed to generate daily wisdom EN: %v", errEN)
 		candidates := []string{
 			"Inner quiet beats outer noise. Discipline is self-care. Start small and stay on the path.",
 			"Spirit grows in simple steps. Pick one thing today — and do it calmly.",
@@ -186,17 +187,24 @@ func (b *Bot) generateAndSendDailyWisdom() {
 			"Let the workout be short but honest. Consistency beats bursts.",
 			"Don't wait for the perfect moment. Make it. Patience and motion are allies."}
 		idx := int(time.Now().Unix() % int64(len(candidates)))
-		wisdom = candidates[idx]
+		wisdomEN = candidates[idx]
 	} else {
-		wisdom = strings.ReplaceAll(wisdom, "**", "")
+		wisdomEN = strings.ReplaceAll(wisdomEN, "**", "")
 	}
 
-	b.saveDailyWisdomPackFeed(wisdom)
+	wisdomRU, errRU := b.aiClient.GenerateDailyWisdomLang(i18n.RU)
+	if errRU != nil {
+		b.logger.Warnf("Failed to generate daily wisdom RU: %v", errRU)
+		wisdomRU = wisdomEN
+	} else {
+		wisdomRU = strings.ReplaceAll(wisdomRU, "**", "")
+	}
 
-	// Сохраняем мудрость за сегодня, чтобы подписчики (см. startDailyWisdomSubscriptionScheduler)
-	// получили её в личку в свой локальный час.
+	// Pack feed posts EN by default (admin/tracker stay English).
+	b.saveDailyWisdomPackFeed(wisdomEN)
+
 	mskToday := utils.GetMoscowTime().Format("2006-01-02")
-	if err := b.db.SaveDailyWisdomOfDay(mskToday, wisdom); err != nil {
+	if err := b.db.SaveDailyWisdomOfDayBilingual(mskToday, wisdomRU, wisdomEN); err != nil {
 		b.logger.Warnf("save daily wisdom of day: %v", err)
 	}
 
@@ -205,7 +213,7 @@ func (b *Bot) generateAndSendDailyWisdom() {
 		if packChatID != 0 && chatID == packChatID {
 			continue
 		}
-		msg := tgbotapi.NewMessage(chatID, wisdom)
+		msg := tgbotapi.NewMessage(chatID, wisdomEN)
 		b.logger.Infof("Sending daily wisdom to chat %d", chatID)
 		if _, err := b.api.Send(msg); err != nil {
 			b.logger.Errorf("Failed to send daily wisdom to chat %d: %v", chatID, err)

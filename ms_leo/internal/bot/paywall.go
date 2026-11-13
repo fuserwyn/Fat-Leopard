@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"leo-bot/internal/database"
+	"leo-bot/internal/i18n"
 	"leo-bot/internal/yookassa"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -61,54 +62,62 @@ func paywallInvoiceErrLog(err error) string {
 	return err.Error()
 }
 
-// paywallInvoiceShortHintForUser — коротко, без переменных окружения (детали только в логах).
-func paywallInvoiceShortHintForUser(err error) string {
+// paywallInvoiceShortHintForLang — коротко, без переменных окружения (детали только в логах).
+func paywallInvoiceShortHintForLang(lang i18n.Lang, err error) string {
 	if err == nil {
 		return ""
 	}
 	var tgErr *tgbotapi.Error
 	if !errors.As(err, &tgErr) {
-		return "Try again in a moment or pick another payment method."
+		return i18n.T(lang, "paywall_try_later")
 	}
 	m := strings.ToLower(tgErr.Message)
 	switch {
 	case strings.Contains(m, "payment_provider_invalid"):
-		return "Telegram invoices aren't available right now. Try another method with the button below."
+		return i18n.T(lang, "paywall_invoice_unavailable")
 	case strings.Contains(m, "currency_invalid"), strings.Contains(m, "currency_total_amount_invalid"):
-		return "Payment didn't pass validation. Tap /start and request an invoice again."
+		return i18n.T(lang, "paywall_invoice_rejected")
 	case strings.Contains(m, "invoice_payload_invalid"), strings.Contains(m, "invoice_invalid"):
-		return "Telegram rejected the invoice. Update the app or pay by card with another button."
+		return i18n.T(lang, "paywall_invoice_declined")
 	case tgErr.Code == 403 || strings.Contains(m, "blocked"):
-		return "Unblock the bot: ⋮ in chat → Unblock."
+		return i18n.T(lang, "paywall_unblock_bot")
 	case strings.Contains(m, "chat not found") || strings.Contains(m, "user is deactivated"):
-		return "Send the bot any message in DM and tap the button again."
+		return i18n.T(lang, "paywall_write_first")
 	default:
-		return "Couldn't send the invoice. Try card payment with another button or /start later."
+		return i18n.T(lang, "paywall_invoice_send_fail")
 	}
 }
 
-// paywallYookassaShortHintForUser — понятная подсказка пользователю по типовым сбоям создания ссылки ЮKassa.
-func paywallYookassaShortHintForUser(err error) string {
+func (b *Bot) paywallInvoiceShortHintForUser(userID int64, err error) string {
+	return paywallInvoiceShortHintForLang(b.EffectiveUILang(userID), err)
+}
+
+// paywallYookassaShortHintForLang — понятная подсказка по типовым сбоям создания ссылки ЮKassa.
+func paywallYookassaShortHintForLang(lang i18n.Lang, err error) string {
 	if err == nil {
 		return ""
 	}
 	msg := strings.ToLower(strings.TrimSpace(err.Error()))
 	switch {
 	case strings.Contains(msg, "credentials empty"):
-		return "YooKassa payments are temporarily unavailable (keys not set). Contact an admin."
+		return i18n.T(lang, "paywall_yookassa_no_keys")
 	case strings.Contains(msg, "amount must be positive"):
-		return "YooKassa payments are temporarily unavailable (invalid amount). Contact an admin."
+		return i18n.T(lang, "paywall_yookassa_bad_amount")
 	case strings.Contains(msg, "return_url must be http"):
-		return "YooKassa payments are temporarily unavailable (invalid return URL). Contact an admin."
+		return i18n.T(lang, "paywall_yookassa_bad_return")
 	case strings.Contains(msg, "http 401"), strings.Contains(msg, "http 403"):
-		return "YooKassa rejected the request (check store keys). Try again later."
+		return i18n.T(lang, "paywall_yookassa_rejected")
 	case strings.Contains(msg, "http 400"):
-		return "YooKassa returned a payment parameter error. Try again later."
+		return i18n.T(lang, "paywall_yookassa_params")
 	case strings.Contains(msg, "timeout"), strings.Contains(msg, "deadline exceeded"):
-		return "YooKassa is slow to respond. Try again in a minute."
+		return i18n.T(lang, "paywall_yookassa_timeout")
 	default:
-		return "Payment link wasn't created. Try again later."
+		return i18n.T(lang, "paywall_yookassa_no_link")
 	}
+}
+
+func (b *Bot) paywallYookassaShortHintForUser(userID int64, err error) string {
+	return paywallYookassaShortHintForLang(b.EffectiveUILang(userID), err)
 }
 
 // paywallActive — платёжная инфраструктура включена и задана целевая стая.
@@ -205,30 +214,30 @@ Choose how to pay — card for Russia or Telegram Stars anywhere. After payment 
 // Цена пишется прямо в подписи кнопки, чтобы юзер не получал отдельных сообщений
 // с дублированием цены (см. требование пользователя «и в карте и в Starsах сразу
 // в способах оплаты писать стоимость»).
-func (b *Bot) paywallUnpaidInlineKeyboard() *tgbotapi.InlineKeyboardMarkup {
+func (b *Bot) paywallUnpaidInlineKeyboard(userID int64) *tgbotapi.InlineKeyboardMarkup {
 	var rows [][]tgbotapi.InlineKeyboardButton
 	if b.paywallYookassaReady() {
-		label := "💳 Bank card — Russia"
+		label := b.Msg(userID, "paywall_kb_yookassa")
 		if p := b.paywallPriceYookassaShort(); p != "" {
-			label = "💳 Bank card — Russia — " + p
+			label = b.Msg(userID, "paywall_kb_yookassa_price", p)
 		}
 		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData(label, paywallCallbackPayYookassa),
 		))
 	}
 	if b.config.PaywallUsesTelegramProviderInvoice() {
-		label := "💳 Bank card (in Telegram)"
+		label := b.Msg(userID, "paywall_kb_provider")
 		if p := b.paywallPriceProviderShort(); p != "" {
-			label = "💳 Bank card (in Telegram) — " + p
+			label = b.Msg(userID, "paywall_kb_provider_price", p)
 		}
 		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData(label, paywallCallbackPayProvider),
 		))
 	}
 	if b.config.PaywallUsesStars() {
-		label := "⭐ Telegram Stars"
+		label := b.Msg(userID, "paywall_kb_stars")
 		if p := b.paywallPriceStarsShort(); p != "" {
-			label = "⭐ Telegram Stars — " + p
+			label = b.Msg(userID, "paywall_kb_stars_price", p)
 		}
 		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData(label, paywallCallbackPayStars),
@@ -240,7 +249,7 @@ func (b *Bot) paywallUnpaidInlineKeyboard() *tgbotapi.InlineKeyboardMarkup {
 	// Гостевой просмотр: до оплаты можно заглянуть в ленту стаи (без вступления).
 	if url := strings.TrimSpace(b.config.MiniappWebAppURL); url != "" {
 		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonWebApp(guestFeedButtonText, tgbotapi.WebAppInfo{URL: url}),
+			tgbotapi.NewInlineKeyboardButtonWebApp(b.Msg(userID, "guest_feed_btn"), tgbotapi.WebAppInfo{URL: url}),
 		))
 	}
 	return &tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
@@ -255,8 +264,8 @@ func (b *Bot) sendPaywallUnpaidPrivateScreen(chatID int64) error {
 	if _, err := b.api.Send(m); err != nil {
 		return err
 	}
-	if ik := b.paywallUnpaidInlineKeyboard(); ik != nil {
-		methods := tgbotapi.NewMessage(chatID, "Payment methods:")
+	if ik := b.paywallUnpaidInlineKeyboard(chatID); ik != nil {
+		methods := tgbotapi.NewMessage(chatID, b.Msg(chatID, "paywall_methods"))
 		methods.ReplyMarkup = ik
 		if _, err := b.api.Send(methods); err != nil {
 			return err
@@ -267,30 +276,30 @@ func (b *Bot) sendPaywallUnpaidPrivateScreen(chatID int64) error {
 	return nil
 }
 
-func (b *Bot) paywallReturnInlineKeyboard() *tgbotapi.InlineKeyboardMarkup {
+func (b *Bot) paywallReturnInlineKeyboard(userID int64) *tgbotapi.InlineKeyboardMarkup {
 	var rows [][]tgbotapi.InlineKeyboardButton
 	if b.paywallYookassaReady() {
-		label := "💳 Bank card — Russia"
+		label := b.Msg(userID, "paywall_kb_yookassa")
 		if p := b.paywallPriceYookassaShort(); p != "" {
-			label = "💳 Bank card — Russia — " + p
+			label = b.Msg(userID, "paywall_kb_yookassa_price", p)
 		}
 		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData(label, paywallCallbackPayYookassa),
 		))
 	}
 	if b.config.PaywallUsesTelegramProviderInvoice() {
-		label := "💳 Pay by card (Telegram)"
+		label := b.Msg(userID, "paywall_kb_provider_return")
 		if p := b.paywallPriceProviderShort(); p != "" {
-			label = "💳 Pay by card (Telegram) — " + p
+			label = b.Msg(userID, "paywall_kb_provider_return_price", p)
 		}
 		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData(label, paywallCallbackPayProvider),
 		))
 	}
 	if b.config.PaywallUsesStars() {
-		label := "⭐ Telegram Stars"
+		label := b.Msg(userID, "paywall_kb_stars")
 		if p := b.paywallPriceStarsShort(); p != "" {
-			label = "⭐ Telegram Stars — " + p
+			label = b.Msg(userID, "paywall_kb_stars_price", p)
 		}
 		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData(label, paywallCallbackPayStars),
@@ -311,52 +320,71 @@ func paywallReturnPromptText(_ string) string {
 }
 
 func starsWordEN(n int) string {
-	n = n % 100
-	if n >= 11 && n <= 14 {
-		return "Stars"
-	}
-	switch n % 10 {
-	case 1:
-		return "Star"
-	case 2, 3, 4:
-		return "Stars"
-	default:
-		return "Stars"
-	}
+	return starsWordForLang(i18n.EN, n)
 }
 
 func starsChargeVerbEN(n int) string {
-	n = n % 100
-	if n == 1 || (n >= 21 && n%10 == 1) {
-		return "will be charged"
-	}
-	return "will be charged"
+	return starsChargeVerbForLang(i18n.EN, n)
 }
 
-func (b *Bot) paywallStarsMethodText() string {
+func starsWordForLang(lang i18n.Lang, n int) string {
+	n100 := n % 100
+	n10 := n % 10
+	if lang == i18n.RU {
+		if n100 >= 11 && n100 <= 14 {
+			return i18n.T(lang, "stars_word_many")
+		}
+		switch n10 {
+		case 1:
+			return i18n.T(lang, "stars_word_one")
+		case 2, 3, 4:
+			return i18n.T(lang, "stars_word_few")
+		default:
+			return i18n.T(lang, "stars_word_many")
+		}
+	}
+	if n100 >= 11 && n100 <= 14 {
+		return i18n.T(lang, "stars_word_many")
+	}
+	switch n10 {
+	case 1:
+		return i18n.T(lang, "stars_word_one")
+	default:
+		return i18n.T(lang, "stars_word_many")
+	}
+}
+
+func starsChargeVerbForLang(lang i18n.Lang, n int) string {
+	if lang == i18n.RU {
+		n100 := n % 100
+		n10 := n % 10
+		if n10 == 1 && n100 != 11 {
+			return i18n.T(lang, "stars_verb_one")
+		}
+		return i18n.T(lang, "stars_verb_many")
+	}
+	return i18n.T(lang, "stars_verb_many")
+}
+
+func (b *Bot) paywallStarsMethodText(userID int64) string {
 	stars := b.config.PaywallStarsInvoiceAmount()
 	if stars <= 0 {
 		stars = 1
 	}
-	return fmt.Sprintf(
-		"Pay with Telegram Stars.\n\n%d %s %s will be charged from your balance. After successful payment you'll get the mini app button in this chat. If something goes wrong, contact support.\n\nBy tapping «Pay», you accept the offer, Pack rules, and UGC moderation policy. Workouts and comments are visible to Pack members. Personal data is processed to run the service.",
-		stars, starsWordEN(stars), starsChargeVerbEN(stars),
-	)
+	lang := b.EffectiveUILang(userID)
+	return i18n.T(lang, "paywall_stars_body", stars, starsWordForLang(lang, stars), starsChargeVerbForLang(lang, stars))
 }
 
-func (b *Bot) paywallCardMethodText() string {
+func (b *Bot) paywallCardMethodText(userID int64) string {
 	price := b.paywallPriceYookassaShort()
 	if strings.TrimSpace(price) == "" {
-		price = "amount per plan"
+		price = b.Msg(userID, "paywall_amount_fallback")
 	}
-	return fmt.Sprintf(
-		"Pay by bank card.\n\nRussian cards accepted. %s will be charged; after payment you'll get the mini app button in this chat. If something goes wrong, contact support.\n\nBy tapping «Pay», you accept the offer, Pack rules, and UGC moderation policy. Workouts and comments are visible to Pack members. Personal data is processed to run the service.",
-		price,
-	)
+	return b.Msg(userID, "paywall_card_body", price)
 }
 
 // paywallStarsInvoiceReplyMarkup — Pay (свой текст) + «Назад»; первая кнопка обязана быть Pay (Telegram API).
-func (b *Bot) paywallStarsInvoiceReplyMarkup() *tgbotapi.InlineKeyboardMarkup {
+func (b *Bot) paywallStarsInvoiceReplyMarkup(userID int64) *tgbotapi.InlineKeyboardMarkup {
 	stars := b.config.PaywallStarsInvoiceAmount()
 	if stars <= 0 {
 		stars = 1
@@ -364,7 +392,7 @@ func (b *Bot) paywallStarsInvoiceReplyMarkup() *tgbotapi.InlineKeyboardMarkup {
 	return &tgbotapi.InlineKeyboardMarkup{
 		InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
 			{{
-				Text: fmt.Sprintf("Pay ⭐%d", stars),
+				Text: b.Msg(userID, "paywall_pay_stars_btn", stars),
 				Pay:  true,
 			}},
 			tgbotapi.NewInlineKeyboardRow(
@@ -444,19 +472,19 @@ func (b *Bot) paywallSendPaymentOffers(userID, reqID int64) {
 	if b.paywallYookassaReady() {
 		if err := b.SendYookassaPaymentLink(userID, reqID); err != nil {
 			b.logger.Errorf("paywall yookassa link: %v", err)
-			b.paywallNotifyUser(userID, "⚠️ "+paywallYookassaShortHintForUser(err))
+			b.paywallNotifyUser(userID, "⚠️ "+b.paywallYookassaShortHintForUser(userID, err))
 		}
 	}
 	if b.config.PaywallUsesTelegramProviderInvoice() {
 		if err := b.SendPaywallProviderInvoice(userID, reqID); err != nil {
 			b.logger.Errorf("paywall provider invoice: %s", paywallInvoiceErrLog(err))
-			b.paywallNotifyUser(userID, "⚠️ "+paywallInvoiceShortHintForUser(err))
+			b.paywallNotifyUser(userID, "⚠️ "+b.paywallInvoiceShortHintForUser(userID, err))
 		}
 	}
 	if b.config.PaywallUsesStars() {
 		if err := b.SendPaywallStarsInvoice(userID, reqID); err != nil {
 			b.logger.Errorf("paywall stars invoice: %s", paywallInvoiceErrLog(err))
-			b.paywallNotifyUser(userID, "⚠️ "+paywallInvoiceShortHintForUser(err))
+			b.paywallNotifyUser(userID, "⚠️ "+b.paywallInvoiceShortHintForUser(userID, err))
 		}
 	}
 }
@@ -514,7 +542,7 @@ func (b *Bot) SendPaywallStarsInvoice(userID, reqID int64) error {
 	}
 	payload := fmt.Sprintf("%s%d", paywallPayloadPrefix, reqID)
 	prices := []tgbotapi.LabeledPrice{{Label: "Pack access", Amount: amt}}
-	title, desc := paywallStarsInvoiceTitleAndDesc(b.paywallStarsMethodText())
+	title, desc := paywallStarsInvoiceTitleAndDesc(b.paywallStarsMethodText(userID))
 	inv := tgbotapi.NewInvoice(
 		userID,
 		title,
@@ -528,7 +556,7 @@ func (b *Bot) SendPaywallStarsInvoice(userID, reqID int64) error {
 	// Workaround for Telegram API validation: library may encode nil as null.
 	// Telegram expects an array for suggested_tip_amounts when field is present.
 	inv.SuggestedTipAmounts = []int{}
-	inv.ReplyMarkup = b.paywallStarsInvoiceReplyMarkup()
+	inv.ReplyMarkup = b.paywallStarsInvoiceReplyMarkup(userID)
 	_, err := b.api.Send(inv)
 	return err
 }
@@ -687,7 +715,7 @@ func (b *Bot) handlePaywallPayStarsCallback(callback *tgbotapi.CallbackQuery) {
 	// Один счёт: полный текст + «Оплатить ⭐N» + «Назад» (Telegram Stars).
 	if err := b.SendPaywallStarsInvoice(uid, reqID); err != nil {
 		b.logger.Errorf("paywall stars invoice: %s", paywallInvoiceErrLog(err))
-		h := paywallInvoiceShortHintForUser(err)
+		h := b.paywallInvoiceShortHintForUser(uid, err)
 		if len(h) > 180 {
 			h = h[:177] + "…"
 		}
@@ -738,7 +766,7 @@ func (b *Bot) handlePaywallPayYookassaCallback(callback *tgbotapi.CallbackQuery)
 			return
 		}
 		b.logger.Errorf("paywall yookassa create payment: %v", err)
-		h := paywallYookassaShortHintForUser(err)
+		h := b.paywallYookassaShortHintForUser(uid, err)
 		if strings.Contains(err.Error(), "already succeeded") {
 			h = "Payment already went through. Tap /start — access should open."
 		} else if strings.Contains(err.Error(), "still pending") || strings.Contains(err.Error(), "waiting_for_capture") {
@@ -755,7 +783,7 @@ func (b *Bot) handlePaywallPayYookassaCallback(callback *tgbotapi.CallbackQuery)
 	// заменяем кнопки выбора способа в исходном сообщении на одну URL-кнопку с готовой ссылкой ЮKassa.
 	// Юзер делает один тап и сразу попадает на страницу оплаты — без промежуточного экрана.
 	payButton := b.paywallCardMethodInlineKeyboard(confirmURL)
-	step := tgbotapi.NewMessage(uid, b.paywallCardMethodText())
+	step := tgbotapi.NewMessage(uid, b.paywallCardMethodText(uid))
 	step.ReplyMarkup = payButton
 	if _, err := b.api.Send(step); err != nil {
 		b.logger.Errorf("paywall yk callback send step message: %v", err)
@@ -809,14 +837,14 @@ func (b *Bot) handlePaywallPayProviderCallback(callback *tgbotapi.CallbackQuery)
 	}
 	if err := b.SendPaywallProviderInvoice(uid, reqID); err != nil {
 		b.logger.Errorf("paywall provider invoice: %s", paywallInvoiceErrLog(err))
-		h := paywallInvoiceShortHintForUser(err)
+		h := b.paywallInvoiceShortHintForUser(uid, err)
 		if len(h) > 180 {
 			h = h[:177] + "…"
 		}
 		_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, h))
 		return
 	}
-	_, _ = b.api.Request(tgbotapi.NewCallback(callback.ID, "Invoice sent — open it above and tap «Pay»."))
+	_, _ = b.api.Request(tgbotapi.NewCallbackWithAlert(callback.ID, "Invoice sent — open it above and tap «Pay»."))
 }
 
 func (b *Bot) handlePaywallReturnToPackCallback(callback *tgbotapi.CallbackQuery) {
@@ -834,7 +862,7 @@ func (b *Bot) handlePaywallReturnToPackCallback(callback *tgbotapi.CallbackQuery
 	}
 
 	msg := tgbotapi.NewMessage(callback.From.ID, paywallReturnPromptText(""))
-	msg.ReplyMarkup = b.paywallReturnInlineKeyboard()
+	msg.ReplyMarkup = b.paywallReturnInlineKeyboard(callback.From.ID)
 	if msg.ReplyMarkup == nil {
 		msg.Text = "⚠️ Payment is temporarily unavailable in your region. Try later."
 	}

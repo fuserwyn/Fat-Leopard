@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"leo-bot/internal/database"
+	"leo-bot/internal/i18n"
 	"leo-bot/internal/utils"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -102,14 +103,12 @@ func (b *Bot) runDailyWisdomSubscriptionSweep() {
 	if len(candidates) == 0 {
 		return
 	}
-	// Час у кого-то настал? Тогда достаём сегодняшнюю мудрость один раз на всю итерацию.
-	wisdom, ok, err := b.db.GetLatestDailyWisdom()
+	wisdomEN, wisdomRU, ok, err := b.db.GetLatestDailyWisdomBilingual()
 	if err != nil {
 		b.logger.Errorf("daily wisdom subscription sweep: get latest wisdom: %v", err)
 		return
 	}
-	if !ok || strings.TrimSpace(wisdom) == "" {
-		// Мудрость ещё не сгенерирована (например, до первого 04:20 после деплоя) — молча ждём.
+	if !ok || (strings.TrimSpace(wisdomEN) == "" && strings.TrimSpace(wisdomRU) == "") {
 		return
 	}
 	now := utils.GetMoscowTime()
@@ -122,6 +121,12 @@ func (b *Bot) runDailyWisdomSubscriptionSweep() {
 		if !due {
 			continue
 		}
+		wisdom := wisdomEN
+		if b.EffectiveUILang(c.UserID) == i18n.RU && strings.TrimSpace(wisdomRU) != "" {
+			wisdom = wisdomRU
+		} else if strings.TrimSpace(wisdom) == "" {
+			wisdom = wisdomRU
+		}
 		b.sendDailyWisdomDM(c.UserID, c.Username, wisdom)
 		if err := b.db.MarkWisdomSubscriptionSent(c.UserID, packChatID, todayLocal); err != nil {
 			b.logger.Warnf("daily wisdom subscription mark sent user=%d: %v", c.UserID, err)
@@ -133,11 +138,14 @@ func (b *Bot) runDailyWisdomSubscriptionSweep() {
 	}
 }
 
-func dailyWisdomDMText(username, wisdom string) string {
+func dailyWisdomDMText(lang i18n.Lang, username, wisdom string) string {
 	who := normalizeUserDisplayName(username)
 	prefix := ""
 	if strings.TrimSpace(who) != "" {
 		prefix = who + ", "
+	}
+	if lang == i18n.RU {
+		return "🐆 " + prefix + "мудрость дня от Лео:\n\n" + strings.TrimSpace(wisdom)
 	}
 	return "🐆 " + prefix + "daily wisdom from Leo:\n\n" + strings.TrimSpace(wisdom)
 }
@@ -147,7 +155,7 @@ func (b *Bot) sendDailyWisdomDM(userID int64, username, wisdom string) {
 	if b == nil || userID == 0 || strings.TrimSpace(wisdom) == "" {
 		return
 	}
-	text := dailyWisdomDMText(username, wisdom)
+	text := dailyWisdomDMText(b.EffectiveUILang(userID), username, wisdom)
 	b.miniappPersonalPush(userID, text)
 	if b.api == nil {
 		return

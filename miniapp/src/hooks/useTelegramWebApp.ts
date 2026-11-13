@@ -14,6 +14,7 @@ export function useTelegramWebApp() {
   const [userId, setUserId] = useState(0);
 
   const [photoUrl, setPhotoUrl] = useState<string | undefined>(undefined);
+  const [languageCode, setLanguageCode] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     const w = window.Telegram?.WebApp;
@@ -120,6 +121,8 @@ export function useTelegramWebApp() {
       setUserId(u.id);
       const p = (u as { photo_url?: string }).photo_url;
       if (p && typeof p === "string") setPhotoUrl(p);
+      const lc = (u as { language_code?: string }).language_code;
+      if (lc && typeof lc === "string") setLanguageCode(lc);
     }
     return () => {
       window.clearInterval(initDataTimer);
@@ -139,6 +142,7 @@ export function useTelegramWebApp() {
     initData,
     userId,
     photoUrl,
+    languageCode,
     // Валидный initData = запуск из Telegram, даже если объект WebApp ещё не
     // инициализировался (гонка загрузки скрипта). Иначе транзиентный сбой
     // навсегда показывал бы «открой из Telegram».

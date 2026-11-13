@@ -21,8 +21,20 @@ type AIQuestionUserPayload struct {
 
 const emptyBlock = "— none —"
 
-// GameRulesBlock — short rules for the Rules / policies section.
+// GameRulesBlock — short rules for the Rules / policies section (EN).
 func GameRulesBlock() string {
+	return GameRulesBlockLang("en")
+}
+
+// GameRulesBlockLang — rules block for Leo context (ru|en).
+func GameRulesBlockLang(lang string) string {
+	if lang == "ru" {
+		return strings.TrimSpace(`Fat Leopard / стая:
+• Тренировки только через мини-апп (форма «+»), не хештегами в чате
+• #sick_leave — пауза таймера неактивности; #healthy — продолжение с тем же остатком
+• Таймер неактивности ~7 дней; предупреждения перед удалением из чата
+• Кубки за отчёты по формуле; стрик — подряд дни с тренировкой; ачивки на порогах стрика`)
+	}
 	return strings.TrimSpace(`Fat Leopard / pack:
 • Log workouts only via the mini app (“+” form), not hashtags in chat
 • #sick_leave — pauses inactivity timer; #healthy — resume with the same deadline left

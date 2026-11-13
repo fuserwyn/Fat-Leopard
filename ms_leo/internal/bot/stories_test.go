@@ -73,7 +73,7 @@ func TestStory2ReturnKeyboardVariants(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			b := &Bot{config: tc.cfg}
-			kb := b.paywallReturnInlineKeyboard()
+			kb := b.paywallReturnInlineKeyboard(1)
 			if kb == nil {
 				t.Fatal("expected keyboard")
 			}

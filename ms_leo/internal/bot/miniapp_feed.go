@@ -434,13 +434,17 @@ func parsePackFeedTime(s string) time.Time {
 
 // packFeedItemFromRow конвертирует строку ленты в PackFeedItem (с пометкой закрепа).
 func (b *Bot) packFeedItemFromRow(r *domain.PackActivityRow, viewerUserID, chatID int64, packTitle string) PackFeedItem {
+	text := r.MessageText
+	if r.MessageType == userMessageTypeDailyWisdom {
+		text = b.localizeDailyWisdomForViewer(viewerUserID, r.CreatedAt, r.MessageText)
+	}
 	item := PackFeedItem{
 		ID:               r.ID,
 		UserID:           r.UserID,
 		Username:         r.Username,
 		Type:             r.MessageType,
 		Source:           "feed",
-		Text:             r.MessageText,
+		Text:             text,
 		CreatedAt:        r.CreatedAt.UTC().Format("2006-01-02T15:04:05Z07:00"),
 		StreakDays:       r.StreakDays,
 		IsYou:            r.UserID == viewerUserID,
