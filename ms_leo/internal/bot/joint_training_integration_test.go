@@ -151,7 +151,10 @@ func TestSearchJointTrainingMentionsForViewer(t *testing.T) {
 	seedMember(t, db, anna, "", false)
 	seedMember(t, db, kicked, "vasilisa", true)
 	for uid, name := range map[int64]string{anya: "Аня", anna: "Анна Петрова"} {
-		if _, err := db.Exec(`INSERT INTO miniapp_user_profile (user_id, pack_chat_id, display_name) VALUES ($1, $2, $3)`, uid, itPack, name); err != nil {
+		if _, err := db.Exec(
+			`UPDATE miniapp_user_profile SET display_name = $3, updated_at = NOW() WHERE user_id = $1 AND pack_chat_id = $2`,
+			uid, itPack, name,
+		); err != nil {
 			t.Fatal(err)
 		}
 	}
