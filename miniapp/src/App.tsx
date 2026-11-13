@@ -33,11 +33,7 @@ import { I18nProvider } from "./lib/I18nContext";
 import { getStoredUILang, hydrateUILangFromServer } from "./lib/uiLang";
 import { PACK_WEEKLY_GOAL_DEFAULT } from "./lib/packWeeklyGoal";
 import { buildOptimisticTrainingFeedItem, type PackFeedItemDTO } from "./lib/packFeed";
-import { WORKOUT_CATEGORY_OPTIONS, type WorkoutCategoryId } from "./lib/workoutCategories";
-
-const WORKOUT_KIND_LABEL: Record<string, string> = Object.fromEntries(
-  WORKOUT_CATEGORY_OPTIONS.map((o) => [o.id, o.label]),
-);
+import { formatTrainingReportLine, workoutCategoryLabel, type WorkoutCategoryId } from "./lib/workoutCategories";
 import { parseSuggestedWorkoutTypes } from "./lib/workoutSuggest";
 import { sendMiniappPrivateText, sendMiniappTrainingWithPhoto } from "./lib/miniappPrivateSend";
 import { isModerationError, moderationUserMessage } from "./lib/moderationMessages";
@@ -696,12 +692,13 @@ export function App() {
               showAlert("Open the miniapp from Telegram (initData required).");
               return false;
             }
+            const uiLang = getStoredUILang();
             const kind = types
-              .map((t) =>
-                t === "other" && otherLabel?.trim() ? otherLabel.trim() : WORKOUT_KIND_LABEL[t] ?? t,
+              .map((id) =>
+                id === "other" && otherLabel?.trim() ? otherLabel.trim() : workoutCategoryLabel(id, uiLang),
               )
               .join(" + ");
-            const base = `${kind}, ${min} min, intensity ${intensity}/5`;
+            const base = formatTrainingReportLine(kind, min, intensity, uiLang);
             const line = note ? `${base}\n\n${note}` : base;
             tg?.HapticFeedback?.impactOccurred?.("medium");
             // Отчёт: сервер отдаёт reply_text сразу (стрик, кубки, ачивки).
@@ -727,9 +724,11 @@ export function App() {
             setTab("feed");
             setFeedRefreshToken((v) => v + 1);
             window.setTimeout(() => void refreshTabBadges(), 6000);
-            const summary = formatTrainingDoneAlert(result.replyParts);
+            const summary = formatTrainingDoneAlert(result.replyParts, uiLang);
             const fallback =
-              "Workout logged. Leo's comment will appear in the feed soon.";
+              uiLang === "ru"
+                ? "Тренировка записана. Комментарий Лео скоро появится в ленте."
+                : "Workout logged. Leo's comment will appear in the feed soon.";
             const msg = summary.length > 0 ? summary : fallback;
             setWorkoutDone({
               message: msg.length > 400 ? `${msg.slice(0, 397)}…` : msg,

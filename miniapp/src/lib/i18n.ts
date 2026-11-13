@@ -377,6 +377,12 @@ const en: Dict = {
   "invite.friend.few": "friends",
   "invite.friend.many": "friends",
   "invite.shareText": "Train with me in the Fat Leopard pack — log workouts every day 🐆",
+
+  "workout.doneTitle": "Workout logged!",
+  "workout.doneAria": "Workout logged",
+  "workout.shareStory": "Share to story",
+  "workout.doneClose": "Done",
+  "workout.doneFallback": "Workout logged. Leo's comment will appear in the feed soon.",
 };
 
 const ru: Dict = {
@@ -754,6 +760,12 @@ const ru: Dict = {
   "invite.friend.few": "друга",
   "invite.friend.many": "друзей",
   "invite.shareText": "Тренируйся со мной в стае Fat Leopard — отмечаем тренировки каждый день 🐆",
+
+  "workout.doneTitle": "Тренировка записана!",
+  "workout.doneAria": "Тренировка записана",
+  "workout.shareStory": "В историю",
+  "workout.doneClose": "Готово",
+  "workout.doneFallback": "Тренировка записана. Комментарий Лео скоро появится в ленте.",
 };
 
 const catalogs: Record<UILang, Dict> = { en, ru };

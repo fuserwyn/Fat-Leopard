@@ -614,7 +614,7 @@ export function dtoToCard(d: PackFeedItemDTO, lang: UILang = "ru"): ActivityCard
   } else if (d.type === "sick_leave") {
     commentRaw = stripLeadingFeedHashtag(commentRaw, "#sick_leave");
   } else if (d.type === "training_done") {
-    commentRaw = stripLeadingCategoryFromTrainingReport(stripFirstLineTrainingDoneTag(commentRaw));
+    commentRaw = stripLeadingCategoryFromTrainingReport(stripFirstLineTrainingDoneTag(commentRaw), lang);
   }
   const maxComment =
     d.type === "training_done" ||
@@ -676,7 +676,7 @@ export function dtoToCard(d: PackFeedItemDTO, lang: UILang = "ru"): ActivityCard
     // Сообщение общего чата как карточка ленты: автор + текст (+ фото), без стрика/активности.
     return {
       avatar: (pic || "").trim() || avatarFor(d.username),
-      name: d.is_you ? "You" : d.username || `Member ${d.user_id}`,
+      name: d.is_you ? i18nT(lang, "card.you") : d.username || `Member ${d.user_id}`,
       streak: 0,
       hideStreak: true,
       timeAgo: formatLocalDateTime(d.created_at, lang),
@@ -689,7 +689,7 @@ export function dtoToCard(d: PackFeedItemDTO, lang: UILang = "ru"): ActivityCard
   }
   return {
     avatar: (pic || "").trim() || avatarFor(d.username),
-    name: d.is_you ? "You" : d.username || `Member ${d.user_id}`,
+    name: d.is_you ? i18nT(lang, "card.you") : d.username || `Member ${d.user_id}`,
     streak: d.streak_days,
     timeAgo: formatLocalDateTime(d.created_at, lang),
     emoji: trainingEmoji,

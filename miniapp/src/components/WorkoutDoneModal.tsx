@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useI18n } from "../lib/I18nContext";
 import "./ShareCardSheet.css";
 
 type Props = {
@@ -14,6 +15,7 @@ type Props = {
  * Instagram, TikTok, VK stories and chats.
  */
 export function WorkoutDoneModal({ message, onShare, onClose }: Props) {
+  const { t } = useI18n();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -28,19 +30,19 @@ export function WorkoutDoneModal({ message, onShare, onClose }: Props) {
         className="workout-done"
         role="dialog"
         aria-modal="true"
-        aria-label="Workout logged"
+        aria-label={t("workout.doneAria")}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="workout-done__emoji" aria-hidden>
           🎉
         </div>
-        <div className="workout-done__title">Workout logged!</div>
+        <div className="workout-done__title">{t("workout.doneTitle")}</div>
         <div className="workout-done__message">{message}</div>
         <button type="button" className="share-brag-btn" onClick={onShare}>
-          Share to story
+          {t("workout.shareStory")}
         </button>
         <button type="button" className="share-card-sheet__close" onClick={onClose}>
-          Done
+          {t("workout.doneClose")}
         </button>
       </div>
     </div>

@@ -447,11 +447,14 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 			return
 		}
 
+		// Пользователю — коротко; сырой JSON/401 в UI не тащим (детали только в лог выше).
 		var et string
 		if strings.Contains(err.Error(), "context deadline exceeded") || strings.Contains(err.Error(), "Client.Timeout") {
-			et = "❌ AI didn't respond in time. Try again or ask a shorter question."
+			et = "❌ Лео не успел ответить. Попробуй ещё раз или сформулируй короче."
+		} else if strings.Contains(err.Error(), "401") || strings.Contains(err.Error(), "User not found") {
+			et = "❌ Лео сейчас без доступа к ИИ (ключ OpenRouter). Тренировка уже записана — комментарий появится, когда ключ починят."
 		} else {
-			et = fmt.Sprintf("❌ Failed to generate AI reply: %v", err)
+			et = "❌ Лео сейчас не смог ответить. Тренировка записана — попробуй спросить ещё раз чуть позже."
 		}
 		miniReply(et)
 		if !skipTelegram {

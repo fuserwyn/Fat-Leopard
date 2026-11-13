@@ -31,7 +31,7 @@ describe("parseReferralState", () => {
 
 describe("texts", () => {
   it("declines friends", () => {
-    expect([1, 2, 5, 11, 21, 22, 10].map(friendsWord)).toEqual(["friend", "friends", "friends", "friends", "friends", "friends", "friends"]);
+    expect([1, 2, 5, 11, 21, 22, 10].map((n) => friendsWord(n))).toEqual(["friend", "friends", "friends", "friends", "friends", "friends", "friends"]);
   });
 
   it("shows progress to the next streak save", () => {

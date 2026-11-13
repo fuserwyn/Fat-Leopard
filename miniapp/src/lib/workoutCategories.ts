@@ -299,18 +299,44 @@ export function parseTrainingDoneCategories(text: string): WorkoutCategoryId[] {
   return ids;
 }
 
-/** В ленте показываем полное слово вместо устаревшего «инт.». */
-export function expandTrainingIntensityLabel(text: string): string {
+/** Мета отчёта: минуты + интенсивность на языке UI. */
+export function formatTrainingReportMeta(min: number, intensity: number, lang: UILang = "en"): string {
+  const m = Math.max(0, Math.floor(min));
+  const i = Math.min(5, Math.max(1, Math.floor(intensity)));
+  if (lang === "ru") return `${m} мин, интенсивность ${i}/5`;
+  return `${m} min, intensity ${i}/5`;
+}
+
+/** Первая строка отчёта для API/ленты: «Зарядка, 15 мин, интенсивность 3/5». */
+export function formatTrainingReportLine(
+  kindLabel: string,
+  min: number,
+  intensity: number,
+  lang: UILang = "en",
+): string {
+  const kind = kindLabel.trim() || (lang === "ru" ? "Тренировка" : "Workout");
+  return `${kind}, ${formatTrainingReportMeta(min, intensity, lang)}`;
+}
+
+/** В ленте показываем полное слово вместо устаревшего «инт.» — на языке UI. */
+export function expandTrainingIntensityLabel(text: string, lang: UILang = "en"): string {
+  if (lang === "ru") {
+    return text
+      .replace(/\bmin\b/gi, "мин")
+      .replace(/intensity\s*/gi, "интенсивность ")
+      .replace(/инт\.\s*/gi, "интенсивность ");
+  }
   return text
     .replace(/инт\.\s*/gi, "intensity ")
-    .replace(/интенсивность\s*/gi, "intensity ");
+    .replace(/интенсивность\s*/gi, "intensity ")
+    .replace(/\bмин\b/gi, "min");
 }
 
 /**
  * Убирает ведущее «бег, » / «плавание, » из тела поста — тип уже в заголовке карточки.
  * Формат: «вид, N мин, интенсивность …» (+ опциональный комментарий на следующих строках).
  */
-export function stripLeadingCategoryFromTrainingReport(text: string): string {
+export function stripLeadingCategoryFromTrainingReport(text: string, lang: UILang = "en"): string {
   const trimmed = text.trim();
   if (!trimmed) return trimmed;
 
@@ -325,7 +351,7 @@ export function stripLeadingCategoryFromTrainingReport(text: string): string {
   if (!/\d+\s*(?:мин|min)/i.test(afterKind)) return trimmed;
 
   const body = rest ? `${afterKind}\n${rest}` : afterKind;
-  return expandTrainingIntensityLabel(body.trim());
+  return expandTrainingIntensityLabel(body.trim(), lang);
 }
 
 /** Совпадение с выбранным фильтром категории (для `training_done`). Пост с несколькими видами матчится по любому из них. */
