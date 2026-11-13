@@ -6,7 +6,7 @@ function dateLocale(lang: UILang): string {
 }
 
 /** Rough relative time from now. */
-export function timeAgoFromISO(iso: string, now = Date.now(), lang: UILang = "ru"): string {
+export function timeAgoFromISO(iso: string, now = Date.now(), lang: UILang = "en"): string {
   const t = new Date(iso).getTime();
   if (Number.isNaN(t)) return "—";
   const s = Math.max(0, Math.floor((now - t) / 1000));
@@ -25,7 +25,7 @@ export function timeAgoFromISO(iso: string, now = Date.now(), lang: UILang = "ru
  * Local date and time for feed and chats (device timezone).
  * Accepts ISO string or unix millis.
  */
-export function formatChatTime(input: string | number, lang: UILang = "ru"): string {
+export function formatChatTime(input: string | number, lang: UILang = "en"): string {
   const t = typeof input === "number" ? input : new Date(input).getTime();
   if (Number.isNaN(t)) return "";
   const d = new Date(t);

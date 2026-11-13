@@ -12,18 +12,18 @@ function ruPluralForm(n: number): 0 | 1 | 2 {
 }
 
 /** День / дня / дней; day / days (integer ≥ 0). */
-export function daysWord(n: number, lang: UILang = "ru"): string {
+export function daysWord(n: number, lang: UILang = "en"): string {
   if (lang === "en") return n === 1 ? "day" : "days";
   return (["день", "дня", "дней"] as const)[ruPluralForm(n)];
 }
 
 /** Lang-aware alias (default ru). */
-export function daysWordRu(n: number, lang: UILang = "ru"): string {
+export function daysWordRu(n: number, lang: UILang = "en"): string {
   return daysWord(n, lang);
 }
 
 /** For aria / pack feed streak badge hints. */
-export function streakStreakAriaLabel(days: number, lang: UILang = "ru"): string {
+export function streakStreakAriaLabel(days: number, lang: UILang = "en"): string {
   if (lang === "en") {
     if (days <= 0) return "Streak: no consecutive workout days yet";
     return `Streak: ${days} ${daysWord(days, "en")} in a row`;
@@ -153,7 +153,7 @@ export function streakBurnLabel(
   daysSinceLastTraining: number,
   now: Date = new Date(),
   lastTrainingDate?: string | null,
-  lang: UILang = "ru",
+  lang: UILang = "en",
 ): string | null {
   const { days, frozen } = resolveStreakIdleDays(daysSinceLastTraining, now, lastTrainingDate);
   if (frozen || days >= 2) return null;
@@ -184,7 +184,7 @@ const STREAK_SAVE_HINTS: Record<UILang, Record<string, string>> = {
 export function streakSaveHint(
   daysSinceLastTraining: number,
   attemptsAvail: number,
-  lang: UILang = "ru",
+  lang: UILang = "en",
 ): string | null {
   const reason = streakSaveWindowError(daysSinceLastTraining, attemptsAvail);
   const hints = STREAK_SAVE_HINTS[lang];
@@ -211,12 +211,12 @@ export function canUseStreakSave(daysSinceLastTraining: number, attemptsAvail: n
 }
 
 /** “cup” / “cups” (ru: кубок / кубка / кубков) for progress counter. */
-export function cupsWord(n: number, lang: UILang = "ru"): string {
+export function cupsWord(n: number, lang: UILang = "en"): string {
   if (lang === "en") return n === 1 ? "cup" : "cups";
   return (["кубок", "кубка", "кубков"] as const)[ruPluralForm(n)];
 }
 
 /** Lang-aware alias (default ru). */
-export function cupsWordRu(n: number, lang: UILang = "ru"): string {
+export function cupsWordRu(n: number, lang: UILang = "en"): string {
   return cupsWord(n, lang);
 }

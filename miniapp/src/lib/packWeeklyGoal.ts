@@ -16,7 +16,7 @@ export const PACK_WEEKLY_GOAL_DEFAULT = 75;
 export const PACK_WEEKLY_PROGRESS_STEPS = 5;
 
 /** Подсказка к недельной цели стаи для конкретной цели (берётся с сервера). */
-export function packWeeklyGoalHint(goal: number = PACK_WEEKLY_GOAL_DEFAULT, lang: UILang = "ru"): string {
+export function packWeeklyGoalHint(goal: number = PACK_WEEKLY_GOAL_DEFAULT, lang: UILang = "en"): string {
   const safeGoal = Number.isFinite(goal) && goal > 0 ? Math.floor(goal) : PACK_WEEKLY_GOAL_DEFAULT;
   if (lang === "ru") {
     return `Если стая запишет ${safeGoal} ${workoutsWordRu(safeGoal)} за неделю, все получат 50 бонусных кубков. Когда неделя закончится, цель на следующую вырастет на 5 тренировок.`;

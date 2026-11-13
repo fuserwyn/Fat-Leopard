@@ -13,6 +13,7 @@ export default mergeConfig(
       // в образе выходило ниже порога. Тестам, которым нужен API, его подставляет
       // vi.stubEnv (src/lib/testApi.ts).
       env: { VITE_MINIAPP_API_URL: "" },
+      setupFiles: ["./src/testSetup.ts"],
       coverage: {
         provider: "v8",
         include: ["src/**/*.{ts,tsx}"],

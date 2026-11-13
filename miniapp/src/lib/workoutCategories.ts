@@ -246,7 +246,7 @@ const KIND_SPLIT_RE = /\s*[+/]\s*/;
  * Заголовок карточки вместо общего «Тренировка»: тип из строки отчёта.
  * Для своего вида из поля «Другое» показываем то, что ввёл пользователь (а не «Другое»).
  */
-export function trainingDoneCategoryDisplayLabel(text: string, lang: UILang = "ru"): string {
+export function trainingDoneCategoryDisplayLabel(text: string, lang: UILang = "en"): string {
   const raw = parseTrainingDoneRawKind(text);
   if (raw === null) return workoutCategoryLabel("other", lang);
   const labelFor = (part: string): string => {

@@ -32,7 +32,7 @@ const MODERATION_MESSAGES: Record<UILang, Record<string, string>> = {
 export function moderationUserMessage(
   code: string | undefined,
   fallback?: string,
-  lang: UILang = "ru",
+  lang: UILang = "en",
 ): string {
   const map = MODERATION_MESSAGES[lang];
   if (code && map[code]) return map[code];
