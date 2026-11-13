@@ -1,5 +1,5 @@
 import { trainingDoneCategoryDisplayLabel } from "./workoutCategories";
-import { cupsWordRu } from "./streakLabel";
+import { cupsWord } from "./streakLabel";
 
 /** Сколько последних тренировок показываем в истории кубков. */
 export const CUPS_HISTORY_LIMIT = 42;
@@ -82,7 +82,7 @@ function parseIntensity(text: string): number | null {
 
 function cupsLabel(n: number): string {
   const cups = Math.max(0, Math.trunc(n));
-  return `+${cups} ${cupsWordRu(cups)}`;
+  return `+${cups} ${cupsWord(cups, "en")}`;
 }
 
 function historyLine(dateLabel: string, workoutType: string, intensity: string, duration: string, awarded: string): string {
@@ -96,7 +96,7 @@ function dateKeyOf(ymd: string): string {
 
 function workoutRow(input: CupsHistoryWorkoutInput): CupsHistoryRow {
   const dateLabel = formatCupsHistoryDate(input.date);
-  const workoutType = trainingDoneCategoryDisplayLabel(input.messageText);
+  const workoutType = trainingDoneCategoryDisplayLabel(input.messageText, "en");
   const intensityN = parseIntensity(input.messageText);
   const durationN = parseDurationMin(input.messageText);
   const intensity = intensityN == null ? "" : `${intensityN}/5`;

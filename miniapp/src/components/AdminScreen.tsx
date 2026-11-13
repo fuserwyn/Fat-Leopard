@@ -1039,7 +1039,7 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
                       {c.needs_reply ? <span className="admin__badge">waiting</span> : null}
                     </div>
                     <p className="admin__row-sub">{clip(c.last_text, 90)}</p>
-                    <span className="admin__row-meta">{timeAgoFromISO(c.last_created)}</span>
+                    <span className="admin__row-meta">{timeAgoFromISO(c.last_created, Date.now(), "en")}</span>
                   </button>
                 </li>
               ))}
@@ -1066,7 +1066,7 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
                     </button>
                   )}
                   {m.text ? <p>{m.text}</p> : null}
-                  <time>{timeAgoFromISO(m.created_at)}</time>
+                  <time>{timeAgoFromISO(m.created_at, Date.now(), "en")}</time>
                 </div>
               );
             })}
@@ -1128,7 +1128,7 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
                 <li key={r.id} className="admin__card">
                   <div className="admin__row-top">
                     <b>{reportKind(r.target_type)}</b>
-                    <span className="admin__row-meta">{timeAgoFromISO(r.created_at)}</span>
+                    <span className="admin__row-meta">{timeAgoFromISO(r.created_at, Date.now(), "en")}</span>
                   </div>
                   <p className="admin__row-sub">{clip(r.target_text || "—", 160)}</p>
                   <p className="admin__row-meta">
@@ -1160,7 +1160,7 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
                 <li key={`${h.kind}-${h.id}`} className="admin__card">
                   <div className="admin__row-top">
                     <b>{hiddenKind(h.kind)}</b>
-                    <span className="admin__row-meta">{timeAgoFromISO(h.created_at)}</span>
+                    <span className="admin__row-meta">{timeAgoFromISO(h.created_at, Date.now(), "en")}</span>
                   </div>
                   <p className="admin__row-sub">{clip(h.text || "—", 160)}</p>
                   <p className="admin__row-meta">{userLabel(h.author_name, undefined, h.author_user_id)}</p>
@@ -1323,7 +1323,7 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
                 <dd>{card.is_deleted ? "kicked" : "yes"}</dd>
               </div>
             </dl>
-            {card.ugc_muted_until ? <p className="admin__warn">UGC mute until {formatChatTime(card.ugc_muted_until)}</p> : null}
+            {card.ugc_muted_until ? <p className="admin__warn">UGC mute until {formatChatTime(card.ugc_muted_until, "en")}</p> : null}
             <p className="admin__row-meta">UGC violations: {card.ugc_violations}</p>
           </div>
           <section className="admin__stats-edit">

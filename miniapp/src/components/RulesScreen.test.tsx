@@ -1,9 +1,16 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { RulesScreen } from "./RulesScreen";
 
-afterEach(cleanup);
+beforeEach(() => {
+  localStorage.setItem("leo-ui-lang", "en");
+});
+
+afterEach(() => {
+  cleanup();
+  localStorage.removeItem("leo-ui-lang");
+});
 
 describe("RulesScreen", () => {
   it("starts with the page title and accordion list", () => {
@@ -59,5 +66,30 @@ describe("RulesScreen", () => {
     expect(screen.getByRole("button", { name: /9 — If you.re removed and how to return/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: /10 — Sick leave/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: /11 — FAQ/i })).toBeTruthy();
+  });
+
+  describe("lang=ru", () => {
+    beforeEach(() => {
+      localStorage.setItem("leo-ui-lang", "ru");
+    });
+
+    it("renders Russian title and all 11 section triggers", () => {
+      const { container } = render(<RulesScreen />);
+      expect(screen.getByRole("heading", { level: 1, name: "Правила Стаи" })).toBeTruthy();
+      expect(container.querySelectorAll(".rules__accordion-trigger")).toHaveLength(11);
+      expect(screen.getByRole("button", { name: /1 — Зачем это приложение/ })).toBeTruthy();
+      expect(screen.getByRole("button", { name: /9 — Если ты удалён и как вернуться/ })).toBeTruthy();
+      expect(screen.getByRole("button", { name: /11 — FAQ/ })).toBeTruthy();
+      expect(screen.queryByText("Pack rules")).toBeNull();
+    });
+
+    it("shows Russian body and Russian level names in the table", () => {
+      render(<RulesScreen />);
+      fireEvent.click(screen.getByRole("button", { name: /5 — Как ты движешься/ }));
+      expect(screen.getByText("Всего кубков")).toBeTruthy();
+      expect(screen.getByText(/Сурикат/)).toBeTruthy();
+      expect(screen.getByText(/Слон/)).toBeTruthy();
+      expect(screen.queryByText(/Meerkat/)).toBeNull();
+    });
   });
 });

@@ -13,7 +13,7 @@
  */
 import { achievementLabel, parseAchievementKey, type AchievementKey } from "./achievements";
 import { miniappLevelEmoji, miniappLevelName } from "./miniappLevel";
-import { daysWordRu } from "./streakLabel";
+import { daysWord } from "./streakLabel";
 import { trainingDoneCategoryEmoji } from "./workoutCategories";
 
 const apiBase = (import.meta.env.VITE_MINIAPP_API_URL as string | undefined)?.replace(/\/$/, "") ?? "";
@@ -57,7 +57,7 @@ export function achievementShareCard(key: AchievementKey, name: string): ShareCa
       emoji: "🔥",
       headline: "Streak",
       big: String(parsed.threshold),
-      bigCaption: `${daysWordRu(parsed.threshold)} in a row`,
+      bigCaption: `${daysWord(parsed.threshold, "en")} in a row`,
       name: cleanName(name),
     };
   }

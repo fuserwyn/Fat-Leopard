@@ -45,7 +45,7 @@ import {
   sortWorkoutCategoryIds,
   sortWorkoutCategoriesByCountDesc,
   trainingDoneMatchesAnyCategory,
-  WORKOUT_CATEGORY_OPTIONS,
+  workoutCategoryOptions,
   type WorkoutCategoryId,
 } from "../lib/workoutCategories";
 import "./FeedScreen.css";
@@ -320,19 +320,19 @@ export function FeedScreen({
 
   const categoryFilterSet = useMemo(() => new Set(feedCategoryIds), [feedCategoryIds]);
   const feedCategoryOptionsByFrequency = useMemo(
-    () => sortWorkoutCategoriesByCountDesc(WORKOUT_CATEGORY_OPTIONS, workoutTypeCounts),
-    [workoutTypeCounts],
+    () => sortWorkoutCategoriesByCountDesc(workoutCategoryOptions(lang), workoutTypeCounts, lang),
+    [workoutTypeCounts, lang],
   );
   const feedCategoryChipsVisible = useMemo(() => {
     const withWorkouts = feedCategoryOptionsByFrequency.filter((c) => (workoutTypeCounts[c.id] ?? 0) > 0);
     for (const id of feedCategoryIds) {
       if (!withWorkouts.some((c) => c.id === id)) {
-        const opt = WORKOUT_CATEGORY_OPTIONS.find((o) => o.id === id);
+        const opt = workoutCategoryOptions(lang).find((o) => o.id === id);
         if (opt) withWorkouts.push(opt);
       }
     }
     return withWorkouts;
-  }, [feedCategoryOptionsByFrequency, workoutTypeCounts, feedCategoryIds]);
+  }, [feedCategoryOptionsByFrequency, workoutTypeCounts, feedCategoryIds, lang]);
   const filterEpoch = feedFilterEpoch(feedScope, feedTypeFilter, feedCategoryIds);
   const filterEpochRef = useRef(filterEpoch);
   const [listSwapClass, setListSwapClass] = useState("");
@@ -385,10 +385,10 @@ export function FeedScreen({
         const next = new Set(prev);
         if (next.has(id)) next.delete(id);
         else next.add(id);
-        return sortWorkoutCategoryIds([...next], workoutTypeCounts);
+        return sortWorkoutCategoryIds([...next], workoutTypeCounts, lang);
       });
     },
-    [hapticLight, workoutTypeCounts],
+    [hapticLight, workoutTypeCounts, lang],
   );
 
   const clearFeedCategories = useCallback(() => {
@@ -847,7 +847,7 @@ export function FeedScreen({
         const j = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
         if (!res.ok) {
           if (isModerationError(j.error)) {
-            showAlert(moderationUserMessage(j.error, j.message));
+            showAlert(moderationUserMessage(j.error, j.message, lang));
             return;
           }
           showAlert(j.error ?? `Error ${res.status}`);
@@ -862,7 +862,7 @@ export function FeedScreen({
         setMsgThreadPosting((p) => ({ ...p, [cardId]: false }));
       }
     },
-    [apiBase, initData, syncFeed, showAlert],
+    [apiBase, initData, syncFeed, showAlert, lang],
   );
 
   // Редактирование своего коммента-сообщения.
@@ -884,7 +884,7 @@ export function FeedScreen({
         const j = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
         if (!res.ok) {
           if (isModerationError(j.error)) {
-            showAlert(moderationUserMessage(j.error, j.message));
+            showAlert(moderationUserMessage(j.error, j.message, lang));
             return;
           }
           showAlert(j.error ?? `Error ${res.status}`);
@@ -899,7 +899,7 @@ export function FeedScreen({
         setMsgThreadPosting((p) => ({ ...p, [cardId]: false }));
       }
     },
-    [apiBase, initData, syncFeed, showAlert],
+    [apiBase, initData, syncFeed, showAlert, lang],
   );
 
   // Удаление/скрытие коммента-сообщения (своё — удалить, админ — скрыть).
@@ -1070,7 +1070,7 @@ export function FeedScreen({
         };
         if (!res.ok) {
           if (isModerationError(j.error)) {
-            showAlert(moderationUserMessage(j.error, j.message));
+            showAlert(moderationUserMessage(j.error, j.message, lang));
             return;
           }
           const errMap: Record<string, string> = {
@@ -1110,7 +1110,7 @@ export function FeedScreen({
         setThreadPosting((p) => ({ ...p, [userMessageId]: false }));
       }
     },
-    [apiBase, initData, syncFeed, showAlert],
+    [apiBase, initData, syncFeed, showAlert, lang],
   );
 
   const editFeedPost = useCallback(
@@ -1136,7 +1136,7 @@ export function FeedScreen({
         const j = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
         if (!res.ok) {
           if (isModerationError(j.error)) {
-            showAlert(moderationUserMessage(j.error, j.message));
+            showAlert(moderationUserMessage(j.error, j.message, lang));
             return;
           }
           const errMap: Record<string, string> = {
@@ -1175,7 +1175,7 @@ export function FeedScreen({
         setPostEditPosting((p) => ({ ...p, [item.id]: false }));
       }
     },
-    [apiBase, initData, postEditDrafts, postEditKinds, showAlert, syncFeed],
+    [apiBase, initData, postEditDrafts, postEditKinds, showAlert, syncFeed, lang],
   );
 
   const setFeedPostPhoto = useCallback(
@@ -1191,7 +1191,7 @@ export function FeedScreen({
         const j = (await res.json().catch(() => ({}))) as { error?: string; message?: string; photo_url?: string };
         if (!res.ok) {
           if (isModerationError(j.error)) {
-            showAlert(moderationUserMessage(j.error, j.message));
+            showAlert(moderationUserMessage(j.error, j.message, lang));
             return;
           }
           const errMap: Record<string, string> = {
@@ -1217,7 +1217,7 @@ export function FeedScreen({
         setPostPhotoBusy((p) => ({ ...p, [item.id]: false }));
       }
     },
-    [apiBase, initData, showAlert, syncFeed],
+    [apiBase, initData, showAlert, syncFeed, lang],
   );
 
   const removeFeedPostPhoto = useCallback(
@@ -1286,7 +1286,7 @@ export function FeedScreen({
         };
         if (!res.ok) {
           if (isModerationError(j.error)) {
-            showAlert(moderationUserMessage(j.error, j.message));
+            showAlert(moderationUserMessage(j.error, j.message, lang));
             return;
           }
           const errMap: Record<string, string> = {
@@ -1317,7 +1317,7 @@ export function FeedScreen({
         setThreadPosting((p) => ({ ...p, [trainingUserMessageId]: false }));
       }
     },
-    [apiBase, initData, showAlert, syncFeed],
+    [apiBase, initData, showAlert, syncFeed, lang],
   );
 
   const deleteTrainingThreadReply = useCallback(
@@ -1722,11 +1722,11 @@ export function FeedScreen({
 
   const ptrStatusText =
     ptr.status === "refreshing"
-      ? "Refreshing…"
+      ? t("feed.ptrRefreshing")
       : ptr.status === "ready"
-        ? "Release to refresh"
+        ? t("feed.ptrRelease")
         : ptr.status === "pulling"
-          ? "Pull down"
+          ? t("feed.ptrPull")
           : "";
 
   return (
@@ -1744,7 +1744,7 @@ export function FeedScreen({
         <header className="feed__header">
           <div className="feed__brand">Fat Leopard</div>
           <div className="feed__hero">
-            <div className="feed__streak" aria-label={streakStreakAriaLabel(streak)} title={streakStreakAriaLabel(streak)}>
+            <div className="feed__streak" aria-label={streakStreakAriaLabel(streak, lang)} title={streakStreakAriaLabel(streak, lang)}>
               <span className="feed__streak-row">
                 <span className="feed__streak-word">{t("feed.streak")}</span>
                 <span className="feed__streak-num">{streak}</span>
@@ -1977,7 +1977,7 @@ export function FeedScreen({
                 aria-label={t("feed.packWeekHintAria")}
                 onClick={() => {
                   hapticLight();
-                  showAlert(packWeeklyGoalHint(packWorkoutsGoal));
+                  showAlert(packWeeklyGoalHint(packWorkoutsGoal, lang));
                 }}
               >
                 ?
@@ -1985,9 +1985,7 @@ export function FeedScreen({
             </div>
             {packGoalReached ? (
               <span className="feed__pack-progress-bonus">
-                {packBonusThemeActive
-                  ? "Goal reached · +50 cups each · bonus theme active"
-                  : "Goal reached · +50 cups each"}
+                {packBonusThemeActive ? t("feed.goalReachedBonus") : t("feed.goalReached")}
               </span>
             ) : null}
           </div>
@@ -1995,7 +1993,7 @@ export function FeedScreen({
           {loading && <p className="feed__load muted">{t("common.loading")}</p>}
           <div className={`feed__list${listSwapClass ? ` ${listSwapClass}` : ""}`}>
             {!loading && !useMockFeed && feedItems.length === 0 && !err && (
-              <p className="feed__empty muted">No reports in the database yet (or MONETIZED_CHAT_ID is missing).</p>
+              <p className="feed__empty muted">{t("feed.emptyDb")}</p>
             )}
             {!loading &&
               !useMockFeed &&
@@ -2064,7 +2062,7 @@ export function FeedScreen({
                     id: tr.id,
                     author: (tr.username || "").trim() || `Member ${tr.user_id}`,
                     text: tr.text,
-                    timeAgo: formatLocalDateTime(tr.created_at),
+                    timeAgo: formatLocalDateTime(tr.created_at, lang),
                     isYou: tr.is_you || (userId > 0 && tr.user_id === userId),
                     isLeo: Boolean(tr.is_leo),
                     isAdmin: Boolean(tr.is_admin),

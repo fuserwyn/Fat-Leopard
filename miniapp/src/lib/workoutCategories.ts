@@ -1,3 +1,5 @@
+import type { UILang } from "./i18n";
+
 /** Совпадает с типами в NewWorkoutScreen / текстом отчёта в App.tsx (`kind`). */
 export type WorkoutCategoryId =
   | "run"
@@ -59,19 +61,78 @@ export const WORKOUT_CATEGORY_OPTIONS: WorkoutCategoryOption[] = [
   { id: "other", label: "Other", emoji: "✨" },
 ];
 
-/** Для фильтра ленты: по русскому алфавиту названий (HIIT и латиница — по правилам `ru`). */
-export const WORKOUT_CATEGORY_OPTIONS_ALPHABETICAL: WorkoutCategoryOption[] = [...WORKOUT_CATEGORY_OPTIONS].sort(
-  (a, b) => a.label.localeCompare(b.label, "en", { sensitivity: "base" }),
-);
+/** Русские подписи видов (совпадают с legacy-разбором старых отчётов). */
+const WORKOUT_CATEGORY_LABELS_RU: Record<WorkoutCategoryId, string> = {
+  run: "Бег",
+  walk: "Ходьба",
+  bike: "Велосипед",
+  swim: "Плавание",
+  yoga: "Йога",
+  rowing: "Гребля",
+  workout: "Воркаут",
+  crossfit: "Кроссфит",
+  stretch: "Растяжка",
+  dance: "Танцы",
+  hiit: "HIIT",
+  cardio: "Кардио",
+  kettlebell: "Гиря",
+  strength: "Силовая",
+  jump_rope: "Скакалка",
+  pole: "Пилон",
+  rollerblade: "Ролики",
+  basketball: "Баскетбол",
+  football: "Футбол",
+  volleyball: "Волейбол",
+  tennis: "Теннис",
+  padel: "Падел",
+  gymnastics: "Гимнастика",
+  morning_exercise: "Зарядка",
+  climbing: "Скалолазание",
+  other: "Другое",
+};
+
+const WORKOUT_CATEGORY_LABELS_EN = Object.fromEntries(
+  WORKOUT_CATEGORY_OPTIONS.map((o) => [o.id, o.label]),
+) as Record<WorkoutCategoryId, string>;
+
+function sortLocale(lang: UILang): string {
+  return lang === "ru" ? "ru" : "en";
+}
+
+/** Подпись вида на языке интерфейса. */
+export function workoutCategoryLabel(id: WorkoutCategoryId, lang: UILang = "en"): string {
+  const map = lang === "ru" ? WORKOUT_CATEGORY_LABELS_RU : WORKOUT_CATEGORY_LABELS_EN;
+  return map[id] ?? id;
+}
+
+/** Все виды в порядке формы новой тренировки с локализованными подписями. */
+export function workoutCategoryOptions(lang: UILang = "en"): WorkoutCategoryOption[] {
+  return WORKOUT_CATEGORY_OPTIONS.map((o) => ({ ...o, label: workoutCategoryLabel(o.id, lang) }));
+}
+
+/** Для фильтра ленты: по алфавиту подписей выбранного языка. */
+export function workoutCategoriesAlphabetical(lang: UILang = "en"): WorkoutCategoryOption[] {
+  const locale = sortLocale(lang);
+  return workoutCategoryOptions(lang).sort((a, b) =>
+    a.label.localeCompare(b.label, locale, { sensitivity: "base" }),
+  );
+}
 
 /**
  * Для вертикального списка «Все типы» в ленте: по алфавиту, но «Другое» всегда
  * в самом низу (это «прочее», а не буква «Д» в общем ряду).
  */
-export const WORKOUT_CATEGORY_OPTIONS_ALPHABETICAL_OTHER_LAST: WorkoutCategoryOption[] = [
-  ...WORKOUT_CATEGORY_OPTIONS_ALPHABETICAL.filter((o) => o.id !== "other"),
-  ...WORKOUT_CATEGORY_OPTIONS_ALPHABETICAL.filter((o) => o.id === "other"),
-];
+export function workoutCategoriesAlphabeticalOtherLast(lang: UILang = "en"): WorkoutCategoryOption[] {
+  const sorted = workoutCategoriesAlphabetical(lang);
+  return [...sorted.filter((o) => o.id !== "other"), ...sorted.filter((o) => o.id === "other")];
+}
+
+/** Для фильтра ленты (английский алфавит; для локализации — {@link workoutCategoriesAlphabetical}). */
+export const WORKOUT_CATEGORY_OPTIONS_ALPHABETICAL: WorkoutCategoryOption[] = workoutCategoriesAlphabetical("en");
+
+/** «Все типы» в ленте, «Другое» внизу (английский; см. {@link workoutCategoriesAlphabeticalOtherLast}). */
+export const WORKOUT_CATEGORY_OPTIONS_ALPHABETICAL_OTHER_LAST: WorkoutCategoryOption[] =
+  workoutCategoriesAlphabeticalOtherLast("en");
 
 const FEED_CAT_ORDER = new Map(WORKOUT_CATEGORY_OPTIONS_ALPHABETICAL.map((o, i) => [o.id, i]));
 
@@ -86,42 +147,56 @@ function compareWorkoutCategoriesByCountDesc(
   a: WorkoutCategoryId,
   b: WorkoutCategoryId,
   counts: Readonly<Partial<Record<WorkoutCategoryId, number>>>,
+  lang: UILang = "en",
 ): number {
   const ca = workoutCategoryCount(counts, a);
   const cb = workoutCategoryCount(counts, b);
   if (cb !== ca) return cb - ca;
   if (a === "other") return 1;
   if (b === "other") return -1;
-  const la = WORKOUT_CATEGORY_OPTIONS.find((o) => o.id === a)?.label ?? a;
-  const lb = WORKOUT_CATEGORY_OPTIONS.find((o) => o.id === b)?.label ?? b;
-  return la.localeCompare(lb, "en", { sensitivity: "base" });
+  const la = workoutCategoryLabel(a, lang);
+  const lb = workoutCategoryLabel(b, lang);
+  return la.localeCompare(lb, sortLocale(lang), { sensitivity: "base" });
 }
 
 /** Сортировка видов по убыванию частоты в стае; «Другое» — в конце при равных счётчиках. */
 export function sortWorkoutCategoriesByCountDesc(
   options: readonly WorkoutCategoryOption[],
   counts: Readonly<Partial<Record<WorkoutCategoryId, number>>>,
+  lang: UILang = "en",
 ): WorkoutCategoryOption[] {
-  return [...options].sort((a, b) => compareWorkoutCategoriesByCountDesc(a.id, b.id, counts));
+  return [...options].sort((a, b) => compareWorkoutCategoriesByCountDesc(a.id, b.id, counts, lang));
 }
 
 /** Порядок id в фильтре: по частоте (если есть counts), иначе по алфавиту. */
 export function sortWorkoutCategoryIds(
   ids: readonly WorkoutCategoryId[],
   counts?: Readonly<Partial<Record<WorkoutCategoryId, number>>>,
+  lang: UILang = "en",
 ): WorkoutCategoryId[] {
   if (counts && Object.keys(counts).length > 0) {
-    return [...ids].sort((a, b) => compareWorkoutCategoriesByCountDesc(a, b, counts));
+    return [...ids].sort((a, b) => compareWorkoutCategoriesByCountDesc(a, b, counts, lang));
   }
-  return [...ids].sort((a, b) => (FEED_CAT_ORDER.get(a) ?? 0) - (FEED_CAT_ORDER.get(b) ?? 0));
+  const order = lang === "en" ? FEED_CAT_ORDER : new Map(workoutCategoriesAlphabetical(lang).map((o, i) => [o.id, i]));
+  return [...ids].sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0));
 }
 
 /** Алиас для экрана новой тренировки. */
 export const WORKOUT_TYPES = WORKOUT_CATEGORY_OPTIONS;
 
+/** EN + RU подписи (нижний регистр) → id. */
 const LABEL_TO_ID = Object.fromEntries(
-  WORKOUT_CATEGORY_OPTIONS.map((o) => [o.label.trim().toLowerCase(), o.id]),
+  WORKOUT_CATEGORY_OPTIONS.flatMap((o) => [
+    [o.label.trim().toLowerCase(), o.id],
+    [WORKOUT_CATEGORY_LABELS_RU[o.id].trim().toLowerCase(), o.id],
+  ]),
 ) as Record<string, WorkoutCategoryId>;
+
+/** Подпись известна (EN/RU/legacy) — не пользовательский вид из «Другое». */
+export function isKnownWorkoutCategoryLabel(label: string): boolean {
+  const key = label.trim().toLowerCase();
+  return key in LABEL_TO_ID || key in LEGACY_LABEL_TO_ID;
+}
 
 /** Legacy Russian labels in stored reports (pre-English UI). */
 const LEGACY_LABEL_TO_ID: Record<string, WorkoutCategoryId> = {
@@ -171,28 +246,17 @@ const KIND_SPLIT_RE = /\s*[+/]\s*/;
  * Заголовок карточки вместо общего «Тренировка»: тип из строки отчёта.
  * Для своего вида из поля «Другое» показываем то, что ввёл пользователь (а не «Другое»).
  */
-export function trainingDoneCategoryDisplayLabel(text: string): string {
+export function trainingDoneCategoryDisplayLabel(text: string, lang: UILang = "ru"): string {
   const raw = parseTrainingDoneRawKind(text);
-  if (raw === null) return "Other";
+  if (raw === null) return workoutCategoryLabel("other", lang);
+  const labelFor = (part: string): string => {
+    const id = rawKindToCategory(part);
+    if (id !== "other" || isKnownWorkoutCategoryLabel(part)) return workoutCategoryLabel(id, lang);
+    return part.trim();
+  };
   const parts = raw.split(KIND_SPLIT_RE).filter((p) => p.trim());
-  if (parts.length > 1) {
-    return parts
-      .map((part) => {
-        const key = part.trim().toLowerCase();
-        const id = rawKindToCategory(part);
-        if (id !== "other" || LABEL_TO_ID[key] || LEGACY_LABEL_TO_ID[key]) {
-          return WORKOUT_CATEGORY_OPTIONS.find((o) => o.id === id)?.label ?? part.trim();
-        }
-        return part.trim();
-      })
-      .join(" + ");
-  }
-  const key = raw.toLowerCase();
-  const id = rawKindToCategory(raw);
-  if (id !== "other" || LABEL_TO_ID[key] || LEGACY_LABEL_TO_ID[key]) {
-    return WORKOUT_CATEGORY_OPTIONS.find((o) => o.id === id)?.label ?? "Other";
-  }
-  return raw;
+  if (parts.length > 1) return parts.map(labelFor).join(" + ");
+  return labelFor(raw);
 }
 
 /** Сырой вид активности из первой строки отчёта (с исходным регистром), либо null. */

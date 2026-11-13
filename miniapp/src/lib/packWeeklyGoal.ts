@@ -1,3 +1,14 @@
+import type { UILang } from "./i18n";
+
+function workoutsWordRu(n: number): string {
+  const mod100 = n % 100;
+  const mod10 = n % 10;
+  if (mod100 >= 11 && mod100 <= 14) return "тренировок";
+  if (mod10 === 1) return "тренировку";
+  if (mod10 >= 2 && mod10 <= 4) return "тренировки";
+  return "тренировок";
+}
+
 /** Прогресс недельной цели стаи (сброс каждый понедельник 00:00 МСК). */
 export const PACK_WEEKLY_GOAL_DEFAULT = 75;
 
@@ -5,13 +16,16 @@ export const PACK_WEEKLY_GOAL_DEFAULT = 75;
 export const PACK_WEEKLY_PROGRESS_STEPS = 5;
 
 /** Подсказка к недельной цели стаи для конкретной цели (берётся с сервера). */
-export function packWeeklyGoalHint(goal: number = PACK_WEEKLY_GOAL_DEFAULT): string {
+export function packWeeklyGoalHint(goal: number = PACK_WEEKLY_GOAL_DEFAULT, lang: UILang = "ru"): string {
   const safeGoal = Number.isFinite(goal) && goal > 0 ? Math.floor(goal) : PACK_WEEKLY_GOAL_DEFAULT;
+  if (lang === "ru") {
+    return `Если стая запишет ${safeGoal} ${workoutsWordRu(safeGoal)} за неделю, все получат 50 бонусных кубков. Когда неделя закончится, цель на следующую вырастет на 5 тренировок.`;
+  }
   return `If the pack logs ${safeGoal} workouts this week, everyone gets 50 bonus cups. When the week closes, next week’s goal goes up by 5 workouts.`;
 }
 
 /** Подсказка к недельной цели стаи (иконка «?» у прогресс-бара). */
-export const PACK_WEEKLY_GOAL_HINT = packWeeklyGoalHint(PACK_WEEKLY_GOAL_DEFAULT);
+export const PACK_WEEKLY_GOAL_HINT = packWeeklyGoalHint(PACK_WEEKLY_GOAL_DEFAULT, "en");
 
 export function packWeeklyProgressBarPct(completed: number, goal: number): number {
   if (!Number.isFinite(completed) || !Number.isFinite(goal) || goal <= 0) return 0;

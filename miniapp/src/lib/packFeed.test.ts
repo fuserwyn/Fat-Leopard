@@ -108,14 +108,15 @@ describe("extractEditableFeedPostText / buildFeedPostTextForSave", () => {
     const draft = extractEditableFeedPostText(raw, "training_done");
     const saved = buildFeedPostTextForSave(raw, "training_done", draft, ["swim"]);
     expect(saved).toBe("#training_done — swim, 30 мин, intensity 3/5\nХорошо пошло");
-    expect(trainingDoneCategoryDisplayLabel(saved)).toBe("Swim");
+    expect(trainingDoneCategoryDisplayLabel(saved, "en")).toBe("Swim");
   });
 
   it("multi-kind edit keeps custom «Другое» label", () => {
     const raw = "#training_done — бег + сап, 40 мин, интенсивность 4/5";
     expect(extractTrainingDoneKinds(raw)).toEqual(["run", "other"]);
     const saved = buildFeedPostTextForSave(raw, "training_done", "40 мин, интенсивность 4/5", ["bike", "other"]);
-    expect(saved).toBe("#training_done — cycling + бег + сап, 40 мин, интенсивность 4/5");
+    // «бег» — известный RU-вид (run), при смене на bike не сохраняется; «сап» — кастом.
+    expect(saved).toBe("#training_done — cycling + сап, 40 мин, интенсивность 4/5");
   });
 
   it("unrecognized training format has no kinds", () => {

@@ -1,6 +1,7 @@
 /** Отправка текста в личку бота через ms_leo (как ChatScreen). */
 
 import { isModerationError, moderationUserMessage } from "./moderationMessages";
+import { getStoredUILang } from "./uiLang";
 
 const apiBase = (import.meta.env.VITE_MINIAPP_API_URL as string | undefined)?.replace(/\/$/, "") ?? "";
 
@@ -86,7 +87,7 @@ export async function sendMiniappPrivateText(
   };
   if (!res.ok) {
     if (isModerationError(j.error)) {
-      return { ok: false, error: moderationUserMessage(j.error, j.message) };
+      return { ok: false, error: moderationUserMessage(j.error, j.message, getStoredUILang()) };
     }
     return { ok: false, error: j.error ?? `Error ${res.status}` };
   }
@@ -163,7 +164,7 @@ export async function sendMiniappTrainingWithPhoto(
       return { ok: false, error: "Couldn't upload the photo. Try choosing the image again." };
     }
     if (isModerationError(j.error)) {
-      return { ok: false, error: moderationUserMessage(j.error, j.message) };
+      return { ok: false, error: moderationUserMessage(j.error, j.message, getStoredUILang()) };
     }
     return { ok: false, error: j.error ?? `Error ${res.status}` };
   }

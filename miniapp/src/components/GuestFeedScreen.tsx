@@ -15,7 +15,7 @@ type Props = {
 
 /** Guest preview: recent pack workouts and Join for invite links. Read-only cards. */
 export function GuestFeedScreen({ initData, onInPack, initialFeed }: Props) {
-  const { lang } = useI18n();
+  const { lang, t } = useI18n();
   const [feed, setFeed] = useState<GuestFeed | null | undefined>(initialFeed);
 
   useEffect(() => {
@@ -40,18 +40,17 @@ export function GuestFeedScreen({ initData, onInPack, initialFeed }: Props) {
     <div className="guest-feed">
       <header className="guest-feed__header">
         <div className="guest-feed__brand">Fat Leopard</div>
-        <p className="guest-feed__eyebrow">Pack feed</p>
-        <h1 className="guest-feed__title">This is how the pack trains every day</h1>
+        <p className="guest-feed__eyebrow">{t("guest.eyebrow")}</p>
+        <h1 className="guest-feed__title">{t("guest.title")}</h1>
         <p className="guest-feed__text">
-          Everyone logs workouts and the pack cheers you on. Join to post yours, react, and keep your streak with the
-          rest of the pack.
+          {t("guest.text")}
         </p>
       </header>
 
       <div className="guest-feed__list" aria-busy={loading}>
-        {loading ? <p className="guest-feed__empty">Loading feed…</p> : null}
+        {loading ? <p className="guest-feed__empty">{t("guest.loading")}</p> : null}
         {!loading && posts.length === 0 ? (
-          <p className="guest-feed__empty">No recent workouts to show — join the pack to see more.</p>
+          <p className="guest-feed__empty">{t("guest.empty")}</p>
         ) : null}
         {posts.map((p) => (
           <ActivityCard key={feedItemKey(p)} {...dtoToCard(p, lang)} />
@@ -60,7 +59,7 @@ export function GuestFeedScreen({ initData, onInPack, initialFeed }: Props) {
 
       <div className="guest-feed__cta-bar">
         <button type="button" className="guest-feed__cta" onClick={() => openGuestJoin(feed?.joinUrl ?? "")}>
-          Join
+          {t("guest.join")}
         </button>
       </div>
     </div>

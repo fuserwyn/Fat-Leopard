@@ -8,6 +8,7 @@ import {
 } from "../lib/chatLogScroll";
 import { formatChatTime } from "../lib/timeAgo";
 import { LEO_AVATAR_URL } from "../lib/leoAvatar";
+import { useI18n } from "../lib/I18nContext";
 import { resolveTrainingPhotoUrl } from "../lib/packFeed";
 import { CameraButton } from "./CameraButton";
 import { PhotoLightbox } from "./PhotoLightbox";
@@ -120,6 +121,7 @@ function maxServerID(items: ChatMsg[]): number {
 }
 
 export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpened, onInboxDrained, active = true }: Props) {
+  const { t, lang } = useI18n();
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   /** После POST /messages: ответ ИИ пишется асинхронно — «печатает» до появления строки Лео в фиде. */
@@ -398,12 +400,12 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
       const f = e.target.files?.[0] ?? null;
       if (!f) return;
       if (!/^image\//.test(f.type)) {
-        showAlert("Only images allowed (JPG, PNG, WEBP, GIF).");
+        showAlert(t("chat.err.onlyImages"));
         if (photoInputRef.current) photoInputRef.current.value = "";
         return;
       }
       if (f.size > 6 * 1024 * 1024) {
-        showAlert("Photo too large. Max 6 MB.");
+        showAlert(t("chat.err.photoTooLarge"));
         if (photoInputRef.current) photoInputRef.current.value = "";
         return;
       }
@@ -413,7 +415,7 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
         return URL.createObjectURL(f);
       });
     },
-    [showAlert],
+    [showAlert, t],
   );
 
   const clearPhoto = useCallback(() => {
@@ -435,17 +437,15 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
   }, [photoPreview]);
 
   const send = useCallback(async () => {
-    const t = text.trim();
+    const body = text.trim();
     const sentPhoto = photo;
-    if ((!t && !sentPhoto) || sending) return;
+    if ((!body && !sentPhoto) || sending) return;
     if (!envApi) {
-      showAlert(
-        "Build missing API: in Railway → miniapp service → Variables → Build → set VITE_MINIAPP_API_URL to the public https URL of the bot service (ms_leo), then Redeploy."
-      );
+      showAlert(t("chat.err.buildMissingApi"));
       return;
     }
     if (!inTelegram || !initData) {
-      showAlert("Open the miniapp from Telegram (initData required).");
+      showAlert(t("chat.err.openFromTelegram"));
       return;
     }
 
@@ -460,7 +460,7 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
       baselineMaxBeforeSend = maxServerID(prev);
       return [
         ...prev,
-        { uiKey: nowId(), role: "user", text: t, photoUrl: localPhotoUrl, createdAt: new Date().toISOString() },
+        { uiKey: nowId(), role: "user", text: body, photoUrl: localPhotoUrl, createdAt: new Date().toISOString() },
       ];
     });
 
@@ -474,7 +474,7 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
       if (sentPhoto) {
         const fd = new FormData();
         fd.append("init_data", initData);
-        fd.append("text", t);
+        fd.append("text", body);
         fd.append("photo", sentPhoto, sentPhoto.name || "photo.jpg");
         res = await fetch(`${envApi}/api/miniapp/messages/photo`, {
           method: "POST",
@@ -484,7 +484,7 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
         res = await fetch(`${envApi}/api/miniapp/messages`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ init_data: initData, text: t }),
+          body: JSON.stringify({ init_data: initData, text: body }),
         });
       }
       const j = (await res.json().catch(() => ({}))) as {
@@ -496,14 +496,14 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
       };
       if (!res.ok) {
         const errMap: Record<string, string> = {
-          media_not_configured: "Photo upload isn't configured on the server.",
-          unsupported_image: "Couldn't read the photo. Try JPG, PNG, WEBP, or GIF.",
-          photo_too_large: "Photo too large. Max 6 MB.",
-          invalid_multipart: "Couldn't send the photo. Pick the image again.",
-          missing_photo: "No photo attached.",
-          chat_mismatch: "Open the miniapp from the pack chat",
+          media_not_configured: t("chat.err.mediaNotConfigured"),
+          unsupported_image: t("chat.err.unsupportedImage"),
+          photo_too_large: t("chat.err.photoTooLarge"),
+          invalid_multipart: t("chat.err.invalidMultipart"),
+          missing_photo: t("chat.err.missingPhoto"),
+          chat_mismatch: t("chat.err.chatMismatch"),
         };
-        showAlert(j.message ?? errMap[j.error ?? ""] ?? j.error ?? `Error ${res.status}`);
+        showAlert(j.message ?? errMap[j.error ?? ""] ?? j.error ?? t("chat.err.http", { status: res.status }));
         setLeoTyping(false);
         return;
       }
@@ -511,12 +511,12 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
       setLeoTyping(true);
       // Основной поллер фида подхватит юзер-сообщение (с серверным id) и ответ Лео из БД — тогда items → useEffect выше снимает leoTyping.
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : "Network error");
+      showAlert(e instanceof Error ? e.message : t("chat.err.network"));
       setLeoTyping(false);
     } finally {
       setSending(false);
     }
-  }, [text, photo, sending, inTelegram, initData, showAlert, clearPhoto]);
+  }, [text, photo, sending, inTelegram, initData, showAlert, clearPhoto, t]);
 
   const toggleLike = useCallback(
     (messageID?: number) => {
@@ -565,7 +565,7 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
       )}
       <header className="chat__head">
         <div className="chat__head-avatarwrap">
-          <img className="chat__head-avatar" src={LEO_AVATAR_URL} width={40} height={40} alt="Leo" loading="eager" />
+          <img className="chat__head-avatar" src={LEO_AVATAR_URL} width={40} height={40} alt={t("chat.leoAlt")} loading="eager" />
           {showTypingCue && (
             <span className="chat__head-typing" aria-hidden="true">
               <span className="chat__head-typing-dots">
@@ -577,15 +577,15 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
           )}
         </div>
         <div className="chat__head-text">
-          <h1 className="chat__title">Leo</h1>
-          <p className="chat__sub">{showTypingCue ? "typing…" : name}</p>
+          <h1 className="chat__title">{t("chat.title")}</h1>
+          <p className="chat__sub">{showTypingCue ? t("chat.typing") : name}</p>
         </div>
       </header>
       <div className="chat__log-wrap">
         <div
           className="chat__log"
           role="log"
-          aria-label="Messages with bot"
+          aria-label={t("chat.logAria")}
           ref={logRef}
         >
         {loaded && items.length === 0 && (
@@ -593,8 +593,7 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
             <img className="chat__bubble-avatar" src={LEO_AVATAR_URL} width={32} height={32} alt="" aria-hidden="true" />
             <div className="chat__bubble-wrap chat__bubble-wrap--sys">
               <div className="chat__bubble chat__bubble--sys">
-                Hi! This is your private chat with Leo — the AI replies to any text. Log workouts with the + button
-                below. History syncs across all your devices.
+                {t("chat.empty")}
               </div>
             </div>
           </div>
@@ -608,7 +607,7 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
                     <button
                       type="button"
                       className="chat__photo-wrap"
-                      aria-label="Open photo"
+                      aria-label={t("card.openPhoto")}
                       onClick={() => setLightboxUrl(m.photoUrl ?? null)}
                     >
                       <img className="chat__photo" src={m.photoUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
@@ -617,7 +616,7 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
                   {m.text.trim() !== "" && <span className="chat__bubble-text">{m.text}</span>}
                 </div>
                 <time className="chat__time chat__time--user" dateTime={m.createdAt}>
-                  {formatChatTime(m.createdAt)}
+                  {formatChatTime(m.createdAt, lang)}
                 </time>
               </div>
             </div>
@@ -630,14 +629,14 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
                 </div>
                 <div className="chat__meta">
                   <time className="chat__time chat__time--sys" dateTime={m.createdAt}>
-                    {formatChatTime(m.createdAt)}
+                    {formatChatTime(m.createdAt, lang)}
                   </time>
                   {m.serverID != null && (
                     <button
                       type="button"
                       className={`chat__like${m.likeMe ? " chat__like--mine" : ""}`}
                       aria-pressed={Boolean(m.likeMe)}
-                      aria-label={m.likeMe ? "Remove like" : "Like"}
+                      aria-label={m.likeMe ? t("chat.unlike") : t("chat.like")}
                       onClick={() => void toggleLike(m.serverID)}
                     >
                       <span aria-hidden="true">❤️</span>
@@ -650,7 +649,7 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
           )
         )}
         {showTypingCue && (
-          <div className="chat__row chat__row--sys" role="status" aria-live="polite" aria-label="Leo is typing">
+          <div className="chat__row chat__row--sys" role="status" aria-live="polite" aria-label={t("chat.leoTyping")}>
             <img className="chat__bubble-avatar" src={LEO_AVATAR_URL} width={32} height={32} alt="" aria-hidden="true" />
             <div className="chat__bubble-wrap chat__bubble-wrap--sys">
               <div className="chat__bubble chat__bubble--sys chat__bubble--typing" aria-hidden="true">
@@ -669,7 +668,7 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
           <button
             type="button"
             className="chat__jump-latest"
-            aria-label="Jump to latest messages"
+            aria-label={t("chat.jumpLatest")}
             onClick={() => {
               userScrolledUpRef.current = false;
               setShowJumpLatest(false);
@@ -683,11 +682,11 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
       {photoPreview != null && (
         <div className="chat__photo-pending">
           <img className="chat__photo-pending-img" src={photoPreview} alt="" />
-          <span className="chat__photo-pending-name">{photo?.name ?? "Photo"}</span>
+          <span className="chat__photo-pending-name">{photo?.name ?? t("chat.photoFallback")}</span>
           <button
             type="button"
             className="chat__photo-pending-remove"
-            aria-label="Remove photo"
+            aria-label={t("nav.removePhoto")}
             onClick={clearPhoto}
           >
             ✕
@@ -714,7 +713,7 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
         <button
           type="button"
           className="chat__attach"
-          aria-label="Attach photo from gallery"
+          aria-label={t("nav.attachPhoto")}
           disabled={sending}
           onClick={() => photoInputRef.current?.click()}
         >
@@ -731,7 +730,7 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
           onBlur={() => {
             window.setTimeout(scrollLogToEndIfAllowed, 120);
           }}
-          placeholder={photo ? "Photo caption (optional)…" : "Leo, any tips…"}
+          placeholder={photo ? t("chat.captionPlaceholder") : t("chat.placeholder")}
           maxLength={4000}
           autoComplete="off"
           autoCorrect="on"
@@ -744,7 +743,7 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
           type="submit"
           className="chat__send"
           disabled={sending || (!text.trim() && !photo)}
-          aria-label={sending ? "Sending…" : "Send"}
+          aria-label={sending ? t("chat.sending") : t("chat.send")}
         >
           {sending ? "…" : "➤"}
         </button>

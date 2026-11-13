@@ -12,6 +12,8 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { formatChatTime } from "../lib/timeAgo";
+import { getStoredUILang } from "../lib/uiLang";
+import { useI18n } from "../lib/I18nContext";
 import {
   createChatScrollScheduler,
   isChatLogNearBottom,
@@ -471,6 +473,7 @@ export function PackGroupChatPanel({
   onPackGroupChatOpened,
   isAdmin = false,
 }: Props) {
+  const { lang } = useI18n();
   const [items, setItems] = useState<PackGroupMessage[]>([]);
   const [text, setText] = useState("");
   const [replyIntent, setReplyIntent] = useState<ReplyIntent | null>(null);
@@ -779,7 +782,7 @@ export function PackGroupChatPanel({
         if (!res.ok) {
           setItems((prev) => prev.map((m) => (m.id === editId ? { ...m, text: original } : m)));
           if (isModerationError(j.error)) {
-            showAlert(moderationUserMessage(j.error, j.message));
+            showAlert(moderationUserMessage(j.error, j.message, getStoredUILang()));
             return;
           }
           const errMap: Record<string, string> = {
@@ -873,7 +876,7 @@ export function PackGroupChatPanel({
         setItems((prev) => prev.filter((m) => m.id !== tempId));
         cleanupLocalPhoto();
         if (isModerationError(j.error)) {
-          showAlert(moderationUserMessage(j.error, j.message));
+          showAlert(moderationUserMessage(j.error, j.message, getStoredUILang()));
           return;
         }
         const errMap: Record<string, string> = {
@@ -1215,7 +1218,7 @@ export function PackGroupChatPanel({
                           <span className="packroom__search-result-author">
                             {m.is_leo ? "Leo" : m.username || "Member"}
                           </span>
-                          <span className="packroom__search-result-time muted">{formatChatTime(m.created_at)}</span>
+                          <span className="packroom__search-result-time muted">{formatChatTime(m.created_at, lang)}</span>
                         </span>
                         <span className="packroom__search-result-text">
                           {highlightSearch(excerptText(m.text, 140), searchQuery)}
@@ -1279,7 +1282,7 @@ export function PackGroupChatPanel({
                 <div className="packroom__content">
                   <div className="packroom__meta-row">
                     <div className="packroom__meta">
-                      {m.is_leo ? "Leo" : m.username} · {formatChatTime(m.created_at)}
+                      {m.is_leo ? "Leo" : m.username} · {formatChatTime(m.created_at, lang)}
                       {m.edited_at ? <span className="packroom__edited"> · edited</span> : null}
                     </div>
                   </div>

@@ -5,6 +5,7 @@ import {
   parseTrainingDoneCategories,
   stripLeadingCategoryFromTrainingReport,
   trainingDoneCategoryDisplayLabel,
+  isKnownWorkoutCategoryLabel,
   trainingDoneCategoryEmoji,
   WORKOUT_CATEGORY_OPTIONS,
   type WorkoutCategoryId,
@@ -250,11 +251,10 @@ export function extractTrainingDoneKinds(raw: string): WorkoutCategoryId[] | nul
  * Свои названия из «Другое» (например «сап») сохраняются, если «Другое» осталось выбранным.
  */
 function buildTrainingDoneKindLabel(oldRawKind: string, kinds: readonly WorkoutCategoryId[]): string {
-  const known = new Set(WORKOUT_CATEGORY_OPTIONS.map((o) => o.label.trim().toLowerCase()));
   const custom = oldRawKind
     .split(TRAINING_KIND_SPLIT_RE)
     .map((p) => p.trim())
-    .filter((p) => p !== "" && !known.has(p.toLowerCase()));
+    .filter((p) => p !== "" && !isKnownWorkoutCategoryLabel(p));
   const parts: string[] = [];
   for (const id of kinds) {
     if (id === "other") {
@@ -635,7 +635,7 @@ export function dtoToCard(d: PackFeedItemDTO, lang: UILang = "ru"): ActivityCard
       name: "Leo",
       streak: 0,
       hideStreak: true,
-      timeAgo: formatLocalDateTime(d.created_at),
+      timeAgo: formatLocalDateTime(d.created_at, lang),
       emoji: m.emoji,
       activity: m.activity,
       details: leoDetails,
@@ -651,7 +651,7 @@ export function dtoToCard(d: PackFeedItemDTO, lang: UILang = "ru"): ActivityCard
       streak: 0,
       hideStreak: true,
       lightTone: true,
-      timeAgo: formatLocalDateTime(d.created_at),
+      timeAgo: formatLocalDateTime(d.created_at, lang),
       emoji: fromLeo ? "🐆" : m.emoji,
       activity: fromLeo ? i18nT(lang, "meta.announcement") : m.activity,
       details: "",
@@ -665,7 +665,7 @@ export function dtoToCard(d: PackFeedItemDTO, lang: UILang = "ru"): ActivityCard
       streak: 0,
       hideStreak: true,
       lightTone: true,
-      timeAgo: formatLocalDateTime(d.created_at),
+      timeAgo: formatLocalDateTime(d.created_at, lang),
       emoji: m.emoji,
       activity: m.activity,
       details: d.poll?.total_votes ? `${d.poll.total_votes} votes` : "",
@@ -679,7 +679,7 @@ export function dtoToCard(d: PackFeedItemDTO, lang: UILang = "ru"): ActivityCard
       name: d.is_you ? "You" : d.username || `Member ${d.user_id}`,
       streak: 0,
       hideStreak: true,
-      timeAgo: formatLocalDateTime(d.created_at),
+      timeAgo: formatLocalDateTime(d.created_at, lang),
       emoji: "",
       activity: "",
       details: "",
@@ -691,9 +691,9 @@ export function dtoToCard(d: PackFeedItemDTO, lang: UILang = "ru"): ActivityCard
     avatar: (pic || "").trim() || avatarFor(d.username),
     name: d.is_you ? "You" : d.username || `Member ${d.user_id}`,
     streak: d.streak_days,
-    timeAgo: formatLocalDateTime(d.created_at),
+    timeAgo: formatLocalDateTime(d.created_at, lang),
     emoji: trainingEmoji,
-    activity: d.type === "training_done" ? trainingDoneCategoryDisplayLabel(d.text) : m.activity,
+    activity: d.type === "training_done" ? trainingDoneCategoryDisplayLabel(d.text, lang) : m.activity,
     details: d.type === "training_done" ? "" : m.details,
     comment,
     trainingPhotoUrl: resolveTrainingPhotoUrl(d.training_photo_url),

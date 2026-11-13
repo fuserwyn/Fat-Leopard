@@ -30,7 +30,7 @@ import { earnedAchievementKeys, freshAchievementKeys, type AchievementKey } from
 import { miniappLevelFromCups } from "./lib/miniappLevel";
 import { getStoredTheme, hasStoredTheme, hydrateThemeFromCloud, hydrateThemeFromServer, isThemeMode, persistTheme, persistThemeToServer } from "./lib/theme";
 import { I18nProvider } from "./lib/I18nContext";
-import { hydrateUILangFromServer } from "./lib/uiLang";
+import { getStoredUILang, hydrateUILangFromServer } from "./lib/uiLang";
 import { PACK_WEEKLY_GOAL_DEFAULT } from "./lib/packWeeklyGoal";
 import { buildOptimisticTrainingFeedItem, type PackFeedItemDTO } from "./lib/packFeed";
 import { WORKOUT_CATEGORY_OPTIONS, type WorkoutCategoryId } from "./lib/workoutCategories";
@@ -433,7 +433,7 @@ export function App() {
         const j = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
         if (!res.ok) {
           if (isModerationError(j.error)) {
-            showAlert(moderationUserMessage(j.error, j.message));
+            showAlert(moderationUserMessage(j.error, j.message, getStoredUILang()));
             return false;
           }
           const errMap: Record<string, string> = {

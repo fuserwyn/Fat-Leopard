@@ -1,3 +1,5 @@
+import type { UILang } from "./i18n";
+
 // Single source of truth for achievement thresholds: profile showcase and App toasts.
 export const STREAK_ACHIEVEMENTS = [
   { days: 7, colorClass: "profile__achievement--7", variant: "paw" },
@@ -24,7 +26,15 @@ export const WORKOUT_ACHIEVEMENTS = [
   { count: 1000, variant: "leo" },
 ] as const;
 
-export function workoutsWordRu(n: number): string {
+export function workoutsWordRu(n: number, lang: UILang = "en"): string {
+  if (lang === "ru") {
+    const mod100 = n % 100;
+    const mod10 = n % 10;
+    if (mod100 >= 11 && mod100 <= 14) return "тренировок";
+    if (mod10 === 1) return "тренировка";
+    if (mod10 >= 2 && mod10 <= 4) return "тренировки";
+    return "тренировок";
+  }
   return n === 1 ? "workout" : "workouts";
 }
 

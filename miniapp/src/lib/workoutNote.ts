@@ -1,6 +1,11 @@
+import { t, type UILang } from "./i18n";
+
 // Workout note placeholder: @ mention notifies a pack member; otherwise the bot sends an invite.
-export const WORKOUT_NOTE_PLACEHOLDER =
-  "How did it go? Trained together — tag your buddy: @username";
+// Текст — в i18n (workout.notePlaceholder); константа осталась как EN-дефолт для тестов.
+export function workoutNotePlaceholder(lang: UILang): string {
+  return t(lang, "workout.notePlaceholder");
+}
+export const WORKOUT_NOTE_PLACEHOLDER = workoutNotePlaceholder("en");
 
 const apiBase = (import.meta.env.VITE_MINIAPP_API_URL as string | undefined)?.replace(/\/$/, "") ?? "";
 

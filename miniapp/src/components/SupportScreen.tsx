@@ -5,6 +5,7 @@ import {
   scrollChatLogToEnd,
 } from "../lib/chatLogScroll";
 import { formatChatTime } from "../lib/timeAgo";
+import { useI18n } from "../lib/I18nContext";
 import { resolveTrainingPhotoUrl } from "../lib/packFeed";
 import { CameraButton } from "./CameraButton";
 import { PhotoLightbox } from "./PhotoLightbox";
@@ -97,6 +98,7 @@ function maxServerID(items: SupportMsg[]): number {
 }
 
 export function SupportScreen({ initData, inTelegram, showAlert, onClose }: Props) {
+  const { lang } = useI18n();
   const sheetRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -490,7 +492,7 @@ export function SupportScreen({ initData, inTelegram, showAlert, onClose }: Prop
                 <div key={m.uiKey} className="chat__row chat__row--user">
                   <div className="chat__bubble-wrap chat__bubble-wrap--user">
                     <div className="chat__bubble chat__bubble--user">{renderBubbleContent(m)}</div>
-                    <div className="chat__time chat__time--user">{formatChatTime(m.createdAt)}</div>
+                    <div className="chat__time chat__time--user">{formatChatTime(m.createdAt, lang)}</div>
                   </div>
                 </div>
               ) : (
@@ -500,7 +502,7 @@ export function SupportScreen({ initData, inTelegram, showAlert, onClose }: Prop
                   </div>
                   <div className="chat__bubble-wrap chat__bubble-wrap--sys">
                     <div className="chat__bubble chat__bubble--sys">{renderBubbleContent(m)}</div>
-                    <div className="chat__time chat__time--sys">{formatChatTime(m.createdAt)}</div>
+                    <div className="chat__time chat__time--sys">{formatChatTime(m.createdAt, lang)}</div>
                   </div>
                 </div>
               ),

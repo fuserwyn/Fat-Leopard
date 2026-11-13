@@ -6,7 +6,7 @@ import { PhotoLightbox } from "./PhotoLightbox";
 import { CameraButton } from "./CameraButton";
 import { LEO_AVATAR_URL } from "../lib/leoAvatar";
 import { votersToLikers, type VoterDTO } from "../lib/packFeed";
-import { WORKOUT_CATEGORY_OPTIONS, type WorkoutCategoryId } from "../lib/workoutCategories";
+import { workoutCategoryOptions, type WorkoutCategoryId } from "../lib/workoutCategories";
 import { clipboardImageFile } from "../lib/clipboardImage";
 import { streakStreakAriaLabel } from "../lib/streakLabel";
 import { hapticImpact } from "../lib/haptics";
@@ -189,6 +189,7 @@ function ThreadLikeButton({
   voters?: VoterDTO[] | string[];
   onToggle: () => void;
 }) {
+  const { t } = useI18n();
   const anchorRef = useRef<HTMLSpanElement>(null);
   const { open, setOpen, style, popRef } = useLikersPopover(anchorRef);
   const hasVoters = Array.isArray(voters) && voters.length > 0;
@@ -199,7 +200,7 @@ function ThreadLikeButton({
       <button type="button" className={`act-card__thread-like${mine ? " act-card__thread-like--mine" : ""}`} {...press}>
         ❤️ {count}
       </button>
-      {open && hasVoters && <LikersPopover groups={groups} popRef={popRef} style={style} label="Who liked" />}
+      {open && hasVoters && <LikersPopover groups={groups} popRef={popRef} style={style} label={t("card.whoLiked")} />}
     </span>
   );
 }
@@ -211,6 +212,7 @@ export function TrainingReactionsBar({
   reactions: { emoji: string; count: number; me: boolean; voters?: VoterDTO[] | string[] }[];
   onReactionClick?: (emoji: string) => void;
 }) {
+  const { t } = useI18n();
   const rowRef = useRef<HTMLDivElement>(null);
   const moreRef = useRef<HTMLDivElement>(null);
   const [visibleCount, setVisibleCount] = useState(reactions.length);
@@ -271,7 +273,7 @@ export function TrainingReactionsBar({
               className={`act-card__react-toggle${menuOpen ? " act-card__react-toggle--open" : ""}`}
               aria-expanded={menuOpen}
               aria-haspopup="menu"
-              aria-label="More reactions"
+              aria-label={t("card.moreReactions")}
               onClick={() => setMenuOpen(!menuOpen)}
             >
               ⋯
@@ -308,6 +310,8 @@ export function ReportActionMenu({
   posting?: boolean;
   className?: string;
 }) {
+  const { t } = useI18n();
+  const menuMoreLabel = t("card.more");
   const toggleRef = useRef<HTMLButtonElement>(null);
   const { open, setOpen, style, popRef } = useLikersPopover(toggleRef);
 
@@ -321,7 +325,7 @@ export function ReportActionMenu({
         className={`act-card__menu-toggle${open ? " act-card__menu-toggle--open" : ""}`}
         aria-expanded={open}
         aria-haspopup="menu"
-        aria-label="More"
+        aria-label={menuMoreLabel}
         disabled={posting}
         onClick={() => setOpen(!open)}
       >
@@ -488,7 +492,7 @@ export function ActivityCard({
   onThreadOpened,
   initData,
 }: ActivityCardProps) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const threadBodyRef = useRef<HTMLDivElement>(null);
   const threadComposeRef = useRef<HTMLDivElement>(null);
   const threadInputRef = useRef<HTMLTextAreaElement>(null);
@@ -659,7 +663,7 @@ export function ActivityCard({
       <div
         className={`act-card__react${reactionInline ? " act-card__react--inline" : ""}`}
         role="group"
-        aria-label="Reactions"
+        aria-label={t("card.reactions")}
       >
         <TrainingReactionsBar reactions={activeReactions} onReactionClick={onReactionClick} />
       </div>
@@ -668,22 +672,22 @@ export function ActivityCard({
   const cardHeadMenuItems = useMemo(() => {
     const items: { label: string; onClick: () => void; danger?: boolean }[] = [];
     if (onToggleFollow) {
-      items.push({ label: isFriend ? "Unfollow workouts" : "Follow workouts", onClick: onToggleFollow });
+      items.push({ label: isFriend ? t("card.unfollow") : t("card.follow"), onClick: onToggleFollow });
     }
     if (onTogglePin) {
-      items.push({ label: pinned ? "Unpin" : "Pin", onClick: onTogglePin });
+      items.push({ label: pinned ? t("card.unpin") : t("card.pin"), onClick: onTogglePin });
     }
     if (onAdminDelete) {
-      items.push({ label: "Hide post", onClick: onAdminDelete, danger: true });
+      items.push({ label: t("card.hidePost"), onClick: onAdminDelete, danger: true });
     }
     if (onStartEditPost) {
-      items.push({ label: "Edit", onClick: onStartEditPost });
+      items.push({ label: t("card.edit"), onClick: onStartEditPost });
     }
     if (onReport) {
-      items.push({ label: "Report post", onClick: onReport });
+      items.push({ label: t("card.reportPost"), onClick: onReport });
     }
     return items;
-  }, [onToggleFollow, isFriend, onTogglePin, pinned, onAdminDelete, onStartEditPost, onReport]);
+  }, [t, onToggleFollow, isFriend, onTogglePin, pinned, onAdminDelete, onStartEditPost, onReport]);
   const cardHeadMenuPosting = reportPosting || adminDeletePosting || pinPosting || followPosting;
 
   // Как в Telegram: реакций на посте не видно, ряд эмодзи для выбора всплывает
@@ -795,8 +799,8 @@ export function ActivityCard({
           <div className="act-card__row act-card__row--name">
             <span className="act-card__name">{name}</span>
             {pinned && (
-              <span className="act-card__pinned-badge" aria-label="Pinned announcement">
-                📌 pinned
+              <span className="act-card__pinned-badge" aria-label={t("card.pinned")}>
+                {t("card.pinnedBadge")}
               </span>
             )}
           </div>
@@ -808,8 +812,8 @@ export function ActivityCard({
             {showStreak && (
               <span
                 className="pill pill--streak"
-                aria-label={streakStreakAriaLabel(streak)}
-                title={streakStreakAriaLabel(streak)}
+                aria-label={streakStreakAriaLabel(streak, lang)}
+                title={streakStreakAriaLabel(streak, lang)}
               >
                 <span className="pill__streak-word">{t("card.streak")}</span>
                 <span className="pill__streak-num">{streak}</span>
@@ -840,10 +844,10 @@ export function ActivityCard({
         {postEdit ? (
           <div className="act-card__post-edit">
             {postEdit.kinds && postEdit.onKindsChange && (
-              <div className="act-card__post-edit-kinds" role="group" aria-label="Sport type">
+              <div className="act-card__post-edit-kinds" role="group" aria-label={t("card.sportType")}>
                 <div className="act-card__post-edit-kinds-title">Sport type</div>
                 <div className="act-card__post-edit-kinds-list">
-                  {WORKOUT_CATEGORY_OPTIONS.map((o) => {
+                  {workoutCategoryOptions(lang).map((o) => {
                     const selected = postEdit.kinds?.includes(o.id) ?? false;
                     return (
                       <button
@@ -886,7 +890,7 @@ export function ActivityCard({
                 <div className="act-card__post-edit-photo-actions">
                   {postEdit.onAttachPhoto && (
                     <label className={`act-card__post-edit-photo-btn${postEdit.photoBusy || postEdit.posting ? " act-card__post-edit-photo-btn--disabled" : ""}`}>
-                      {postEdit.photoBusy ? "…" : postEdit.photoUrl ? "🖼 From gallery" : "🖼 Gallery"}
+                      {postEdit.photoBusy ? "…" : postEdit.photoUrl ? `🖼 ${t("card.fromGallery")}` : `🖼 ${t("card.gallery")}`}
                       <input
                         type="file"
                         accept="image/*"
@@ -904,13 +908,13 @@ export function ActivityCard({
                     <CameraButton
                       className={`act-card__post-edit-photo-btn${postEdit.photoBusy || postEdit.posting ? " act-card__post-edit-photo-btn--disabled" : ""}`}
                       disabled={postEdit.photoBusy || postEdit.posting}
-                      ariaLabel="Take photo"
+                      ariaLabel={t("card.takePhoto")}
                       onChange={(e) => {
                         const f = e.target.files?.[0];
                         if (f) setPendingPostEditCrop(f);
                       }}
                     >
-                      📷 Camera
+                      📷 {t("card.camera")}
                     </CameraButton>
                   )}
                   {postEdit.photoUrl && postEdit.onRemovePhoto && (
@@ -920,7 +924,7 @@ export function ActivityCard({
                       disabled={postEdit.photoBusy || postEdit.posting}
                       onClick={() => postEdit.onRemovePhoto?.()}
                     >
-                      Remove photo
+                      {t("card.removePhoto")}
                     </button>
                   )}
                 </div>
@@ -928,10 +932,10 @@ export function ActivityCard({
             )}
             <div className="act-card__post-edit-actions">
               <button type="button" className="act-card__post-edit-cancel" disabled={postEdit.posting} onClick={postEdit.onCancel}>
-                Cancel
+                {t("common.cancel")}
               </button>
               <button type="button" className="act-card__post-edit-save" disabled={postEdit.posting} onClick={postEdit.onSave}>
-                {postEdit.posting ? "…" : "Save"}
+                {postEdit.posting ? "…" : t("common.save")}
               </button>
             </div>
             {pendingPostEditCrop &&
@@ -1117,7 +1121,7 @@ export function ActivityCard({
                                           className="act-card__menu--thread"
                                           items={[
                                             {
-                                              label: "Report comment",
+                                              label: t("card.reportComment"),
                                               onClick: () => onThreadReplyReport(tr.id),
                                             },
                                           ]}
@@ -1128,7 +1132,7 @@ export function ActivityCard({
                                     <div className="act-card__thread-subrow">
                                       <span className="act-card__thread-time muted">
                                         {tr.timeAgo}
-                                        {tr.edited ? <span className="act-card__edited"> · edited</span> : null}
+                                        {tr.edited ? <span className="act-card__edited"> · {t("card.edited")}</span> : null}
                                       </span>
                                       <div className="act-card__thread-item-actions">
                                         {tr.isYou && !leo && !adminVoice && onThreadReplyEdit != null && (
@@ -1141,7 +1145,7 @@ export function ActivityCard({
                                               window.setTimeout(() => threadInputRef.current?.focus(), 80);
                                             }}
                                           >
-                                            Edit
+                                            {t("card.edit")}
                                           </button>
                                         )}
                                         {onThreadReplyDelete != null && (tr.isYou || isAdmin) && (
@@ -1150,9 +1154,9 @@ export function ActivityCard({
                                             className="act-card__thread-del"
                                             disabled={Boolean(threadReplyDeleting[tr.id])}
                                             onClick={() => onThreadReplyDelete(tr.id)}
-                                          title={!tr.isYou ? "Hide as admin" : undefined}
+                                          title={!tr.isYou ? t("card.hideAsAdmin") : undefined}
                                         >
-                                          {threadReplyDeleting[tr.id] ? "…" : tr.isYou ? "Delete" : "Hide"}
+                                          {threadReplyDeleting[tr.id] ? "…" : tr.isYou ? t("card.delete") : t("card.hide")}
                                           </button>
                                         )}
                                       </div>
@@ -1161,7 +1165,7 @@ export function ActivityCard({
                                 </div>
                                 {tr.replyTo != null &&
                                   ((tr.replyTo.text || "").trim() !== "" || (tr.replyTo.author || "").trim() !== "") && (
-                                    <div className="act-card__thread-quote" aria-label="Reply to message">
+                                    <div className="act-card__thread-quote" aria-label={t("card.replyToMsg")}>
                                       <span className="act-card__thread-quote-author muted">
                                         {tr.replyTo.isLeo ? "Leo" : tr.replyTo.isAdmin ? "Admin" : tr.replyTo.author}
                                       </span>
@@ -1184,7 +1188,7 @@ export function ActivityCard({
                                   <button
                                     type="button"
                                     className="act-card__thread-photo-wrap"
-                                    aria-label="Open photo"
+                                    aria-label={t("card.openPhoto")}
                                     onClick={() => openLightbox(tr.photoUrl)}
                                   >
                                     <img
@@ -1239,12 +1243,12 @@ export function ActivityCard({
                     {threadComposer.editReplyId != null && threadComposer.editReplyId > 0 && (
                       <div className="act-card__reply-intent act-card__reply-intent--edit">
                         <div className="act-card__reply-intent-row">
-                          <span className="act-card__reply-intent-label">Editing comment</span>
+                          <span className="act-card__reply-intent-label">{t("card.editingComment")}</span>
                           {threadComposer.onCancelEdit != null && (
                             <button
                               type="button"
                               className="act-card__reply-intent-cancel"
-                              aria-label="Cancel edit"
+                              aria-label={t("card.cancelEdit")}
                               onClick={() => threadComposer.onCancelEdit?.()}
                             >
                               ✕
@@ -1257,13 +1261,13 @@ export function ActivityCard({
                       <div className="act-card__reply-intent">
                         <div className="act-card__reply-intent-row">
                           <span className="act-card__reply-intent-label">
-                            Reply to <strong>{threadReplyIntent.authorLabel}</strong>
+                            {t("card.replyToPrefix")} <strong>{threadReplyIntent.authorLabel}</strong>
                           </span>
                           {onCancelThreadReplyIntent != null && (
                             <button
                               type="button"
                               className="act-card__reply-intent-cancel"
-                              aria-label="Cancel reply"
+                              aria-label={t("card.cancelReply")}
                               onClick={() => onCancelThreadReplyIntent()}
                             >
                               ✕
@@ -1290,12 +1294,12 @@ export function ActivityCard({
                             if (threadPhoto) setPendingThreadCrop(threadPhoto);
                           }}
                         >
-                          Crop
+                          {t("card.crop")}
                         </button>
                         <button
                           type="button"
                           className="act-card__thread-photo-remove"
-                          aria-label="Remove photo"
+                          aria-label={t("card.removePhoto")}
                           disabled={threadComposer.posting}
                           onClick={() => {
                             setThreadPhoto(null);
@@ -1312,10 +1316,10 @@ export function ActivityCard({
                       rows={2}
                       placeholder={
                         threadComposer.editReplyId != null
-                          ? "Edit comment…"
+                          ? t("card.editCommentPlaceholder")
                           : threadReplyIntent
-                            ? `Message for ${threadReplyIntent.authorLabel}…`
-                            : "Write a comment…"
+                            ? t("card.messageFor", { name: threadReplyIntent.authorLabel })
+                            : t("card.replyPlaceholder")
                       }
                       value={threadComposer.draft}
                       onChange={(e) => threadComposer.onDraftChange(e.target.value)}
@@ -1352,7 +1356,7 @@ export function ActivityCard({
                         <button
                           type="button"
                           className="act-card__thread-attach"
-                          aria-label="Attach photo from gallery"
+                          aria-label={t("nav.attachPhoto")}
                           disabled={threadComposer.posting}
                           onClick={() => threadPhotoInputRef.current?.click()}
                         >
@@ -1370,10 +1374,10 @@ export function ActivityCard({
                         />
                       )}
                       {adminVoiceAvailable && threadComposer.editReplyId == null && (
-                        <div className="act-card__thread-voice" role="group" aria-label="Comment as">
+                        <div className="act-card__thread-voice" role="group" aria-label={t("card.commentAs")}>
                           {(
                             [
-                              { v: "self", label: "Me" },
+                              { v: "self", label: t("card.you") },
                               { v: "leo", label: "🐆 Leo" },
                               { v: "admin", label: "Admin" },
                             ] as { v: ThreadPostAs; label: string }[]
@@ -1402,8 +1406,8 @@ export function ActivityCard({
                         {threadComposer.posting
                           ? "…"
                           : threadComposer.editReplyId != null
-                            ? "Save"
-                            : "Send"}
+                            ? t("common.save")
+                            : t("card.send")}
                       </button>
                     </div>
                     {pendingThreadCrop &&

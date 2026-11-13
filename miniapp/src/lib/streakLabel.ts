@@ -1,12 +1,35 @@
-/** 1 day, 2 days (integer ≥ 0). */
-export function daysWordRu(n: number): string {
-  return n === 1 ? "day" : "days";
+import type { UILang } from "./i18n";
+
+/** Russian plural form index: 0 — one (1, 21), 1 — few (2–4), 2 — many (0, 5–20…). */
+function ruPluralForm(n: number): 0 | 1 | 2 {
+  const abs = Math.abs(Math.trunc(n));
+  const mod100 = abs % 100;
+  const mod10 = abs % 10;
+  if (mod100 >= 11 && mod100 <= 14) return 2;
+  if (mod10 === 1) return 0;
+  if (mod10 >= 2 && mod10 <= 4) return 1;
+  return 2;
+}
+
+/** День / дня / дней; day / days (integer ≥ 0). */
+export function daysWord(n: number, lang: UILang = "ru"): string {
+  if (lang === "en") return n === 1 ? "day" : "days";
+  return (["день", "дня", "дней"] as const)[ruPluralForm(n)];
+}
+
+/** Lang-aware alias (default ru). */
+export function daysWordRu(n: number, lang: UILang = "ru"): string {
+  return daysWord(n, lang);
 }
 
 /** For aria / pack feed streak badge hints. */
-export function streakStreakAriaLabel(days: number): string {
-  if (days <= 0) return "Streak: no consecutive workout days yet";
-  return `Streak: ${days} ${daysWordRu(days)} in a row`;
+export function streakStreakAriaLabel(days: number, lang: UILang = "ru"): string {
+  if (lang === "en") {
+    if (days <= 0) return "Streak: no consecutive workout days yet";
+    return `Streak: ${days} ${daysWord(days, "en")} in a row`;
+  }
+  if (days <= 0) return "Стрик: пока нет дней тренировок подряд";
+  return `Стрик: ${days} ${daysWord(days, "ru")} подряд`;
 }
 
 /** Local midnight for YYYY-MM-DD. */
@@ -64,15 +87,16 @@ export function streakBurnRemainingMs(
   return ms > 0 ? ms : null;
 }
 
-/** Compact countdown: “5h 20m”, “1d 4h”, “18m”. */
-export function formatStreakBurnRemaining(ms: number): string {
+/** Compact countdown: “5h 20m”, “1d 4h”, “18m” (ru: “5ч 20м”, “1д 4ч”, “18м”). */
+export function formatStreakBurnRemaining(ms: number, lang: UILang = "en"): string {
   const totalMin = Math.max(0, Math.floor(ms / 60_000));
   const days = Math.floor(totalMin / (60 * 24));
   const hours = Math.floor((totalMin % (60 * 24)) / 60);
   const mins = totalMin % 60;
-  if (days > 0) return `${days}d ${hours}h`;
-  if (hours > 0) return `${hours}h ${mins}m`;
-  return `${mins}m`;
+  const u = lang === "ru" ? { d: "д", h: "ч", m: "м" } : { d: "d", h: "h", m: "m" };
+  if (days > 0) return `${days}${u.d} ${hours}${u.h}`;
+  if (hours > 0) return `${hours}${u.h} ${mins}${u.m}`;
+  return `${mins}${u.m}`;
 }
 
 /**
@@ -129,33 +153,42 @@ export function streakBurnLabel(
   daysSinceLastTraining: number,
   now: Date = new Date(),
   lastTrainingDate?: string | null,
+  lang: UILang = "ru",
 ): string | null {
   const { days, frozen } = resolveStreakIdleDays(daysSinceLastTraining, now, lastTrainingDate);
   if (frozen || days >= 2) return null;
   const ms = streakBurnRemainingMs(streak, days, now, lastTrainingDate);
   if (ms == null) return null;
-  return `streak resets in ${formatStreakBurnRemaining(ms)}`;
+  const left = formatStreakBurnRemaining(ms, lang);
+  return lang === "en" ? `streak resets in ${left}` : `стрик сгорит через ${left}`;
 }
+
+const STREAK_SAVE_HINTS: Record<UILang, Record<string, string>> = {
+  en: {
+    ok: "Restore a lost streak if you forgot to log a workout.",
+    no_attempts: "No saves left — level up to earn more.",
+    not_needed: "Streak still alive — log a workout first; save isn’t needed.",
+    too_late: "More than one day missed — one save can’t fix that.",
+    no_training_history: "No workouts yet — nothing to save.",
+  },
+  ru: {
+    ok: "Верни потерянный стрик, если забыл записать тренировку.",
+    no_attempts: "Спасений не осталось — повышай уровень, чтобы получить ещё.",
+    not_needed: "Стрик ещё жив — сначала запиши тренировку, спасение не нужно.",
+    too_late: "Пропущено больше одного дня — одно спасение этого не исправит.",
+    no_training_history: "Тренировок пока нет — спасать нечего.",
+  },
+};
 
 /** Hint for “Save streak” when button is unavailable or risky. */
 export function streakSaveHint(
   daysSinceLastTraining: number,
   attemptsAvail: number,
+  lang: UILang = "ru",
 ): string | null {
   const reason = streakSaveWindowError(daysSinceLastTraining, attemptsAvail);
-  if (!reason) return "Restore a lost streak if you forgot to log a workout.";
-  switch (reason) {
-    case "no_attempts":
-      return "No saves left — level up to earn more.";
-    case "not_needed":
-      return "Streak still alive — log a workout first; save isn’t needed.";
-    case "too_late":
-      return "More than one day missed — one save can’t fix that.";
-    case "no_training_history":
-      return "No workouts yet — nothing to save.";
-    default:
-      return null;
-  }
+  const hints = STREAK_SAVE_HINTS[lang];
+  return hints[reason ?? "ok"] ?? null;
 }
 
 /**
@@ -177,7 +210,13 @@ export function canUseStreakSave(daysSinceLastTraining: number, attemptsAvail: n
   return streakSaveWindowError(daysSinceLastTraining, attemptsAvail) === null;
 }
 
-/** “cup” / “cups” for progress counter. */
-export function cupsWordRu(n: number): string {
-  return n === 1 ? "cup" : "cups";
+/** “cup” / “cups” (ru: кубок / кубка / кубков) for progress counter. */
+export function cupsWord(n: number, lang: UILang = "ru"): string {
+  if (lang === "en") return n === 1 ? "cup" : "cups";
+  return (["кубок", "кубка", "кубков"] as const)[ruPluralForm(n)];
+}
+
+/** Lang-aware alias (default ru). */
+export function cupsWordRu(n: number, lang: UILang = "ru"): string {
+  return cupsWord(n, lang);
 }

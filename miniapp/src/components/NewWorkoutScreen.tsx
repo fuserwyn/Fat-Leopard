@@ -8,8 +8,8 @@ import { CameraButton } from "./CameraButton";
 import { hapticImpact, hapticNotification } from "../lib/haptics";
 import "./NewWorkoutScreen.css";
 import { clipboardImageFile } from "../lib/clipboardImage";
-import { WORKOUT_NOTE_PLACEHOLDER } from "../lib/workoutNote";
 import { useWorkoutMention } from "../lib/useWorkoutMention";
+import { useI18n } from "../lib/I18nContext";
 
 type ViewportMetrics = {
   /** Высота видимой области (над клавиатурой). */
@@ -100,12 +100,13 @@ function useViewportMetrics(): ViewportMetrics {
   return m;
 }
 
-const INTENSITIES: { v: 1 | 2 | 3 | 4 | 5; label: string }[] = [
-  { v: 1, label: "1 · Warm-up" },
-  { v: 2, label: "2 · Easy" },
-  { v: 3, label: "3 · Steady" },
-  { v: 4, label: "4 · Hard" },
-  { v: 5, label: "5 · Max" },
+/** Подписи — ключи workout.int.N в i18n. */
+const INTENSITIES: { v: 1 | 2 | 3 | 4 | 5; labelKey: string }[] = [
+  { v: 1, labelKey: "workout.int.1" },
+  { v: 2, labelKey: "workout.int.2" },
+  { v: 3, labelKey: "workout.int.3" },
+  { v: 4, labelKey: "workout.int.4" },
+  { v: 5, labelKey: "workout.int.5" },
 ];
 
 /** Пресеты минут (до 120); произвольное значение — поле «Своё», лимит как в формуле кубков на бэке. */
@@ -160,6 +161,7 @@ export function NewWorkoutScreen({
   suggestedWorkoutTypes,
   initData,
 }: Props) {
+  const { t } = useI18n();
   const { visualH } = useViewportMetrics();
   const workoutTypes = useMemo(
     () => orderWorkoutTypes(TYPES, suggestedWorkoutTypes),
@@ -254,11 +256,11 @@ export function NewWorkoutScreen({
   const handleSubmit = useCallback(async () => {
     if (busy) return;
     if (types.length === 0) {
-      (showAlert ?? window.alert)("Pick a workout type.");
+      (showAlert ?? window.alert)(t("workout.err.pickType"));
       return;
     }
     if (otherSelected && !otherLabel.trim()) {
-      (showAlert ?? window.alert)("Enter your activity type or pick from the list.");
+      (showAlert ?? window.alert)(t("workout.err.enterOther"));
       return;
     }
     setBusy(true);
@@ -281,7 +283,7 @@ export function NewWorkoutScreen({
     } finally {
       setBusy(false);
     }
-  }, [busy, types, otherSelected, otherLabel, min, intensity, note, photo, onSave, closeSheet, showAlert]);
+  }, [busy, types, otherSelected, otherLabel, min, intensity, note, photo, onSave, closeSheet, showAlert, t]);
 
   useEffect(() => {
     let raf = 0;
@@ -388,19 +390,19 @@ export function NewWorkoutScreen({
   const [nonSportSent, setNonSportSent] = useState(false);
   const handleNonSportInterest = useCallback(() => {
     if (nonSportSent) {
-      (showAlert ?? window.alert)("Thanks for your interest! We're working on new features.");
+      (showAlert ?? window.alert)(t("workout.nonSportThanks"));
       return;
     }
     // Заявку помечаем отправленной и благодарим только если она реально ушла.
     // Иначе (нет initData) — не блокируем повтор и честно просим попробовать снова.
     const dispatched = onNonSportInterest?.();
     if (dispatched === false) {
-      (showAlert ?? window.alert)("Couldn't send your request. Open the miniapp from Telegram and try again.");
+      (showAlert ?? window.alert)(t("workout.err.nonSportSend"));
       return;
     }
     setNonSportSent(true);
-    (showAlert ?? window.alert)("Thanks for your interest! We're working on new features.");
-  }, [nonSportSent, onNonSportInterest, showAlert]);
+    (showAlert ?? window.alert)(t("workout.nonSportThanks"));
+  }, [nonSportSent, onNonSportInterest, showAlert, t]);
 
   const applyMinutes = useCallback((n: number) => {
     const m = clampWorkoutMinutes(n);
@@ -422,7 +424,7 @@ export function NewWorkoutScreen({
         className={`nwo${showKeyboardBar ? " nwo--keyboard" : ""}`}
         role="dialog"
         aria-modal="true"
-        aria-label="New workout"
+        aria-label={t("workout.dialogAria")}
         style={
         // Пока показана клавиатурная панель — высота от верхнего зазора до верха
         // клавиатуры: visualH − top шторки (та же проверенная формула, что была с
@@ -440,15 +442,15 @@ export function NewWorkoutScreen({
     >
       <div className="nwo__grabber" aria-hidden="true" />
       <header className="nwo__head">
-        <h1 className="nwo__title">Workout</h1>
-        <button type="button" className="nwo__close" onClick={closeSheet} aria-label="Close">
+        <h1 className="nwo__title">{t("workout.title")}</h1>
+        <button type="button" className="nwo__close" onClick={closeSheet} aria-label={t("common.close")}>
           ✕
         </button>
       </header>
 
       <div className="nwo__body" ref={bodyRef}>
         <div className="nwo__note-block">
-          <h2 className="nwo__sec">Notes</h2>
+          <h2 className="nwo__sec">{t("workout.notes")}</h2>
           <div className="nwo__note-wrap">
           <textarea
             ref={noteTaRef}
@@ -461,7 +463,7 @@ export function NewWorkoutScreen({
             }}
             onSelect={(e) => mention.track(e.currentTarget)}
             maxLength={NOTE_MAX}
-            placeholder={WORKOUT_NOTE_PLACEHOLDER}
+            placeholder={t("workout.notePlaceholder")}
             enterKeyHint="done"
             autoCorrect="on"
             spellCheck
@@ -493,7 +495,7 @@ export function NewWorkoutScreen({
           </span>
           </div>
           {mention.hits.length > 0 && (
-            <ul className="nwo__mentions" role="listbox" aria-label="Tag workout buddy">
+            <ul className="nwo__mentions" role="listbox" aria-label={t("workout.tagBuddy")}>
               {mention.hits.map((c) => (
                 <li key={c.userId}>
                   <button
@@ -523,7 +525,7 @@ export function NewWorkoutScreen({
                     className="nwo__file-hidden"
                     type="file"
                     accept="image/*"
-                    title="Optional — the pack will see the photo in the feed"
+                    title={t("workout.photoOptionalTitle")}
                     onChange={(e) => {
                       const f = e.target.files?.[0] ?? null;
                       if (f) setPendingPhoto(f);
@@ -533,12 +535,12 @@ export function NewWorkoutScreen({
                   <span className="nwo__photo-add-ico" aria-hidden>
                     🖼
                   </span>
-                  {photo ? "Replace" : "From gallery"}
+                  {photo ? t("workout.photoReplace") : t("workout.photoGallery")}
                 </label>
                 <CameraButton
                   className="nwo__photo-add"
-                  ariaLabel="Take photo"
-                  title="Take a photo with the camera now"
+                  ariaLabel={t("workout.takePhoto")}
+                  title={t("workout.takePhotoTitle")}
                   onChange={(e) => {
                     const f = e.target.files?.[0] ?? null;
                     if (f) setPendingPhoto(f);
@@ -547,7 +549,7 @@ export function NewWorkoutScreen({
                   <span className="nwo__photo-add-ico" aria-hidden>
                     📷
                   </span>
-                  Camera
+                  {t("workout.camera")}
                 </CameraButton>
               </div>
               {photo ? (
@@ -559,8 +561,8 @@ export function NewWorkoutScreen({
                     type="button"
                     className="nwo__photo-edit nwo__photo-edit--icon"
                     onClick={() => setPendingCrop(photo)}
-                    aria-label="Crop photo"
-                    title="Crop photo"
+                    aria-label={t("workout.cropPhoto")}
+                    title={t("workout.cropPhoto")}
                   >
                     <svg className="nwo__photo-crop-icon" viewBox="0 0 24 24" aria-hidden focusable="false">
                       <path d="M17 15h2V7c0-1.1-.9-2-2-2H9v2h8v8zM7 17V1H5v4H1v2h4v10c0 1.1.9 2 2 2h10v4h2v-6H7z" />
@@ -570,7 +572,7 @@ export function NewWorkoutScreen({
                     type="button"
                     className="nwo__photo-edit nwo__photo-edit--ghost"
                     onClick={() => setPhoto(null)}
-                    aria-label="Remove photo"
+                    aria-label={t("nav.removePhoto")}
                   >
                     ✕
                   </button>
@@ -581,28 +583,28 @@ export function NewWorkoutScreen({
         </div>
 
         <div className="nwo__upper">
-          <h2 className="nwo__sec">Type</h2>
-          <div className="nwo__types-scroll" role="group" aria-label="Workout type (multi-select)">
-            {workoutTypes.map((t) => (
+          <h2 className="nwo__sec">{t("workout.type")}</h2>
+          <div className="nwo__types-scroll" role="group" aria-label={t("workout.typeAria")}>
+            {workoutTypes.map((wt) => (
               <button
-                key={t.id}
+                key={wt.id}
                 type="button"
                 className="chip nwo__type-chip"
-                title={t.label}
-                aria-pressed={types.includes(t.id)}
-                onClick={() => toggleType(t.id)}
+                title={t(`workout.type.${wt.id}`)}
+                aria-pressed={types.includes(wt.id)}
+                onClick={() => toggleType(wt.id)}
               >
                 <span className="nwo__type-emoji" aria-hidden>
-                  {t.emoji}
+                  {wt.emoji}
                 </span>
-                <span className="nwo__type-lbl">{t.label}</span>
+                <span className="nwo__type-lbl">{t(`workout.type.${wt.id}`)}</span>
               </button>
             ))}
           </div>
           {otherSelected && (
             <div className="nwo__other-field">
               <label className="nwo__other-label" htmlFor="nwo-other-type">
-                Custom type
+                {t("workout.customType")}
               </label>
               <input
                 id="nwo-other-type"
@@ -612,7 +614,7 @@ export function NewWorkoutScreen({
                 value={otherLabel}
                 onChange={(e) => setOtherLabel(e.target.value.slice(0, OTHER_LABEL_MAX))}
                 maxLength={OTHER_LABEL_MAX}
-                placeholder="Pilates, climbing…"
+                placeholder={t("workout.customTypePlaceholder")}
                 autoComplete="off"
                 enterKeyHint="done"
                 onFocus={() => {
@@ -630,18 +632,18 @@ export function NewWorkoutScreen({
             </div>
           )}
           <button type="button" className="nwo__non-sport" onClick={handleNonSportInterest}>
-            I want to log more than workouts
+            {t("workout.nonSport")}
           </button>
 
           <div className="nwo__mid">
             <div className="nwo__dur">
-              <h2 className="nwo__sec">Minutes</h2>
+              <h2 className="nwo__sec">{t("workout.minutes")}</h2>
               <div className="nwo__dur-top">
                 <span className="nwo__big-min">{min}</span>
-                <span className="nwo__big-suf">min</span>
+                <span className="nwo__big-suf">{t("workout.minSuffix")}</span>
               </div>
               <div className="nwo__presets-row">
-                <div className="nwo__presets" role="group" aria-label="Quick minutes">
+                <div className="nwo__presets" role="group" aria-label={t("workout.quickMinutes")}>
                   {PRESET_MIN.map((p) => (
                     <button
                       key={p}
@@ -656,7 +658,7 @@ export function NewWorkoutScreen({
                 </div>
                 <div className="nwo__min-custom">
                   <label className="nwo__min-custom-lbl" htmlFor="nwo-min-custom">
-                    Custom
+                    {t("workout.custom")}
                   </label>
                   <input
                     id="nwo-min-custom"
@@ -666,7 +668,7 @@ export function NewWorkoutScreen({
                     autoComplete="off"
                     enterKeyHint="done"
                     maxLength={3}
-                    aria-label={`Minutes, from ${WORKOUT_MIN_MIN} to ${WORKOUT_MIN_MAX}`}
+                    aria-label={t("workout.minutesRangeAria", { min: WORKOUT_MIN_MIN, max: WORKOUT_MIN_MAX })}
                     placeholder={`${WORKOUT_MIN_MIN}–${WORKOUT_MIN_MAX}`}
                     value={minDraft}
                     onChange={(e) => {
@@ -688,16 +690,16 @@ export function NewWorkoutScreen({
             </div>
 
             <div className="nwo__int-wrap">
-              <h2 className="nwo__sec">Intensity</h2>
-              <div className="nwo__intensity-row" role="group" aria-label="Intensity">
+              <h2 className="nwo__sec">{t("workout.intensity")}</h2>
+              <div className="nwo__intensity-row" role="group" aria-label={t("workout.intensity")}>
                 {INTENSITIES.map((i) => (
                   <button
                     key={i.v}
                     type="button"
                     className={`nwo__int-btn ${intensity === i.v ? "is-on" : ""}`}
                     aria-pressed={intensity === i.v}
-                    aria-label={i.label}
-                    title={i.label}
+                    aria-label={t(i.labelKey)}
+                    title={t(i.labelKey)}
                     onClick={() => setIntensity(i.v)}
                   >
                     {i.v}
@@ -712,19 +714,19 @@ export function NewWorkoutScreen({
 
       <footer className="nwo__foot" hidden={showKeyboardBar}>
         <button type="button" className="nwo__save" disabled={busy} onClick={() => void handleSubmit()}>
-          {busy ? "Sending…" : "Submit workout"}
+          {busy ? t("workout.sending") : t("workout.submit")}
         </button>
       </footer>
 
       {showKeyboardBar ? (
-        <div className="nwo__keyboard-bar" role="toolbar" aria-label="Submit workout">
+        <div className="nwo__keyboard-bar" role="toolbar" aria-label={t("workout.submit")}>
           <button
             type="button"
             className="nwo__keyboard-send"
             disabled={busy}
             onClick={() => void handleSubmit()}
           >
-            {busy ? "Sending…" : "Send"}
+            {busy ? t("workout.sending") : t("workout.send")}
           </button>
         </div>
       ) : null}
