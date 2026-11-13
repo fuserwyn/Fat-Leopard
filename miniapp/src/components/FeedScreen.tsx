@@ -33,6 +33,7 @@ import { clearPackGroupUnread } from "../lib/packGroupUnread";
 import { reportLeoCommentDisplayed } from "../lib/leoCommentDiag";
 import { formatLocalDateTime } from "../lib/timeAgo";
 import { streakStreakAriaLabel } from "../lib/streakLabel";
+import { useI18n } from "../lib/I18nContext";
 import {
   PACK_WEEKLY_GOAL_DEFAULT,
   packWeeklyGoalHint,
@@ -249,6 +250,7 @@ export function FeedScreen({
   packGoalReached = false,
   packBonusThemeActive = false,
 }: Props) {
+  const { t, lang } = useI18n();
   const [sub] = useState<Sub>("activity");
   const [unreadFeedCardIds, setUnreadFeedCardIds] = useState<Set<number>>(() => new Set());
 
@@ -1744,7 +1746,7 @@ export function FeedScreen({
           <div className="feed__hero">
             <div className="feed__streak" aria-label={streakStreakAriaLabel(streak)} title={streakStreakAriaLabel(streak)}>
               <span className="feed__streak-row">
-                <span className="feed__streak-word">Streak</span>
+                <span className="feed__streak-word">{t("feed.streak")}</span>
                 <span className="feed__streak-num">{streak}</span>
               </span>
             </div>
@@ -1769,7 +1771,7 @@ export function FeedScreen({
                   setCatListOpen(false);
                 }}
               >
-                All
+                {t("feed.filterAll")}
               </button>
               <button
                 type="button"
@@ -1779,7 +1781,7 @@ export function FeedScreen({
                   setFeedScope((p) => (p === "mine" ? "all" : "mine"));
                 }}
               >
-                Mine
+                {t("feed.filterMine")}
               </button>
               <button
                 type="button"
@@ -1789,7 +1791,7 @@ export function FeedScreen({
                   setFeedScope((p) => (p === "friends" ? "all" : "friends"));
                 }}
               >
-                Friends
+                {t("feed.filterFriends")}
               </button>
               <button
                 type="button"
@@ -1799,7 +1801,7 @@ export function FeedScreen({
                   setFeedTypeFilter((p) => (p === "training" ? "all" : "training"));
                 }}
               >
-                Workouts
+                {t("feed.filterWorkouts")}
               </button>
               <button
                 type="button"
@@ -1813,7 +1815,7 @@ export function FeedScreen({
                   });
                 }}
               >
-                Messages
+                {t("feed.filterMessages")}
               </button>
             </div>
             <div
@@ -1841,7 +1843,7 @@ export function FeedScreen({
                     }
                   }}
                 >
-                  <span className="feed__filter-chip-label">All types</span>
+                  <span className="feed__filter-chip-label">{t("feed.allTypes")}</span>
                   <span className="feed__filter-chip-caret" aria-hidden>
                     ▾
                   </span>
@@ -1881,7 +1883,7 @@ export function FeedScreen({
               </div>
               </div>
               {catListOpen && (
-                <div className="feed__cat-list" role="listbox" aria-label="All workout types">
+                <div className="feed__cat-list" role="listbox" aria-label={t("feed.allTypesAria")}>
                   <button
                     type="button"
                     role="option"
@@ -1892,7 +1894,7 @@ export function FeedScreen({
                     <span className="feed__cat-list-emoji" aria-hidden>
                       🏷️
                     </span>
-                    <span className="feed__cat-list-label">All types</span>
+                    <span className="feed__cat-list-label">{t("feed.allTypes")}</span>
                     {feedCategoryIds.length === 0 && (
                       <span className="feed__cat-list-check" aria-hidden>
                         ✓
@@ -1951,10 +1953,10 @@ export function FeedScreen({
       <div className={`feed__subpane${sub !== "activity" ? " feed__subpane--hidden" : ""}`}>
           <div
             className={`feed__pack-progress feed__pack-progress--plain${packGoalReached ? " is-complete" : ""}${packBonusThemeActive ? " is-bonus" : ""}`}
-            aria-label={`Pack: ${packWeeklyProgressLabel(packWorkoutsWeek, packWorkoutsGoal)} workouts this week`}
+            aria-label={t("feed.packWeekAria", { n: packWeeklyProgressLabel(packWorkoutsWeek, packWorkoutsGoal) })}
           >
             <div className="feed__pack-progress-row">
-              <span className="feed__pack-progress-title">Pack week</span>
+              <span className="feed__pack-progress-title">{t("feed.packWeek")}</span>
               <div
                 className="feed__pack-progress-bar"
                 role="progressbar"
@@ -1972,7 +1974,7 @@ export function FeedScreen({
               <button
                 type="button"
                 className="feed__pack-progress-help"
-                aria-label="Pack weekly goal hint"
+                aria-label={t("feed.packWeekHintAria")}
                 onClick={() => {
                   hapticLight();
                   showAlert(packWeeklyGoalHint(packWorkoutsGoal));
@@ -1990,7 +1992,7 @@ export function FeedScreen({
             ) : null}
           </div>
           {err && <p className="feed__err">{err}</p>}
-          {loading && <p className="feed__load muted">Loading…</p>}
+          {loading && <p className="feed__load muted">{t("common.loading")}</p>}
           <div className={`feed__list${listSwapClass ? ` ${listSwapClass}` : ""}`}>
             {!loading && !useMockFeed && feedItems.length === 0 && !err && (
               <p className="feed__empty muted">No reports in the database yet (or MONETIZED_CHAT_ID is missing).</p>
@@ -2001,9 +2003,7 @@ export function FeedScreen({
               visibleFeedItems.length === 0 &&
               !err && (
                 <p className="feed__empty muted">
-                  {feedScope === "friends"
-                    ? "Friend workouts live here. Follow people in Profile → Pack friends."
-                    : "Nothing matches filters — pick another type or All types / All."}
+                  {feedScope === "friends" ? t("feed.emptyFriends") : t("feed.emptyFilters")}
                 </p>
               )}
             {useMockFeed &&
@@ -2014,7 +2014,7 @@ export function FeedScreen({
               ))}
             {!useMockFeed &&
               orderedFeedItems.map((it) => {
-                const base = dtoToCard(it);
+                const base = dtoToCard(it, lang);
                 const isAdminAnnouncement = it.type === "admin_post" || it.type === "admin_poll";
                 const isPinnedAnnouncement = Boolean(it.is_pinned) && isAdminAnnouncement;
                 const canPinCard = isAdmin && isAdminAnnouncement;
@@ -2032,7 +2032,7 @@ export function FeedScreen({
                   ? {
                       name: "Leo",
                       avatar: LEO_AVATAR_URL,
-                      activity: "Announcement",
+                      activity: t("meta.announcement"),
                       emoji: "🐆",
                       hideStreak: true,
                     }
@@ -2368,17 +2368,17 @@ export function FeedScreen({
             {!useMockFeed && !loading && feedItems.length > 0 && (
               <div ref={olderSentinelRef} className="feed__older">
                 {loadingOlder ? (
-                  <p className="feed__load muted">Loading history…</p>
+                  <p className="feed__load muted">{t("feed.loadingHistory")}</p>
                 ) : hasMoreOlder ? (
                   <button
                     type="button"
                     className="feed__load-more"
                     onClick={() => void loadOlder()}
                   >
-                    Show more
+                    {t("feed.showMore")}
                   </button>
                 ) : (
-                  <p className="feed__load muted">This is the start of pack history</p>
+                  <p className="feed__load muted">{t("feed.historyStart")}</p>
                 )}
               </div>
             )}

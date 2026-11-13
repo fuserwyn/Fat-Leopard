@@ -1,5 +1,6 @@
 import { LEO_AVATAR_URL } from "./leoAvatar";
 import { formatLocalDateTime } from "./timeAgo";
+import { t as i18nT, type UILang } from "./i18n";
 import {
   parseTrainingDoneCategories,
   stripLeadingCategoryFromTrainingReport,
@@ -535,34 +536,35 @@ export function mergePackFeedReactions(
   return [mine, ...rest];
 }
 
-function typeMeta(t: string): { emoji: string; activity: string; details: string } {
-  switch (t) {
+function typeMeta(kind: string, lang: UILang = "ru"): { emoji: string; activity: string; details: string } {
+  const L = (key: string) => i18nT(lang, key);
+  switch (kind) {
     case "training_done":
       return { emoji: "💪", activity: "", details: "" };
     case "sick_leave":
-      return { emoji: "🏥", activity: "Sick leave", details: "" };
+      return { emoji: "🏥", activity: L("meta.sickLeave"), details: "" };
     case "healthy":
-      return { emoji: "💚", activity: "Recovery", details: "" };
+      return { emoji: "💚", activity: L("meta.healthy"), details: "" };
     case "pack_join":
-      return { emoji: "🐆", activity: "Leo · greeting", details: "" };
+      return { emoji: "🐆", activity: L("meta.packJoin"), details: "" };
     case "pack_rejoin":
-      return { emoji: "🐆", activity: "Leo · greeting", details: "" };
+      return { emoji: "🐆", activity: L("meta.packJoin"), details: "" };
     case "daily_wisdom":
-      return { emoji: "🌅", activity: "Daily wisdom", details: "" };
+      return { emoji: "🌅", activity: L("meta.dailyWisdom"), details: "" };
     case "pack_roar":
-      return { emoji: "🐆", activity: "Pack roar", details: "" };
+      return { emoji: "🐆", activity: L("meta.packRoar"), details: "" };
     case "pack_removed":
-      return { emoji: "🐆", activity: "Leo · pack", details: "Removed for inactivity" };
+      return { emoji: "🐆", activity: L("meta.packRemoved"), details: L("meta.packRemovedDetails") };
     case "admin_post":
-      return { emoji: "📢", activity: "Admin · announcement", details: "Custom post" };
+      return { emoji: "📢", activity: L("meta.adminPost"), details: L("meta.adminPostDetails") };
     case "admin_poll":
-      return { emoji: "🗳️", activity: "Admin · poll", details: "Miniapp poll" };
+      return { emoji: "🗳️", activity: L("meta.adminPoll"), details: L("meta.adminPollDetails") };
     case "inactive_notice":
-      return { emoji: "⏳", activity: "Leo · pack nudge", details: "Inactivity timer (context duplicate)" };
+      return { emoji: "⏳", activity: L("meta.inactiveNotice"), details: L("meta.inactiveNoticeDetails") };
     case "pack_message":
       return { emoji: "💬", activity: "", details: "" };
     default:
-      return { emoji: "📝", activity: t, details: "Message" };
+      return { emoji: "📝", activity: kind, details: L("meta.message") };
   }
 }
 
@@ -593,8 +595,8 @@ function avatarFor(name: string) {
   return "🐾";
 }
 
-export function dtoToCard(d: PackFeedItemDTO): ActivityCardProps {
-  const m = typeMeta(d.type);
+export function dtoToCard(d: PackFeedItemDTO, lang: UILang = "ru"): ActivityCardProps {
+  const m = typeMeta(d.type, lang);
   const trainingEmoji = d.type === "training_done" ? trainingDoneCategoryEmoji(d.text) : m.emoji;
   const isLeoNotice =
     d.type === "pack_join" ||
@@ -651,7 +653,7 @@ export function dtoToCard(d: PackFeedItemDTO): ActivityCardProps {
       lightTone: true,
       timeAgo: formatLocalDateTime(d.created_at),
       emoji: fromLeo ? "🐆" : m.emoji,
-      activity: fromLeo ? "Announcement" : m.activity,
+      activity: fromLeo ? i18nT(lang, "meta.announcement") : m.activity,
       details: "",
       comment,
     };

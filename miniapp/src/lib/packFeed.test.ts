@@ -78,6 +78,7 @@ describe("dtoToCard pack roar", () => {
         username: "Лео",
         user_id: 0,
       }),
+      "en",
     );
     expect(card.activity).toBe("Pack roar");
     expect(card.name).toBe("Leo");

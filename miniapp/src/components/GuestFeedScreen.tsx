@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ActivityCard } from "./ActivityCard";
 import { dtoToCard, feedItemKey } from "../lib/packFeed";
 import { fetchGuestFeed, openGuestJoin, type GuestFeed } from "../lib/guestFeed";
+import { useI18n } from "../lib/I18nContext";
 import "./GuestFeedScreen.css";
 
 type Props = {
@@ -14,6 +15,7 @@ type Props = {
 
 /** Guest preview: recent pack workouts and Join for invite links. Read-only cards. */
 export function GuestFeedScreen({ initData, onInPack, initialFeed }: Props) {
+  const { lang } = useI18n();
   const [feed, setFeed] = useState<GuestFeed | null | undefined>(initialFeed);
 
   useEffect(() => {
@@ -52,7 +54,7 @@ export function GuestFeedScreen({ initData, onInPack, initialFeed }: Props) {
           <p className="guest-feed__empty">No recent workouts to show — join the pack to see more.</p>
         ) : null}
         {posts.map((p) => (
-          <ActivityCard key={feedItemKey(p)} {...dtoToCard(p)} />
+          <ActivityCard key={feedItemKey(p)} {...dtoToCard(p, lang)} />
         ))}
       </div>
 

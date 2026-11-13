@@ -1951,6 +1951,29 @@ var Migrations = []Migration{
 			-- Обратный откат языков не делаем: выбор пользователя мог уже смениться.
 		`,
 	},
+	{
+		Version:     98,
+		Description: "Принудительно ui_lang=ru всем участникам training_state (перебить ошибочный EN-сид)",
+		UpSQL: `
+			INSERT INTO miniapp_user_profile (user_id, pack_chat_id, gender, display_name, age_years, ui_lang, updated_at)
+			SELECT ts.user_id,
+			       ts.chat_id,
+			       '',
+			       COALESCE(NULLIF(BTRIM(ts.username), ''), ''),
+			       NULL,
+			       'ru',
+			       NOW()
+			FROM training_state ts
+			WHERE ts.user_id <> 0
+			  AND ts.chat_id <> 0
+			ON CONFLICT (user_id, pack_chat_id) DO UPDATE SET
+				ui_lang = 'ru',
+				updated_at = NOW();
+		`,
+		DownSQL: `
+			-- не откатываем явный выбор языка
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции

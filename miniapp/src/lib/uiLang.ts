@@ -16,7 +16,8 @@ export function getStoredUILang(fallback?: UILang): UILang {
   } catch {
     /* private mode */
   }
-  return fallback ?? "en";
+  // Стая исторически русская: без сохранённого языка и без Telegram — ru.
+  return fallback ?? "ru";
 }
 
 export function persistUILang(lang: UILang): void {

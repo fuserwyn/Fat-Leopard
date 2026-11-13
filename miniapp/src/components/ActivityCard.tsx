@@ -10,6 +10,7 @@ import { WORKOUT_CATEGORY_OPTIONS, type WorkoutCategoryId } from "../lib/workout
 import { clipboardImageFile } from "../lib/clipboardImage";
 import { streakStreakAriaLabel } from "../lib/streakLabel";
 import { hapticImpact } from "../lib/haptics";
+import { useI18n } from "../lib/I18nContext";
 import { LeoTranslatableText } from "./LeoTranslatableText";
 import "./ActivityCard.css";
 
@@ -487,6 +488,7 @@ export function ActivityCard({
   onThreadOpened,
   initData,
 }: ActivityCardProps) {
+  const { t } = useI18n();
   const threadBodyRef = useRef<HTMLDivElement>(null);
   const threadComposeRef = useRef<HTMLDivElement>(null);
   const threadInputRef = useRef<HTMLTextAreaElement>(null);
@@ -801,7 +803,7 @@ export function ActivityCard({
           <div className="act-card__row act-card__row--sub">
             <p className="act-card__time">
               {timeAgo}
-              {commentEdited ? <span className="act-card__edited"> · edited</span> : null}
+              {commentEdited ? <span className="act-card__edited"> · {t("card.edited")}</span> : null}
             </p>
             {showStreak && (
               <span
@@ -809,7 +811,7 @@ export function ActivityCard({
                 aria-label={streakStreakAriaLabel(streak)}
                 title={streakStreakAriaLabel(streak)}
               >
-                <span className="pill__streak-word">Streak</span>
+                <span className="pill__streak-word">{t("card.streak")}</span>
                 <span className="pill__streak-num">{streak}</span>
               </span>
             )}
@@ -962,7 +964,7 @@ export function ActivityCard({
                 aria-expanded={commentExpanded}
                 onClick={() => setCommentExpanded((v) => !v)}
               >
-                {commentExpanded ? "Collapse" : "Show more"}
+                {commentExpanded ? t("card.collapse") : t("card.showMore")}
               </button>
             </div>
           ) : reactionInComment ? (
@@ -981,7 +983,7 @@ export function ActivityCard({
           ))
         )}
         {poll && poll.options.length > 0 && (
-          <div className="act-card__poll" role="group" aria-label="Poll">
+          <div className="act-card__poll" role="group" aria-label={t("card.poll")}>
             {poll.options.map((option, optionIndex) => (
               <button
                 key={`${optionIndex}-${option.label}`}
@@ -993,7 +995,7 @@ export function ActivityCard({
                 <span className="act-card__poll-votes">{option.votes}</span>
               </button>
             ))}
-            <p className="act-card__poll-total">{poll.totalVotes} votes</p>
+            <p className="act-card__poll-total">{t("card.votes", { n: poll.totalVotes })}</p>
           </div>
         )}
         {trainingPhotoUrl && !photoFailed ? (
@@ -1001,7 +1003,7 @@ export function ActivityCard({
             className="act-card__photo-wrap"
             role="button"
             tabIndex={0}
-            aria-label="Open photo"
+            aria-label={t("card.openPhoto")}
             onClick={() => openLightbox(trainingPhotoUrl)}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
@@ -1032,7 +1034,7 @@ export function ActivityCard({
             }}
           >
             <span className="act-card__photo-fallback-icon" aria-hidden>🖼️</span>
-            <span className="act-card__photo-fallback-text">Photo failed to load — tap to retry</span>
+            <span className="act-card__photo-fallback-text">{t("card.photoFailed")}</span>
           </button>
         ) : null}
         {aiText && (
@@ -1053,12 +1055,12 @@ export function ActivityCard({
             >
               <span>
                 {threadOpen
-                  ? "Collapse comments"
+                  ? t("card.collapseComments")
                   : threadCount > 0
-                    ? `Comments · ${threadCount}`
-                    : "Comments"}
+                    ? t("card.commentsCount", { n: threadCount })
+                    : t("card.comments")}
                 {hasUnreadThread && !threadOpen ? (
-                  <span className="act-card__thread-unread-dot" aria-label="Unread replies" />
+                  <span className="act-card__thread-unread-dot" aria-label={t("card.unreadReplies")} />
                 ) : null}
               </span>
               <span className="act-card__thread-chevron" aria-hidden>
@@ -1073,7 +1075,7 @@ export function ActivityCard({
                       {threadReplies.map((tr) => {
                         const leo = Boolean(tr.isLeo);
                         const adminVoice = Boolean(tr.isAdmin);
-                        const displayAuthor = leo ? "Leo" : adminVoice ? "Admin" : tr.isYou ? "You" : tr.author;
+                          const displayAuthor = leo ? "Leo" : adminVoice ? "Admin" : tr.isYou ? t("card.you") : tr.author;
                         // Атрибуция «(имя · админ)» приходит ТОЛЬКО админам — юзеры её не видят.
                         const attribution = tr.adminName
                           ? leo
