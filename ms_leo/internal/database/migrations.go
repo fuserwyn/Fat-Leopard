@@ -1974,6 +1974,33 @@ var Migrations = []Migration{
 			-- не откатываем явный выбор языка
 		`,
 	},
+	{
+		Version:     99,
+		Description: "Повторно ui_lang=ru всей стае (клиент ещё держал en в localStorage / Telegram seed)",
+		UpSQL: `
+			UPDATE miniapp_user_profile
+			SET ui_lang = 'ru', updated_at = NOW()
+			WHERE COALESCE(NULLIF(BTRIM(ui_lang), ''), '') <> 'ru';
+
+			INSERT INTO miniapp_user_profile (user_id, pack_chat_id, gender, display_name, age_years, ui_lang, updated_at)
+			SELECT ts.user_id,
+			       ts.chat_id,
+			       '',
+			       COALESCE(NULLIF(BTRIM(ts.username), ''), ''),
+			       NULL,
+			       'ru',
+			       NOW()
+			FROM training_state ts
+			WHERE ts.user_id <> 0
+			  AND ts.chat_id <> 0
+			ON CONFLICT (user_id, pack_chat_id) DO UPDATE SET
+				ui_lang = 'ru',
+				updated_at = NOW();
+		`,
+		DownSQL: `
+			-- не откатываем
+		`,
+	},
 }
 
 // MigrationRecord представляет запись о выполненной миграции

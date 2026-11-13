@@ -4,11 +4,12 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { RulesScreen } from "./RulesScreen";
 
 beforeEach(() => {
-  localStorage.setItem("leo-ui-lang", "en");
+  localStorage.setItem("leo-ui-lang-v2", "en");
 });
 
 afterEach(() => {
   cleanup();
+  localStorage.removeItem("leo-ui-lang-v2");
   localStorage.removeItem("leo-ui-lang");
 });
 
@@ -70,7 +71,7 @@ describe("RulesScreen", () => {
 
   describe("lang=ru", () => {
     beforeEach(() => {
-      localStorage.setItem("leo-ui-lang", "ru");
+      localStorage.setItem("leo-ui-lang-v2", "ru");
     });
 
     it("renders Russian title and all 11 section triggers", () => {

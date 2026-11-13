@@ -1,9 +1,19 @@
-import { isUILang, langFromTelegram, type UILang } from "./i18n";
+import { isUILang, type UILang } from "./i18n";
 
-const STORAGE_KEY = "leo-ui-lang";
+/** v2 — сброс кэша `en` после английского шипа (старый ключ leo-ui-lang игнорируем). */
+const STORAGE_KEY = "leo-ui-lang-v2";
+const LEGACY_STORAGE_KEY = "leo-ui-lang";
 const apiBase = (import.meta.env.VITE_MINIAPP_API_URL as string | undefined)?.replace(/\/$/, "") ?? "";
 
 let langLockedFromServer = false;
+
+function clearLegacyUILangCache(): void {
+  try {
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
+  } catch {
+    /* private mode */
+  }
+}
 
 export function resetUILangRuntimeForTests(): void {
   langLockedFromServer = false;
@@ -16,13 +26,14 @@ export function getStoredUILang(fallback?: UILang): UILang {
   } catch {
     /* private mode */
   }
-  // Стая исторически русская: без сохранённого языка и без Telegram — ru.
+  // Стая исторически русская: без сохранённого языка — ru (не language_code Telegram).
   return fallback ?? "ru";
 }
 
 export function persistUILang(lang: UILang): void {
   try {
     localStorage.setItem(STORAGE_KEY, lang);
+    clearLegacyUILangCache();
   } catch {
     /* private mode */
   }
@@ -51,19 +62,18 @@ export async function persistUILangToServer(initData: string, lang: UILang): Pro
   }
 }
 
-/** Язык из профиля. Пустой ответ не затирает кэш. */
-export function hydrateUILangFromServer(raw: unknown, telegramCode?: string | null): UILang {
-  if (isUILang(raw)) {
-    langLockedFromServer = true;
-    setUILang(raw);
-    return raw;
-  }
-  const next = getStoredUILang(langFromTelegram(telegramCode));
+/** Язык из профиля. Пустой ответ → ru (стая), не Telegram и не старый localStorage en. */
+export function hydrateUILangFromServer(raw: unknown, _telegramCode?: string | null): UILang {
+  clearLegacyUILangCache();
+  const next: UILang = isUILang(raw) ? raw : "ru";
+  langLockedFromServer = true;
   setUILang(next);
   return next;
 }
 
-export function bootstrapUILang(telegramCode?: string | null): UILang {
+/** До ответа профиля всегда стартуем с ru; сервер потом подтвердит/переключит. */
+export function bootstrapUILang(_telegramCode?: string | null): UILang {
+  clearLegacyUILangCache();
   if (langLockedFromServer) return getStoredUILang();
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -74,7 +84,6 @@ export function bootstrapUILang(telegramCode?: string | null): UILang {
   } catch {
     /* */
   }
-  const next = langFromTelegram(telegramCode);
-  setUILang(next);
-  return next;
+  setUILang("ru");
+  return "ru";
 }
