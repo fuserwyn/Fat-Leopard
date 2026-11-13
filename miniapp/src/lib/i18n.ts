@@ -362,6 +362,21 @@ const en: Dict = {
   "profile.admin.title": "Admin",
   "profile.admin.hint": "Community, system, data, resources, and task tracker — admins only",
   "profile.admin.cta": "Open admin",
+
+  "invite.title": "Invite to the pack",
+  "invite.hint": "For every {n} {friends} who join via your link and log their first workout, you get +1 streak save.",
+  "invite.joined": "joined via link",
+  "invite.qualified": "logged a workout",
+  "invite.rewards": "saves earned",
+  "invite.progress": "Streak save progress: {done} of {every} — {next} more {friends} with a first workout",
+  "invite.cta": "Invite to the pack",
+  "invite.copyTitle": "Copy link",
+  "invite.copy": "copy",
+  "invite.copied": "copied",
+  "invite.friend.one": "friend",
+  "invite.friend.few": "friends",
+  "invite.friend.many": "friends",
+  "invite.shareText": "Train with me in the Fat Leopard pack — log workouts every day 🐆",
 };
 
 const ru: Dict = {
@@ -724,6 +739,21 @@ const ru: Dict = {
   "profile.admin.title": "Админ",
   "profile.admin.hint": "Сообщество, система, данные, ресурсы и трекер задач — только для админов",
   "profile.admin.cta": "Открыть админку",
+
+  "invite.title": "Позвать в стаю",
+  "invite.hint": "Каждые {n} {friends}, которые придут по твоей ссылке и запишут первую тренировку, — +1 попытка спасти стрик.",
+  "invite.joined": "пришли по ссылке",
+  "invite.qualified": "записали тренировку",
+  "invite.rewards": "попыток получено",
+  "invite.progress": "До попытки спасти стрик: {done} из {every} — ещё {next} {friends} с первой тренировкой",
+  "invite.cta": "Позвать в стаю",
+  "invite.copyTitle": "Скопировать ссылку",
+  "invite.copy": "копировать",
+  "invite.copied": "скопировано",
+  "invite.friend.one": "друг",
+  "invite.friend.few": "друга",
+  "invite.friend.many": "друзей",
+  "invite.shareText": "Тренируйся со мной в стае Fat Leopard — отмечаем тренировки каждый день 🐆",
 };
 
 const catalogs: Record<UILang, Dict> = { en, ru };

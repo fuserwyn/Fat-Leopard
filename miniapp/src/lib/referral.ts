@@ -4,6 +4,8 @@
  * первую тренировку, — переход по ссылке сам по себе не считается (ms_leo/internal/bot/referrals.go).
  */
 
+import { pluralCategory, t, type UILang } from "./i18n";
+
 const apiBase = (import.meta.env.VITE_MINIAPP_API_URL as string | undefined)?.replace(/\/$/, "") ?? "";
 
 export const REFERRAL_REWARD_EVERY = 10;
@@ -53,19 +55,24 @@ export async function fetchReferralState(initData: string): Promise<ReferralStat
   }
 }
 
-/** Склонение «друг» по числу. */
-export function friendsWord(n: number): string {
-  return n === 1 ? "friend" : "friends";
+/** Склонение «друг» / friend по числу. */
+export function friendsWord(n: number, lang: UILang = "en"): string {
+  return t(lang, `invite.friend.${pluralCategory(lang, n)}`);
 }
 
 /** Progress line toward the next streak save. */
-export function referralProgressLine(s: ReferralState): string {
+export function referralProgressLine(s: ReferralState, lang: UILang = "en"): string {
   const done = s.qualified % s.rewardEvery;
-  return `Streak save progress: ${done} of ${s.rewardEvery} — ${s.nextIn} more ${friendsWord(s.nextIn)} with a first workout`;
+  return t(lang, "invite.progress", {
+    done,
+    every: s.rewardEvery,
+    next: s.nextIn,
+    friends: friendsWord(s.nextIn, lang),
+  });
 }
 
 /** Telegram share URL with invite text. */
-export function referralShareUrl(link: string): string {
-  const text = "Train with me in the Fat Leopard pack — log workouts every day 🐆";
+export function referralShareUrl(link: string, lang: UILang = "en"): string {
+  const text = t(lang, "invite.shareText");
   return `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
 }

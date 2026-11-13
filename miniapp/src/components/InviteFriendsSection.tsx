@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchReferralState, friendsWord, referralProgressLine, referralShareUrl, type ReferralState } from "../lib/referral";
+import { useI18n } from "../lib/I18nContext";
 import "./InviteFriendsSection.css";
 
 type Props = {
@@ -10,6 +11,7 @@ type Props = {
 
 /** Profile block: personal invite link, counts, streak-save progress. */
 export function InviteFriendsSection({ initData, initialState }: Props) {
+  const { t, lang } = useI18n();
   const [state, setState] = useState<ReferralState | null>(initialState ?? null);
   const [copied, setCopied] = useState(false);
 
@@ -44,7 +46,7 @@ export function InviteFriendsSection({ initData, initialState }: Props) {
   };
 
   const share = () => {
-    const url = referralShareUrl(state.link);
+    const url = referralShareUrl(state.link, lang);
     const wa = window.Telegram?.WebApp;
     if (wa?.openTelegramLink) {
       wa.openTelegramLink(url);
@@ -60,33 +62,32 @@ export function InviteFriendsSection({ initData, initialState }: Props) {
   return (
     <section className="profile__invite" aria-labelledby="profile-invite-title">
       <h2 id="profile-invite-title" className="section-title">
-        Invite to the pack
+        {t("invite.title")}
       </h2>
       <p className="profile__hint muted">
-        For every {state.rewardEvery} {friendsWord(state.rewardEvery)} who join via your link and log their first
-        workout, you get +1 streak save.
+        {t("invite.hint", { n: state.rewardEvery, friends: friendsWord(state.rewardEvery, lang) })}
       </p>
       <div className="profile__invite-stats">
         <div className="profile__invite-stat">
           <b>{state.joined}</b>
-          <small>joined via link</small>
+          <small>{t("invite.joined")}</small>
         </div>
         <div className="profile__invite-stat">
           <b>{state.qualified}</b>
-          <small>logged a workout</small>
+          <small>{t("invite.qualified")}</small>
         </div>
         <div className="profile__invite-stat">
           <b>{state.rewards}</b>
-          <small>saves earned</small>
+          <small>{t("invite.rewards")}</small>
         </div>
       </div>
-      <p className="profile__invite-progress muted">{referralProgressLine(state)}</p>
+      <p className="profile__invite-progress muted">{referralProgressLine(state, lang)}</p>
       <button type="button" className="profile__save profile__invite-btn" onClick={share}>
-        Invite to the pack
+        {t("invite.cta")}
       </button>
-      <button type="button" className="profile__invite-link" onClick={() => void copy()} title="Copy link">
+      <button type="button" className="profile__invite-link" onClick={() => void copy()} title={t("invite.copyTitle")}>
         <span>{state.link}</span>
-        <small>{copied ? "copied" : "copy"}</small>
+        <small>{copied ? t("invite.copied") : t("invite.copy")}</small>
       </button>
     </section>
   );
