@@ -21,9 +21,14 @@ else
 	echo "тесты: Postgres не найден, SQL-тесты будут пропущены"
 fi
 status=0
-# -coverpkg: покрытие считается по всему коду, а не только по пакету теста —
-# сквозные тесты API проходят через bot и database.
-go test ./... -coverpkg=./internal/... -coverprofile=/tmp/leo-cover.out || status=$?
+# -p 1: пакеты по очереди — на Railway параллельный go test ./... с -coverpkg
+# часто убивается OOM сразу после internal/ai (молчание -p = NumCPU).
+# -coverpkg: покрытие по всему internal/, не только по пакету теста.
+echo "тесты: go test ./... -p 1 (serial)"
+go test ./... -p 1 -count=1 -coverpkg=./internal/... -coverprofile=/tmp/leo-cover.out || status=$?
+if [ "$status" -ne 0 ]; then
+	echo "тесты: go test упал со status=$status"
+fi
 if [ "$status" -eq 0 ] && [ -n "$PGBIN" ]; then
 	total=$(go tool cover -func=/tmp/leo-cover.out | awk '/^total:/ {sub(/%/, "", $3); print $3}')
 	floor=$(cat coverage-floor.txt 2>/dev/null || echo 0)
