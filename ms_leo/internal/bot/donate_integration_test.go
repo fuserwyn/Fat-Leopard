@@ -33,7 +33,7 @@ func donationRow(t *testing.T, db *sql.DB, id int64) (status string, amount int,
 func thanksCount(tg *fakeTelegram, userID int64) int {
 	n := 0
 	for _, text := range tg.textsTo(userID) {
-		if strings.Contains(text, "Спасибо за поддержку") {
+		if strings.Contains(text, "Thanks for your support") {
 			n++
 		}
 	}
@@ -83,11 +83,11 @@ func TestDonateStarsFlow(t *testing.T) {
 		t.Fatal("верный счёт должен проходить")
 	}
 	for name, q := range map[string]tgbotapi.PreCheckoutQuery{
-		"Неверная сумма":        {ID: "d2", From: from, Currency: "XTR", TotalAmount: 50, InvoicePayload: payload},
-		"не для этого аккаунта": {ID: "d3", From: &tgbotapi.User{ID: itUser + 3}, Currency: "XTR", TotalAmount: 150, InvoicePayload: payload},
-		"Некорректный платёж":   {ID: "d4", From: from, Currency: "XTR", TotalAmount: 150, InvoicePayload: "мусор"},
-		"Заявка не найдена":     {ID: "d5", From: from, Currency: "XTR", TotalAmount: 150, InvoicePayload: donatePayload(999999)},
-		"Донат недоступен":      {ID: "d6", Currency: "XTR", TotalAmount: 150, InvoicePayload: payload},
+		"Wrong amount":                 {ID: "d2", From: from, Currency: "XTR", TotalAmount: 50, InvoicePayload: payload},
+		"Payment is for another account": {ID: "d3", From: &tgbotapi.User{ID: itUser + 3}, Currency: "XTR", TotalAmount: 150, InvoicePayload: payload},
+		"Invalid payment":              {ID: "d4", From: from, Currency: "XTR", TotalAmount: 150, InvoicePayload: "мусор"},
+		"Request not found":            {ID: "d5", From: from, Currency: "XTR", TotalAmount: 150, InvoicePayload: donatePayload(999999)},
+		"Donations are unavailable":    {ID: "d6", Currency: "XTR", TotalAmount: 150, InvoicePayload: payload},
 	} {
 		if ok, msg := checkout(q); ok || !strings.Contains(msg, name) {
 			t.Errorf("%s: ok=%v %q", name, ok, msg)
@@ -111,7 +111,7 @@ func TestDonateStarsFlow(t *testing.T) {
 	if n := thanksCount(tg, itUser); n != 1 {
 		t.Errorf("после повтора благодарностей: %d", n)
 	}
-	if ok, msg := checkout(tgbotapi.PreCheckoutQuery{ID: "d7", From: from, Currency: "XTR", TotalAmount: 150, InvoicePayload: payload}); ok || !strings.Contains(msg, "уже оплачен") {
+	if ok, msg := checkout(tgbotapi.PreCheckoutQuery{ID: "d7", From: from, Currency: "XTR", TotalAmount: 150, InvoicePayload: payload}); ok || !strings.Contains(msg, "already paid") {
 		t.Errorf("оплаченный счёт: ok=%v %q", ok, msg)
 	}
 

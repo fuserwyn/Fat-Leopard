@@ -164,11 +164,20 @@ func newIntegrationBot(t *testing.T, tune func(*config.Config)) (*Bot, *fakeTele
 }
 
 // seedMember заводит участника стаи; kicked — уже удалён за неактивность.
+// ui_lang=en: интеграционные тесты сверяют английские строки после English-ship;
+// в проде стае ui_lang=ru задают миграции 98–99.
 func seedMember(t *testing.T, db *sql.DB, userID int64, username string, kicked bool) {
 	t.Helper()
 	if _, err := db.Exec(`
 		INSERT INTO training_state (user_id, chat_id, username, last_message, is_deleted)
 		VALUES ($1, $2, $3, '', $4)`, userID, itPack, username, kicked); err != nil {
 		t.Fatalf("участник: %v", err)
+	}
+	if _, err := db.Exec(`
+		INSERT INTO miniapp_user_profile (user_id, pack_chat_id, gender, display_name, age_years, ui_lang, updated_at)
+		VALUES ($1, $2, '', '', NULL, 'en', NOW())
+		ON CONFLICT (user_id, pack_chat_id) DO UPDATE SET ui_lang = 'en', updated_at = NOW()`,
+		userID, itPack); err != nil {
+		t.Fatalf("ui_lang: %v", err)
 	}
 }

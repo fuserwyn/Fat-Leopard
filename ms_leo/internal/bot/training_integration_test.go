@@ -106,7 +106,7 @@ func TestWorkoutStreakRules(t *testing.T) {
 	if st := memberStateOf(t, db, itUser); st.Streak != 1 || st.MaxStreak != 10 {
 		t.Fatalf("после пропуска стрик с единицы, рекорд на месте: %+v", st)
 	}
-	if !strings.Contains(summary, "Стрик: 1 ") {
+	if !strings.Contains(summary, "Streak: 1 ") {
 		t.Errorf("сводка после пропуска: %q", summary)
 	}
 }

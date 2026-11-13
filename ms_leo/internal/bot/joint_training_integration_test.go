@@ -29,10 +29,10 @@ func TestJointTrainingMentionsNotifyAndInvite(t *testing.T) {
 
 	logWorkout(b, itUser, "#training_done пробежка с @Vasya, @petya_fit, @olga_run и @unknown_guy @leopard")
 
-	if got := joinedTexts(tg.textsTo(packmate)); !strings.Contains(got, "на совместной тренировке") {
+	if got := joinedTexts(tg.textsTo(packmate)); !strings.Contains(got, "tagged you on a joint workout") {
 		t.Fatalf("участнику стаи: %q", got)
 	}
-	if got := joinedTexts(tg.textsTo(visitor)); !strings.Contains(got, "на совместной тренировке в стае") {
+	if got := joinedTexts(tg.textsTo(visitor)); !strings.Contains(got, "joint workout in the Fat Leopard pack") {
 		t.Fatalf("инвайт знакомому боту: %q", got)
 	}
 	var markup string
@@ -44,16 +44,16 @@ func TestJointTrainingMentionsNotifyAndInvite(t *testing.T) {
 	if !strings.Contains(markup, "https://t.me/leo_it_bot?start=ref-555001") {
 		t.Fatalf("кнопка инвайта без ссылки: %q", markup)
 	}
-	if got := joinedTexts(tg.textsTo(kicked)); !strings.Contains(got, "Присоединяйся к стае") {
+	if got := joinedTexts(tg.textsTo(kicked)); !strings.Contains(got, "Join the pack") {
 		t.Fatalf("инвайт выбывшему: %q", got)
 	}
 	author := joinedTexts(tg.textsTo(itUser))
-	if !strings.Contains(author, "Отправил @petya_fit приглашение") ||
-		!strings.Contains(author, "@unknown_guy пока нет в стае") ||
+	if !strings.Contains(author, "Sent @petya_fit a pack invite") ||
+		!strings.Contains(author, "@unknown_guy isn't in the pack yet") ||
 		!strings.Contains(author, "https://t.me/leo_it_bot?start=ref-555001") {
 		t.Fatalf("отметившему: %q", author)
 	}
-	if strings.Contains(author, "совместной тренировке.") {
+	if strings.Contains(author, "tagged you on a joint workout") {
 		t.Fatalf("себе уведомление о совместной тренировке не шлём: %q", author)
 	}
 	if n := count(t, db, `SELECT COUNT(*) FROM joint_training_invites WHERE inviter_user_id = $1`, itUser); n != 3 {
@@ -89,21 +89,21 @@ func TestJointTrainingCyrillicDisplayOutsidePack(t *testing.T) {
 	const guest = int64(555020)
 	seedMember(t, db, guest, "guest_tg", true)
 	if _, err := db.Exec(
-		`INSERT INTO miniapp_user_profile (user_id, pack_chat_id, display_name) VALUES ($1, $2, 'Аня')`,
+		`UPDATE miniapp_user_profile SET display_name = 'Аня', updated_at = NOW() WHERE user_id = $1 AND pack_chat_id = $2`,
 		guest, itPack,
 	); err != nil {
 		t.Fatal(err)
 	}
 
 	b.notifyJointTrainingMentions(itPack, itUser, "@leopard", "бег, 30 мин, интенсивность 3/5\n\nс @Аня")
-	if got := joinedTexts(tg.textsTo(guest)); !strings.Contains(got, "на совместной тренировке в стае") {
+	if got := joinedTexts(tg.textsTo(guest)); !strings.Contains(got, "joint workout in the Fat Leopard pack") {
 		t.Fatalf("инвайт по display_name: %q", got)
 	}
 
 	tg.reset()
 	logWorkout(b, itUser, "бег, 30 мин, интенсивность 3/5\n\nс @Маша")
 	author := joinedTexts(tg.textsTo(itUser))
-	if strings.Contains(author, "@@") || !strings.Contains(author, "@маша пока нет в стае") {
+	if strings.Contains(author, "@@") || !strings.Contains(author, "@маша isn't in the pack yet") {
 		t.Fatalf("неизвестное кириллическое имя — ссылка отметившему: %q", author)
 	}
 }
@@ -126,7 +126,7 @@ func TestJointTrainingInviteFallbackWhenDMFails(t *testing.T) {
 	}
 	var toAuthor int
 	for _, c := range tg.sent("sendMessage") {
-		if c.Form.Get("chat_id") == itoa(itUser) && strings.Contains(c.Form.Get("text"), "@blocked_bot пока нет в стае") {
+		if c.Form.Get("chat_id") == itoa(itUser) && strings.Contains(c.Form.Get("text"), "@blocked_bot isn't in the pack yet") {
 			toAuthor++
 		}
 	}

@@ -81,7 +81,7 @@ func TestReferralRewardAfterTenFirstWorkouts(t *testing.T) {
 	}
 	notified := false
 	for _, s := range tg.textsTo(itUser) {
-		if strings.Contains(s, "попытку спасти стрик") {
+		if strings.Contains(s, "streak save attempt") {
 			notified = true
 		}
 	}

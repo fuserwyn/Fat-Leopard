@@ -108,7 +108,7 @@ func TestChallengeAcceptCountAndComplete(t *testing.T) {
 	if r := challengeOf(t, db, itUser); r.Status != "completed" || r.Days != 7 || !r.Finished {
 		t.Errorf("последний день: %+v", r)
 	}
-	if !strings.Contains(strings.Join(tg.textsTo(itUser), "\n"), "пройден") {
+	if !strings.Contains(strings.Join(tg.textsTo(itUser), "\n"), "completed") {
 		t.Errorf("сообщение о победе: %v", tg.textsTo(itUser))
 	}
 	eventually(t, "событие challenge_completed", func() bool {
@@ -202,7 +202,7 @@ func TestChallengeIdleCheck(t *testing.T) {
 	if r := challengeOf(t, db, gone); r.Status != "failed" {
 		t.Errorf("давно не тренировался: %+v", r)
 	}
-	if !strings.Contains(strings.Join(tg.textsTo(gone), "\n"), "прерван") {
+	if !strings.Contains(strings.Join(tg.textsTo(gone), "\n"), "ended: a day was missed") {
 		t.Errorf("сообщение о провале: %v", tg.textsTo(gone))
 	}
 	st, err := b.GetChallengesStateForViewer(risky, initdata.InitData{})

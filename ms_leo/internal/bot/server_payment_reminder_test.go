@@ -196,7 +196,7 @@ func TestServerPaymentReminderRetriesInvoiceLink(t *testing.T) {
 		t.Fatal("23-го шлём без ссылки")
 	}
 	msgs = tg.sent("sendMessage")
-	if len(msgs) != 1 || msgs[0].Form.Get("reply_markup") != "" || !strings.Contains(msgs[0].Form.Get("text"), "Ссылку на оплату создать не удалось") {
+	if len(msgs) != 1 || msgs[0].Form.Get("reply_markup") != "" || !strings.Contains(msgs[0].Form.Get("text"), "Could not create payment link") {
 		t.Fatalf("напоминание без ссылки: %+v", msgs)
 	}
 }
