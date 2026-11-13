@@ -2,16 +2,16 @@ import { useEffect } from "react";
 import "./ShareCardSheet.css";
 
 type Props = {
-  /** Итог от сервера: стрик, кубки, ачивки. */
+  /** Server summary: streak, cups, achievements. */
   message: string;
-  /** Открыть карточку тренировки для сторис и чатов. */
+  /** Open workout share card for stories and chats. */
   onShare: () => void;
   onClose: () => void;
 };
 
 /**
- * Модалка «Тренировка засчитана»: итог начисления и кнопка «Поделиться» —
- * карточка тренировки для сторис Telegram, Instagram, TikTok, ВКонтакте и чатов.
+ * “Workout logged” modal: accrual summary and Share — workout card for Telegram,
+ * Instagram, TikTok, VK stories and chats.
  */
 export function WorkoutDoneModal({ message, onShare, onClose }: Props) {
   useEffect(() => {
@@ -28,19 +28,19 @@ export function WorkoutDoneModal({ message, onShare, onClose }: Props) {
         className="workout-done"
         role="dialog"
         aria-modal="true"
-        aria-label="Тренировка засчитана"
+        aria-label="Workout logged"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="workout-done__emoji" aria-hidden>
           🎉
         </div>
-        <div className="workout-done__title">Тренировка засчитана!</div>
+        <div className="workout-done__title">Workout logged!</div>
         <div className="workout-done__message">{message}</div>
         <button type="button" className="share-brag-btn" onClick={onShare}>
-          Поделиться в сторис
+          Share to story
         </button>
         <button type="button" className="share-card-sheet__close" onClick={onClose}>
-          Готово
+          Done
         </button>
       </div>
     </div>

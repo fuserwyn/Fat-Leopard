@@ -21,13 +21,13 @@ describe("PackWeekSummaryModal", () => {
   it("shows the week result, own contribution and the raised goal", () => {
     const { getByText, getByRole, container } = render(<PackWeekSummaryModal summary={summary} onClose={() => {}} />);
     expect(getByRole("dialog").className).toContain("is-reached");
-    expect(getByText("Цель недели закрыта!")).toBeTruthy();
-    expect(getByText(/5–11 октября/)).toBeTruthy();
+    expect(getByText("Weekly goal reached!")).toBeTruthy();
+    expect(getByText(/5–11 October/)).toBeTruthy();
     expect(container.querySelector(".pack-week-summary__count")?.textContent).toBe("78");
     expect(container.querySelector(".pack-week-summary__goal")?.textContent).toBe("/ 75");
-    expect(getByText("твой вклад").previousSibling?.textContent).toBe("4");
-    expect(getByText("леопардов в зачёте").previousSibling?.textContent).toBe("12");
-    expect(getByText(/цель новой недели — 80 тренировок \(\+5\)/)).toBeTruthy();
+    expect(getByText("your contribution").previousSibling?.textContent).toBe("4");
+    expect(getByText("leopards counted").previousSibling?.textContent).toBe("12");
+    expect(getByText(/next week's goal is 80 workouts \(\+5\)/)).toBeTruthy();
     expect((container.querySelector(".pack-week-summary__bar-fill") as HTMLElement).style.width).toBe("100%");
   });
 
@@ -35,8 +35,8 @@ describe("PackWeekSummaryModal", () => {
     const open = { ...summary, workouts: 60, goalReached: false, nextGoal: 75 };
     const { getByText, getByRole } = render(<PackWeekSummaryModal summary={open} onClose={() => {}} />);
     expect(getByRole("dialog").className).not.toContain("is-reached");
-    expect(getByText("Цель недели не закрыта")).toBeTruthy();
-    expect(getByText(/Не хватило 15 тренировок/)).toBeTruthy();
+    expect(getByText("Weekly goal not reached")).toBeTruthy();
+    expect(getByText(/Short by 15 workouts/)).toBeTruthy();
   });
 
   it("closes by the button, the backdrop and Escape, but not by a tap on the card", () => {
@@ -44,7 +44,7 @@ describe("PackWeekSummaryModal", () => {
     const { getByText, getByRole, container } = render(<PackWeekSummaryModal summary={summary} onClose={onClose} />);
     fireEvent.click(getByRole("dialog"));
     expect(onClose).not.toHaveBeenCalled();
-    fireEvent.click(getByText("Вперёд, стая!"));
+    fireEvent.click(getByText("Onward, pack!"));
     fireEvent.click(container.querySelector(".pack-week-summary-overlay")!);
     fireEvent.keyDown(window, { key: "Escape" });
     fireEvent.keyDown(window, { key: "Enter" });

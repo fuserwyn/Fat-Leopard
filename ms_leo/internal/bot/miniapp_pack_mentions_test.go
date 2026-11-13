@@ -25,13 +25,13 @@ func TestExtractPackMentionTokens(t *testing.T) {
 
 func TestPackMentionPlace(t *testing.T) {
 	t.Parallel()
-	if packMentionPlace(packMentionFeedPost) != "в посте" {
+	if packMentionPlace(packMentionFeedPost) != "in a post" {
 		t.Fatal("feed post place")
 	}
-	if packMentionPlace(packMentionFeedComment) != "в комментарии" {
+	if packMentionPlace(packMentionFeedComment) != "in a comment" {
 		t.Fatal("feed comment place")
 	}
-	if packMentionPlace(packMentionPackGroupMessage) != "в чате" {
+	if packMentionPlace(packMentionPackGroupMessage) != "in the chat" {
 		t.Fatal("pack group place")
 	}
 }

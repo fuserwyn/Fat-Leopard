@@ -1424,7 +1424,7 @@ var Migrations = []Migration{
 	},
 	{
 		Version:     74,
-		Description: "Цена доступа в стаю, которую админ задаёт из мини-аппа",
+		Description: "Цена access в стаю, которую админ задаёт из мини-аппа",
 		UpSQL: `
 			-- Одна строка на стаю: если её нет — берём сумму из env (PAYMENT_AMOUNT_* / YOOKASSA).
 			-- amount_minor — копейки RUB. Звёзды Telegram по-прежнему из env.

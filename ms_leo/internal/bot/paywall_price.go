@@ -14,7 +14,7 @@ const (
 
 func parsePaywallPriceRub(rub int) (amountMinor int, err error) {
 	if rub < minPaywallPriceRub || rub > maxPaywallPriceRub {
-		return 0, fmt.Errorf("цена должна быть от %d до %d ₽", minPaywallPriceRub, maxPaywallPriceRub)
+		return 0, fmt.Errorf("price must be from %d to %d ₽", minPaywallPriceRub, maxPaywallPriceRub)
 	}
 	return rub * 100, nil
 }
@@ -107,7 +107,7 @@ func (b *Bot) paywallPaymentReady() bool {
 	return b.paywallYookassaReady()
 }
 
-// AccessPriceRub — текущая цена доступа в рублях (оверрайд админа или дефолт сервера).
+// AccessPriceRub — текущая цена access в рублях (оверрайд админа или дефолт сервера).
 func (b *Bot) AccessPriceRub() int {
 	minor := 0
 	if n := b.packPaywallOverrideMinor(); n > 0 {

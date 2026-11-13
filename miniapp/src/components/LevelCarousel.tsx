@@ -3,23 +3,22 @@ import { MAX_CUP_LEVEL, miniappLevelEmoji, miniappLevelMinCups, miniappLevelName
 import "./LevelCarousel.css";
 
 type Props = {
-  /** Текущий уровень пользователя (1…6). */
+  /** User’s current level (1…6). */
   currentLevel: number;
 };
 
 function formatCups(n: number): string {
-  return n.toLocaleString("ru-RU").replace(/ /g, " ");
+  return n.toLocaleString("en-US").replace(/ /g, " ");
 }
 
 function cupsHint(level: number): string {
   const min = miniappLevelMinCups(level);
-  return min <= 0 ? "старт · 0 🏆" : `от ${formatCups(min)} 🏆`;
+  return min <= 0 ? "start · 0 🏆" : `from ${formatCups(min)} 🏆`;
 }
 
 /**
- * Карусель уровней в профиле: одна карточка уровня (эмодзи, номер, имя, минимум кубков),
- * листается кнопками влево/вправо. Пройденные и текущий уровни — яркие, закрытые — приглушены,
- * но листать к ним можно.
+ * Level carousel in profile: one level card (emoji, number, name, min cups),
+ * paged with arrows. Current and past levels are bright; locked ones are muted but visible.
  */
 export function LevelCarousel({ currentLevel }: Props) {
   const current = Math.min(Math.max(1, Math.floor(currentLevel) || 1), MAX_CUP_LEVEL);
@@ -31,14 +30,14 @@ export function LevelCarousel({ currentLevel }: Props) {
 
   const unlocked = shown <= current;
   const isCurrent = shown === current;
-  const status = isCurrent ? "текущий" : unlocked ? "пройден" : "закрыт";
+  const status = isCurrent ? "current" : unlocked ? "completed" : "locked";
 
   return (
-    <div className="level-carousel" role="group" aria-label="Уровни">
+    <div className="level-carousel" role="group" aria-label="Levels">
       <button
         type="button"
         className="level-carousel__arrow"
-        aria-label="Предыдущий уровень"
+        aria-label="Previous level"
         disabled={shown <= 1}
         onClick={() => setShown((s) => Math.max(1, s - 1))}
       >
@@ -55,7 +54,7 @@ export function LevelCarousel({ currentLevel }: Props) {
         </span>
         <span className="level-carousel__text">
           <span className="level-carousel__title">
-            Уровень {shown} · {miniappLevelName(shown)}
+            Level {shown} · {miniappLevelName(shown)}
             {!unlocked ? <span className="level-carousel__lock" aria-hidden> 🔒</span> : null}
           </span>
           <span className="level-carousel__hint">
@@ -67,7 +66,7 @@ export function LevelCarousel({ currentLevel }: Props) {
       <button
         type="button"
         className="level-carousel__arrow"
-        aria-label="Следующий уровень"
+        aria-label="Next level"
         disabled={shown >= MAX_CUP_LEVEL}
         onClick={() => setShown((s) => Math.min(MAX_CUP_LEVEL, s + 1))}
       >

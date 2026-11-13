@@ -17,13 +17,13 @@ describe("WorkoutDoneModal", () => {
     const { getByText, container } = render(
       <WorkoutDoneModal message={"Стрик 5 дней\n+12 кубков"} onShare={onShare} onClose={onClose} />,
     );
-    expect(getByText("Тренировка засчитана!")).toBeTruthy();
+    expect(getByText("Workout logged!")).toBeTruthy();
     expect(getByText(/\+12 кубков/)).toBeTruthy();
-    fireEvent.click(getByText("Поделиться в сторис"));
+    fireEvent.click(getByText("Share to story"));
     expect(onShare).toHaveBeenCalledTimes(1);
     fireEvent.click(container.querySelector(".workout-done")!);
     expect(onClose).not.toHaveBeenCalled();
-    fireEvent.click(getByText("Готово"));
+    fireEvent.click(getByText("Done"));
     fireEvent.keyDown(window, { key: "Escape" });
     fireEvent.keyDown(window, { key: "Enter" });
     fireEvent.click(container.querySelector(".workout-done-overlay")!);
@@ -37,7 +37,7 @@ describe("«Поделиться» в празднованиях", () => {
     const onShare = vi.fn();
     const onDone = vi.fn();
     const { getByText } = render(<AchievementToast achievementKey="streak-30" onDone={onDone} onShare={onShare} />);
-    fireEvent.click(getByText("Поделиться"));
+    fireEvent.click(getByText("Share"));
     expect(onShare).toHaveBeenCalledTimes(1);
     act(() => {
       vi.advanceTimersByTime(6000);
@@ -55,9 +55,9 @@ describe("«Поделиться» в празднованиях", () => {
   it("уровень: кнопка есть только с onShare", () => {
     const onShare = vi.fn();
     const { getByText, rerender, queryByText } = render(<LevelUpToast level={3} onDone={() => {}} onShare={onShare} />);
-    fireEvent.click(getByText("Поделиться"));
+    fireEvent.click(getByText("Share"));
     expect(onShare).toHaveBeenCalledTimes(1);
     rerender(<LevelUpToast level={3} onDone={() => {}} />);
-    expect(queryByText("Поделиться")).toBeNull();
+    expect(queryByText("Share")).toBeNull();
   });
 });

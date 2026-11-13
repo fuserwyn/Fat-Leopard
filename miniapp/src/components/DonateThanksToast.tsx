@@ -50,9 +50,9 @@ export function DonateThanksToast({ onDone }: Props) {
           </span>
         </div>
 
-        <div className="achievement-toast__title">Донат получен!</div>
-        <div className="achievement-toast__label">Рык! Спасибо за поддержку!</div>
-        <div className="achievement-toast__cheer">Лео ценит стаю — ты делаешь проект сильнее 🐾</div>
+        <div className="achievement-toast__title">Donation received!</div>
+        <div className="achievement-toast__label">Roar! Thanks for your support!</div>
+        <div className="achievement-toast__cheer">Leo appreciates the pack — you make the project stronger 🐾</div>
       </div>
     </div>
   );

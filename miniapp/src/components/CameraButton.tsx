@@ -60,7 +60,7 @@ export function CameraButton({
   onChange,
   disabled,
   className,
-  ariaLabel = "Сделать фото",
+  ariaLabel = "Take photo",
   title,
   children,
 }: CameraButtonProps) {

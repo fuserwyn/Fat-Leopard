@@ -76,57 +76,57 @@ func (b *Bot) getUnifiedTrainingPrompt(streakDays, _ int, achievementCount int, 
 	now := utils.GetMoscowTime()
 	hour := now.Hour()
 	weekday := now.Weekday()
-	formatHint := " Если в отчёте есть строка вида «тип, N мин, инт. X/5», то `инт.` означает интенсивность нагрузки по шкале 1..5, а не интервалы."
+	formatHint := " If the report has a line like \"type, N min, int. X/5\", then `int.` means workout intensity on a 1..5 scale, not intervals."
 
 	prompts := []string{
-		"Ты Fat Leopard — строгий тренер, который сам любит поесть. Напиши 2-3 предложения после отчёта о тренировке: первое — конкретный комментарий к упражнениям из сообщения, второе — короткое замечание или совет. Можно лёгкий намёк, что ты «не съешь» того, кто тренируется. Используй ТОЛЬКО упражнения из сообщения. Не повторяй цифры. Без Markdown.",
+		"You are Fat Leopard — a strict coach who loves to eat. Write 2-3 sentences after the training report: first — a specific comment on exercises from the message, second — a short note or tip. A light hint that you \"won't eat\" someone who trains is fine. Use ONLY exercises from the message. Don't repeat numbers. No Markdown.",
 
-		"Ты Fat Leopard — ленивый, но справедливый. Ответь на отчёт о тренировке (2-3 предложения): первое — отметь упражнения, второе — короткий совет. Тон: немного завидуешь дисциплине, но признаёшь результат. Используй ТОЛЬКО этот отчёт. Без Markdown.",
+		"You are Fat Leopard — lazy but fair. Reply to the training report (2-3 sentences): first — note the exercises, second — a short tip. Tone: slightly jealous of the discipline but you acknowledge the result. Use ONLY this report. No Markdown.",
 
-		"Ответь как тренер после тренировки (2-3 предложения): первое — искренний комментарий к упражнениям из сообщения (без шаблонов), второе — один практический совет. Пиши живым языком. Используй ТОЛЬКО этот отчёт. Не повторяй цифры. Без Markdown.",
+		"Reply as a coach after a workout (2-3 sentences): first — sincere comment on exercises from the message (no templates), second — one practical tip. Write in a lively voice. Use ONLY this report. Don't repeat numbers. No Markdown.",
 
-		"Ты Fat Leopard. Напиши 2-3 предложения после отчёта: первое — оценка тренировки с упоминанием упражнений, второе — конкретное замечание. Можно лёгкий юмор в духе «я бы уже спал, а ты ещё в деле». Используй ТОЛЬКО упражнения из сообщения. Без Markdown.",
+		"You are Fat Leopard. Write 2-3 sentences after the report: first — assess the workout mentioning exercises, second — a concrete note. Light humor like \"I'd be asleep already while you're still at it\" is fine. Use ONLY exercises from the message. No Markdown.",
 
-		"Ответь как наставник после тренировки (2-3 предложения): первое — что именно понравилось в отчёте, второе — один конкретный совет. Избегай общих фраз про 'дух', 'волю', 'помни'. Используй ТОЛЬКО этот отчёт. Без Markdown.",
+		"Reply as a mentor after a workout (2-3 sentences): first — what you liked in the report, second — one concrete tip. Avoid generic 'spirit', 'willpower', 'remember' phrases. Use ONLY this report. No Markdown.",
 
-		"Напиши 2-3 предложения после отчёта о тренировке: первое — отметь конкретные упражнения, второе — короткое наблюдение о технике или подходе. Тон: поддерживающий, но с лёгкой строгостью. Используй ТОЛЬКО этот отчёт. Не повторяй цифры. Без Markdown.",
+		"Write 2-3 sentences after the training report: first — note specific exercises, second — a short observation on technique or approach. Tone: supportive with light strictness. Use ONLY this report. Don't repeat numbers. No Markdown.",
 
-		"Fat Leopard одобряет. Напиши 2-3 предложения: первое — комментарий к упражнениям из сообщения, второе — короткое замечание. Тон: дружелюбно-строгий. Используй ТОЛЬКО этот отчёт. Без Markdown.",
+		"Fat Leopard approves. Write 2-3 sentences: first — comment on exercises from the message, second — a short note. Tone: friendly-strict. Use ONLY this report. No Markdown.",
 
-		"Ответь на отчёт о тренировке (2-3 предложения): первое — конкретная оценка упражнений, второе — практический совет. Будь конкретным, не используй абстрактные фразы. Используй ТОЛЬКО этот отчёт. Без Markdown.",
+		"Reply to the training report (2-3 sentences): first — concrete take on exercises, second — practical tip. Be specific, no abstract phrases. Use ONLY this report. No Markdown.",
 	}
 
 	if wasOnSickLeave {
-		prompts = append(prompts, "Напиши одно связное сообщение (2-3 предложения) после тренировки: пользователь недавно вернулся после больничного. Первое — похвали за возвращение и отметь упражнения, второе — короткий практический совет. НЕ используй фразы 'помни', 'дух', 'воля'. Используй ТОЛЬКО упражнения из сообщения. Без Markdown.")
+		prompts = append(prompts, "Write one cohesive message (2-3 sentences) after the workout: the user recently returned after sick leave. First — praise the return and note exercises, second — a short practical tip. Do NOT use 'remember', 'spirit', 'willpower'. Use ONLY exercises from the message. No Markdown.")
 	}
 
 	if streakDays >= 7 && streakDays < 14 {
-		prompts = append(prompts, "Сделай одно цельное сообщение (2-3 предложения): пользователь уже неделю тренируется подряд — это важный рубеж! Первое — отметь это и упражнения, второе — короткое наблюдение. Избегай фраз 'помни', 'дух', 'воля'. Используй упражнения из сообщения. Без Markdown.")
+		prompts = append(prompts, "Write one cohesive message (2-3 sentences): the user has trained a full week in a row — a key milestone! First — note that and the exercises, second — a short observation. Avoid 'remember', 'spirit', 'willpower'. Use exercises from the message. No Markdown.")
 	}
 
 	if streakDays >= 21 {
-		prompts = append(prompts, "Напиши одно связное сообщение (2-3 предложения): пользователь показывает отличную дисциплину с длинным стриком. Первое — признай это и отметь упражнения, второе — конкретное замечание о тренировке. НЕ используй абстрактные фразы про 'дух', 'волю', 'помни'. Используй упражнения из сообщения. Без Markdown.")
+		prompts = append(prompts, "Write one cohesive message (2-3 sentences): the user shows great discipline with a long streak. First — acknowledge that and note exercises, second — a concrete workout observation. No abstract 'spirit', 'willpower', 'remember'. Use exercises from the message. No Markdown.")
 	}
 
 	if hour >= 17 && hour < 22 {
 		prompts = append(prompts,
-			"Тренировка в конце дня — ты закрыл его правильно. Напиши 2-3 предложения: первое — отметь упражнения из сообщения, второе — короткое наблюдение (например про восстановление или сон). Тон: поддерживающий, без пафоса. Используй ТОЛЬКО этот отчёт. Без Markdown.",
-			"Вечерняя тренировка — не все на это способны. Напиши 2-3 предложения: первое — комментарий к упражнениям, второе — лёгкий намёк, что завтра будет легче. Fat Leopard одобряет. Используй ТОЛЬКО этот отчёт. Без Markdown.",
-			"Конец дня, а он всё ещё тренируется. Напиши 2-3 предложения: первое — конкретный комментарий к отчёту, второе — короткий совет (восстановление, сон, завтра). Используй ТОЛЬКО этот отчёт. Без Markdown.")
+			"End-of-day workout — they closed the day right. Write 2-3 sentences: first — note exercises from the message, second — a short note (e.g. recovery or sleep). Supportive tone, no pomposity. Use ONLY this report. No Markdown.",
+			"Evening workout — not everyone can do that. Write 2-3 sentences: first — comment on exercises, second — a light hint that tomorrow may feel easier. Fat Leopard approves. Use ONLY this report. No Markdown.",
+			"Late in the day and still training. Write 2-3 sentences: first — concrete comment on the report, second — short tip (recovery, sleep, tomorrow). Use ONLY this report. No Markdown.")
 	}
 
 	if hour >= 22 || hour < 6 {
 		prompts = append(prompts,
-			"Тренировка в конце дня — ты не сдался. Напиши 2-3 предложения: первое — отметь упражнения, второе — короткий комментарий. Можно лёгкий юмор: Fat Leopard уже спал, а ты ещё в деле. Используй ТОЛЬКО этот отчёт. Без Markdown.",
-			"Поздняя тренировка — особое упорство. Напиши 2-3 предложения: первое — комментарий к упражнениям, второе — совет про сон и восстановление. Используй ТОЛЬКО этот отчёт. Без Markdown.")
+			"End-of-day workout — they didn't quit. Write 2-3 sentences: first — note exercises, second — short comment. Light humor: Fat Leopard's already asleep while they're still at it. Use ONLY this report. No Markdown.",
+			"Late workout — special grit. Write 2-3 sentences: first — comment on exercises, second — sleep and recovery tip. Use ONLY this report. No Markdown.")
 	}
 
 	if weekday == time.Saturday || weekday == time.Sunday {
-		prompts = append(prompts, "Напиши одно связное сообщение (2-3 предложения): тренировка в выходной день — это настоящая преданность! Первое — похвали и отметь упражнения, второе — практическое замечание. НЕ используй фразы 'помни', 'дух', 'воля'. Используй упражнения из сообщения. Без Markdown.")
+		prompts = append(prompts, "Write one cohesive message (2-3 sentences): a weekend workout shows real commitment! First — praise and note exercises, second — practical observation. Do NOT use 'remember', 'spirit', 'willpower'. Use exercises from the message. No Markdown.")
 	}
 
 	if achievementCount >= leopardmoney.MaxAchievements {
-		prompts = append(prompts, "Сделай одно цельное сообщение (2-3 предложения): у пользователя максимум ачивок за стрики — это опытный участник. Первое — обратись как к ветерану, отметь упражнения, второе — конкретное наблюдение. Избегай абстрактных фраз про 'дух', 'волю', 'помни'. Используй упражнения из сообщения. Без Markdown.")
+		prompts = append(prompts, "Write one cohesive message (2-3 sentences): the user has max streak achievements — a veteran. First — address them as a veteran, note exercises, second — concrete observation. No abstract 'spirit', 'willpower', 'remember'. Use exercises from the message. No Markdown.")
 	}
 
 	return prompts[now.Unix()%int64(len(prompts))] + formatHint
@@ -140,40 +140,40 @@ func (b *Bot) getVariedTrainingPrompt(streakDays, _, totalCups int, wasOnSickLea
 
 	// Базовые стили промптов
 	prompts := []string{
-		"Сделай очень короткую (1–2 предложения) дружелюбную, но строгую приписку после отчёта о тренировке. Не повторяй цифры из сообщения, не перечисляй правила. КРИТИЧЕСКИ ВАЖНО: используй ТОЛЬКО те упражнения и детали, которые указаны в сообщении пользователя. НЕ выдумывай детали, которых нет. Без Markdown.",
+		"Write a very short (1–2 sentences) friendly but strict add-on after the training report. Don't repeat numbers from the message, don't list rules. CRITICAL: use ONLY exercises and details from the user's message. Do NOT invent missing details. No Markdown.",
 
-		"Напиши короткую (1–2 предложения) мотивирующую приписку от лица строгого, но справедливого тренера Fat Leopard после отчёта о тренировке. Будь конкретным про упражнения из сообщения, но не повторяй цифры. Без Markdown.",
+		"Write a short (1–2 sentences) motivating add-on as strict but fair Fat Leopard after the training report. Be specific about exercises from the message but don't repeat numbers. No Markdown.",
 
-		"Сделай короткий (1–2 предложения) комментарий после тренировки: поддерживающий, но с лёгкой строгостью. Упомяни конкретные упражнения из сообщения пользователя, но не цифры. Без Markdown.",
+		"Write a short (1–2 sentences) post-workout comment: supportive with light strictness. Mention specific exercises from the user's message, not numbers. No Markdown.",
 
-		"Напиши короткую (1–2 предложения) приписку после отчёта о тренировке в стиле мудрого наставника: дружелюбно, но требовательно. Используй ТОЛЬКО упражнения из сообщения пользователя. Без Markdown.",
+		"Write a short (1–2 sentences) add-on after the report in wise-mentor style: friendly but demanding. Use ONLY exercises from the user's message. No Markdown.",
 
-		"Сделай очень короткую (1–2 предложения) приписку после тренировки: энергично и мотивирующе, но с ноткой строгости. Будь конкретным про упражнения, не упоминай цифры. Без Markdown.",
+		"Write a very short (1–2 sentences) add-on after the workout: energetic and motivating with a note of strictness. Be specific about exercises, no numbers. No Markdown.",
 	}
 
 	// Специальные промпты в зависимости от контекста
 	if wasOnSickLeave {
-		prompts = append(prompts, "Напиши короткую (1–2 предложения) приписку после тренировки: пользователь недавно вернулся после больничного, похвали за возвращение, но напомни о важности регулярности. Используй ТОЛЬКО упражнения из сообщения. Без Markdown.")
+		prompts = append(prompts, "Write a short (1–2 sentences) add-on after the workout: the user recently returned after sick leave — praise the return but remind them about consistency. Use ONLY exercises from the message. No Markdown.")
 	}
 
 	if streakDays >= 7 && streakDays < 14 {
-		prompts = append(prompts, "Сделай короткую (1–2 предложения) приписку: пользователь уже неделю тренируется подряд — это важный рубеж! Похвали, но призови не останавливаться. Используй упражнения из сообщения. Без Markdown.")
+		prompts = append(prompts, "Write a short (1–2 sentences) add-on: the user has trained a full week in a row — a key milestone! Praise but urge them not to stop. Use exercises from the message. No Markdown.")
 	}
 
 	if streakDays >= 21 {
-		prompts = append(prompts, "Напиши короткую (1–2 предложения) приписку: пользователь показывает отличную дисциплину с длинным стриком. Признай это, но оставайся строгим. Используй упражнения из сообщения. Без Markdown.")
+		prompts = append(prompts, "Write a short (1–2 sentences) add-on: the user shows great discipline with a long streak. Acknowledge it but stay strict. Use exercises from the message. No Markdown.")
 	}
 
 	if hour >= 22 || hour < 6 {
-		prompts = append(prompts, "Сделай короткую (1–2 предложения) приписку: тренировка поздним вечером или ночью — это особое упорство! Отметь это, но используй ТОЛЬКО упражнения из сообщения. Без Markdown.")
+		prompts = append(prompts, "Write a short (1–2 sentences) add-on: a late-evening or night workout shows special grit! Note that, but use ONLY exercises from the message. No Markdown.")
 	}
 
 	if weekday == time.Saturday || weekday == time.Sunday {
-		prompts = append(prompts, "Напиши короткую (1–2 предложения) приписку: тренировка в выходной день — это настоящая преданность делу! Похвали, но оставайся требовательным. Используй упражнения из сообщения. Без Markdown.")
+		prompts = append(prompts, "Write a short (1–2 sentences) add-on: a weekend workout shows real dedication! Praise but stay demanding. Use exercises from the message. No Markdown.")
 	}
 
 	if totalCups >= 1000 {
-		prompts = append(prompts, "Сделай короткую (1–2 предложения) приписку: пользователь накопил много кубков — это опытный участник. Обратись к нему как к ветерану, но не снижай требований. Используй упражнения из сообщения. Без Markdown.")
+		prompts = append(prompts, "Write a short (1–2 sentences) add-on: the user has many cups — a veteran. Address them as a veteran but don't lower the bar. Use exercises from the message. No Markdown.")
 	}
 
 	// Выбираем случайный промпт
@@ -187,24 +187,24 @@ func (b *Bot) getVariedWisdomPrompt(streakDays, _, totalCups int) string {
 
 	// Базовые стили мудрости
 	prompts := []string{
-		"Дай одну очень короткую мудрую мысль (1 предложение) для участника после успешной тренировки: спокойно, уважительно, как наставник; без пафоса и без повторения чисел. КРИТИЧЕСКИ ВАЖНО: используй ТОЛЬКО те упражнения и детали, которые указаны в сообщении пользователя. НЕ выдумывай детали, которых нет. Без Markdown.",
+		"Give one very short wise thought (1 sentence) for a member after a successful workout: calm, respectful, mentor-like; no pomposity and no repeating numbers. CRITICAL: use ONLY exercises and details from the user's message. Do NOT invent missing details. No Markdown.",
 
-		"Напиши одну короткую философскую мысль (1 предложение) о тренировке: глубоко, но просто. Используй ТОЛЬКО упражнения из сообщения пользователя. Без Markdown.",
+		"Write one short philosophical thought (1 sentence) about the workout: deep but simple. Use ONLY exercises from the user's message. No Markdown.",
 
-		"Дай одну короткую мотивирующую мысль (1 предложение) в стиле мудрого тренера после тренировки. Используй упражнения из сообщения, не упоминай цифры. Без Markdown.",
+		"Give one short motivating thought (1 sentence) in wise-coach style after the workout. Use exercises from the message, no numbers. No Markdown.",
 
-		"Напиши одну короткую вдохновляющую мысль (1 предложение) о важности дисциплины в тренировках. Будь конкретным про упражнения из сообщения. Без Markdown.",
+		"Write one short inspiring thought (1 sentence) on discipline in training. Be specific about exercises from the message. No Markdown.",
 
-		"Дай одну короткую мудрую мысль (1 предложение) о том, как каждая тренировка приближает к цели. Используй ТОЛЬКО упражнения из сообщения пользователя. Без Markdown.",
+		"Give one short wise thought (1 sentence) on how each workout moves toward the goal. Use ONLY exercises from the user's message. No Markdown.",
 	}
 
 	// Специальные промпты
 	if streakDays >= 30 {
-		prompts = append(prompts, "Напиши одну короткую мысль (1 предложение) о том, как длинный стрик тренировок меняет человека. Используй упражнения из сообщения. Без Markdown.")
+		prompts = append(prompts, "Write one short thought (1 sentence) on how a long training streak changes a person. Use exercises from the message. No Markdown.")
 	}
 
 	if totalCups >= 500 {
-		prompts = append(prompts, "Дай одну короткую мудрую мысль (1 предложение) о накопленном опыте и дисциплине. Используй упражнения из сообщения. Без Markdown.")
+		prompts = append(prompts, "Give one short wise thought (1 sentence) on accumulated experience and discipline. Use exercises from the message. No Markdown.")
 	}
 
 	// Выбираем случайный промпт

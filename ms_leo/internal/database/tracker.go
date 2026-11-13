@@ -85,10 +85,10 @@ const trackerTaskSelect = `
 		FROM pack_tracker_tasks t
 `
 
-// ListTrackerTasks — вся доска, свежие сверху. Лимит, чтобы админка не тянула архив.
+// ListTrackerTasks — вся доска, newest first. Лимит, чтобы админка не тянула архив.
 func (d *Database) ListTrackerTasks() ([]TrackerTask, error) {
 	if d == nil || d.trackerDB() == nil {
-		return nil, fmt.Errorf("база недоступна")
+		return nil, fmt.Errorf("database unavailable")
 	}
 	rows, err := d.trackerDB().Query(trackerTaskSelect + `
 		ORDER BY t.id DESC
@@ -152,7 +152,7 @@ func (d *Database) GetTrackerTaskByNum(num int) (TrackerTask, error) {
 func (d *Database) FindOpenTrackerTask() (TrackerTask, error) {
 	var empty TrackerTask
 	if d == nil || d.trackerDB() == nil {
-		return empty, fmt.Errorf("база недоступна")
+		return empty, fmt.Errorf("database unavailable")
 	}
 	row := d.trackerDB().QueryRow(trackerTaskSelect + `
 		WHERE t.status NOT IN ('done', 'canceled', 'cancelled')
@@ -175,7 +175,7 @@ func (d *Database) FindOpenTrackerTask() (TrackerTask, error) {
 // CreateTrackerTask — новая карточка. Номер — следующий на доске.
 func (d *Database) CreateTrackerTask(t TrackerTask) (TrackerTask, error) {
 	if d == nil || d.trackerDB() == nil {
-		return t, fmt.Errorf("база недоступна")
+		return t, fmt.Errorf("database unavailable")
 	}
 	t.Prompt = clipTrackerText(t.Prompt, trackerMaxPrompt)
 	if t.Prompt == "" {
@@ -285,7 +285,7 @@ func (d *Database) SaveTrackerTask(t TrackerTask) error {
 // FOR UPDATE SKIP LOCKED — если крутятся две реплики, одну карточку возьмёт одна.
 func (d *Database) ClaimDueTrackerTasks(now time.Time) ([]TrackerTask, error) {
 	if d == nil || d.trackerDB() == nil {
-		return nil, fmt.Errorf("база недоступна")
+		return nil, fmt.Errorf("database unavailable")
 	}
 	_ = now
 	rows, err := d.trackerDB().Query(`
@@ -299,7 +299,7 @@ func (d *Database) ClaimDueTrackerTasks(now time.Time) ([]TrackerTask, error) {
 		        WHEN jsonb_typeof(steps) = 'array' THEN steps
 		        ELSE '[]'::jsonb
 		      END
-		    ) || jsonb_build_array('Взяли в работу по расписанию')
+		    ) || jsonb_build_array('Started on schedule')
 		WHERE id IN (
 			SELECT id FROM pack_tracker_tasks
 			WHERE status IN ('pending', 'scheduled')
@@ -328,7 +328,7 @@ func (d *Database) ClaimDueTrackerTasks(now time.Time) ([]TrackerTask, error) {
 			          AND busy.error NOT ILIKE '%гент не стартовал%'
 			          AND busy.error NOT ILIKE '%только заметка%'
 			          AND busy.error NOT ILIKE '%нет правок%'
-			          AND COALESCE(busy.steps->>-1, '') NOT IN ('ждёт очередь', 'Агент не стартовал')
+			          AND COALESCE(busy.steps->>-1, '') NOT IN ('waiting for queue', 'ждёт очередь', 'Agent failed to start', 'Агент не стартовал')
 			        )
 			      )
 			  )
@@ -571,7 +571,7 @@ func parseTrackerApprovals(raw []byte) []int64 {
 	return ids
 }
 
-// MarkTrackerApprovalNotified — зафиксировать первичную рассылку админам.
+// MarkTrackerApprovalNotified — зафиксировать первичную рассылку adminам.
 func (d *Database) MarkTrackerApprovalNotified(taskID int64) error {
 	if d == nil || d.trackerDB() == nil || taskID <= 0 {
 		return fmt.Errorf("задача не найдена")
@@ -617,7 +617,7 @@ func (d *Database) MarkTrackerApprovalReminderSent(taskID int64) error {
 // ListShippedTrackerTasksSince — выкатанные на прод задачи, обновлённые не раньше since.
 func (d *Database) ListShippedTrackerTasksSince(since time.Time) ([]TrackerTask, error) {
 	if d == nil || d.trackerDB() == nil {
-		return nil, fmt.Errorf("база недоступна")
+		return nil, fmt.Errorf("database unavailable")
 	}
 	rows, err := d.trackerDB().Query(trackerTaskSelect+`
 		WHERE t.status = 'done'
@@ -643,7 +643,7 @@ func (d *Database) ListShippedTrackerTasksSince(since time.Time) ([]TrackerTask,
 // ListTrackerTasksOnApproval — все задачи, которые сейчас ждут аппрувов.
 func (d *Database) ListTrackerTasksOnApproval() ([]TrackerTask, error) {
 	if d == nil || d.trackerDB() == nil {
-		return nil, fmt.Errorf("база недоступна")
+		return nil, fmt.Errorf("database unavailable")
 	}
 	rows, err := d.trackerDB().Query(trackerTaskSelect + `
 		WHERE t.dev_column = 'approve'
@@ -669,7 +669,7 @@ func (d *Database) ListTrackerTasksOnApproval() ([]TrackerTask, error) {
 // после первого уведомления и повтор ещё не отправляли.
 func (d *Database) ListTrackerTasksAwaitingApprovalReminder() ([]TrackerTask, error) {
 	if d == nil || d.trackerDB() == nil {
-		return nil, fmt.Errorf("база недоступна")
+		return nil, fmt.Errorf("database unavailable")
 	}
 	rows, err := d.trackerDB().Query(trackerTaskSelect + `
 		WHERE t.dev_column = 'approve'
@@ -700,7 +700,7 @@ func (d *Database) ListTrackerTasksAwaitingApprovalReminder() ([]TrackerTask, er
 // работают одновременно, и проверка «шаг уже есть» в Go у обоих проходит.
 func (d *Database) ClaimTrackerStep(id int64, step string) (bool, error) {
 	if d == nil || d.trackerDB() == nil {
-		return false, fmt.Errorf("база недоступна")
+		return false, fmt.Errorf("database unavailable")
 	}
 	res, err := d.trackerDB().Exec(`
 		UPDATE pack_tracker_tasks

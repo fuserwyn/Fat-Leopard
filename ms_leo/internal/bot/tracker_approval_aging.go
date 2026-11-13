@@ -21,21 +21,20 @@ const (
 	// Если Claude не ответил, не дёргаем его на каждом проходе (раз в 5 минут).
 	trackerLeoVoteRetryAfter = time.Hour
 
-	trackerApprovalsResetStep  = "Аппрувы сброшены"
-	trackerApprovalExpiredStep = "Отменена автоматически: 5 дней без аппрувов"
+	trackerApprovalsResetStep  = "Approvals reset"
+	trackerApprovalExpiredStep = "Auto-cancelled: 5 days without approvals"
 )
 
-const trackerLeoVotePrompt = `Ты Лео — леопард-тренер и совладелец продукта Fat Leopard (Telegram Mini App:
-стая, тренировки, стрики, кубки). На доске задач карточка ждёт второго голоса, первый
-уже поставил админ. Реши, стоит ли брать задачу в работу.
+const trackerLeoVotePrompt = `You are Leo — leopard coach and co-owner of Fat Leopard (Telegram Mini App:
+pack, workouts, streaks, cups). On the task board a card awaits a second vote; an admin
+already cast the first. Decide whether the task should be taken on.
 
-Голосуй «за», если задача понятна, выполнима одной правкой кода и полезна участникам
-стаи или команде. Голосуй «против», если формулировка расплывчата, задача вредит
-пользователям, ломает правила стаи, требует решений, которые должен принимать человек
-(деньги, удаление данных, юридические вопросы), или это не задача для разработки.
+Vote yes if the task is clear, doable in one code change, and helps pack members
+or the team. Vote no if the wording is vague, harms users, breaks pack rules, needs
+decisions a human must make (money, data deletion, legal), or isn't a dev task.
 
-Ответь строго JSON без пояснений вокруг:
-{"approve": true|false, "reason": "одно короткое предложение по-русски, без эмодзи"}`
+Reply with strict JSON only, no wrapper text:
+{"approve": true|false, "reason": "one short sentence in English, no emoji"}`
 
 // trackerApproverIDs — кто уже одобрил карточку, в порядке голосования.
 // Всегда массив (не null), чтобы доске не проверять на пустоту.
@@ -57,7 +56,9 @@ func trackerApprovalWaitingSince(t database.TrackerTask) time.Time {
 func trackerApprovalRound(t database.TrackerTask) int {
 	round := 1
 	for _, s := range t.Steps {
-		if strings.HasPrefix(strings.TrimSpace(s), trackerApprovalsResetStep) {
+		trim := strings.TrimSpace(s)
+		if strings.HasPrefix(trim, trackerApprovalsResetStep) ||
+			strings.HasPrefix(trim, "Аппрувы сброшены") {
 			round++
 		}
 	}
@@ -65,7 +66,7 @@ func trackerApprovalRound(t database.TrackerTask) int {
 }
 
 func trackerLeoVoteStep(round int) string {
-	return fmt.Sprintf("Лео проголосовал (круг %d)", round)
+	return fmt.Sprintf("Leo voted (round %d)", round)
 }
 
 func trackerHasStep(t database.TrackerTask, step string) bool {
@@ -184,14 +185,14 @@ func (b *Bot) leoVoteOnTrackerTask(t database.TrackerTask) error {
 		return err
 	}
 	if !approve {
-		step := "Лео не поддержал"
+		step := "Leo voted no"
 		if reason != "" {
 			step += ": " + reason
 		}
 		_, err := b.db.ClaimTrackerStep(t.ID, step)
 		return err
 	}
-	label := "Аппрув от Лео"
+	label := "Approval from Leo"
 	if reason != "" {
 		label += ": " + reason
 	}
@@ -220,6 +221,6 @@ func (b *Bot) expireTrackerApproval(t database.TrackerTask) {
 	}
 	if fresh.HasAuthor && fresh.AuthorID > 0 {
 		_ = b.NotifyTrackerAuthor(fresh.AuthorID,
-			fmt.Sprintf("⛔ %s отменена автоматически: за 5 дней её никто не одобрил.", trackerNotifyHeading(fresh)))
+			fmt.Sprintf("⛔ %s auto-cancelled: no approvals in 5 days.", trackerNotifyHeading(fresh)))
 	}
 }

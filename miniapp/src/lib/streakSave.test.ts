@@ -7,8 +7,8 @@ import {
 import { effectiveStreakDays } from "./streakLabel";
 
 /**
- * Контракт окна «Спасти стрик» — зеркало StreakSaveWindowError / UseStreakSaveAttemptForAPI.
- * daysSince === 2 → стрик в UI уже 0, можно закрыть один пропуск.
+ * Streak save window contract — mirrors StreakSaveWindowError / UseStreakSaveAttemptForAPI.
+ * daysSince === 2 → streak already 0 in UI; one missed day can be closed.
  */
 describe("streak save window contract", () => {
   const cases: Array<{
@@ -37,16 +37,16 @@ describe("streak save window contract", () => {
 
 describe("streakSaveHint", () => {
   it("all reasons have user-facing copy", () => {
-    expect(streakSaveHint(2, 1)).toMatch(/восстановить сгоревший стрик/i);
-    expect(streakSaveHint(1, 1)).toMatch(/ещё жив/i);
-    expect(streakSaveHint(0, 1)).toMatch(/ещё жив/i);
-    expect(streakSaveHint(3, 1)).toMatch(/больше одного дня/i);
-    expect(streakSaveHint(2, 0)).toMatch(/попыток нет/i);
-    expect(streakSaveHint(-1, 1)).toMatch(/не было тренировок/i);
+    expect(streakSaveHint(2, 1)).toMatch(/restore.*streak/i);
+    expect(streakSaveHint(1, 1)).toMatch(/still alive|alive/i);
+    expect(streakSaveHint(0, 1)).toMatch(/still alive|alive/i);
+    expect(streakSaveHint(3, 1)).toMatch(/more than one day/i);
+    expect(streakSaveHint(2, 0)).toMatch(/no saves|attempts/i);
+    expect(streakSaveHint(-1, 1)).toMatch(/no workouts|training/i);
   });
 });
 
-describe("Анечка-сценарий: стрик жив → кнопка disabled", () => {
+describe("streak still alive → save disabled", () => {
   it("18.07, last training 17.07, attempts left", () => {
     const stored = 107;
     const daysSince = 1;
@@ -54,14 +54,14 @@ describe("Анечка-сценарий: стрик жив → кнопка disa
     expect(effectiveStreakDays(stored, daysSince)).toBe(107);
     expect(canUseStreakSave(daysSince, avail)).toBe(false);
     expect(streakSaveWindowError(daysSince, avail)).toBe("not_needed");
-    expect(streakSaveHint(daysSince, avail)).toMatch(/потренируйся/i);
+    expect(streakSaveHint(daysSince, avail)).toMatch(/log a workout/i);
   });
 
-  it("утром после пропуска (days=2) — окно открыто", () => {
+  it("morning after a miss (days=2) — window open", () => {
     const stored = 107;
     const daysSince = 2;
     expect(effectiveStreakDays(stored, daysSince)).toBe(0);
     expect(canUseStreakSave(daysSince, 1)).toBe(true);
-    expect(streakSaveHint(daysSince, 1)).toMatch(/восстановить сгоревший стрик/i);
+    expect(streakSaveHint(daysSince, 1)).toMatch(/restore.*streak/i);
   });
 });

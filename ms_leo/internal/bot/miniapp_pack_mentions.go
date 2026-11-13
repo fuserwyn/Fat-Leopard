@@ -77,25 +77,14 @@ func (b *Bot) resolvePackMentionUserIDs(packChatID int64, text, botUsername stri
 	return ids
 }
 
-func packMentionVerb(gender string) string {
-	switch strings.TrimSpace(strings.ToLower(gender)) {
-	case "m":
-		return "упомянул"
-	case "f":
-		return "упомянула"
-	default:
-		return ""
-	}
-}
-
 func packMentionPlace(surface packMentionSurface) string {
 	switch surface {
 	case packMentionFeedPost:
-		return "в посте"
+		return "in a post"
 	case packMentionFeedComment:
-		return "в комментарии"
+		return "in a comment"
 	default:
-		return "в чате"
+		return "in the chat"
 	}
 }
 
@@ -119,15 +108,17 @@ func (b *Bot) notifyPackMemberMentions(
 	}
 	cn := strings.TrimSpace(authorName)
 	if cn == "" {
-		cn = "Участник стаи"
+		cn = "Pack member"
 	}
 	preview := truncateForDM(text, 160)
 	if strings.TrimSpace(preview) == "" {
-		preview = "📷 Фото"
+		preview = "📷 Photo"
 	}
 	place := packMentionPlace(surface)
-	authorGender, _, _ := b.GetMiniappUserProfileJSONForAPI(authorUserID, packChatID)
-	verb := packMentionVerb(authorGender)
+	openFooter := "Open the mini app → Pack tab."
+	if surface == packMentionPackGroupMessage {
+		openFooter = "Open the mini app → Pack → Chat."
+	}
 
 	for _, uid := range mentioned {
 		if uid == 0 || uid == authorUserID {
@@ -152,15 +143,7 @@ func (b *Bot) notifyPackMemberMentions(
 				}
 			}
 		}
-		var body string
-		if verb == "" {
-			body = "📣 " + cn + " отметил(а) тебя " + place + " в стае.\n\n«" + preview + "»\n\nОткрой мини-апп → вкладка «Стая»."
-		} else {
-			body = "📣 " + cn + " " + verb + " тебя " + place + " в стае.\n\n«" + preview + "»\n\nОткрой мини-апп → вкладка «Стая»."
-		}
-		if surface == packMentionPackGroupMessage {
-			body = strings.Replace(body, "вкладка «Стая».", "«Стая» → «Чат».", 1)
-		}
+		body := "📣 " + cn + " mentioned you " + place + " in the pack.\n\n\"" + preview + "\"\n\n" + openFooter
 		b.sendTrainingThreadCommentDM(uid, body)
 	}
 }

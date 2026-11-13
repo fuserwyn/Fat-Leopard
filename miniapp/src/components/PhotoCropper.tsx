@@ -212,9 +212,9 @@ export function PhotoCropper({ file, onCancel, onConfirm, onReplace }: Props) {
     >
       <header className="ph-crop__head">
         <button type="button" className="ph-crop__btn ph-crop__btn--ghost" onClick={onCancel} disabled={busy}>
-          Отмена
+          Cancel
         </button>
-        <span className="ph-crop__title">Обрезать фото</span>
+        <span className="ph-crop__title">Crop photo</span>
         <span className="ph-crop__head-spacer" aria-hidden="true" />
       </header>
       <div className="ph-crop__stage" ref={stageRef}>
@@ -296,7 +296,7 @@ export function PhotoCropper({ file, onCancel, onConfirm, onReplace }: Props) {
           onClick={apply}
           disabled={busy || !crop}
         >
-          {busy ? "…" : "Готово"}
+          {busy ? "…" : "Done"}
         </button>
         {onReplace ? (
           <button
@@ -305,7 +305,7 @@ export function PhotoCropper({ file, onCancel, onConfirm, onReplace }: Props) {
             onClick={() => replaceRef.current?.click()}
             disabled={busy}
           >
-            Загрузить другое фото
+            Choose another photo
           </button>
         ) : null}
       </div>
@@ -324,7 +324,7 @@ export function PhotoCropper({ file, onCancel, onConfirm, onReplace }: Props) {
           }}
         />
       ) : null}
-      <p className="ph-crop__hint">Передвигай рамку, тяни за углы.</p>
+      <p className="ph-crop__hint">Move the frame, drag the corners.</p>
     </div>
   );
 }

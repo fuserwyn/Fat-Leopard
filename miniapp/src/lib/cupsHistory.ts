@@ -5,10 +5,10 @@ import { cupsWordRu } from "./streakLabel";
 export const CUPS_HISTORY_LIMIT = 42;
 
 /** Подпись списка в шторке профиля. */
-export const CUPS_HISTORY_CAPTION = "42 последние тренировки";
+export const CUPS_HISTORY_CAPTION = "Last 42 workouts";
 
 /** Вид строки для кубков за недельное достижение стаи. */
-export const PACK_WEEKLY_CUPS_LABEL = "Недельное достижение стаи";
+export const PACK_WEEKLY_CUPS_LABEL = "Pack weekly achievement";
 
 export type CupsHistoryWorkoutInput = {
   date: string;
@@ -42,9 +42,9 @@ export type CupsHistorySortKey = "date" | "type" | "cups";
 export type CupsHistorySortDir = "asc" | "desc";
 
 export const CUPS_HISTORY_SORT_OPTIONS: ReadonlyArray<{ key: CupsHistorySortKey; label: string }> = [
-  { key: "date", label: "Дата" },
-  { key: "type", label: "Вид спорта" },
-  { key: "cups", label: "Кубки" },
+  { key: "date", label: "Date" },
+  { key: "type", label: "Sport type" },
+  { key: "cups", label: "Cups" },
 ];
 
 /** Направление по умолчанию при выборе ключа: дата и кубки — по убыванию, вид спорта — по алфавиту. */
@@ -66,7 +66,7 @@ export function formatCupsHistoryDate(ymd: string): string {
 
 function parseDurationMin(text: string): number | null {
   const line = (text.trim().split("\n")[0] ?? "").trim();
-  const m = line.match(/(\d+)\s*мин/i);
+  const m = line.match(/(\d+)\s*(?:мин|min)/i);
   if (!m) return null;
   const n = Number(m[1]);
   return Number.isFinite(n) && n > 0 ? n : null;
@@ -74,7 +74,7 @@ function parseDurationMin(text: string): number | null {
 
 function parseIntensity(text: string): number | null {
   const line = (text.trim().split("\n")[0] ?? "").trim();
-  const m = line.match(/(?:интенсивность|инт\.?)\s*(\d+)/i);
+  const m = line.match(/(?:интенсивность|инт\.?|intensity|int\.?)\s*(\d+)/i);
   if (!m) return null;
   const n = Number(m[1]);
   return Number.isFinite(n) && n > 0 ? n : null;
@@ -100,7 +100,7 @@ function workoutRow(input: CupsHistoryWorkoutInput): CupsHistoryRow {
   const intensityN = parseIntensity(input.messageText);
   const durationN = parseDurationMin(input.messageText);
   const intensity = intensityN == null ? "" : `${intensityN}/5`;
-  const duration = durationN == null ? "" : `${durationN} мин`;
+  const duration = durationN == null ? "" : `${durationN} min`;
   const awarded = cupsLabel(input.cups);
   return {
     kind: "workout",
@@ -182,7 +182,7 @@ export function sortCupsHistoryRows(
   return [...rows].sort((a, b) => {
     let primary = 0;
     if (key === "type") {
-      primary = a.workoutType.localeCompare(b.workoutType, "ru", { sensitivity: "base" });
+      primary = a.workoutType.localeCompare(b.workoutType, "en", { sensitivity: "base" });
     } else if (key === "cups") {
       primary = a.cups - b.cups;
     } else {

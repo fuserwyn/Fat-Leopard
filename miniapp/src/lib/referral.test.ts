@@ -31,12 +31,12 @@ describe("parseReferralState", () => {
 
 describe("texts", () => {
   it("declines friends", () => {
-    expect([1, 2, 5, 11, 21, 22, 10].map(friendsWord)).toEqual(["друг", "друга", "друзей", "друзей", "друг", "друга", "друзей"]);
+    expect([1, 2, 5, 11, 21, 22, 10].map(friendsWord)).toEqual(["friend", "friends", "friends", "friends", "friends", "friends", "friends"]);
   });
 
   it("shows progress to the next streak save", () => {
     const s = { link: "https://t.me/b", joined: 20, qualified: 13, rewardEvery: 10, rewards: 1, nextIn: 7 };
-    expect(referralProgressLine(s)).toBe("До попытки спасти стрик: 3 из 10 — ещё 7 друзей с первой тренировкой");
+    expect(referralProgressLine(s)).toBe("Streak save progress: 3 of 10 — 7 more friends with a first workout");
   });
 
   it("builds a Telegram share url", () => {

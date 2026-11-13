@@ -56,7 +56,7 @@ export function CupsHistorySheet({ apiUrl, initData, onClose }: Props) {
   useEffect(() => {
     const ac = new AbortController();
     if (!apiUrl || !initData.trim()) {
-      setError("История недоступна");
+      setError("History unavailable");
       setRows([]);
       return;
     }
@@ -72,7 +72,7 @@ export function CupsHistorySheet({ apiUrl, initData, onClose }: Props) {
         });
         const j = (await res.json().catch(() => ({}))) as HistoryResponse;
         if (!res.ok || !j.ok) {
-          setError("Не получилось загрузить историю");
+          setError("Couldn't load history");
           setRows([]);
           return;
         }
@@ -94,7 +94,7 @@ export function CupsHistorySheet({ apiUrl, initData, onClose }: Props) {
         );
       } catch (e) {
         if (ac.signal.aborted) return;
-        setError(e instanceof Error ? e.message : "Не получилось загрузить историю");
+        setError(e instanceof Error ? e.message : "Couldn't load history");
         setRows([]);
       }
     })();
@@ -104,15 +104,15 @@ export function CupsHistorySheet({ apiUrl, initData, onClose }: Props) {
   const body = (
     <>
       <div className="cups-history-backdrop" onClick={onClose} />
-      <div className="cups-history" role="dialog" aria-modal="true" aria-label="История кубков">
+      <div className="cups-history" role="dialog" aria-modal="true" aria-label="Cups history">
         <header className="cups-history__head">
-          <h2 className="cups-history__title">История кубков</h2>
-          <button type="button" className="cups-history__close" onClick={onClose} aria-label="Закрыть">
+          <h2 className="cups-history__title">Cups history</h2>
+          <button type="button" className="cups-history__close" onClick={onClose} aria-label="Close">
             ✕
           </button>
         </header>
         <p className="cups-history__caption">{CUPS_HISTORY_CAPTION}</p>
-        <div className="cups-history__sort" role="group" aria-label="Сортировка">
+        <div className="cups-history__sort" role="group" aria-label="Sort">
           {CUPS_HISTORY_SORT_OPTIONS.map((opt) => {
             const active = opt.key === sortKey;
             return (
@@ -135,11 +135,11 @@ export function CupsHistorySheet({ apiUrl, initData, onClose }: Props) {
         </div>
         <div className="cups-history__body">
           {sortedRows == null ? (
-            <p className="cups-history__status">Загружаю…</p>
+            <p className="cups-history__status">Loading…</p>
           ) : error ? (
             <p className="cups-history__status">{error}</p>
           ) : sortedRows.length === 0 ? (
-            <p className="cups-history__status">Пока нет начислений кубков</p>
+            <p className="cups-history__status">No cup awards yet</p>
           ) : (
             <ul className="cups-history__list">
               {sortedRows.map((row, i) => (

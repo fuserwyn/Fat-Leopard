@@ -72,7 +72,7 @@ func (d *Database) getLatestPendingPaywallAccessRequestWhere(userID, monetizedCh
 	return &r, nil
 }
 
-// GetLatestCompletedPaywallAccessRequest — последняя успешная оплата (для доставки доступа после вебхука/sync).
+// GetLatestCompletedPaywallAccessRequest — последняя успешная оплата (для доставки access после вебхука/sync).
 func (d *Database) GetLatestCompletedPaywallAccessRequest(userID, monetizedChatID int64) (*PaywallAccessRequest, error) {
 	const q = `
 		SELECT id, user_id, monetized_chat_id, status, created_at, completed_at, access_expires_at,
@@ -163,7 +163,7 @@ func (d *Database) GetPaywallAccessRequestByID(id int64) (*PaywallAccessRequest,
 	return &r, nil
 }
 
-// UserHasActivePaywallAccess — есть активная (не истекшая) оплата доступа к этой группе.
+// UserHasActivePaywallAccess — есть активная (не истекшая) оплата access к этой группе.
 func (d *Database) UserHasActivePaywallAccess(userID, monetizedChatID int64) (bool, error) {
 	const q = `
 		SELECT EXISTS (
@@ -235,7 +235,7 @@ func (d *Database) ExpirePaywallAccessForUser(userID, monetizedChatID int64) err
 // RestorePaywallAccessForUser — возвращает доступ удалённому юзеру (обратно к ExpirePaywallAccessForUser):
 // делает доступ у его последней completed-заявки снова бессрочным ('infinity').
 // ВАЖНО: активный доступ = access_expires_at IS NOT NULL AND > NOW() (см. UserHasActivePaywallAccess),
-// поэтому бессрочный — это 'infinity'::timestamptz, а НЕ NULL (NULL = нет доступа).
+// поэтому бессрочный — это 'infinity'::timestamptz, а НЕ NULL (NULL = нет access).
 // Идемпотентно; возвращает true, если была затронута строка (был платёж и доступ восстановлен).
 func (d *Database) RestorePaywallAccessForUser(userID, monetizedChatID int64) (bool, error) {
 	const q = `

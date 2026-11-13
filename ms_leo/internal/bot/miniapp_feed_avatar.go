@@ -17,7 +17,7 @@ import (
 // ErrPackMemberAvatarNotFound — у пользователя нет фото профиля или Telegram не отдал файл.
 var ErrPackMemberAvatarNotFound = errors.New("pack member avatar not found")
 
-// PackFeedAssertViewerAccess — та же проверка доступа к ленте стаи, что и перед PackFeedForViewer.
+// PackFeedAssertViewerAccess — та же проверка access к ленте стаи, что и перед PackFeedForViewer.
 func (b *Bot) PackFeedAssertViewerAccess(viewerUserID int64, initD initdata.InitData) error {
 	if err := b.AssertMiniAppPackChatAligns(initD); err != nil {
 		return err

@@ -10,11 +10,10 @@ import (
 	"leo-bot/internal/database"
 )
 
-var trackerNotifyNumRe = regexp.MustCompile(`(?i)задач[аиеу]?\s*#\s*(\d+)`)
+var trackerNotifyNumRe = regexp.MustCompile(`(?i)(?:task|задач[аиеу]?)\s*#\s*(\d+)`)
 
-// Шаблон агента «Сделано для задачи #N.» — в Telegram-DM не нужен:
-// заголовок уведомления уже содержит номер и название.
-var trackerDoneBoilerplateRe = regexp.MustCompile(`(?i)^Сделано\s+для\s+задачи\s+#\d+[.:]?\s*$`)
+// Шаблон агента «Сделано для задачи #N.» / «Done for task #N.» — в Telegram-DM не нужен.
+var trackerDoneBoilerplateRe = regexp.MustCompile(`(?i)^(?:Сделано\s+для\s+задачи|Done\s+for\s+task)\s+#\d+[.:]?\s*$`)
 
 const trackerNotifyResultMax = 4000
 
@@ -79,7 +78,7 @@ func (b *Bot) findTrackerTaskForNotify(id int64, num int) (database.TrackerTask,
 func (b *Bot) findTrackerTaskByRemoteID(remoteID int64) (database.TrackerTask, error) {
 	var empty database.TrackerTask
 	if b == nil || b.db == nil || remoteID <= 0 {
-		return empty, fmt.Errorf("задача не найдена")
+		return empty, fmt.Errorf("task not found")
 	}
 	list, err := b.db.ListTrackerTasks()
 	if err != nil {
@@ -90,7 +89,7 @@ func (b *Bot) findTrackerTaskByRemoteID(remoteID int64) (database.TrackerTask, e
 			return t, nil
 		}
 	}
-	return empty, fmt.Errorf("задача не найдена")
+	return empty, fmt.Errorf("task not found")
 }
 
 func trackerTaskIfFound(t database.TrackerTask, err error) (database.TrackerTask, bool) {
@@ -107,20 +106,23 @@ func TrackerNotifyIsFullyShipped(text string) bool {
 	if low == "" {
 		return false
 	}
-	if strings.Contains(low, "запушь") || strings.Contains(text, "TRACKER_NO_CODE") ||
-		strings.Contains(low, "началась") || strings.Contains(low, "можно на тест") ||
-		strings.Contains(low, "ревью не принято") || strings.Contains(low, "тест не прошёл") ||
-		strings.Contains(low, "тест не прошел") || strings.Contains(low, "кода нет") ||
-		strings.Contains(low, "не попал в github") {
+	if trackerLoHas(text, "push", "запушь") || strings.Contains(text, "TRACKER_NO_CODE") ||
+		trackerLoHas(text, "started", "началась") || trackerLoHas(text, "ok for test", "можно на тест") ||
+		trackerLoHas(text, "review rejected", "ревью не принято") ||
+		trackerLoHas(text, "test failed", "тест не прошёл") || trackerLoHas(text, "test failed", "тест не прошел") ||
+		trackerLoHas(text, "no code", "кода нет") ||
+		trackerLoHas(text, "did not reach github", "не попал в github") {
 		return false
 	}
-	hasProd := strings.Contains(low, "railway") || strings.Contains(low, "на прод")
-	hasMain := strings.Contains(low, "ветке main") || strings.Contains(low, "ветки main") ||
-		strings.Contains(low, "ветка main") || strings.Contains(low, "в main") ||
+	hasProd := strings.Contains(low, "railway") || trackerLoHas(text, "prod", "на прод") ||
+		strings.Contains(low, "shipped to prod")
+	hasMain := trackerLoHas(text, "main branch", "ветке main") || trackerLoHas(text, "main branch", "ветки main") ||
+		trackerLoHas(text, "main branch", "ветка main") || trackerLoHas(text, "main", "в main") ||
 		strings.Contains(low, "(main)") || strings.Contains(low, "railway main")
-	hasDeployed := strings.Contains(low, "задепло") || strings.Contains(low, "выехал") ||
-		(strings.Contains(low, "на railway") || strings.Contains(low, "на прод")) &&
-			(strings.Contains(low, "выполнен") || strings.Contains(low, "готово"))
+	hasDeployed := trackerLoHas(text, "deployed", "задепло") || trackerLoHas(text, "shipped", "выехал") ||
+		strings.Contains(low, "shipped to prod") ||
+		((strings.Contains(low, "railway") || trackerLoHas(text, "prod", "на прод")) &&
+			(trackerLoHas(text, "completed", "выполнен") || trackerLoHas(text, "ready", "готово")))
 	return hasProd && hasMain && hasDeployed
 }
 
@@ -133,6 +135,9 @@ func trackerEffectiveDoneSummary(s string) string {
 }
 
 func trackerDoneExecutionSummary(t database.TrackerTask) string {
+	if done := trackerEffectiveDoneSummary(trackerStepPrefixedSummary(t.Steps, "done:")); done != "" {
+		return done
+	}
 	if done := trackerEffectiveDoneSummary(trackerStepPrefixedSummary(t.Steps, "сделано:")); done != "" {
 		return done
 	}
@@ -147,7 +152,7 @@ func trackerDoneExecutionSummary(t database.TrackerTask) string {
 // задачи в done_summary, не в телеграме.
 func trackerFullyDoneNote(t database.TrackerTask) string {
 	parts := []string{
-		fmt.Sprintf("✅ %s выполнена.", trackerNotifyHeading(t)),
+		fmt.Sprintf("✅ %s completed.", trackerNotifyHeading(t)),
 		trackerDeploySummary(t),
 	}
 	// Если агент ничего внятного не написал, итог откатывается к формулировке
@@ -172,7 +177,8 @@ func clipDoneSummary(s string) string {
 			continue
 		}
 		low := strings.ToLower(part)
-		if strings.HasPrefix(low, "локальный коммит") || strings.HasPrefix(low, "следующий шаг") {
+		if strings.HasPrefix(low, "локальный коммит") || strings.HasPrefix(low, "local commit") ||
+			strings.HasPrefix(low, "следующий шаг") || strings.HasPrefix(low, "next step") {
 			continue
 		}
 		s = part
@@ -200,7 +206,17 @@ func trackerPhaseCommit(steps []string, label string) string {
 	label = strings.ToLower(strings.TrimSpace(label))
 	for i := len(steps) - 1; i >= 0; i-- {
 		low := strings.ToLower(strings.TrimSpace(steps[i]))
-		if strings.Contains(low, "коммит ") && strings.HasSuffix(low, " "+label) {
+		enLabel := label
+		switch label {
+		case "ревью":
+			enLabel = "review"
+		case "тест":
+			enLabel = "test"
+		case "выполнение":
+			enLabel = "execution"
+		}
+		if (strings.Contains(low, "commit ") || strings.Contains(low, "коммит ")) &&
+			(strings.HasSuffix(low, " "+label) || strings.HasSuffix(low, " "+enLabel)) {
 			if m := trackerCommitRe.FindStringSubmatch(steps[i]); len(m) > 1 {
 				return m[1]
 			}
@@ -226,15 +242,16 @@ func trackerExtractAgentNote(text string) string {
 		}
 		low := strings.ToLower(line)
 		if !pastHeader {
-			if strings.HasPrefix(low, "задача #") ||
-				strings.Contains(low, "коммит выполнения") ||
-				strings.Contains(low, "⏰ задача #") {
-				pastHeader = strings.Contains(low, "коммит выполнения") ||
-					strings.Contains(low, "выполнена")
+			if strings.HasPrefix(low, "task #") || strings.HasPrefix(low, "задача #") ||
+				strings.Contains(low, "commit execution") || strings.Contains(low, "коммит выполнения") ||
+				strings.Contains(low, "⏰ task #") || strings.Contains(low, "⏰ задача #") {
+				pastHeader = strings.Contains(low, "commit execution") ||
+					strings.Contains(low, "коммит выполнения") ||
+					strings.Contains(low, "completed") || strings.Contains(low, "выполнена")
 				continue
 			}
 		}
-		if strings.Contains(low, "следующий шаг") ||
+		if strings.Contains(low, "next step") || strings.Contains(low, "следующий шаг") ||
 			strings.Contains(text, "TRACKER_NO_CODE") ||
 			strings.Contains(low, "можно на тест") ||
 			strings.Contains(low, "тест пройден") {
@@ -247,36 +264,49 @@ func trackerExtractAgentNote(text string) string {
 }
 
 func trackerPhasePassed(t database.TrackerTask, label string) bool {
-	if trackerPhaseCommit(t.Steps, label) != "" {
+	ruLabel := label
+	switch label {
+	case "review":
+		ruLabel = "ревью"
+	case "test":
+		ruLabel = "тест"
+	}
+	if trackerPhaseCommit(t.Steps, label) != "" || trackerPhaseCommit(t.Steps, ruLabel) != "" {
 		return true
 	}
 	low := strings.ToLower(t.Result)
 	switch label {
-	case "ревью":
-		if strings.Contains(low, "можно на тест") ||
+	case "review", "ревью":
+		if trackerLoHas(t.Result, "ok for test", "можно на тест") ||
+			strings.Contains(low, "composer: review") ||
 			strings.Contains(low, "composer: ревью") ||
-			strings.Contains(low, "ревью: пройден") {
+			trackerLoHas(t.Result, "review: passed", "ревью: пройден") {
 			return true
 		}
-	case "тест":
-		if strings.Contains(low, "тест пройден") ||
+	case "test", "тест":
+		if trackerLoHas(t.Result, "test passed", "тест пройден") ||
+			strings.Contains(low, "composer: test") ||
 			strings.Contains(low, "composer: тест") ||
-			strings.Contains(low, "тест: пройден") {
+			trackerLoHas(t.Result, "test: passed", "тест: пройден") {
 			return true
 		}
 	}
 	for _, step := range t.Steps {
 		lowStep := strings.ToLower(step)
 		switch label {
-		case "ревью":
-			if strings.Contains(lowStep, "composer: ревью принято") ||
+		case "review", "ревью":
+			if strings.Contains(lowStep, "composer: review accepted") ||
+				strings.Contains(lowStep, "composer: ревью принято") ||
+				strings.HasPrefix(lowStep, "review:") ||
 				strings.HasPrefix(lowStep, "ревью:") {
 				return true
 			}
-		case "тест":
-			if strings.Contains(lowStep, "composer: тест принято") ||
+		case "test", "тест":
+			if strings.Contains(lowStep, "composer: test accepted") ||
+				strings.Contains(lowStep, "composer: тест принято") ||
+				strings.HasPrefix(lowStep, "test:") ||
 				strings.HasPrefix(lowStep, "тест:") ||
-				strings.Contains(lowStep, "qa принял") {
+				trackerLoHas(step, "qa accepted", "qa принял") {
 				return true
 			}
 		}
@@ -290,7 +320,7 @@ func trackerPhaseBriefLine(t database.TrackerTask, label, fallback string) strin
 		return note
 	}
 	if sha := trackerPhaseCommit(t.Steps, label); sha != "" {
-		return fallback + " (коммит " + sha + ")"
+		return fallback + " (commit " + sha + ")"
 	}
 	return fallback
 }
@@ -298,38 +328,38 @@ func trackerPhaseBriefLine(t database.TrackerTask, label, fallback string) strin
 func trackerDeploySummary(t database.TrackerTask) string {
 	for _, step := range t.Steps {
 		low := strings.ToLower(strings.TrimSpace(step))
-		if strings.Contains(low, "стенд собрался") {
-			return "Выехала на прод (ветка main)."
+		if trackerLoHas(step, "stand build succeeded", "стенд собрался") {
+			return "Shipped to prod (main branch)."
 		}
-		if strings.HasPrefix(low, "пуш в ") {
-			return "Выехала на прод (ветка main)."
+		if strings.HasPrefix(low, "push to ") || strings.HasPrefix(low, "пуш в ") {
+			return "Shipped to prod (main branch)."
 		}
 	}
-	return "Выехала на прод (ветка main)."
+	return "Shipped to prod (main branch)."
 }
 
 func trackerDoneBrief(t database.TrackerTask) string {
 	lines := make([]string, 0, 5)
 
-	lines = append(lines, "1. Выполнение: "+trackerDoneExecutionSummary(t))
+	lines = append(lines, "1. Execution: "+trackerDoneExecutionSummary(t))
 
-	if !t.FastTrack && trackerPhasePassed(t, "ревью") {
-		lines = append(lines, "2. Ревью: "+trackerPhaseBriefLine(t, "ревью", "пройдено"))
+	if !t.FastTrack && trackerPhasePassed(t, "review") {
+		lines = append(lines, "2. Review: "+trackerPhaseBriefLine(t, "review", "passed"))
 	}
 
-	if trackerPhasePassed(t, "тест") {
-		lines = append(lines, fmt.Sprintf("%d. Тест: %s", len(lines)+1, trackerPhaseBriefLine(t, "тест", "пройден")))
+	if trackerPhasePassed(t, "test") {
+		lines = append(lines, fmt.Sprintf("%d. Test: %s", len(lines)+1, trackerPhaseBriefLine(t, "test", "passed")))
 	} else if t.ManualQa {
 		for _, step := range t.Steps {
-			if strings.EqualFold(strings.TrimSpace(step), "QA принял") {
-				lines = append(lines, fmt.Sprintf("%d. Тест: ручное QA пройдено", len(lines)+1))
+			if strings.EqualFold(strings.TrimSpace(step), "QA accepted") {
+				lines = append(lines, fmt.Sprintf("%d. Test: manual QA passed", len(lines)+1))
 				break
 			}
 		}
 	}
 
-	lines = append(lines, fmt.Sprintf("%d. Сборка: %s", len(lines)+1, strings.TrimSuffix(trackerDeploySummary(t), ".")))
-	lines = append(lines, fmt.Sprintf("%d. Уведомление админам отправлено.", len(lines)+1))
+	lines = append(lines, fmt.Sprintf("%d. Deploy: %s", len(lines)+1, strings.TrimSuffix(trackerDeploySummary(t), ".")))
+	lines = append(lines, fmt.Sprintf("%d. Admin notification sent.", len(lines)+1))
 	return strings.Join(lines, "\n")
 }
 
@@ -340,20 +370,20 @@ func trackerRecordPhaseSummary(t *database.TrackerTask, fromCol, text string) {
 	switch fromCol {
 	case trackerColDoing:
 		if summary := trackerEffectiveDoneSummary(trackerExtractAgentNote(text)); summary != "" {
-			appendTrackerStep(t, "сделано: "+summary)
+			appendTrackerStep(t, "done: "+summary)
 		}
 	case trackerColReview:
 		if trackerComposerPassed(trackerColReview, text) {
-			appendTrackerStep(t, "ревью: "+trackerPhaseBriefLine(*t, "ревью", "пройдено"))
+			appendTrackerStep(t, "review: "+trackerPhaseBriefLine(*t, "review", "passed"))
 		}
 	case trackerColTest:
 		if trackerComposerPassed(trackerColTest, text) {
-			appendTrackerStep(t, "тест: "+trackerPhaseBriefLine(*t, "тест", "пройден"))
+			appendTrackerStep(t, "test: "+trackerPhaseBriefLine(*t, "test", "passed"))
 		}
 	}
 }
 
-const trackerShipNotifiedStep = "уведомили о выкате"
+const trackerShipNotifiedStep = "ship notification sent"
 
 // trackerShipNotifyInflight — один DM на карточку: finishTrackerBuild и
 // resume после рестарта ms_leo могут сойтись на одном task_id.
@@ -400,7 +430,7 @@ func applyTrackerPhaseVerdict(t *database.TrackerTask, from, text string) {
 	t.Error = clipNotifyText(text)
 	if from == trackerColReview {
 		_ = applyTrackerColumn(t, trackerColDoing)
-		appendTrackerStep(t, "Вернули в работу: ревью не принято")
+		appendTrackerStep(t, "Returned to doing: review rejected")
 		return
 	}
 	returnTrackerFromFailedTest(t, text)
@@ -411,8 +441,8 @@ func applyTrackerPhaseVerdict(t *database.TrackerTask, from, text string) {
 // причиной и идёт по кругу «работа → ревью → тест», пока тест не пройдёт.
 // Лимита попыток нет намеренно — так решил владелец.
 const (
-	trackerTestReturnedStep = "Вернули в работу: тест не прошёл"
-	trackerTestFailedMarker = "Тест не прошёл — почини и сдай снова:"
+	trackerTestReturnedStep = "Returned to doing: test failed"
+	trackerTestFailedMarker = "Test failed — fix and resubmit:"
 )
 
 // returnTrackerFromFailedTest возвращает карточку в работу после отказа теста.
@@ -421,7 +451,7 @@ func returnTrackerFromFailedTest(t *database.TrackerTask, text string) {
 		return
 	}
 	t.Error = clipNotifyText(text)
-	appendTrackerStep(t, trackerAgentName(trackerColTest)+" не принято")
+	appendTrackerStep(t, trackerAgentName(trackerColTest)+": not accepted")
 	// Причину отказа кладём в результат: он уходит агенту в задании на доработку.
 	// Прошлую причину заменяем, а не копим.
 	result := t.Result
@@ -522,7 +552,7 @@ func trackerNotifyKind(text string) string {
 		return "done"
 	case strings.Contains(low, "ошибк") || strings.Contains(low, "не удалось") || strings.Contains(low, "срыв"):
 		return "error"
-	case strings.Contains(low, "началась") || strings.Contains(low, "взяли в работу"):
+	case trackerLoHas(text, "started", "началась") || trackerLoHas(text, "moved to doing", "взяли в работу"):
 		return "started"
 	default:
 		return ""
@@ -666,26 +696,26 @@ func applyTrackerNotify(t *database.TrackerTask, kind, text string) {
 		t.Result = text
 	}
 	if br := trackerBranchRe.FindString(text); br != "" {
-		appendTrackerStep(t, "ветка "+br)
+		appendTrackerStep(t, "branch "+br)
 	}
 	if m := trackerCommitRe.FindStringSubmatch(text); len(m) > 1 {
-		label := "выполнение"
+		label := "execution"
 		lowText := strings.ToLower(text)
-		if strings.Contains(lowText, "ревью") {
-			label = "ревью"
-		} else if strings.Contains(lowText, "тест") {
-			label = "тест"
+		if strings.Contains(lowText, "review") || strings.Contains(lowText, "ревью") {
+			label = "review"
+		} else if strings.Contains(lowText, "test") || strings.Contains(lowText, "тест") {
+			label = "test"
 		}
-		appendTrackerStep(t, "коммит "+m[1]+" "+label)
+		appendTrackerStep(t, "commit "+m[1]+" "+label)
 	}
 	switch kind {
 	case "plan":
 		_ = applyTrackerColumn(t, trackerColDoing)
-		t.Error = "Кода в репозитории нет"
-		appendTrackerStep(t, "Агент сдал план без кода")
+		t.Error = "No code in repository"
+		appendTrackerStep(t, "Agent submitted plan without code")
 	case "canceled":
 		_ = applyTrackerColumn(t, trackerColCanceled)
-		appendTrackerStep(t, "Отменена по уведомлению")
+		appendTrackerStep(t, "Cancelled via notification")
 	case "done":
 		fromCol := strings.ToLower(strings.TrimSpace(t.DevColumn))
 		trackerRecordPhaseSummary(t, fromCol, text)
@@ -694,22 +724,22 @@ func applyTrackerNotify(t *database.TrackerTask, kind, text string) {
 			_ = applyTrackerColumn(t, col)
 		}
 		t.Error = ""
-		appendTrackerStep(t, "Агент сдал результат")
+		appendTrackerStep(t, "Agent delivered result")
 	case "error":
 		t.Status = "error"
 		if text != "" {
 			t.Error = text
 		}
-		appendTrackerStep(t, "Ошибка")
+		appendTrackerStep(t, "Error")
 	case "started":
 		status := strings.ToLower(strings.TrimSpace(t.Status))
 		if t.DevColumn == trackerColTodo || status == "pending" || status == "scheduled" {
 			_ = applyTrackerColumn(t, trackerColDoing)
-			appendTrackerStep(t, "Взяли в работу по уведомлению")
+			appendTrackerStep(t, "Moved to doing via notification")
 		}
 	default:
 		if text != "" {
-			appendTrackerStep(t, "Обновили результат")
+			appendTrackerStep(t, "Updated result")
 		}
 	}
 }

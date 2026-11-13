@@ -1,14 +1,8 @@
-/** Склонение «день / дня / дней» (как russianPlural на бэкенде). */
 function daysWordForm(count: number): string {
-  const n = Math.abs(count) % 100;
-  const n1 = n % 10;
-  if (n > 10 && n < 20) return "дней";
-  if (n1 > 1 && n1 < 5) return "дня";
-  if (n1 === 1) return "день";
-  return "дней";
+  return count === 1 ? "day" : "days";
 }
 
-/** Формат остатка до кика — зеркало formatDurationToDays на бэкенде. */
+/** Remaining time until kick — mirrors formatDurationToDays on backend. */
 export function formatDurationToDays(ms: number): string {
   const totalMinutes = Math.max(0, Math.floor(ms / 60_000));
   const days = Math.floor(totalMinutes / (24 * 60));
@@ -16,14 +10,14 @@ export function formatDurationToDays(ms: number): string {
   const minutes = totalMinutes % 60;
 
   if (days > 0) {
-    if (hours > 0) return `${days} ${daysWordForm(days)} ${hours} ч.`;
+    if (hours > 0) return `${days} ${daysWordForm(days)} ${hours} hr`;
     return `${days} ${daysWordForm(days)}`;
   }
   if (hours > 0) {
-    if (minutes > 0) return `${hours} ч. ${minutes} мин.`;
-    return `${hours} ч.`;
+    if (minutes > 0) return `${hours} hr ${minutes} min`;
+    return `${hours} hr`;
   }
-  return `${minutes} мин.`;
+  return `${minutes} min`;
 }
 
 export type RemovalRemaining = {
@@ -32,7 +26,7 @@ export type RemovalRemaining = {
   deadlineLocal: string;
 };
 
-/** День предупреждения по таймеру (5/6/7), как milestone за 72/48/24 ч до кика. null — ещё рано. */
+/** Warning milestone day (5/6/7) from timer. null — too early. */
 export function inactiveDaysFromRemovalRemaining(ms: number): number | null {
   const hours = ms / 3_600_000;
   if (hours > 72) return null;
@@ -41,13 +35,13 @@ export function inactiveDaysFromRemovalRemaining(ms: number): number | null {
   return 7;
 }
 
-/** Остаток до inactivity_removal_at (RFC3339 с бэкенда). */
+/** Time left until inactivity_removal_at (RFC3339 from backend). */
 export function removalRemainingUntil(removalAtRFC3339: string, now: Date): RemovalRemaining | null {
   const deadline = new Date(removalAtRFC3339);
   if (Number.isNaN(deadline.getTime())) return null;
   const ms = deadline.getTime() - now.getTime();
   if (ms <= 0) return null;
   const pad = (n: number) => String(n).padStart(2, "0");
-  const deadlineLocal = `${pad(deadline.getDate())}.${pad(deadline.getMonth() + 1)}.${deadline.getFullYear()}, ${pad(deadline.getHours())}:${pad(deadline.getMinutes())}`;
+  const deadlineLocal = `${pad(deadline.getMonth() + 1)}/${pad(deadline.getDate())}/${deadline.getFullYear()}, ${pad(deadline.getHours())}:${pad(deadline.getMinutes())}`;
   return { ms, text: formatDurationToDays(ms), deadlineLocal };
 }

@@ -17,8 +17,8 @@ import (
 func formatRemovalAtLocalHuman(removalAt time.Time, loc *time.Location) string {
 	d := removalAt.In(loc)
 	months := []string{
-		"", "января", "февраля", "марта", "апреля", "мая", "июня",
-		"июля", "августа", "сентября", "октября", "ноября", "декабря",
+		"", "January", "February", "March", "April", "May", "June",
+		"July", "August", "September", "October", "November", "December",
 	}
 	return fmt.Sprintf("%d %s, 00:00", d.Day(), months[int(d.Month())])
 }
@@ -196,14 +196,14 @@ func (b *Bot) cancelTimer(userID int64) {
 	}
 }
 
-// sendInactiveRemovalWarning — предупреждение за 72 ч (день 5), 48 ч (день 6) или 24 ч (день 7) до кика; пуш в 9:00 локального TZ юзера.
+// sendInactiveRemovalWarning — предупреждение за 72 ч (day 5), 48 ч (day 6) или 24 ч (day 7) до кика; пуш в 9:00 локального TZ юзера.
 func (b *Bot) sendInactiveRemovalWarning(userID, chatID int64, username string, hoursBefore int, removalAt time.Time, loc *time.Location) {
 	who := normalizeUserDisplayName(username)
 	deadlineHuman := formatRemovalAtLocalHuman(removalAt, loc)
 	messageText := fmt.Sprintf(
-		"👀 Ты давно не занимался\n\n"+
-			"%s, если не отметишь тренировку в мини-аппе, Леопард тебя съест 🍴 — %s.\n\n"+
-			"Помни, в стае любое движение считается.",
+		"👀 You haven't worked out in a while\n\n"+
+			"%s, if you don't log a workout in the mini app, the Leopard will eat you 🍴 — %s.\n\n"+
+			"Remember — in the pack, any movement counts.",
 		who,
 		deadlineHuman,
 	)
@@ -222,7 +222,7 @@ func (b *Bot) sendInactiveRemovalWarning(userID, chatID int64, username string, 
 			stage = "day_7"
 		}
 		var ctxBuilder strings.Builder
-		ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\nstage: %s\nДо удаления за неактивность осталось около %d ч.\nДедлайн: %s\n", username, stage, hoursBefore, deadlineHuman))
+		ctxBuilder.WriteString(fmt.Sprintf("User: %s\nstage: %s\nAbout %d h until removal for inactivity.\nDeadline: %s\n", username, stage, hoursBefore, deadlineHuman))
 		if addendum, err := b.aiClient.AnswerUserQuestion(b.livePrompts().WarningTimerQuestion, ctxBuilder.String()); err == nil {
 			addendum = ai.SanitizeTextForUser(addendum)
 			if addendum != "" {

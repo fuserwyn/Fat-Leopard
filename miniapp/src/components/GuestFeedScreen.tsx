@@ -6,17 +6,13 @@ import "./GuestFeedScreen.css";
 
 type Props = {
   initData: string;
-  /** Сервер ответил, что смотрящий уже в стае: открыть обычное приложение. */
+  /** Viewer already in pack — open full app. */
   onInPack: () => void;
-  /** Для тестов: готовый ответ вместо запроса (null — сервер не ответил). */
+  /** For tests: prefilled response (null — no server). */
   initialFeed?: GuestFeed | null;
 };
 
-/**
- * Гостевой просмотр: несколько свежих тренировок стаи и кнопка «Вступить» для
- * того, кто открыл мини-апп по чужой ссылке, ещё не вступив. Карточки только
- * для чтения: реакции, комментарии и всё остальное — после вступления.
- */
+/** Guest preview: recent pack workouts and Join for invite links. Read-only cards. */
 export function GuestFeedScreen({ initData, onInPack, initialFeed }: Props) {
   const [feed, setFeed] = useState<GuestFeed | null | undefined>(initialFeed);
 
@@ -42,18 +38,18 @@ export function GuestFeedScreen({ initData, onInPack, initialFeed }: Props) {
     <div className="guest-feed">
       <header className="guest-feed__header">
         <div className="guest-feed__brand">Fat Leopard</div>
-        <p className="guest-feed__eyebrow">Лента стаи</p>
-        <h1 className="guest-feed__title">Так стая тренируется каждый день</h1>
+        <p className="guest-feed__eyebrow">Pack feed</p>
+        <h1 className="guest-feed__title">This is how the pack trains every day</h1>
         <p className="guest-feed__text">
-          Каждый отмечает тренировку, стая поддерживает. Вступи, чтобы публиковать свои, ставить реакции и
-          держать стрик вместе со всеми.
+          Everyone logs workouts and the pack cheers you on. Join to post yours, react, and keep your streak with the
+          rest of the pack.
         </p>
       </header>
 
       <div className="guest-feed__list" aria-busy={loading}>
-        {loading ? <p className="guest-feed__empty">Загружаем ленту…</p> : null}
+        {loading ? <p className="guest-feed__empty">Loading feed…</p> : null}
         {!loading && posts.length === 0 ? (
-          <p className="guest-feed__empty">Свежих тренировок пока не видно — загляни в стаю изнутри.</p>
+          <p className="guest-feed__empty">No recent workouts to show — join the pack to see more.</p>
         ) : null}
         {posts.map((p) => (
           <ActivityCard key={feedItemKey(p)} {...dtoToCard(p)} />
@@ -62,7 +58,7 @@ export function GuestFeedScreen({ initData, onInPack, initialFeed }: Props) {
 
       <div className="guest-feed__cta-bar">
         <button type="button" className="guest-feed__cta" onClick={() => openGuestJoin(feed?.joinUrl ?? "")}>
-          Вступить
+          Join
         </button>
       </div>
     </div>

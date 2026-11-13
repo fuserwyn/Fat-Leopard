@@ -70,14 +70,14 @@ describe("AdminDashboardScreen", () => {
     expect(fetchAdminAnalytics).toHaveBeenCalledWith("x", 30, true);
     expect(screen.getByText("+20%").className).toContain("dash-kpi__delta--up");
     expect(screen.getByText("−5.0 п.п.").className).toContain("dash-kpi__delta--down");
-    expect(screen.getByText("Динамика по дням")).toBeTruthy();
+    expect(screen.getByText("Trend by day")).toBeTruthy();
     expect(screen.getByText("Воронка: бот → оплата")).toBeTruthy();
     expect(screen.queryByText("Сводка KPI")).toBeNull();
-    expect(screen.getByText("Удержание по когортам")).toBeTruthy();
+    expect(screen.getByText("Cohort retention")).toBeTruthy();
     expect(screen.getByText("840 ₽")).toBeTruthy();
-    expect(screen.getByText("Недельная цель стаи")).toBeTruthy();
+    expect(screen.getByText("Pack weekly goal")).toBeTruthy();
     expect(screen.getByText("organic")).toBeTruthy();
-    expect(screen.getByText(/Посещения бота за период: 40/)).toBeTruthy();
+    expect(screen.getByText(/Bot visits in period: 40/)).toBeTruthy();
   });
 
   it("shows «нет данных» instead of empty charts", async () => {
@@ -98,7 +98,7 @@ describe("AdminDashboardScreen", () => {
       },
     });
     render(<AdminDashboardScreen initData="x" showAlert={() => {}} />);
-    await waitFor(() => expect(screen.getByText("Деньги")).toBeTruthy());
-    expect(screen.getAllByText("Нет данных за этот период.").length).toBe(5);
+    await waitFor(() => expect(screen.getByText("Money")).toBeTruthy());
+    expect(screen.getAllByText("No data for this period.").length).toBe(5);
   });
 });

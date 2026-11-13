@@ -460,7 +460,7 @@ func (b *Bot) VerifyTrackerToken(token, kind string) (repo string, userID int64,
 // NotifyTrackerAuthor — написать автору задачи в личку от имени бота стаи.
 func (b *Bot) NotifyTrackerAuthor(userID int64, text string) error {
 	if b == nil || b.api == nil || userID == 0 {
-		return fmt.Errorf("некому писать")
+		return fmt.Errorf("no one to notify")
 	}
 	msg := tgbotapi.NewMessage(userID, text)
 	msg.DisableWebPagePreview = true
@@ -524,7 +524,7 @@ func (b *Bot) trackerResultNotifyTargets(authorID int64) []int64 {
 func (b *Bot) NotifyTrackerResult(authorID int64, text string) error {
 	targets := b.trackerResultNotifyTargets(authorID)
 	if len(targets) == 0 {
-		return fmt.Errorf("некому писать: админы не заданы")
+		return fmt.Errorf("no one to notify: no admins configured")
 	}
 	var firstErr error
 	for _, id := range targets {

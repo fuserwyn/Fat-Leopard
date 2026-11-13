@@ -35,7 +35,7 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 
 	if b.aiClient == nil {
 		b.logger.Warn("AI client is nil, cannot process question")
-		help := "❌ ИИ функции недоступны. Проверьте настройки OpenRouter API."
+		help := "❌ AI features are unavailable. Check your OpenRouter API settings."
 		miniReply(help)
 		if !skipTelegram {
 			b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, help))
@@ -55,7 +55,7 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 
 	if questionText == "" {
 		b.logger.Infof("Question text is empty after cleaning")
-		hint := "💬 Привет! 👋 Задай мне вопрос!\n\nНапример:\n• Что я делал вчера?\n• Как мой прогресс?\n• Что улучшить в тренировках?\n• Как лечиться?"
+		hint := "💬 Hi! 👋 Ask me anything!\n\nFor example:\n• What did I do yesterday?\n• How's my progress?\n• What should I improve in training?\n• Recovery tips?"
 		miniReply(hint)
 		if !skipTelegram {
 			b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, hint))
@@ -78,7 +78,7 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 	history, err := b.db.GetUserTrainingHistory(msg.From.ID, stateChat, histLimit)
 	if err != nil {
 		b.logger.Errorf("Failed to get user training history: %v", err)
-		t := "❌ Ошибка при получении истории тренировок"
+		t := "❌ Failed to load workout history"
 		miniReply(t)
 		if !skipTelegram {
 			b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, t))
@@ -115,7 +115,7 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 			replyText = strings.TrimSpace(msg.ReplyToMessage.Caption)
 		}
 		if replyText != "" {
-			aiSec.thread.WriteString("• [бот] Лео: ")
+			aiSec.thread.WriteString("• [bot] Leo: ")
 			aiSec.thread.WriteString(replyText)
 			aiSec.thread.WriteString("\n")
 			lastBotMessageText = replyText
@@ -131,12 +131,12 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 		remaining := ""
 		if userLog.TimerStartTime != nil {
 			if rt := b.calculateRemainingTime(userLog); rt > 0 {
-				remaining = "до удаления: " + b.formatDurationToDays(rt)
+				remaining = "until removal: " + b.formatDurationToDays(rt)
 				if userLog.HasSickLeave {
-					remaining = "после #healthy: " + b.formatDurationToDays(rt)
+					remaining = "after #healthy: " + b.formatDurationToDays(rt)
 				}
 			} else {
-				remaining = "таймер истёк"
+				remaining = "timer expired"
 			}
 		}
 		aiSec.users.WriteString(formatUserEntityLine(userLog, cups, remaining))
@@ -199,7 +199,7 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 					if len(txt) > maxSnippet {
 						txt = txt[:maxSnippet] + "…"
 					}
-					aiSec.thread.WriteString("• [бот] Лео: ")
+					aiSec.thread.WriteString("• [bot] Leo: ")
 					aiSec.thread.WriteString(txt)
 					aiSec.thread.WriteString("\n")
 				}
@@ -352,7 +352,7 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 				remaining := ""
 				if otherUserLog.TimerStartTime != nil {
 					if rt := b.calculateRemainingTime(otherUserLog); rt > 0 {
-						remaining = "до удаления: " + b.formatDurationToDays(rt)
+						remaining = "until removal: " + b.formatDurationToDays(rt)
 					}
 				}
 				aiSec.users.WriteString(formatUserEntityLine(otherUserLog, cups, remaining))
@@ -376,7 +376,7 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 				remaining := ""
 				if user.TimerStartTime != nil {
 					if rt := b.calculateRemainingTime(user); rt > 0 {
-						remaining = "до удаления: " + b.formatDurationToDays(rt)
+						remaining = "until removal: " + b.formatDurationToDays(rt)
 					}
 				}
 				aiSec.users.WriteString(formatUserEntityLine(user, cups, remaining))
@@ -436,7 +436,7 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 		// Проверяем, является ли это ошибкой настройки политики данных
 		errorMsg := err.Error()
 		if strings.Contains(errorMsg, "data policy") || strings.Contains(errorMsg, "Model Training") {
-			help := "❌ ИИ функции требуют настройки OpenRouter API.\n\nДля бесплатных моделей нужно:\n1. Перейди на https://openrouter.ai/settings/privacy\n2. Включи опцию 'Model Training'\n\nПосле этого ИИ заработает!"
+			help := "❌ AI features need OpenRouter API setup.\n\nFor free models:\n1. Go to https://openrouter.ai/settings/privacy\n2. Enable 'Model Training'\n\nThen AI will work!"
 			miniReply(help)
 			if !skipTelegram {
 				b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, help))
@@ -449,9 +449,9 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 
 		var et string
 		if strings.Contains(err.Error(), "context deadline exceeded") || strings.Contains(err.Error(), "Client.Timeout") {
-			et = "❌ ИИ не успел ответить вовремя. Попробуй ещё раз или сформулируй вопрос короче."
+			et = "❌ AI didn't respond in time. Try again or ask a shorter question."
 		} else {
-			et = fmt.Sprintf("❌ Ошибка при генерации ответа ИИ: %v", err)
+			et = fmt.Sprintf("❌ Failed to generate AI reply: %v", err)
 		}
 		miniReply(et)
 		if !skipTelegram {

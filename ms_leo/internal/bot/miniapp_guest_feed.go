@@ -6,14 +6,14 @@ import (
 )
 
 // Гостевой просмотр: человек пришёл по чужой ссылке, в стае его нет, но мини-апп
-// показывает ему несколько свежих тренировок и кнопку «Вступить». Наружу уходит
-// только витрина: имя, текст отчёта, фото тренировки, стрик и время. Без id
+// показывает ему несколько свежих workouts и кнопку «Вступить». Наружу уходит
+// только витрина: имя, текст отчёта, фото workouts, стрик и время. Без id
 // авторов, аватаров, комментариев и реакций — это остаётся внутри стаи.
 
 const (
 	// guestFeedLimit — сколько постов видит гость.
 	guestFeedLimit = 5
-	// guestFeedScan — сколько свежих записей ленты просматриваем, чтобы набрать тренировки.
+	// guestFeedScan — сколько свежих записей ленты просматриваем, чтобы набрать workouts.
 	guestFeedScan = 50
 	// guestJoinStartPayload — параметр /start у кнопки «Вступить» (источник в аналитике — src-guest).
 	guestJoinStartPayload = "src-guest_feed"
@@ -26,7 +26,7 @@ var guestFeedFallbackName = regexp.MustCompile(`^user\d+$`)
 type GuestFeedView struct {
 	// InPack — смотрящий уже в стае: мини-апп может открыть обычную ленту.
 	InPack bool `json:"in_pack"`
-	// Items — свежие тренировки стаи в формате ленты (урезанные поля).
+	// Items — свежие workouts стаи в формате ленты (урезанные поля).
 	Items []PackFeedItem `json:"items"`
 	// JoinURL — ссылка на бота для кнопки «Вступить»; пусто — имя бота неизвестно.
 	JoinURL string `json:"join_url"`
@@ -36,7 +36,7 @@ type GuestFeedView struct {
 func guestFeedName(name string) string {
 	name = strings.TrimSpace(name)
 	if name == "" || guestFeedFallbackName.MatchString(name) {
-		return "Участник стаи"
+		return "Pack member"
 	}
 	return name
 }
@@ -50,8 +50,8 @@ func guestJoinLink(botName string) string {
 	return "https://t.me/" + botName + "?start=" + guestJoinStartPayload
 }
 
-// PackGuestFeedForViewer — несколько свежих тренировок стаи для того, кто ещё не вступил.
-// Доступ не проверяется: витрина открыта любому с валидной подписью Telegram.
+// PackGuestFeedForViewer — несколько свежих workouts стаи для того, кто ещё не вступил.
+// Access не проверяется: витрина открыта любому с валидной подписью Telegram.
 func (b *Bot) PackGuestFeedForViewer(viewerUserID int64) (GuestFeedView, error) {
 	out := GuestFeedView{Items: []PackFeedItem{}}
 	if b == nil || b.config == nil {
@@ -100,4 +100,4 @@ func (b *Bot) PackGuestFeedForViewer(viewerUserID int64) (GuestFeedView, error) 
 }
 
 // guestFeedButtonText — web_app-кнопка под способами оплаты: открыть ленту стаи гостем.
-const guestFeedButtonText = "👀 Посмотреть ленту стаи"
+const guestFeedButtonText = "👀 Browse Pack feed (guest)"

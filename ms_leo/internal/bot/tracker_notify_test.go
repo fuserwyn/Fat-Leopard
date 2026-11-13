@@ -40,7 +40,7 @@ func TestTrackerNotifyIsFullyShipped(t *testing.T) {
 	if !TrackerNotifyIsFullyShipped(note) || !strings.Contains(note, "main") {
 		t.Fatalf("done note: %q", note)
 	}
-	if !strings.Contains(note, "Задача #4: кнопка удалить") {
+	if !strings.Contains(note, "Task #4: кнопка удалить") {
 		t.Fatalf("title in done note: %q", note)
 	}
 	if strings.Contains(note, "1. Выполнение:") || strings.Contains(note, "Уведомление админам отправлено.") {
@@ -95,7 +95,7 @@ func TestApplyTrackerNotifyRecordsCommit(t *testing.T) {
 	}
 	found := false
 	for _, s := range task.Steps {
-		if s == "коммит abc1234 выполнение" {
+		if s == "commit abc1234 execution" {
 			found = true
 		}
 	}
@@ -131,7 +131,7 @@ func TestApplyTrackerNotifyTestCommitGoesToDeploy(t *testing.T) {
 	}
 	found := false
 	for _, s := range task.Steps {
-		if s == "коммит abc1234 тест" {
+		if s == "commit abc1234 test" {
 			found = true
 		}
 	}
@@ -154,7 +154,7 @@ func TestApplyTrackerNotifyMovesDoingToReview(t *testing.T) {
 		Num:       1,
 		Status:    "running",
 		DevColumn: trackerColDoing,
-		Steps:     []string{"Взяли в работу по расписанию"},
+		Steps:     []string{"Started on schedule"},
 	}
 	text := "⏰ Задача #1 выполнена.\n\nГотово.\n\n- Подпись теперь только «сгорит через …».\n📤 Git push недоступен"
 	applyTrackerNotify(&task, trackerNotifyKind(text), text)
@@ -167,7 +167,7 @@ func TestApplyTrackerNotifyMovesDoingToReview(t *testing.T) {
 	if task.Error != "" {
 		t.Fatalf("git push must not be an error: %q", task.Error)
 	}
-	if n := len(task.Steps); n == 0 || task.Steps[n-1] != "Агент сдал результат" {
+	if n := len(task.Steps); n == 0 || task.Steps[n-1] != "Agent delivered result" {
 		t.Fatalf("steps: %#v", task.Steps)
 	}
 }
@@ -364,7 +364,7 @@ func TestApplyBoardNotifyFindsOpenTaskWhenForeignID(t *testing.T) {
 			false, false, false, true,
 			false, []byte("[]"),
 			nil, nil,
-			"", "", []byte(`["Взяли в работу по расписанию"]`), int64(42),
+			"", "", []byte(`["Started on schedule"]`), int64(42),
 			now, now, now, "auto", false, false, 0,
 		))
 	mock.ExpectExec(`UPDATE pack_tracker_tasks SET`).

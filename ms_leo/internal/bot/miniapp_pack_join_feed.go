@@ -26,23 +26,23 @@ const (
 func packJoinMiniappFeedPublicText(displayName string) string {
 	d := strings.TrimSpace(displayName)
 	if d == "" {
-		return "В стае новый участник."
+		return "New pack member."
 	}
-	return fmt.Sprintf("В стае новый участник: %s.", d)
+	return fmt.Sprintf("New pack member: %s.", d)
 }
 
 func packRejoinMiniappFeedPublicText() string {
-	return "Участник вернулся в стаю. Я написал ему в личку — с возвращением и напоминание про ритм стаи."
+	return "A member is back in the pack. I sent them a DM — welcome back and a reminder about pack rhythm."
 }
 
 // Персональное приветствие — только в Telegram-личку вступившему (не дублировать целиком в ленту).
 func packJoinMiniappWelcomeText(displayName string) string {
 	d := strings.TrimSpace(displayName)
 	if d == "" {
-		d = "участник"
+		d = "pack member"
 	}
 	return fmt.Sprintf(
-		"Привет, %s! Я Лео — добро пожаловать в стаю. Отмечай тренировки в мини-аппе (кнопка «+») и следи за дедлайном. Рад видеть тебя здесь! 🐆",
+		"Hi, %s! I'm Leo — welcome to the pack. Log workouts in the mini app (the «+» button) and keep an eye on your inactivity deadline. Glad you're here! 🐆",
 		d,
 	)
 }
@@ -50,10 +50,10 @@ func packJoinMiniappWelcomeText(displayName string) string {
 func packRejoinMiniappWelcomeText(displayName string) string {
 	d := strings.TrimSpace(displayName)
 	if d == "" {
-		d = "участник"
+		d = "pack member"
 	}
 	return fmt.Sprintf(
-		"%s, с возвращением! Я Лео — продолжай отмечать тренировки в мини-аппе. Рад снова видеть тебя в стае! 🐆",
+		"%s, welcome back! I'm Leo — keep logging workouts in the mini app. Glad to see you in the pack again! 🐆",
 		d,
 	)
 }
@@ -114,7 +114,7 @@ func (b *Bot) saveDailyWisdomPackFeed(wisdom string) {
 	um := &domain.UserMessage{
 		UserID:      0,
 		ChatID:      chatID,
-		Username:    "Лео",
+		Username:    "Leo",
 		MessageText: t,
 		MessageType: userMessageTypeDailyWisdom,
 	}
@@ -139,7 +139,7 @@ func (b *Bot) savePackRoarPackFeed(text string) {
 	um := &domain.UserMessage{
 		UserID:      0,
 		ChatID:      chatID,
-		Username:    "Лео",
+		Username:    "Leo",
 		MessageText: t,
 		MessageType: userMessageTypePackRoar,
 	}
@@ -157,9 +157,9 @@ const (
 // adminPostAuthorUsername — отображаемое имя автора карточки ленты по коду автора.
 func adminPostAuthorUsername(author string) string {
 	if author == adminPostAuthorLeo {
-		return "Лео"
+		return "Leo"
 	}
-	return "Админ"
+	return "Admin"
 }
 
 // saveAdminCustomPackFeed — немедленная публикация админского поста в ленту стаи (с PRE-модерацией).

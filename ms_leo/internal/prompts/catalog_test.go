@@ -18,8 +18,8 @@ func TestCatalogHasEmbedFiles(t *testing.T) {
 
 func TestApplyOverrides(t *testing.T) {
 	base := DefaultBundle()
-	got := ApplyOverrides(base, map[string]string{"answer_user_question": "новый характер"})
-	if got.AnswerUserQuestion != "новый характер" {
+	got := ApplyOverrides(base, map[string]string{"answer_user_question": "new character"})
+	if got.AnswerUserQuestion != "new character" {
 		t.Fatal(got.AnswerUserQuestion)
 	}
 	if got.DailySummary != base.DailySummary {
@@ -41,8 +41,8 @@ func TestDailyWisdomTrainingVariantRotates(t *testing.T) {
 	if a == b && b == c {
 		t.Fatal("variants did not rotate")
 	}
-	got := ApplyOverrides(base, map[string]string{"daily_wisdom_variation1": "вариант один"})
-	if got.DailyWisdomVariation1 != "вариант один" {
+	got := ApplyOverrides(base, map[string]string{"daily_wisdom_variation1": "variant one"})
+	if got.DailyWisdomVariation1 != "variant one" {
 		t.Fatal(got.DailyWisdomVariation1)
 	}
 }

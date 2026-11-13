@@ -64,16 +64,16 @@ function fakeCtx() {
 describe("карточки", () => {
   it("стрик 30 дней", () => {
     const c = achievementShareCard("streak-30", "Аня");
-    expect(c).toMatchObject({ kind: "achievement", emoji: "🔥", headline: "Стрик", big: "30", bigCaption: "дней подряд", name: "Аня" });
+    expect(c).toMatchObject({ kind: "achievement", emoji: "🔥", headline: "Streak", big: "30", bigCaption: "days in a row", name: "Аня" });
   });
 
   it("ачивка за тренировки и неизвестный ключ", () => {
-    expect(achievementShareCard("workout-100", " ")).toMatchObject({ big: "100", bigCaption: "тренировок", name: "Участник стаи" });
-    expect(achievementShareCard("oops", "Аня")).toMatchObject({ big: "🏆", bigCaption: "Новая ачивка" });
+    expect(achievementShareCard("workout-100", " ")).toMatchObject({ big: "100", bigCaption: "workouts", name: "Pack member" });
+    expect(achievementShareCard("oops", "Аня")).toMatchObject({ big: "🏆", bigCaption: "New achievement" });
   });
 
   it("новый уровень", () => {
-    expect(levelShareCard(4, "Боря")).toMatchObject({ kind: "level", emoji: "🐆", big: "4", bigCaption: "Гепард" });
+    expect(levelShareCard(4, "Боря")).toMatchObject({ kind: "level", emoji: "🐆", big: "4", bigCaption: "Cheetah" });
   });
 
   it("тренировка: вид, интенсивность, стрик и фото", () => {
@@ -88,10 +88,10 @@ describe("карточки", () => {
       photo,
     });
     // Стрик — отдельной крупной плашкой, а не в мелкой строке деталей.
-    expect(c).toMatchObject({ kind: "workout", big: "30", bigCaption: "минут", details: "бег · интенсивность 3/5", badge: "🔥 Стрик 5 дней", photo });
+    expect(c).toMatchObject({ kind: "workout", big: "30", bigCaption: "minutes", details: "бег · intensity 3/5", badge: "🔥 5-day streak", photo });
     expect(c.emoji).not.toBe("");
     const noStreak = workoutShareCard({ reportLine: "что-то", kindLabel: "", min: -1, intensity: 2, streak: 0, name: "Аня" });
-    expect(noStreak).toMatchObject({ big: "0", details: "интенсивность 2/5", photo: null });
+    expect(noStreak).toMatchObject({ big: "0", details: "intensity 2/5", photo: null });
     expect(noStreak.badge).toBeUndefined();
   });
 });
@@ -105,14 +105,14 @@ describe("подписи и ссылки", () => {
 
   it("подпись для каждого вида карточки, со ссылкой и без", () => {
     expect(shareCardCaption(achievementShareCard("streak-30", "Аня"), link)).toBe(
-      `Стрик 30 дней подряд в Fat Leopard 🔥\nТренируйся со мной: ${link}`,
+      `30-days in a row streak in Fat Leopard 🔥\nTrain with me: ${link}`,
     );
-    expect(shareCardCaption(achievementShareCard("workout-10", "Аня"), "")).toContain("Ачивка в Fat Leopard: 10 тренировок");
-    expect(shareCardCaption(levelShareCard(5, "Аня"), link)).toContain("Новый уровень в Fat Leopard: 5 — Лев");
+    expect(shareCardCaption(achievementShareCard("workout-10", "Аня"), "")).toContain("Achievement in Fat Leopard: 10 workouts");
+    expect(shareCardCaption(levelShareCard(5, "Аня"), link)).toContain("New level in Fat Leopard: 5 — Lion");
     const w = workoutShareCard({ reportLine: "бег", kindLabel: "бег", min: 30, intensity: 3, streak: 0, name: "А" });
-    expect(shareCardCaption(w, "")).toMatch(/^Тренировка засчитана: 30 минут/);
+    expect(shareCardCaption(w, "")).toMatch(/^Workout logged: 30 minutes/);
     const streaked = workoutShareCard({ reportLine: "зарядка", kindLabel: "зарядка", min: 15, intensity: 3, streak: 13, name: "LoFi" });
-    expect(shareCardCaption(streaked, link).split("\n")[0]).toMatch(/^Тренировка засчитана: 15 минут .* · стрик 13 дней 🔥$/);
+    expect(shareCardCaption(streaked, link).split("\n")[0]).toMatch(/^Workout logged: 15 minutes .* · 13-day streak 🔥$/);
     expect(shareCardCaption(w, `https://t.me/${"x".repeat(300)}`).length).toBe(200);
   });
 
@@ -141,7 +141,7 @@ describe("рисование", () => {
   it("на карточке имя, цифра, подпись и ссылка на бота", () => {
     const { ctx, texts } = fakeCtx();
     drawShareCard(ctx as never, achievementShareCard("streak-30", "Аня"), "https://t.me/leo_bot?start=ref-1");
-    expect(texts).toEqual(expect.arrayContaining(["30", "дней подряд", "Аня", "t.me/leo_bot", "Стрик"]));
+    expect(texts).toEqual(expect.arrayContaining(["30", "days in a row", "Аня", "t.me/leo_bot", "Streak"]));
     expect(ctx.drawImage).not.toHaveBeenCalled();
   });
 
@@ -150,7 +150,7 @@ describe("рисование", () => {
     const card = workoutShareCard({ reportLine: "бег", kindLabel: "бег", min: 30, intensity: 3, streak: 2, name: "Аня" });
     drawShareCard(ctx as never, card, "", { width: 2000, height: 1000 } as never);
     expect(ctx.drawImage).toHaveBeenCalledTimes(1);
-    expect(texts).toEqual(expect.arrayContaining(["Fat Leopard в Telegram", "бег · интенсивность 3/5", "🔥 Стрик 2 дня"]));
+    expect(texts).toEqual(expect.arrayContaining(["Fat Leopard on Telegram", "бег · intensity 3/5", "🔥 2-day streak"]));
   });
 
   it("renderShareCard: JPEG с холста, null без 2D-контекста", async () => {

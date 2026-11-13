@@ -101,29 +101,29 @@ func (b *Bot) buildAdminFeedReportNotifyText(
 	reportID, reporterUserID, targetUserID, userMessageID, threadReplyID int64,
 	targetType, targetText, resolvedBy string,
 ) string {
-	kind := "пост в ленте"
+	kind := "feed post"
 	if targetType == "thread_reply" {
-		kind = "комментарий"
+		kind = "comment"
 	} else if targetType == "pack_group_message" {
-		kind = "сообщение в чате"
+		kind = "pack chat message"
 	}
-	title := fmt.Sprintf("🚨 Жалоба на %s · #%d", kind, reportID)
+	title := fmt.Sprintf("🚨 Report on %s · #%d", kind, reportID)
 	if resolvedBy != "" {
-		title = fmt.Sprintf("✅ Решено · жалоба на %s · #%d", kind, reportID)
+		title = fmt.Sprintf("✅ Resolved · report on %s · #%d", kind, reportID)
 	}
 	body := fmt.Sprintf(
-		"От: %s\nНа: %s\nОтчёт #%d",
+		"From: %s\nAbout: %s\nPost #%d",
 		b.supportDisplayName(reporterUserID),
 		b.supportDisplayName(targetUserID),
 		userMessageID,
 	)
 	if threadReplyID > 0 {
-		body += fmt.Sprintf("\nКомментарий #%d", threadReplyID)
+		body += fmt.Sprintf("\nComment #%d", threadReplyID)
 	}
 	body += "\n\n«" + clipAdminSupportText(targetText, 400) + "»"
-	footer := "\n\n«⚙️ Админ-панель» внизу → Поддержка → Жалобы."
+	footer := "\n\n«⚙️ Admin panel» at the bottom → Support → Reports."
 	if resolvedBy != "" {
-		footer = "\n\n✅ Решено · " + resolvedBy
+		footer = "\n\n✅ Resolved · " + resolvedBy
 	}
 	return title + "\n\n" + body + footer
 }
@@ -150,8 +150,8 @@ func (b *Bot) notifyAdminsAboutFeedReport(
 		msg := tgbotapi.NewMessage(adminID, text)
 		msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
 			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("🚨 Открыть", "admin_feed_report_"+strconv.FormatInt(reportID, 10)),
-				tgbotapi.NewInlineKeyboardButtonData("✅ Решено", "admin_feed_report_dismiss_"+strconv.FormatInt(reportID, 10)),
+				tgbotapi.NewInlineKeyboardButtonData("🚨 Open", "admin_feed_report_"+strconv.FormatInt(reportID, 10)),
+				tgbotapi.NewInlineKeyboardButtonData("✅ Resolved", "admin_feed_report_dismiss_"+strconv.FormatInt(reportID, 10)),
 			),
 		)
 		sent, err := b.api.Send(msg)
@@ -247,11 +247,11 @@ func feedReportTargetLabel(item *domain.MiniappFeedReport) string {
 	}
 	switch item.TargetType {
 	case "thread_reply":
-		return "Комментарий"
+		return "Comment"
 	case "pack_group_message":
-		return "Сообщение в чате"
+		return "Pack chat message"
 	default:
-		return "Пост"
+		return "Post"
 	}
 }
 

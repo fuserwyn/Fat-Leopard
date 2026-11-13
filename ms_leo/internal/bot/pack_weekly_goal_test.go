@@ -20,7 +20,7 @@ func TestPackWeeklyWorkoutGoalForWeek(t *testing.T) {
 }
 
 func TestPackWeeklyGoalAchievedFeedMessageUsesGoal(t *testing.T) {
-	if msg := packWeeklyGoalAchievedFeedMessage(75); !strings.Contains(msg, "75 тренировок") {
+	if msg := packWeeklyGoalAchievedFeedMessage(75); !strings.Contains(msg, "75 workouts") {
 		t.Fatalf("unexpected message: %s", msg)
 	}
 }

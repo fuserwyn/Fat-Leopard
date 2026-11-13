@@ -3,15 +3,15 @@ import { isModerationError, moderationUserMessage } from "./moderationMessages";
 
 describe("moderationUserMessage", () => {
   it("maps known codes", () => {
-    expect(moderationUserMessage("moderation_profanity")).toMatch(/недопустимые слова/i);
-    expect(moderationUserMessage("moderation_link")).toMatch(/ссылки/i);
-    expect(moderationUserMessage("user_muted")).toMatch(/ограничена/i);
-    expect(moderationUserMessage("leo_daily_limited")).toMatch(/20 сообщений/i);
+    expect(moderationUserMessage("moderation_profanity")).toMatch(/disallowed words/i);
+    expect(moderationUserMessage("moderation_link")).toMatch(/links/i);
+    expect(moderationUserMessage("user_muted")).toMatch(/limited/i);
+    expect(moderationUserMessage("leo_daily_limited")).toMatch(/20 messages/i);
   });
 
   it("fallback / default", () => {
-    expect(moderationUserMessage("unknown", " Свой текст ")).toBe("Свой текст");
-    expect(moderationUserMessage(undefined)).toMatch(/не прошёл проверку/i);
+    expect(moderationUserMessage("unknown", " Custom text ")).toBe("Custom text");
+    expect(moderationUserMessage(undefined)).toMatch(/didn.t pass review/i);
   });
 });
 

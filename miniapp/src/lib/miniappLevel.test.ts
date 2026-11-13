@@ -101,10 +101,10 @@ describe("miniappCupsLevelProgress", () => {
 
 describe("formatCupsLevelProgressLabel", () => {
   it("shows total cups over next level threshold", () => {
-    expect(formatCupsLevelProgressLabel(miniappCupsLevelProgress(425))).toBe("425/1260 кубков");
-    expect(formatCupsLevelProgressLabel(miniappCupsLevelProgress(200))).toBe("200/420 кубков");
-    expect(formatCupsLevelProgressLabel(miniappCupsLevelProgress(2000))).toBe("2000/2940 кубков");
-    expect(formatCupsLevelProgressLabel(miniappCupsLevelProgress(15000))).toBe("15000/26460 кубков");
+    expect(formatCupsLevelProgressLabel(miniappCupsLevelProgress(425))).toBe("425/1260 cups");
+    expect(formatCupsLevelProgressLabel(miniappCupsLevelProgress(200))).toBe("200/420 cups");
+    expect(formatCupsLevelProgressLabel(miniappCupsLevelProgress(2000))).toBe("2000/2940 cups");
+    expect(formatCupsLevelProgressLabel(miniappCupsLevelProgress(15000))).toBe("15000/26460 cups");
   });
 });
 

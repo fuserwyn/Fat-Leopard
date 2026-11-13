@@ -131,10 +131,10 @@ func (b *Bot) sendStreakReward(
 
 	messageText := fmt.Sprintf(`%s!
 
-%s, стрик: %d %s подряд.
+%s, streak: %d %s in a row.
 %s
 
-🏆 +%d %s (всего: %d)`,
+🏆 +%d %s (total: %d)`,
 		title,
 		username,
 		streakDays,
@@ -168,38 +168,21 @@ type GenderForms struct {
 }
 
 func (b *Bot) getGenderForms(gender string) GenderForms {
-	genderNormalized := strings.TrimSpace(strings.ToLower(gender))
-	if genderNormalized == "f" {
-		return GenderForms{
-			Champion:    "чемпионка",
-			Accumulated: "накопила",
-			Transformed: "превратила",
-			Became:      "становилась",
-			Ruler:       "владычица",
-			Warrior:     "воительница",
-			Entered:     "вошла",
-			Proved:      "доказала",
-			Deserved:    "заслужила",
-			Titan:       "титанисса",
-			Olympian:    "олимпийская чемпионка",
-			Invincible:  "непобедимая",
-			Reached:     "достигла",
-		}
-	}
+	_ = gender
 	return GenderForms{
-		Champion:    "чемпион",
-		Accumulated: "накопил",
-		Transformed: "превратил",
-		Became:      "становился",
-		Ruler:       "владыка",
-		Warrior:     "воин",
-		Entered:     "вошёл",
-		Proved:      "доказал",
-		Deserved:    "заслужил",
-		Titan:       "титан",
-		Olympian:    "олимпийский чемпион",
-		Invincible:  "непобедимый",
-		Reached:     "достиг",
+		Champion:    "champion",
+		Accumulated: "earned",
+		Transformed: "turned into",
+		Became:      "became",
+		Ruler:       "ruler",
+		Warrior:     "warrior",
+		Entered:     "entered",
+		Proved:      "proved",
+		Deserved:    "earned",
+		Titan:       "titan",
+		Olympian:    "Olympic champion",
+		Invincible:  "unstoppable",
+		Reached:     "reached",
 	}
 }
 
@@ -248,15 +231,24 @@ func russianPlural(count int, one, few, many string) string {
 }
 
 func trainingsWordForm(count int) string {
-	return russianPlural(count, "тренировка", "тренировки", "тренировок")
+	if count == 1 {
+		return "workout"
+	}
+	return "workouts"
 }
 
 func cupsWordForm(count int) string {
-	return russianPlural(count, "кубок", "кубка", "кубков")
+	if count == 1 {
+		return "cup"
+	}
+	return "cups"
 }
 
 func daysWordForm(count int) string {
-	return russianPlural(count, "день", "дня", "дней")
+	if count == 1 {
+		return "day"
+	}
+	return "days"
 }
 
 // streakMilestone описывает один milestone стрика: количество дней, бонусные кубки и текст для отправки.
@@ -270,18 +262,18 @@ type streakMilestone struct {
 // streakMilestones — единственное место где задаются пороги стрика и бонусы за них.
 // Добавить новый milestone = одна строка в этом списке.
 var streakMilestones = []streakMilestone{
-	{7, 42, "🏆🏆🏆 НЕВЕРОЯТНО! 🏆🏆🏆", "7 дней — первый рубеж. Каждый день ты становишься сильнее!"},
-	{14, 42, "🏆🏆🏆🏆 ВПЕЧАТЛЯЮЩЕ! 🏆🏆🏆🏆", "Две недели без пропусков — мощный рывок!"},
-	{21, 42, "🏆🏆🏆🏆🏆 ВЕЛИКОЛЕПНО! 🏆🏆🏆🏆🏆", "Три недели — привычка стала частью тебя!"},
-	{30, 420, "🏆🏆🏆🏆🏆🏆 МЕСЯЦ ПОБЕДЫ! 🏆🏆🏆🏆🏆🏆", "Месяц абсолютной преданности — уровень чемпионов!"},
-	{42, 42, "🏆🏆🏆🏆🏆🏆 ЛЕГЕНДАРНО! 🏆🏆🏆🏆🏆🏆", "42 дня — легендарная отметка. Ты на пути к легенде!"},
-	{50, 42, "🏆🏆🏆🏆🏆🏆🏆 ЭЛИТА! 🏆🏆🏆🏆🏆🏆🏆", "50 дней — доказательство того, что ты можешь всё!"},
-	{60, 420, "🏆 60 дней!", "🔥 Два месяца без провала — легенда растёт."},
-	{90, 420, "🏆 90 дней!", "🏁 Квартал дисциплины — элита так и тренируется."},
-	{100, 4200, "🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆 БЕССМЕРТНАЯ ЛЕГЕНДА! 🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆", "100 дней — это уровень единиц. Ты создаёшь историю!"},
-	{180, 420, "🏆 180 дней!", fmt.Sprintf("🔥 Полгода стрика — +420 %s!", cupsWordForm(420))},
-	{200, 4200, "🌸 БУКЕТ ИЗ КУБКОВ! 🌸", "200 дней подряд — ты легенда стаи!"},
-	{240, 4200, "🏆 240 дней!", "🔥 240 дней стрика — уровень титана!"},
+	{7, 42, "🏆🏆🏆 INCREDIBLE! 🏆🏆🏆", "7 days — first milestone. You get stronger every day!"},
+	{14, 42, "🏆🏆🏆🏆 IMPRESSIVE! 🏆🏆🏆🏆", "Two weeks without a miss — huge push!"},
+	{21, 42, "🏆🏆🏆🏆🏆 SPLENDID! 🏆🏆🏆🏆🏆", "Three weeks — the habit is part of you!"},
+	{30, 420, "🏆🏆🏆🏆🏆🏆 VICTORY MONTH! 🏆🏆🏆🏆🏆🏆", "A month of dedication — champion level!"},
+	{42, 42, "🏆🏆🏆🏆🏆🏆 LEGENDARY! 🏆🏆🏆🏆🏆🏆", "42 days — legendary mark. You're on your way!"},
+	{50, 42, "🏆🏆🏆🏆🏆🏆🏆 ELITE! 🏆🏆🏆🏆🏆🏆🏆", "50 days — proof you can do anything!"},
+	{60, 420, "🏆 60 days!", "🔥 Two months without a slip — legend grows."},
+	{90, 420, "🏆 90 days!", "🏁 A quarter of discipline — how elites train."},
+	{100, 4200, "🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆 IMMORTAL LEGEND! 🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆", "100 days — rare air. You're making history!"},
+	{180, 420, "🏆 180 days!", fmt.Sprintf("🔥 Half a year of streak — +420 %s!", cupsWordForm(420))},
+	{200, 4200, "🌸 BUCKET OF CUPS! 🌸", "200 days in a row — you're a pack legend!"},
+	{240, 4200, "🏆 240 days!", "🔥 240-day streak — titan level!"},
 }
 
 // MilestoneCups возвращает бонусные кубки за milestone текущего стрика (0 если milestone не достигнут).

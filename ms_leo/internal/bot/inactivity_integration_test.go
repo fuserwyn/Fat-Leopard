@@ -57,7 +57,7 @@ func TestInactivitySweepRemovesOnlyOverdueMembers(t *testing.T) {
 		}
 	}
 	dms := tg.textsTo(overdue)
-	if len(dms) != 1 || !strings.Contains(dms[0], "Лео удалил тебя из стаи") {
+	if len(dms) != 1 || !strings.Contains(dms[0], "Leo removed you from the pack") {
 		t.Fatalf("удалённому — одно сообщение: %q", dms)
 	}
 	for _, c := range tg.sent("sendMessage") {
@@ -177,7 +177,7 @@ func TestAdminKickRemovesMemberBeforeDeadline(t *testing.T) {
 	if !isKicked(t, db, itUser+1) {
 		t.Fatal("исключение из чат-админки должно сработать сразу")
 	}
-	if texts := tg.textsTo(itUser + 1); len(texts) != 1 || !strings.Contains(texts[0], "Лео удалил тебя из стаи") {
+	if texts := tg.textsTo(itUser + 1); len(texts) != 1 || !strings.Contains(texts[0], "Leo removed you from the pack") {
 		t.Errorf("исключённому — сообщение с кнопкой возврата: %q", texts)
 	}
 }

@@ -35,7 +35,8 @@ func (b *Bot) packVoters(in []database.Voter, initDataRaw string) []PackVoter {
 	}
 	out := make([]PackVoter, len(in))
 	for i, v := range in {
-		if v.UserID == 0 || strings.TrimSpace(v.Name) == "Лео" {
+		n := strings.TrimSpace(v.Name)
+		if v.UserID == 0 || n == "Лео" || strings.EqualFold(n, "Leo") {
 			out[i] = PackVoter{
 				Name:     v.Name,
 				PhotoURL: packFeedLeoAvatarURL(publicBase),

@@ -1,6 +1,6 @@
 /** Мелкая математика дашбордов админки — отдельно от разметки, чтобы тестировать. */
 
-const MONTHS = ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /** «2026-10-05» → «5 окт»; для недели — «с 5 окт». Непонятную строку отдаём как есть. */
 export function dashBucketLabel(bucket: string, weekly: boolean): string {
@@ -9,7 +9,7 @@ export function dashBucketLabel(bucket: string, weekly: boolean): string {
   const month = MONTHS[Number(m[2]) - 1];
   if (!month) return bucket;
   const label = `${Number(m[3])} ${month}`;
-  return weekly ? `с ${label}` : label;
+  return weekly ? `from ${label}` : label;
 }
 
 /**

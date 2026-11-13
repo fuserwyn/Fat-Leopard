@@ -18,7 +18,7 @@ import (
 
 func TestOutboxBackoffAndAttempts(t *testing.T) {
 	if got := outboxBackoffDuration("paywall_access_restore_requested", 1); got != 5*time.Second {
-		t.Errorf("первая пауза выдачи доступа: %s", got)
+		t.Errorf("первая пауза выдачи access: %s", got)
 	}
 	if got := outboxBackoffDuration("refund_requested", 1); got != 10*time.Second {
 		t.Errorf("первая пауза возврата: %s", got)
@@ -61,7 +61,7 @@ func outboxRows(t *testing.T, db *sql.DB) []outboxRow {
 }
 
 // paidStarsRequestWithFailedDelivery — деньги списаны, а приветствие отправить
-// не удалось: выдача доступа уходит в очередь на повтор.
+// не удалось: выдача access уходит в очередь на повтор.
 func paidStarsRequestWithFailedDelivery(t *testing.T, b *Bot, tg *fakeTelegram, db *sql.DB) int64 {
 	t.Helper()
 	seedMember(t, db, itUser, "leopard", true)
@@ -108,7 +108,7 @@ func TestOutboxDeliversAccessWhenTelegramRecovers(t *testing.T) {
 	if isKicked(t, db, itUser) {
 		t.Error("участник должен вернуться в стаю")
 	}
-	if texts := tg.textsTo(itUser); len(texts) != 1 || !strings.Contains(texts[0], "Ура, ты в стае") {
+	if texts := tg.textsTo(itUser); len(texts) != 1 || !strings.Contains(texts[0], "You're in the pack") {
 		t.Errorf("приветствие ровно одно: %q", texts)
 	}
 }
@@ -178,7 +178,7 @@ func TestOutboxRefundsYookassaPayment(t *testing.T) {
 	if refund.PaymentID != "yk-9" || refund.Amount.Value != "210.00" || refund.Amount.Currency != "RUB" {
 		t.Errorf("запрос возврата в кассу: %+v", refund)
 	}
-	if texts := tg.textsTo(itUser); len(texts) != 1 || !strings.Contains(texts[0], "Оплата возвращена") {
+	if texts := tg.textsTo(itUser); len(texts) != 1 || !strings.Contains(texts[0], "Payment refunded") {
 		t.Errorf("пользователю сообщили о возврате: %q", texts)
 	}
 }

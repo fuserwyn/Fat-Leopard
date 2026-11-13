@@ -27,14 +27,14 @@ type Props = {
 export type ShareTarget = "tg-story" | "tg-chat" | "vk" | "instagram" | "tiktok";
 
 const TARGETS: { id: ShareTarget; label: string }[] = [
-  { id: "tg-story", label: "Сторис Telegram" },
-  { id: "tg-chat", label: "В чат Telegram" },
+  { id: "tg-story", label: "Telegram Story" },
+  { id: "tg-chat", label: "Telegram chat" },
   { id: "instagram", label: "Instagram" },
   { id: "tiktok", label: "TikTok" },
-  { id: "vk", label: "ВКонтакте" },
+  { id: "vk", label: "VK" },
 ];
 
-const UPLOAD_FAILED = "Не получилось подготовить картинку. Проверь интернет и попробуй ещё раз.";
+const UPLOAD_FAILED = "Couldn't prepare the image. Check your connection and try again.";
 
 /**
  * Шторка «Поделиться»: превью карточки (ачивка, уровень, тренировка) и кнопки —
@@ -104,7 +104,7 @@ export function ShareCardSheet({ card, initData, showAlert, onClose }: Props) {
     try {
       const up = await ensureUploaded();
       if (up) {
-        if (!saveShareImage(up.url)) showAlert("Картинка открыта — сохрани её долгим нажатием.");
+        if (!saveShareImage(up.url)) showAlert("Image opened — save it with a long press.");
         return;
       }
       // Без ссылки на картинку сохранить её через Telegram нечем — системное «Поделиться».
@@ -140,7 +140,7 @@ export function ShareCardSheet({ card, initData, showAlert, onClose }: Props) {
         if (target === "tg-story") {
           if (!shareToTelegramStory(up.url, caption)) {
             saveShareImage(up.url);
-            showAlert("Сторис из мини-аппа доступны в свежей версии Telegram на телефоне. Сохрани картинку и выложи её вручную.");
+            showAlert("Stories from the miniapp need a recent Telegram mobile app. Save the image and post it manually.");
           }
           return;
         }
@@ -162,10 +162,10 @@ export function ShareCardSheet({ card, initData, showAlert, onClose }: Props) {
         className="share-card-sheet"
         role="dialog"
         aria-modal="true"
-        aria-label="Поделиться"
+        aria-label="Share"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="share-card-sheet__title">Поделиться</div>
+        <div className="share-card-sheet__title">Share</div>
         <div className="share-card-sheet__preview">
           {preview ? (
             <img src={preview} alt={`${card.headline}: ${card.big} ${card.bigCaption}`} />
@@ -202,11 +202,11 @@ export function ShareCardSheet({ card, initData, showAlert, onClose }: Props) {
           aria-busy={busy === "save"}
           onClick={() => void save()}
         >
-          Сохранить картинку
+          Save image
         </button>
-        <div className="share-card-sheet__hint">Для Instagram и TikTok сохрани картинку и выбери её из галереи в сторис.</div>
+        <div className="share-card-sheet__hint">For Instagram and TikTok, save the image and pick it from gallery in Stories.</div>
         <button type="button" className="share-card-sheet__close" onClick={onClose}>
-          Закрыть
+          Close
         </button>
       </div>
     </div>

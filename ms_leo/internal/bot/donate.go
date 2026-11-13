@@ -116,7 +116,7 @@ func (b *Bot) CreateDonateStarsInvoiceLink(userID int64, stars int) (link string
 		return "", 0, err
 	}
 
-	link, err = b.createStarsInvoiceLink(donationID, stars, "Поддержка Fat Leopard", "Поддержать Fat Leopard", donateStarsInvoiceDescription(stars))
+	link, err = b.createStarsInvoiceLink(donationID, stars, "Support Fat Leopard", "Support Fat Leopard", donateStarsInvoiceDescription(stars))
 	if err != nil {
 		return "", 0, err
 	}
@@ -161,8 +161,8 @@ func (b *Bot) createStarsInvoiceLink(donationID int64, stars int, priceLabel, ti
 
 func donateStarsInvoiceDescription(stars int) string {
 	return fmt.Sprintf(
-		"Добровольная поддержка проекта: %d %s. Доступ к стае это не меняет — он бесплатный, и от кика за неактивность донат не спасает. Спасибо, что помогаешь Лео жить!",
-		stars, starsWordRU(stars),
+		"Voluntary project support: %d %s. Pack access doesn't change — entry is free, and donations don't save you from inactivity kick. Thanks for keeping Leo alive!",
+		stars, starsWordEN(stars),
 	)
 }
 
@@ -198,7 +198,7 @@ func (b *Bot) CreateDonateCardPayment(userID int64, rub int) (confirmURL string,
 		b.config.YookassaSecretKey,
 		amountMinor,
 		"RUB",
-		fmt.Sprintf("Поддержка проекта Fat Leopard — %d ₽", rub),
+		fmt.Sprintf("Support Fat Leopard — %d ₽", rub),
 		returnURL,
 		b.config.YookassaNotificationURL,
 		meta,
@@ -301,29 +301,29 @@ func (b *Bot) handleDonatePreCheckout(q *tgbotapi.PreCheckoutQuery) {
 		_, _ = b.api.Request(tgbotapi.PreCheckoutConfig{PreCheckoutQueryID: q.ID, OK: false, ErrorMessage: userMsg})
 	}
 	if q.From == nil {
-		reject("no_sender", "Донат недоступен.")
+		reject("no_sender", "Donations are unavailable.")
 		return
 	}
 	donationID, ok := parseDonatePayload(q.InvoicePayload)
 	if !ok {
-		reject("invalid_payload", "Некорректный платёж.")
+		reject("invalid_payload", "Invalid payment.")
 		return
 	}
 	rec, err := b.db.GetDonationByID(donationID)
 	if err != nil || rec == nil {
-		reject("not_found", "Заявка не найдена. Попробуй ещё раз из профиля.")
+		reject("not_found", "Request not found. Try again from profile.")
 		return
 	}
 	if rec.UserID != q.From.ID {
-		reject("account_mismatch", "Платёж не для этого аккаунта.")
+		reject("account_mismatch", "Payment is for another account.")
 		return
 	}
 	if rec.Status != "pending" {
-		reject("already_completed", "Этот счёт уже оплачен.")
+		reject("already_completed", "This invoice is already paid.")
 		return
 	}
 	if q.Currency != "XTR" || int64(q.TotalAmount) != rec.AmountMinor {
-		reject("amount_mismatch", "Неверная сумма. Открой профиль и создай донат заново.")
+		reject("amount_mismatch", "Wrong amount. Open profile and create a new donation.")
 		return
 	}
 	_, _ = b.api.Request(tgbotapi.PreCheckoutConfig{PreCheckoutQueryID: q.ID, OK: true})
@@ -393,13 +393,13 @@ func (b *Bot) donateAfterCompleted(donationID, userID int64, amountMinor int, cu
 func donateThanksText(amountMinor int, currency string) string {
 	amount := donateAmountHuman(amountMinor, currency)
 	if amount != "" {
-		amount = " на " + amount
+		amount = " for " + amount
 	}
-	return fmt.Sprintf(`Рык! Спасибо за поддержку%s 🐆
+	return fmt.Sprintf(`Roar! Thanks for your support%s 🐆
 
-Ты не купил себе поблажку — вход в стаю бесплатный, и вилку с ножом я не убираю. Ты помог проекту жить: серверам, Лео и новым фичам.
+You didn't buy a free pass — pack entry is free, and I won't put the fork and knife away. You helped the project live: servers, Leo, and new features.
 
-Продолжаем двигаться!`, amount)
+Let's keep moving!`, amount)
 }
 
 // donateAmountHuman — «150 ⭐» / «300 ₽» / «10 USD» для текста благодарности.

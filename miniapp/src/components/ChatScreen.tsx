@@ -397,12 +397,12 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
       const f = e.target.files?.[0] ?? null;
       if (!f) return;
       if (!/^image\//.test(f.type)) {
-        showAlert("Можно прикрепить только изображение (JPG, PNG, WEBP, GIF).");
+        showAlert("Only images allowed (JPG, PNG, WEBP, GIF).");
         if (photoInputRef.current) photoInputRef.current.value = "";
         return;
       }
       if (f.size > 6 * 1024 * 1024) {
-        showAlert("Фото слишком большое. Максимум 6 МБ.");
+        showAlert("Photo too large. Max 6 MB.");
         if (photoInputRef.current) photoInputRef.current.value = "";
         return;
       }
@@ -439,12 +439,12 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
     if ((!t && !sentPhoto) || sending) return;
     if (!envApi) {
       showAlert(
-        "Сборка без API: в Railway у сервисе мини-аппа задай Build Variable VITE_MINIAPP_API_URL = публичный https URL сервиса с ботом (ms_leo), затем Redeploy."
+        "Build missing API: in Railway → miniapp service → Variables → Build → set VITE_MINIAPP_API_URL to the public https URL of the bot service (ms_leo), then Redeploy."
       );
       return;
     }
     if (!inTelegram || !initData) {
-      showAlert("Открой мини-апп из Telegram (нужен initData).");
+      showAlert("Open the miniapp from Telegram (initData required).");
       return;
     }
 
@@ -495,14 +495,14 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
       };
       if (!res.ok) {
         const errMap: Record<string, string> = {
-          media_not_configured: "Загрузка фото на сервере не настроена.",
-          unsupported_image: "Не удалось прочитать фото. Попробуй JPG, PNG, WEBP или GIF.",
-          photo_too_large: "Фото слишком большое. Максимум 6 МБ.",
-          invalid_multipart: "Не удалось отправить фото. Выбери снимок заново.",
-          missing_photo: "Фото не приложено.",
-          chat_mismatch: "Открой мини-апп из чата стаи",
+          media_not_configured: "Photo upload isn't configured on the server.",
+          unsupported_image: "Couldn't read the photo. Try JPG, PNG, WEBP, or GIF.",
+          photo_too_large: "Photo too large. Max 6 MB.",
+          invalid_multipart: "Couldn't send the photo. Pick the image again.",
+          missing_photo: "No photo attached.",
+          chat_mismatch: "Open the miniapp from the pack chat",
         };
-        showAlert(j.message ?? errMap[j.error ?? ""] ?? j.error ?? `Ошибка ${res.status}`);
+        showAlert(j.message ?? errMap[j.error ?? ""] ?? j.error ?? `Error ${res.status}`);
         setLeoTyping(false);
         return;
       }
@@ -510,7 +510,7 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
       setLeoTyping(true);
       // Основной поллер фида подхватит юзер-сообщение (с серверным id) и ответ Лео из БД — тогда items → useEffect выше снимает leoTyping.
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : "Сеть");
+      showAlert(e instanceof Error ? e.message : "Network error");
       setLeoTyping(false);
     } finally {
       setSending(false);
@@ -557,14 +557,14 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
     <div className={`chat${active && logSettled ? " chat--ready" : ""}`} ref={chatRef}>
       {!import.meta.env.VITE_MINIAPP_API_URL && (
         <div className="chat__configwarn" role="status">
-          Нет <code className="chat__code">VITE_MINIAPP_API_URL</code> при сборке. В Railway → сервис
-          <strong> miniapp</strong> → Variables → <strong>Build</strong> → укажи https URL сервиса
-          <strong> бота</strong> (ms_leo), Redeploy.
+          Missing <code className="chat__code">VITE_MINIAPP_API_URL</code> at build time. In Railway →{" "}
+          <strong>miniapp</strong> service → Variables → <strong>Build</strong> → set the https URL of the{" "}
+          <strong>bot</strong> service (ms_leo), then Redeploy.
         </div>
       )}
       <header className="chat__head">
         <div className="chat__head-avatarwrap">
-          <img className="chat__head-avatar" src={LEO_AVATAR_URL} width={40} height={40} alt="Лео" loading="eager" />
+          <img className="chat__head-avatar" src={LEO_AVATAR_URL} width={40} height={40} alt="Leo" loading="eager" />
           {showTypingCue && (
             <span className="chat__head-typing" aria-hidden="true">
               <span className="chat__head-typing-dots">
@@ -576,15 +576,15 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
           )}
         </div>
         <div className="chat__head-text">
-          <h1 className="chat__title">Лео</h1>
-          <p className="chat__sub">{showTypingCue ? "печатает…" : name}</p>
+          <h1 className="chat__title">Leo</h1>
+          <p className="chat__sub">{showTypingCue ? "typing…" : name}</p>
         </div>
       </header>
       <div className="chat__log-wrap">
         <div
           className="chat__log"
           role="log"
-          aria-label="Сообщения с ботом"
+          aria-label="Messages with bot"
           ref={logRef}
         >
         {loaded && items.length === 0 && (
@@ -592,8 +592,8 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
             <img className="chat__bubble-avatar" src={LEO_AVATAR_URL} width={32} height={32} alt="" aria-hidden="true" />
             <div className="chat__bubble-wrap chat__bubble-wrap--sys">
               <div className="chat__bubble chat__bubble--sys">
-                Привет! Здесь личный чат с Лео — ИИ отвечает на любой текст. Тренировки — кнопка «+» внизу. История
-                синхронизируется между всеми твоими устройствами.
+                Hi! This is your private chat with Leo — the AI replies to any text. Log workouts with the + button
+                below. History syncs across all your devices.
               </div>
             </div>
           </div>
@@ -607,7 +607,7 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
                     <button
                       type="button"
                       className="chat__photo-wrap"
-                      aria-label="Открыть фото"
+                      aria-label="Open photo"
                       onClick={() => setLightboxUrl(m.photoUrl ?? null)}
                     >
                       <img className="chat__photo" src={m.photoUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
@@ -634,7 +634,7 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
                       type="button"
                       className={`chat__like${m.likeMe ? " chat__like--mine" : ""}`}
                       aria-pressed={Boolean(m.likeMe)}
-                      aria-label={m.likeMe ? "Убрать отметку «нравится»" : "Нравится"}
+                      aria-label={m.likeMe ? "Remove like" : "Like"}
                       onClick={() => void toggleLike(m.serverID)}
                     >
                       <span aria-hidden="true">❤️</span>
@@ -647,7 +647,7 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
           )
         )}
         {showTypingCue && (
-          <div className="chat__row chat__row--sys" role="status" aria-live="polite" aria-label="Лео печатает">
+          <div className="chat__row chat__row--sys" role="status" aria-live="polite" aria-label="Leo is typing">
             <img className="chat__bubble-avatar" src={LEO_AVATAR_URL} width={32} height={32} alt="" aria-hidden="true" />
             <div className="chat__bubble-wrap chat__bubble-wrap--sys">
               <div className="chat__bubble chat__bubble--sys chat__bubble--typing" aria-hidden="true">
@@ -666,7 +666,7 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
           <button
             type="button"
             className="chat__jump-latest"
-            aria-label="К последним сообщениям"
+            aria-label="Jump to latest messages"
             onClick={() => {
               userScrolledUpRef.current = false;
               setShowJumpLatest(false);
@@ -680,11 +680,11 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
       {photoPreview != null && (
         <div className="chat__photo-pending">
           <img className="chat__photo-pending-img" src={photoPreview} alt="" />
-          <span className="chat__photo-pending-name">{photo?.name ?? "Фото"}</span>
+          <span className="chat__photo-pending-name">{photo?.name ?? "Photo"}</span>
           <button
             type="button"
             className="chat__photo-pending-remove"
-            aria-label="Убрать фото"
+            aria-label="Remove photo"
             onClick={clearPhoto}
           >
             ✕
@@ -711,7 +711,7 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
         <button
           type="button"
           className="chat__attach"
-          aria-label="Прикрепить фото из галереи"
+          aria-label="Attach photo from gallery"
           disabled={sending}
           onClick={() => photoInputRef.current?.click()}
         >
@@ -728,7 +728,7 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
           onBlur={() => {
             window.setTimeout(scrollLogToEndIfAllowed, 120);
           }}
-          placeholder={photo ? "Подпись к фото (необязательно)…" : "Лео, подскажи…"}
+          placeholder={photo ? "Photo caption (optional)…" : "Leo, any tips…"}
           maxLength={4000}
           autoComplete="off"
           autoCorrect="on"
@@ -741,7 +741,7 @@ export function ChatScreen({ name, initData, inTelegram, showAlert, onInboxOpene
           type="submit"
           className="chat__send"
           disabled={sending || (!text.trim() && !photo)}
-          aria-label={sending ? "Отправка…" : "Отправить"}
+          aria-label={sending ? "Sending…" : "Send"}
         >
           {sending ? "…" : "➤"}
         </button>

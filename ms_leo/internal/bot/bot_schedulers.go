@@ -59,16 +59,16 @@ func (b *Bot) formatDurationToDays(duration time.Duration) string {
 
 	if days > 0 {
 		if hours > 0 {
-			return fmt.Sprintf("%d %s %d ч.", days, daysWordForm(days), hours)
+			return fmt.Sprintf("%d %s %d h.", days, daysWordForm(days), hours)
 		}
 		return fmt.Sprintf("%d %s", days, daysWordForm(days))
 	} else if hours > 0 {
 		if minutes > 0 {
-			return fmt.Sprintf("%d ч. %d мин.", hours, minutes)
+			return fmt.Sprintf("%d h. %d min.", hours, minutes)
 		}
-		return fmt.Sprintf("%d ч.", hours)
+		return fmt.Sprintf("%d h.", hours)
 	} else {
-		return fmt.Sprintf("%d мин.", minutes)
+		return fmt.Sprintf("%d min.", minutes)
 	}
 }
 
@@ -180,11 +180,11 @@ func (b *Bot) generateAndSendDailyWisdom() {
 	if err != nil {
 		b.logger.Errorf("Failed to generate daily wisdom: %v", err)
 		candidates := []string{
-			"Тишина внутри сильнее шума вокруг. Дисциплина — это форма заботы о себе. Начни с малого и будь верен пути.",
-			"Сила духа рождается в простых шагах. Выбери одно действие сегодня — и сделай его спокойно.",
-			"Тело слушает разум. Разум слушает дыхание. Ровное дыхание — ровный прогресс.",
-			"Пусть тренировка будет краткой, но честной. Постоянство сильнее порывов.",
-			"Не ищи идеального момента. Сделай его. Терпение и движение — союзники."}
+			"Inner quiet beats outer noise. Discipline is self-care. Start small and stay on the path.",
+			"Spirit grows in simple steps. Pick one thing today — and do it calmly.",
+			"The body listens to the mind. The mind listens to breath. Steady breath — steady progress.",
+			"Let the workout be short but honest. Consistency beats bursts.",
+			"Don't wait for the perfect moment. Make it. Patience and motion are allies."}
 		idx := int(time.Now().Unix() % int64(len(candidates)))
 		wisdom = candidates[idx]
 	} else {
@@ -245,7 +245,7 @@ func (b *Bot) auditLast24h() {
 					continue
 				}
 				// Отправляем мягкое подтверждение больничного
-				text := "🏥 Больничный принят! 🤒\n\n⏸️ Таймер приостановлен на время болезни.\n\n💬 Подтверждение отправлено после перезапуска. Выздоравливай!"
+				text := "🏥 Sick leave accepted! 🤒\n\n⏸️ Inactivity timer paused while you're sick.\n\n💬 Confirmation sent after bot restart. Get well soon!"
 				b.api.Send(tgbotapi.NewMessage(um.ChatID, text))
 
 			case "healthy":
@@ -254,7 +254,7 @@ func (b *Bot) auditLast24h() {
 					continue
 				}
 				if !ml.HasHealthy {
-					text := "💪 Выздоровление принято! 🎉\n\n⏰ Таймер возобновлён.\n\n💬 Подтверждение отправлено после перезапуска."
+					text := "💪 You're back! 🎉\n\n⏰ Inactivity timer is on again.\n\n💬 Confirmation sent after bot restart."
 					b.api.Send(tgbotapi.NewMessage(um.ChatID, text))
 				}
 			}
@@ -281,7 +281,7 @@ func (b *Bot) auditProcessTrainingDone(um *domain.UserMessage) {
 	already := messageLog.LastTrainingDate != nil && *messageLog.LastTrainingDate == dateStr
 	if already {
 		// ДЕНЬ УЖЕ УЧТЕН: не начисляем ничего, отправляем только подтверждение, если его могло не быть
-		text := fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Я вижу твою тренировку за %s.\n\n⏰ Бот был перезапущен — отправляю подтверждение сейчас.", um.CreatedAt.In(loc).Format("02.01 15:04"))
+		text := fmt.Sprintf("✅ Workout logged! 💪\n\n🦁 I see your workout from %s.\n\n⏰ The bot restarted — sending confirmation now.", um.CreatedAt.In(loc).Format("02.01 15:04"))
 		b.api.Send(tgbotapi.NewMessage(um.ChatID, text))
 		return
 	}
@@ -296,12 +296,12 @@ func (b *Bot) auditProcessTrainingDone(um *domain.UserMessage) {
 		}
 
 		currentCups, _ := b.db.GetUserCups(um.UserID, um.ChatID)
-		text := fmt.Sprintf("✅ Отчёт принят! 💪\n\n🦁 Ты тренируешься %d %s подряд\n🏆 +1 кубок за тренировку!\n🏆 Всего кубков: %d\n\n⏰ Таймер перезапускается на 7 %s", outcome.NewStreakDays, daysWordForm(outcome.NewStreakDays), currentCups, daysWordForm(7))
+		text := fmt.Sprintf("✅ Workout logged! 💪\n\n🦁 Streak: %d %s\n🏆 +1 cup for this workout!\n🏆 Total cups: %d\n\n⏰ Inactivity timer resets to 7 %s", outcome.NewStreakDays, daysWordForm(outcome.NewStreakDays), currentCups, daysWordForm(7))
 		b.api.Send(tgbotapi.NewMessage(um.ChatID, text))
 	} else {
 		_ = b.db.AddCups(um.UserID, um.ChatID, 1)
 		currentCups, _ := b.db.GetUserCups(um.UserID, um.ChatID)
-		text := fmt.Sprintf("🦁 Какой мотивированный леопард! Еще одна тренировка сегодня! 💪\n\n🏆 +1 кубок за дополнительную тренировку!\n🏆 Всего кубков: %d", currentCups)
+		text := fmt.Sprintf("🦁 What a motivated leopard — another workout today! 💪\n\n🏆 +1 cup for the extra workout!\n🏆 Total cups: %d", currentCups)
 		b.api.Send(tgbotapi.NewMessage(um.ChatID, text))
 	}
 
@@ -399,19 +399,18 @@ func (b *Bot) generateMonthlySummaryForChat(chatID int64, month time.Time) {
 		return
 	}
 
-	// Заголовок «за март 2026» — винительный падеж; родительный (марта) не ставим после «за» в такой конструкции.
-	monthNamesAccusative := []string{"январь", "февраль", "март", "апрель", "май", "июнь",
-		"июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"}
-	monthTitle := monthNamesAccusative[month.Month()-1]
+	monthNames := []string{"January", "February", "March", "April", "May", "June",
+		"July", "August", "September", "October", "November", "December"}
+	monthTitle := monthNames[month.Month()-1]
 	year := month.Year()
 
 	// Формируем отчёт в стиле Fat Leopard
 	var sb strings.Builder
 
-	sb.WriteString("📊 Отчёт Fat Leopard за ")
+	sb.WriteString("📊 Fat Leopard report for ")
 	sb.WriteString(monthTitle)
 	sb.WriteString(fmt.Sprintf(" %d\n\n", year))
-	sb.WriteString("Привет, стая! 🦁\n\n")
+	sb.WriteString("Hey, pack! 🦁\n\n")
 
 	// Максимум в месяце
 	maxTrainings := 0
@@ -422,7 +421,7 @@ func (b *Bot) generateMonthlySummaryForChat(chatID int64, month time.Time) {
 	}
 	if maxTrainings > 0 {
 		maxLabel := trainingsWordForm(maxTrainings)
-		sb.WriteString(fmt.Sprintf("Максимум в месяце: %d %s\n\n", maxTrainings, maxLabel))
+		sb.WriteString(fmt.Sprintf("Monthly high: %d %s\n\n", maxTrainings, maxLabel))
 	}
 
 	// Сводка по каждому: пользователь, сколько тренировок, стрик на момент отчёта
@@ -434,15 +433,15 @@ func (b *Bot) generateMonthlySummaryForChat(chatID int64, month time.Time) {
 
 		lineWorkLabel := trainingsWordForm(u.TrainingCount)
 		sb.WriteString(fmt.Sprintf("• %s: %d %s", name, u.TrainingCount, lineWorkLabel))
-		sb.WriteString(fmt.Sprintf(", стрик на момент отчёта: %d %s", u.StreakDays, daysWordForm(u.StreakDays)))
+		sb.WriteString(fmt.Sprintf(", streak at report time: %d %s", u.StreakDays, daysWordForm(u.StreakDays)))
 		sb.WriteString(fmt.Sprintf(", %d %s", u.Cups, cupsWordForm(u.Cups)))
 
 		var flags []string
 		if u.HasSickLeave {
-			flags = append(flags, "больничный")
+			flags = append(flags, "sick leave")
 		}
 		if u.HasHealthy {
-			flags = append(flags, "выздоровел(а)")
+			flags = append(flags, "recovered")
 		}
 		if len(flags) > 0 {
 			sb.WriteString(" (" + strings.Join(flags, ", ") + ")")
@@ -460,9 +459,9 @@ func (b *Bot) generateMonthlySummaryForChat(chatID int64, month time.Time) {
 		}
 	}
 	if anyTraining {
-		sb.WriteString("Я бы съел пиццу. Вы — тренировки. Продолжаем в том же духе! 💪🦁")
+		sb.WriteString("I'd eat pizza. You — workouts. Same energy! 💪🦁")
 	} else {
-		sb.WriteString("Новый месяц — новый шанс. Не дайте мне превратить вас в обед! 🦁💪")
+		sb.WriteString("New month, new chance. Don't let me turn you into lunch! 🦁💪")
 	}
 
 	summary := sb.String()

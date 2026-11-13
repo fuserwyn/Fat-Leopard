@@ -73,7 +73,7 @@ func TestTrackerKeepInWaitingQueue(t *testing.T) {
 		ID:        2,
 		Status:    "running",
 		DevColumn: trackerColDoing,
-		Steps:     []string{"Взяли в работу по расписанию"},
+		Steps:     []string{"Started on schedule"},
 	}
 	trackerKeepInWaitingQueue(&task, "")
 	if task.DevColumn != trackerColTodo || task.Status != "pending" {
@@ -144,7 +144,7 @@ func TestApproveTaskStaysWaitingWhenPipelineBusy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if toast != "Задача в очереди — дождитесь текущей" {
+	if toast != "Task queued — wait for the current one" {
 		t.Fatalf("toast: %q", toast)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {

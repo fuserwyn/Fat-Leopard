@@ -95,7 +95,7 @@ func (b *Bot) referralRewardBonus(userID int64) int {
 	return ReferralRewardAttempts(qualified)
 }
 
-// referralOnTraining — приглашённый записал тренировку. Первая тренировка засчитывает
+// referralOnTraining — приглашённый записал тренировку. Первая workout засчитывает
 // его пригласившему; каждый ReferralRewardEvery-й такой друг приносит попытку спасти стрик.
 func (b *Bot) referralOnTraining(userID int64) {
 	if b == nil || b.db == nil || userID == 0 {
@@ -114,7 +114,7 @@ func (b *Bot) referralOnTraining(userID int64) {
 		Payload:        map[string]any{"qualified": qualified},
 		IdempotencyKey: fmt.Sprintf("referral_reward:%d:%d", inviterID, qualified),
 	})
-	text := fmt.Sprintf("🐆 Уже %d друзей, которых ты позвал, записали первую тренировку. Держи +1 попытку спасти стрик!", qualified)
+	text := fmt.Sprintf("🐆 %d friends you invited logged their first workout. Here's +1 streak save attempt!", qualified)
 	b.notifyUserTextByID(inviterID, inviterID, text, "", 0)
 }
 
@@ -137,7 +137,7 @@ func (b *Bot) GetReferralForAPI(userID int64) (ReferralView, error) {
 }
 
 // ShareLinkForUser — личная ссылка на бота для карточек «поделиться» (ачивка,
-// уровень, тренировка): та же реферальная t.me/<бот>?start=ref-<id>, чтобы друг,
+// уровень, workout): та же реферальная t.me/<бот>?start=ref-<id>, чтобы друг,
 // пришедший со сторис, засчитался приглашением. Пусто, если имя бота неизвестно.
 func (b *Bot) ShareLinkForUser(userID int64) string {
 	if b == nil {

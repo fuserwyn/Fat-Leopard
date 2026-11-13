@@ -126,7 +126,7 @@ func (b *Bot) startReleaseNotesScheduler(ctx context.Context) {
 		return
 	}
 	if b.config == nil || b.config.MonetizedChatID == 0 {
-		b.logger.Info("release notes scheduler: skipped, MONETIZED_CHAT_ID не настроен")
+		b.logger.Info("release notes scheduler: skipped, MONETIZED_CHAT_ID is not set")
 		return
 	}
 	loc := moscowLocation()

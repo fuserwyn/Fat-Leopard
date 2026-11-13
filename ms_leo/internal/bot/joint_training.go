@@ -10,9 +10,9 @@ import (
 	initdata "github.com/telegram-mini-apps/init-data-golang"
 )
 
-// Совместная тренировка: в отчёте о тренировке отмечают напарника через @ник
+// Совместная workout: в отчёте о тренировке отмечают напарника через @ник
 // Telegram или @имя участника стаи. Участнику стаи приходит уведомление, что его
-// отметили на совместной тренировке. Если отмеченного в стае нет, ему уходит
+// taggedи на совместной тренировке. Если отмеченного в стае нет, ему уходит
 // инвайт с личной ссылкой отметившего (?start=ref-<id>) — друг засчитывается
 // приглашением. Бот не может написать первым тому, кто ни разу не открывал бота:
 // тогда ссылку для пересылки получает сам отметивший.
@@ -28,35 +28,29 @@ func isTelegramUsernameToken(tok string) bool {
 }
 
 func jointTrainingVerb(gender string) string {
-	switch strings.TrimSpace(strings.ToLower(gender)) {
-	case "m":
-		return "отметил"
-	case "f":
-		return "отметила"
-	default:
-		return "отметил(а)"
-	}
+	_ = gender
+	return "tagged"
 }
 
-// jointTrainingMemberText — уведомление участнику стаи, которого отметили.
+// jointTrainingMemberText — уведомление участнику стаи, которого taggedи.
 func jointTrainingMemberText(authorName, gender, reportText string) string {
 	preview := truncateForDM(reportText, 160)
-	return "🤝 " + authorName + " " + jointTrainingVerb(gender) + " тебя на совместной тренировке.\n\n«" +
-		preview + "»\n\nОткрой мини-апп → вкладка «Стая»."
+	return "🤝 " + authorName + " " + jointTrainingVerb(gender) + " you on a joint workout.\n\n«" +
+		preview + "»\n\nOpen the mini app → Pack tab."
 }
 
-// jointTrainingInviteText — инвайт тому, кого отметили, но кого нет в стае.
+// jointTrainingInviteText — инвайт тому, кого taggedи, но кого нет в стае.
 func jointTrainingInviteText(authorName, gender, reportText string) string {
 	preview := truncateForDM(reportText, 160)
-	return "🐆 " + authorName + " " + jointTrainingVerb(gender) + " тебя на совместной тренировке в стае Fat Leopard.\n\n«" +
-		preview + "»\n\nПрисоединяйся к стае — тренироваться вместе веселее!"
+	return "🐆 " + authorName + " " + jointTrainingVerb(gender) + " you on a joint workout in the Fat Leopard pack.\n\n«" +
+		preview + "»\n\nJoin the pack — training together is more fun!"
 }
 
 // jointTrainingForwardText — отметившему: бот не знает человека, ссылку нужно переслать самому.
 // username может быть уже с «@» (label) или без: в тексте всегда один @.
 func jointTrainingForwardText(username, link string) string {
-	return "🤝 " + jointTrainingMentionLabel(username) + " пока нет в стае, а Лео не может написать первым. " +
-		"Перешли другу приглашение на совместные тренировки:\n" + link
+	return "🤝 " + jointTrainingMentionLabel(username) + " isn't in the pack yet, and Leo can't message them first. " +
+		"Forward this invite for joint workouts:\n" + link
 }
 
 // notifyJointTrainingMentions разбирает @-отметки в отчёте о тренировке.
@@ -76,7 +70,7 @@ func (b *Bot) notifyJointTrainingMentions(packChatID, authorUserID int64, author
 	}
 	cn := strings.TrimSpace(authorName)
 	if cn == "" {
-		cn = "Участник стаи"
+		cn = "Pack member"
 	}
 	gender, _, _ := b.GetMiniappUserProfileJSONForAPI(authorUserID, packChatID)
 
@@ -151,7 +145,7 @@ func (b *Bot) inviteToJointTraining(packChatID, authorUserID int64, authorName, 
 	}
 	m := tgbotapi.NewMessage(inviteeID, jointTrainingInviteText(authorName, gender, text))
 	m.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(tgbotapi.NewInlineKeyboardButtonURL("Вступить в стаю", link)),
+		tgbotapi.NewInlineKeyboardRow(tgbotapi.NewInlineKeyboardButtonURL("Join the pack", link)),
 	)
 	if _, err := b.api.Send(m); err != nil {
 		b.logger.Warnf("joint training invite DM user=%d: %v", inviteeID, err)
@@ -159,7 +153,7 @@ func (b *Bot) inviteToJointTraining(packChatID, authorUserID int64, authorName, 
 		return
 	}
 	b.notifyUserTextByID(authorUserID, authorUserID,
-		"🤝 Отправил "+label+" приглашение в стаю на совместные тренировки.", "", 0)
+		"🤝 Sent "+label+" a pack invite for joint workouts.", "", 0)
 }
 
 func jointTrainingMentionLabel(token string) string {
@@ -173,7 +167,7 @@ func jointTrainingMentionLabel(token string) string {
 	return "@" + token
 }
 
-// JointTrainingMention — подсказка в мини-аппе при наборе «@» в описании тренировки.
+// JointTrainingMention — подсказка в мини-аппе при наборе «@» в описании workouts.
 // Mention — то, что вставляется после «@»: его потом узнаёт разбор отметок.
 type JointTrainingMention struct {
 	UserID  int64  `json:"user_id"`

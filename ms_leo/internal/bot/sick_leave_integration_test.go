@@ -46,13 +46,13 @@ func TestSickLeavePausesRemovalUntilRecovery(t *testing.T) {
 	if sick, _ := sickState(t, db, itUser); !sick {
 		t.Fatal("больничный без пояснения принимается сразу")
 	}
-	if text := lastTextTo(tg, itUser); !strings.Contains(text, "Больничный принят") || !strings.Contains(text, "Таймер приостановлен") {
+	if text := lastTextTo(tg, itUser); !strings.Contains(text, "Sick leave accepted") || !strings.Contains(text, "timer paused") {
 		t.Errorf("ответ на больничный: %q", text)
 	}
 
 	tg.reset()
 	b.handleSickLeave(privateMsg(itUser, "#sick_leave"))
-	if text := lastTextTo(tg, itUser); !strings.Contains(text, "уже активен больничный") {
+	if text := lastTextTo(tg, itUser); !strings.Contains(text, "already have active sick leave") {
 		t.Errorf("повторный запрос: %q", text)
 	}
 
@@ -71,7 +71,7 @@ func TestSickLeavePausesRemovalUntilRecovery(t *testing.T) {
 	if sick || !healthy {
 		t.Fatalf("после выздоровления: sick=%v healthy=%v", sick, healthy)
 	}
-	if text := lastTextTo(tg, itUser); !strings.Contains(text, "Выздоровление принято") {
+	if text := lastTextTo(tg, itUser); !strings.Contains(text, "Recovery accepted") {
 		t.Errorf("ответ на выздоровление: %q", text)
 	}
 	if isKicked(t, db, itUser) {
@@ -80,7 +80,7 @@ func TestSickLeavePausesRemovalUntilRecovery(t *testing.T) {
 
 	tg.reset()
 	b.handleHealthy(privateMsg(itUser, "#healthy"))
-	if text := lastTextTo(tg, itUser); !strings.Contains(text, "активного больничного сейчас нет") {
+	if text := lastTextTo(tg, itUser); !strings.Contains(text, "no active sick leave") {
 		t.Errorf("выздоровление без больничного: %q", text)
 	}
 }
@@ -95,7 +95,7 @@ func TestSickLeaveJustificationIsChecked(t *testing.T) {
 	if sick, _ := sickState(t, db, itUser); sick {
 		t.Fatal("работа — не причина для больничного")
 	}
-	if text := lastTextTo(tg, itUser); !strings.Contains(text, "Больничный не принят") {
+	if text := lastTextTo(tg, itUser); !strings.Contains(text, "Sick leave not accepted") {
 		t.Errorf("ответ на отговорку: %q", text)
 	}
 
@@ -151,7 +151,7 @@ func TestLateRecoveryGivesGraceUntilMidnight(t *testing.T) {
 	if isKicked(t, db, itUser) {
 		t.Fatal("после выздоровления дают время до конца суток")
 	}
-	if text := lastTextTo(tg, itUser); !strings.Contains(text, "Выздоровление принято") {
+	if text := lastTextTo(tg, itUser); !strings.Contains(text, "Recovery accepted") {
 		t.Errorf("ответ на выздоровление: %q", text)
 	}
 	b.runInactivityKickSweep()

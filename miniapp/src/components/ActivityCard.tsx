@@ -197,7 +197,7 @@ function ThreadLikeButton({
       <button type="button" className={`act-card__thread-like${mine ? " act-card__thread-like--mine" : ""}`} {...press}>
         ❤️ {count}
       </button>
-      {open && hasVoters && <LikersPopover groups={groups} popRef={popRef} style={style} label="Кто лайкнул" />}
+      {open && hasVoters && <LikersPopover groups={groups} popRef={popRef} style={style} label="Who liked" />}
     </span>
   );
 }
@@ -269,7 +269,7 @@ export function TrainingReactionsBar({
               className={`act-card__react-toggle${menuOpen ? " act-card__react-toggle--open" : ""}`}
               aria-expanded={menuOpen}
               aria-haspopup="menu"
-              aria-label="Ещё реакции"
+              aria-label="More reactions"
               onClick={() => setMenuOpen(!menuOpen)}
             >
               ⋯
@@ -319,7 +319,7 @@ export function ReportActionMenu({
         className={`act-card__menu-toggle${open ? " act-card__menu-toggle--open" : ""}`}
         aria-expanded={open}
         aria-haspopup="menu"
-        aria-label="Ещё"
+        aria-label="More"
         disabled={posting}
         onClick={() => setOpen(!open)}
       >
@@ -653,28 +653,28 @@ export function ActivityCard({
       <div
         className={`act-card__react${reactionInline ? " act-card__react--inline" : ""}`}
         role="group"
-        aria-label="Реакции"
+        aria-label="Reactions"
       >
         <TrainingReactionsBar reactions={activeReactions} onReactionClick={onReactionClick} />
       </div>
     ) : null;
-  const showStreak = !hideStreak && name.trim() !== "Админ";
+  const showStreak = !hideStreak && name.trim() !== "Admin";
   const cardHeadMenuItems = useMemo(() => {
     const items: { label: string; onClick: () => void; danger?: boolean }[] = [];
     if (onToggleFollow) {
-      items.push({ label: isFriend ? "Не следить за тренировками" : "Следить за тренировками", onClick: onToggleFollow });
+      items.push({ label: isFriend ? "Unfollow workouts" : "Follow workouts", onClick: onToggleFollow });
     }
     if (onTogglePin) {
-      items.push({ label: pinned ? "Открепить" : "Закрепить", onClick: onTogglePin });
+      items.push({ label: pinned ? "Unpin" : "Pin", onClick: onTogglePin });
     }
     if (onAdminDelete) {
-      items.push({ label: "Скрыть пост", onClick: onAdminDelete, danger: true });
+      items.push({ label: "Hide post", onClick: onAdminDelete, danger: true });
     }
     if (onStartEditPost) {
-      items.push({ label: "Изменить", onClick: onStartEditPost });
+      items.push({ label: "Edit", onClick: onStartEditPost });
     }
     if (onReport) {
-      items.push({ label: "Пожаловаться на публикацию", onClick: onReport });
+      items.push({ label: "Report post", onClick: onReport });
     }
     return items;
   }, [onToggleFollow, isFriend, onTogglePin, pinned, onAdminDelete, onStartEditPost, onReport]);
@@ -789,15 +789,15 @@ export function ActivityCard({
           <div className="act-card__row act-card__row--name">
             <span className="act-card__name">{name}</span>
             {pinned && (
-              <span className="act-card__pinned-badge" aria-label="Закреплённое объявление">
-                📌 закреплено
+              <span className="act-card__pinned-badge" aria-label="Pinned announcement">
+                📌 pinned
               </span>
             )}
           </div>
           <div className="act-card__row act-card__row--sub">
             <p className="act-card__time">
               {timeAgo}
-              {commentEdited ? <span className="act-card__edited"> · изменено</span> : null}
+              {commentEdited ? <span className="act-card__edited"> · edited</span> : null}
             </p>
             {showStreak && (
               <span
@@ -805,7 +805,7 @@ export function ActivityCard({
                 aria-label={streakStreakAriaLabel(streak)}
                 title={streakStreakAriaLabel(streak)}
               >
-                <span className="pill__streak-word">Стрик</span>
+                <span className="pill__streak-word">Streak</span>
                 <span className="pill__streak-num">{streak}</span>
               </span>
             )}
@@ -834,8 +834,8 @@ export function ActivityCard({
         {postEdit ? (
           <div className="act-card__post-edit">
             {postEdit.kinds && postEdit.onKindsChange && (
-              <div className="act-card__post-edit-kinds" role="group" aria-label="Вид спорта">
-                <div className="act-card__post-edit-kinds-title">Вид спорта</div>
+              <div className="act-card__post-edit-kinds" role="group" aria-label="Sport type">
+                <div className="act-card__post-edit-kinds-title">Sport type</div>
                 <div className="act-card__post-edit-kinds-list">
                   {WORKOUT_CATEGORY_OPTIONS.map((o) => {
                     const selected = postEdit.kinds?.includes(o.id) ?? false;
@@ -880,7 +880,7 @@ export function ActivityCard({
                 <div className="act-card__post-edit-photo-actions">
                   {postEdit.onAttachPhoto && (
                     <label className={`act-card__post-edit-photo-btn${postEdit.photoBusy || postEdit.posting ? " act-card__post-edit-photo-btn--disabled" : ""}`}>
-                      {postEdit.photoBusy ? "…" : postEdit.photoUrl ? "🖼 Из галереи" : "🖼 Галерея"}
+                      {postEdit.photoBusy ? "…" : postEdit.photoUrl ? "🖼 From gallery" : "🖼 Gallery"}
                       <input
                         type="file"
                         accept="image/*"
@@ -898,13 +898,13 @@ export function ActivityCard({
                     <CameraButton
                       className={`act-card__post-edit-photo-btn${postEdit.photoBusy || postEdit.posting ? " act-card__post-edit-photo-btn--disabled" : ""}`}
                       disabled={postEdit.photoBusy || postEdit.posting}
-                      ariaLabel="Сделать фото"
+                      ariaLabel="Take photo"
                       onChange={(e) => {
                         const f = e.target.files?.[0];
                         if (f) setPendingPostEditCrop(f);
                       }}
                     >
-                      📷 Камера
+                      📷 Camera
                     </CameraButton>
                   )}
                   {postEdit.photoUrl && postEdit.onRemovePhoto && (
@@ -914,7 +914,7 @@ export function ActivityCard({
                       disabled={postEdit.photoBusy || postEdit.posting}
                       onClick={() => postEdit.onRemovePhoto?.()}
                     >
-                      Удалить фото
+                      Remove photo
                     </button>
                   )}
                 </div>
@@ -922,10 +922,10 @@ export function ActivityCard({
             )}
             <div className="act-card__post-edit-actions">
               <button type="button" className="act-card__post-edit-cancel" disabled={postEdit.posting} onClick={postEdit.onCancel}>
-                Отмена
+                Cancel
               </button>
               <button type="button" className="act-card__post-edit-save" disabled={postEdit.posting} onClick={postEdit.onSave}>
-                {postEdit.posting ? "…" : "Сохранить"}
+                {postEdit.posting ? "…" : "Save"}
               </button>
             </div>
             {pendingPostEditCrop &&
@@ -956,7 +956,7 @@ export function ActivityCard({
                 aria-expanded={commentExpanded}
                 onClick={() => setCommentExpanded((v) => !v)}
               >
-                {commentExpanded ? "Свернуть" : "Показать полностью"}
+                {commentExpanded ? "Collapse" : "Show more"}
               </button>
             </div>
           ) : reactionInComment ? (
@@ -969,7 +969,7 @@ export function ActivityCard({
           ))
         )}
         {poll && poll.options.length > 0 && (
-          <div className="act-card__poll" role="group" aria-label="Опрос">
+          <div className="act-card__poll" role="group" aria-label="Poll">
             {poll.options.map((option, optionIndex) => (
               <button
                 key={`${optionIndex}-${option.label}`}
@@ -981,7 +981,7 @@ export function ActivityCard({
                 <span className="act-card__poll-votes">{option.votes}</span>
               </button>
             ))}
-            <p className="act-card__poll-total">{poll.totalVotes} голосов</p>
+            <p className="act-card__poll-total">{poll.totalVotes} votes</p>
           </div>
         )}
         {trainingPhotoUrl && !photoFailed ? (
@@ -989,7 +989,7 @@ export function ActivityCard({
             className="act-card__photo-wrap"
             role="button"
             tabIndex={0}
-            aria-label="Открыть фото"
+            aria-label="Open photo"
             onClick={() => openLightbox(trainingPhotoUrl)}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
@@ -1020,7 +1020,7 @@ export function ActivityCard({
             }}
           >
             <span className="act-card__photo-fallback-icon" aria-hidden>🖼️</span>
-            <span className="act-card__photo-fallback-text">Фото не загрузилось — нажми, чтобы повторить</span>
+            <span className="act-card__photo-fallback-text">Photo failed to load — tap to retry</span>
           </button>
         ) : null}
         {aiText && (
@@ -1041,12 +1041,12 @@ export function ActivityCard({
             >
               <span>
                 {threadOpen
-                  ? "Свернуть комментарии"
+                  ? "Collapse comments"
                   : threadCount > 0
-                    ? `Комментарии · ${threadCount}`
-                    : "Комментарии"}
+                    ? `Comments · ${threadCount}`
+                    : "Comments"}
                 {hasUnreadThread && !threadOpen ? (
-                  <span className="act-card__thread-unread-dot" aria-label="Непрочитанные ответы" />
+                  <span className="act-card__thread-unread-dot" aria-label="Unread replies" />
                 ) : null}
               </span>
               <span className="act-card__thread-chevron" aria-hidden>
@@ -1061,11 +1061,11 @@ export function ActivityCard({
                       {threadReplies.map((tr) => {
                         const leo = Boolean(tr.isLeo);
                         const adminVoice = Boolean(tr.isAdmin);
-                        const displayAuthor = leo ? "Лео" : adminVoice ? "Админ" : tr.isYou ? "Ты" : tr.author;
+                        const displayAuthor = leo ? "Leo" : adminVoice ? "Admin" : tr.isYou ? "You" : tr.author;
                         // Атрибуция «(имя · админ)» приходит ТОЛЬКО админам — юзеры её не видят.
                         const attribution = tr.adminName
                           ? leo
-                            ? `${tr.adminName} · админ`
+                            ? `${tr.adminName} · admin`
                             : tr.adminName
                           : "";
                         return (
@@ -1103,7 +1103,7 @@ export function ActivityCard({
                                           className="act-card__menu--thread"
                                           items={[
                                             {
-                                              label: "Пожаловаться на комментарий",
+                                              label: "Report comment",
                                               onClick: () => onThreadReplyReport(tr.id),
                                             },
                                           ]}
@@ -1114,7 +1114,7 @@ export function ActivityCard({
                                     <div className="act-card__thread-subrow">
                                       <span className="act-card__thread-time muted">
                                         {tr.timeAgo}
-                                        {tr.edited ? <span className="act-card__edited"> · изменено</span> : null}
+                                        {tr.edited ? <span className="act-card__edited"> · edited</span> : null}
                                       </span>
                                       <div className="act-card__thread-item-actions">
                                         {tr.isYou && !leo && !adminVoice && onThreadReplyEdit != null && (
@@ -1127,7 +1127,7 @@ export function ActivityCard({
                                               window.setTimeout(() => threadInputRef.current?.focus(), 80);
                                             }}
                                           >
-                                            Изменить
+                                            Edit
                                           </button>
                                         )}
                                         {onThreadReplyDelete != null && (tr.isYou || isAdmin) && (
@@ -1136,9 +1136,9 @@ export function ActivityCard({
                                             className="act-card__thread-del"
                                             disabled={Boolean(threadReplyDeleting[tr.id])}
                                             onClick={() => onThreadReplyDelete(tr.id)}
-                                          title={!tr.isYou ? "Скрыть как админ" : undefined}
+                                          title={!tr.isYou ? "Hide as admin" : undefined}
                                         >
-                                          {threadReplyDeleting[tr.id] ? "…" : tr.isYou ? "Удалить" : "Скрыть"}
+                                          {threadReplyDeleting[tr.id] ? "…" : tr.isYou ? "Delete" : "Hide"}
                                           </button>
                                         )}
                                       </div>
@@ -1147,9 +1147,9 @@ export function ActivityCard({
                                 </div>
                                 {tr.replyTo != null &&
                                   ((tr.replyTo.text || "").trim() !== "" || (tr.replyTo.author || "").trim() !== "") && (
-                                    <div className="act-card__thread-quote" aria-label="Ответ на сообщение">
+                                    <div className="act-card__thread-quote" aria-label="Reply to message">
                                       <span className="act-card__thread-quote-author muted">
-                                        {tr.replyTo.isLeo ? "Лео" : tr.replyTo.isAdmin ? "Админ" : tr.replyTo.author}
+                                        {tr.replyTo.isLeo ? "Leo" : tr.replyTo.isAdmin ? "Admin" : tr.replyTo.author}
                                       </span>
                                       {(tr.replyTo.text || "").trim() !== "" && (
                                         <p className="act-card__thread-quote-text">{(tr.replyTo.text || "").trim()}</p>
@@ -1163,7 +1163,7 @@ export function ActivityCard({
                                   <button
                                     type="button"
                                     className="act-card__thread-photo-wrap"
-                                    aria-label="Открыть фото"
+                                    aria-label="Open photo"
                                     onClick={() => openLightbox(tr.photoUrl)}
                                   >
                                     <img
@@ -1200,7 +1200,7 @@ export function ActivityCard({
                                           }, 80);
                                         }}
                                       >
-                                        Ответить
+                                        Reply
                                       </button>
                                     )}
                                   </div>
@@ -1218,12 +1218,12 @@ export function ActivityCard({
                     {threadComposer.editReplyId != null && threadComposer.editReplyId > 0 && (
                       <div className="act-card__reply-intent act-card__reply-intent--edit">
                         <div className="act-card__reply-intent-row">
-                          <span className="act-card__reply-intent-label">Редактирование комментария</span>
+                          <span className="act-card__reply-intent-label">Editing comment</span>
                           {threadComposer.onCancelEdit != null && (
                             <button
                               type="button"
                               className="act-card__reply-intent-cancel"
-                              aria-label="Отменить редактирование"
+                              aria-label="Cancel edit"
                               onClick={() => threadComposer.onCancelEdit?.()}
                             >
                               ✕
@@ -1236,13 +1236,13 @@ export function ActivityCard({
                       <div className="act-card__reply-intent">
                         <div className="act-card__reply-intent-row">
                           <span className="act-card__reply-intent-label">
-                            Ответ <strong>{threadReplyIntent.authorLabel}</strong>
+                            Reply to <strong>{threadReplyIntent.authorLabel}</strong>
                           </span>
                           {onCancelThreadReplyIntent != null && (
                             <button
                               type="button"
                               className="act-card__reply-intent-cancel"
-                              aria-label="Отменить ответ"
+                              aria-label="Cancel reply"
                               onClick={() => onCancelThreadReplyIntent()}
                             >
                               ✕
@@ -1269,12 +1269,12 @@ export function ActivityCard({
                             if (threadPhoto) setPendingThreadCrop(threadPhoto);
                           }}
                         >
-                          Обрезать
+                          Crop
                         </button>
                         <button
                           type="button"
                           className="act-card__thread-photo-remove"
-                          aria-label="Убрать фото"
+                          aria-label="Remove photo"
                           disabled={threadComposer.posting}
                           onClick={() => {
                             setThreadPhoto(null);
@@ -1291,10 +1291,10 @@ export function ActivityCard({
                       rows={2}
                       placeholder={
                         threadComposer.editReplyId != null
-                          ? "Изменить комментарий…"
+                          ? "Edit comment…"
                           : threadReplyIntent
-                            ? `Сообщение для ${threadReplyIntent.authorLabel}…`
-                            : "Написать комментарий…"
+                            ? `Message for ${threadReplyIntent.authorLabel}…`
+                            : "Write a comment…"
                       }
                       value={threadComposer.draft}
                       onChange={(e) => threadComposer.onDraftChange(e.target.value)}
@@ -1331,7 +1331,7 @@ export function ActivityCard({
                         <button
                           type="button"
                           className="act-card__thread-attach"
-                          aria-label="Прикрепить фото из галереи"
+                          aria-label="Attach photo from gallery"
                           disabled={threadComposer.posting}
                           onClick={() => threadPhotoInputRef.current?.click()}
                         >
@@ -1349,12 +1349,12 @@ export function ActivityCard({
                         />
                       )}
                       {adminVoiceAvailable && threadComposer.editReplyId == null && (
-                        <div className="act-card__thread-voice" role="group" aria-label="От чьего имени комментировать">
+                        <div className="act-card__thread-voice" role="group" aria-label="Comment as">
                           {(
                             [
-                              { v: "self", label: "Я" },
-                              { v: "leo", label: "🐆 Лео" },
-                              { v: "admin", label: "Админ" },
+                              { v: "self", label: "Me" },
+                              { v: "leo", label: "🐆 Leo" },
+                              { v: "admin", label: "Admin" },
                             ] as { v: ThreadPostAs; label: string }[]
                           ).map((opt) => (
                             <button
@@ -1381,8 +1381,8 @@ export function ActivityCard({
                         {threadComposer.posting
                           ? "…"
                           : threadComposer.editReplyId != null
-                            ? "Сохранить"
-                            : "Отправить"}
+                            ? "Save"
+                            : "Send"}
                       </button>
                     </div>
                     {pendingThreadCrop &&

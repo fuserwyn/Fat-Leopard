@@ -1,26 +1,21 @@
-/** 1 день, 2 дня, 5 дней (целое ≥ 0). */
+/** 1 day, 2 days (integer ≥ 0). */
 export function daysWordRu(n: number): string {
-  const abs = Math.abs(n) % 100;
-  const d = Math.abs(n) % 10;
-  if (abs >= 11 && abs <= 14) return "дней";
-  if (d === 1) return "день";
-  if (d >= 2 && d <= 4) return "дня";
-  return "дней";
+  return n === 1 ? "day" : "days";
 }
 
-/** Для aria / подсказок к бейджу «Стрик» в ленте. */
+/** For aria / pack feed streak badge hints. */
 export function streakStreakAriaLabel(days: number): string {
-  if (days <= 0) return "Стрик: пока нет дней подряд с тренировками";
-  return `Стрик: ${days} ${daysWordRu(days)} подряд`;
+  if (days <= 0) return "Streak: no consecutive workout days yet";
+  return `Streak: ${days} ${daysWordRu(days)} in a row`;
 }
 
-/** Локальная полночь для YYYY-MM-DD. */
+/** Local midnight for YYYY-MM-DD. */
 export function parseLocalDateYMD(ymd: string): Date {
   const [y, m, d] = ymd.split("-").map(Number);
   return new Date(y, m - 1, d);
 }
 
-/** Дней с последней тренировки по дате YYYY-MM-DD и текущему локальному «сегодня». */
+/** Days since last workout from YYYY-MM-DD and local “today”. */
 export function daysSinceLastTrainingFromDate(
   lastTrainingDate: string | null | undefined,
   now: Date = new Date(),
@@ -33,7 +28,7 @@ export function daysSinceLastTrainingFromDate(
   return Math.max(0, diff);
 }
 
-/** Полночь после «догон»-дня: конец календарного дня, следующего за lastTrainingDate. */
+/** Midnight after catch-up day: end of calendar day after lastTrainingDate. */
 export function streakBurnDeadline(lastTrainingDate: string): Date {
   const last = parseLocalDateYMD(lastTrainingDate.trim());
   const deadline = new Date(last.getFullYear(), last.getMonth(), last.getDate());
@@ -42,13 +37,13 @@ export function streakBurnDeadline(lastTrainingDate: string): Date {
 }
 
 /**
- * Сколько миллисекунд осталось до сгорания стрика.
+ * Milliseconds until streak expires.
  *
- * Стрик жив, пока последняя тренировка была сегодня (`daysSinceLastTraining === 0`)
- * или вчера (`=== 1`). Сгорает в полночь после «догон»-дня — см. streakBurnDeadline.
- * Если передан `lastTrainingDate` (YYYY-MM-DD), считаем по нему (точнее при тиках UI без refresh API).
+ * Streak is alive while the last workout was today (`daysSinceLastTraining === 0`)
+ * or yesterday (`=== 1`). Expires at midnight after the catch-up day — see streakBurnDeadline.
+ * If `lastTrainingDate` (YYYY-MM-DD) is passed, use it (more accurate on UI ticks without API refresh).
  *
- * Возвращает null, если стрика нет, дата неизвестна или дедлайн уже прошёл.
+ * Returns null if no streak, date unknown, or deadline passed.
  */
 export function streakBurnRemainingMs(
   streak: number,
@@ -69,20 +64,20 @@ export function streakBurnRemainingMs(
   return ms > 0 ? ms : null;
 }
 
-/** «5 ч 20 мин», «1д 4ч», «18 мин» — компактный остаток времени до сгорания. */
+/** Compact countdown: “5h 20m”, “1d 4h”, “18m”. */
 export function formatStreakBurnRemaining(ms: number): string {
   const totalMin = Math.max(0, Math.floor(ms / 60_000));
   const days = Math.floor(totalMin / (60 * 24));
   const hours = Math.floor((totalMin % (60 * 24)) / 60);
   const mins = totalMin % 60;
-  if (days > 0) return `${days}д ${hours}ч`;
-  if (hours > 0) return `${hours} ч ${mins} мин`;
-  return `${mins} мин`;
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${mins}m`;
+  return `${mins}m`;
 }
 
 /**
- * Согласует days_since_last_training с API и локальный пересчёт по lastTrainingDate.
- * Если дата «сырая» сильно больше значения с бэкенда — больничный заморозил стрик, доверяем API.
+ * Aligns API days_since_last_training with local recompute from lastTrainingDate.
+ * If raw date is much larger than backend value — sick freeze, trust API.
  */
 function resolveStreakIdleDays(
   daysSinceLastTraining: number,
@@ -109,8 +104,8 @@ function resolveStreakIdleDays(
 }
 
 /**
- * Актуальный стрик для UI: 0 после полночи дня, следующего за последней тренировкой,
- * если в этот «догон» не было отчёта (см. EffectiveStreakDays на бэкенде).
+ * Effective streak for UI: 0 after midnight on the day after last workout
+ * if no report on that catch-up day (see EffectiveStreakDays on backend).
  */
 export function effectiveStreakDays(
   streak: number,
@@ -128,7 +123,7 @@ export function effectiveStreakDays(
   return streak;
 }
 
-/** Подпись под счётчиком стрика: «текущий стрик сгорит через 5 ч 20 мин» или null, если стрик не горит. */
+/** Caption under streak counter, or null if not burning. */
 export function streakBurnLabel(
   streak: number,
   daysSinceLastTraining: number,
@@ -139,33 +134,33 @@ export function streakBurnLabel(
   if (frozen || days >= 2) return null;
   const ms = streakBurnRemainingMs(streak, days, now, lastTrainingDate);
   if (ms == null) return null;
-  return `текущий стрик сгорит через ${formatStreakBurnRemaining(ms)}`;
+  return `streak resets in ${formatStreakBurnRemaining(ms)}`;
 }
 
-/** Подпись к «Спасти стрик»: когда кнопка бесполезна / опасна по ошибке. */
+/** Hint for “Save streak” when button is unavailable or risky. */
 export function streakSaveHint(
   daysSinceLastTraining: number,
   attemptsAvail: number,
 ): string | null {
   const reason = streakSaveWindowError(daysSinceLastTraining, attemptsAvail);
-  if (!reason) return "Можно восстановить сгоревший стрик, если случайно забыл внести тренировку.";
+  if (!reason) return "Restore a lost streak if you forgot to log a workout.";
   switch (reason) {
     case "no_attempts":
-      return "Попыток нет — расти по уровням, чтобы получить ещё.";
+      return "No saves left — level up to earn more.";
     case "not_needed":
-      return "Стрик ещё жив — сначала потренируйся, спасение не нужно.";
+      return "Streak still alive — log a workout first; save isn’t needed.";
     case "too_late":
-      return "Пропущено больше одного дня — одной попыткой не восстановить.";
+      return "More than one day missed — one save can’t fix that.";
     case "no_training_history":
-      return "Пока не было тренировок — спасать нечего.";
+      return "No workouts yet — nothing to save.";
     default:
       return null;
   }
 }
 
 /**
- * Окно спасения: ровно 2 календарных дня с last_training_date (стрик уже 0 в UI),
- * и есть попытки. Совпадает с UseStreakSaveAttemptForAPI на бэкенде.
+ * Save window: exactly 2 calendar days from last_training_date (streak already 0 in UI),
+ * with saves available. Matches UseStreakSaveAttemptForAPI on backend.
  */
 export function streakSaveWindowError(
   daysSinceLastTraining: number,
@@ -182,12 +177,7 @@ export function canUseStreakSave(daysSinceLastTraining: number, attemptsAvail: n
   return streakSaveWindowError(daysSinceLastTraining, attemptsAvail) === null;
 }
 
-/** Склонение «кубок» для счётчика прогресса. */
+/** “cup” / “cups” for progress counter. */
 export function cupsWordRu(n: number): string {
-  const abs = Math.abs(n) % 100;
-  const d = Math.abs(n) % 10;
-  if (abs >= 11 && abs <= 14) return "кубков";
-  if (d === 1) return "кубок";
-  if (d >= 2 && d <= 4) return "кубка";
-  return "кубков";
+  return n === 1 ? "cup" : "cups";
 }

@@ -115,10 +115,30 @@ export type AdminUserAction =
   | "grant_save"
   | "kick";
 
+/** Display sick leave for admins (API returns active/pending/none; legacy RU values still possible). */
+export function formatAdminSickLeave(status: string): string {
+  const s = status.trim().toLowerCase();
+  if (s === "active" || s === "активен") return "Active";
+  if (s === "pending" || s === "ожидает" || s === "awaiting approval") return "Pending";
+  if (s === "none" || s === "нет" || s === "no") return "None";
+  return status;
+}
+
+export function adminSickLeaveActive(status: string): boolean {
+  const s = status.trim().toLowerCase();
+  return (
+    s === "active" ||
+    s === "pending" ||
+    s === "активен" ||
+    s === "ожидает" ||
+    s === "awaiting approval"
+  );
+}
+
 type ErrBody = { error?: string; message?: string };
 
 async function post<T>(path: string, initData: string, extra: Record<string, unknown> = {}): Promise<T> {
-  if (!api) throw new Error("API не настроен");
+  if (!api) throw new Error("API not configured");
   const res = await fetch(`${api}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -126,7 +146,7 @@ async function post<T>(path: string, initData: string, extra: Record<string, unk
   });
   const j = (await res.json().catch(() => ({}))) as T & ErrBody & { ok?: boolean };
   if (!res.ok || j.ok === false) {
-    throw new Error(j.message || adminErrorLabel(j.error) || `Ошибка ${res.status}`);
+    throw new Error(j.message || adminErrorLabel(j.error) || `Error ${res.status}`);
   }
   return j;
 }
@@ -134,23 +154,23 @@ async function post<T>(path: string, initData: string, extra: Record<string, unk
 export function adminErrorLabel(code?: string): string {
   switch (code) {
     case "forbidden":
-      return "Нет прав администратора";
+      return "No admin rights";
     case "chat_mismatch":
-      return "Открой мини-апп из чата стаи";
+      return "Open the miniapp from the pack chat";
     case "not_found":
-      return "Не найдено или уже обработано";
+      return "Not found or already handled";
     case "invalid_action":
-      return "Некорректное действие";
+      return "Invalid action";
     case "empty_text":
-      return "Напиши текст";
+      return "Enter text";
     case "text_too_long":
-      return "Слишком длинный текст";
+      return "Text too long";
     case "moderation_blocked":
-      return "Текст не прошёл модерацию";
+      return "Text failed moderation";
     case "invalid_price":
-      return "Цена должна быть от 1 до 100000 ₽";
+      return "Price must be 1–100000 ₽";
     case "tracker_not_configured":
-      return "Доска недоступна";
+      return "Board unavailable";
     default:
       return code ?? "";
   }
@@ -180,7 +200,7 @@ export function sendAdminSupportReplyPhoto(
   text: string,
   photo: File,
 ) {
-  if (!api) throw new Error("API не настроен");
+  if (!api) throw new Error("API not configured");
   const fd = new FormData();
   fd.append("init_data", initData);
   fd.append("target_user_id", String(targetUserId));
@@ -189,7 +209,7 @@ export function sendAdminSupportReplyPhoto(
   return fetch(`${api}/api/miniapp/admin/support/reply/photo`, { method: "POST", body: fd }).then(async (res) => {
     const j = (await res.json().catch(() => ({}))) as ErrBody & { ok?: boolean };
     if (!res.ok || j.ok === false) {
-      throw new Error(j.message || adminErrorLabel(j.error) || `Ошибка ${res.status}`);
+      throw new Error(j.message || adminErrorLabel(j.error) || `Error ${res.status}`);
     }
     return j;
   });
@@ -477,7 +497,7 @@ export type AdminResources = {
 };
 
 export function moneyKindLabel(kind: string, currency: string): string {
-  const k = kind === "donation" ? "Донат" : "Доступ";
+  const k = kind === "donation" ? "Donation" : "Access";
   const c = currency.toUpperCase() === "XTR" ? "⭐" : "₽";
   return `${k} · ${c}`;
 }

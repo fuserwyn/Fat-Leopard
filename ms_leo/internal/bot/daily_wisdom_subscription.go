@@ -139,7 +139,7 @@ func dailyWisdomDMText(username, wisdom string) string {
 	if strings.TrimSpace(who) != "" {
 		prefix = who + ", "
 	}
-	return "🐆 " + prefix + "мудрость дня от Лео:\n\n" + strings.TrimSpace(wisdom)
+	return "🐆 " + prefix + "daily wisdom from Leo:\n\n" + strings.TrimSpace(wisdom)
 }
 
 // sendDailyWisdomDM — пуш в очередь мини-аппа + DM в Telegram (как напоминания о тренировке).

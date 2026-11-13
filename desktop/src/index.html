@@ -1,65 +1,65 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Fat Leopard — вход</title>
+    <title>Fat Leopard — sign in</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <main class="app-shell app-shell--login">
       <img class="leo" src="leo-avatar.png" alt="" />
       <h1 class="title">Fat Leopard</h1>
-      <p class="page-sub">Стая, тренировки и Лео — на компьютере</p>
+      <p class="page-sub">Your pack on desktop</p>
 
       <section class="surface">
         <section id="viewChecking" class="view">
-          <p class="muted">Проверяю вход…</p>
-          <div class="spinner" role="status" aria-label="загрузка"></div>
+          <p class="muted">Checking session…</p>
+          <div class="spinner" role="status" aria-label="loading"></div>
         </section>
 
         <section id="viewIdle" class="view hidden">
-          <p class="muted">Вход подтверждается в чате с ботом — пароль не нужен.</p>
-          <button id="loginBtn" class="primary">Войти через Telegram</button>
-          <p class="hint">Откроется Telegram. Нажми «Войти» в чате, и приложение продолжит само.</p>
+          <p class="muted">Sign-in is confirmed in the bot chat — no password needed.</p>
+          <button id="loginBtn" class="primary">Sign in with Telegram</button>
+          <p class="hint">Telegram will open. Tap «Sign in» in chat and the app continues automatically.</p>
         </section>
 
         <section id="viewWaiting" class="view hidden">
-          <div class="spinner" role="status" aria-label="ожидание"></div>
-          <p class="strong">Подтверди вход в Telegram</p>
-          <p class="muted">Жду подтверждения…</p>
+          <div class="spinner" role="status" aria-label="loading"></div>
+          <p class="strong">Confirm sign-in in Telegram</p>
+          <p class="muted">Waiting for confirmation…</p>
           <p id="countdown" class="mono"></p>
-          <button id="reopenBtn" class="ghost">Открыть Telegram снова</button>
-          <button id="cancelBtn" class="link">Отмена</button>
+          <button id="reopenBtn" class="ghost">Open Telegram again</button>
+          <button id="cancelBtn" class="link">Cancel</button>
         </section>
 
         <section id="viewDone" class="view hidden">
-          <p class="strong" id="doneName">Готово</p>
-          <p class="muted">Открываю стаю…</p>
+          <p class="strong" id="doneName">Done</p>
+          <p class="muted">Opening Fat Leopard…</p>
         </section>
       </section>
 
       <p id="error" class="error hidden" role="alert"></p>
 
       <details id="settings" class="settings">
-        <summary>Настройки подключения</summary>
+        <summary>Connection settings</summary>
         <label class="field">
-          <span>Адрес мини-аппа</span>
+          <span>Mini-app URL</span>
           <input id="baseUrl" type="text" spellcheck="false" placeholder="https://fat-leopard-main.up.railway.app" />
         </label>
         <label class="field">
-          <span>Адрес API</span>
+          <span>API URL</span>
           <input id="apiUrl" type="text" spellcheck="false" placeholder="https://msleo-main.up.railway.app" />
         </label>
         <label class="field">
-          <span>Бот</span>
+          <span>Bot</span>
           <input id="botName" type="text" spellcheck="false" placeholder="FatLeopard_Bot" />
         </label>
         <div class="settings-actions">
-          <button id="saveSettingsBtn" class="ghost">Сохранить</button>
-          <button id="logoutBtn" class="link">Выйти из аккаунта</button>
+          <button id="saveSettingsBtn" class="ghost">Save</button>
+          <button id="logoutBtn" class="link">Sign out</button>
         </div>
-        <p class="hint">Меняй, только если поднимаешь свою копию — обычно всё уже настроено.</p>
+        <p class="hint">Change only if you run your own copy — defaults are usually fine.</p>
       </details>
     </main>
 

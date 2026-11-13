@@ -27,25 +27,25 @@ const baseProps = {
 describe("ActivityCard streak pill", () => {
   it("renders streak number with correctly declined aria-label", () => {
     render(<ActivityCard {...baseProps} streak={21} />);
-    const pill = screen.getByLabelText("Стрик: 21 день подряд");
+    const pill = screen.getByLabelText("Streak: 21 days in a row");
     expect(pill).toBeTruthy();
     expect(pill.textContent).toContain("21");
-    expect(pill.textContent).toContain("Стрик");
+    expect(pill.textContent).toContain("Streak");
   });
 
-  it("uses 'дня' form for 3", () => {
+  it("uses plural days for 3", () => {
     render(<ActivityCard {...baseProps} streak={3} />);
-    expect(screen.getByLabelText("Стрик: 3 дня подряд")).toBeTruthy();
+    expect(screen.getByLabelText("Streak: 3 days in a row")).toBeTruthy();
   });
 
-  it("uses 'дней' form for 7", () => {
+  it("uses plural days for 7", () => {
     render(<ActivityCard {...baseProps} streak={7} />);
-    expect(screen.getByLabelText("Стрик: 7 дней подряд")).toBeTruthy();
+    expect(screen.getByLabelText("Streak: 7 days in a row")).toBeTruthy();
   });
 
   it("hides the streak pill when hideStreak is set", () => {
     render(<ActivityCard {...baseProps} streak={10} hideStreak />);
-    expect(screen.queryByLabelText(/^Стрик:/)).toBeNull();
+    expect(screen.queryByLabelText(/^Streak:/)).toBeNull();
   });
 });
 
@@ -96,7 +96,7 @@ describe("ActivityCard reactions popover", () => {
     fireEvent.mouseEnter(chip!);
     const pop = document.querySelector(".act-card__likers");
     expect(pop).toBeTruthy();
-    expect(pop!.textContent).toContain("Участник");
+    expect(pop!.textContent).toContain("Member");
   });
 });
 
@@ -121,7 +121,7 @@ describe("ActivityCard training photo fallback", () => {
     expect(container.querySelector(".act-card__photo")).toBeNull();
     const fallback = container.querySelector(".act-card__photo-fallback");
     expect(fallback).toBeTruthy();
-    expect(fallback!.textContent).toContain("Фото не загрузилось");
+    expect(fallback!.textContent).toContain("Photo failed to load");
   });
 
   it("re-requests the photo with a cache-bust param on retry", () => {
@@ -182,10 +182,10 @@ describe("ActivityCard reaction picker gesture", () => {
   it("clamps a long regular comment and expands on tap", () => {
     const long = "Очень длинный отчёт. ".repeat(20);
     render(<ActivityCard {...baseProps} streak={2} comment={long} />);
-    const toggle = screen.getByRole("button", { name: "Показать полностью" });
+    const toggle = screen.getByRole("button", { name: "Show more" });
     expect(toggle).toBeTruthy();
     fireEvent.click(toggle);
-    expect(screen.getByRole("button", { name: "Свернуть" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Collapse" })).toBeTruthy();
   });
 });
 
@@ -193,11 +193,11 @@ describe("ActivityCard thread reply", () => {
   const thread = [
     {
       id: 11,
-      author: "Лео",
+      author: "Leo",
+      isLeo: true,
       text: "Красиво пробежал",
       timeAgo: "сейчас",
       isYou: false,
-      isLeo: true,
     },
     {
       id: 12,
@@ -225,12 +225,12 @@ describe("ActivityCard thread reply", () => {
         onThreadReplyIntent={(payload) => calls.push(payload)}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: /Комментарии/ }));
-    const buttons = screen.getAllByRole("button", { name: "Ответить" });
+    fireEvent.click(screen.getByRole("button", { name: /Comments/ }));
+    const buttons = screen.getAllByRole("button", { name: "Reply" });
     expect(buttons).toHaveLength(2);
     fireEvent.click(buttons[0]);
     fireEvent.click(buttons[1]);
-    expect(calls[0]).toMatchObject({ replyToThreadId: 11, authorLabel: "Лео" });
+    expect(calls[0]).toMatchObject({ replyToThreadId: 11, authorLabel: "Leo" });
     expect(calls[1]).toMatchObject({ replyToThreadId: 12, authorLabel: "Аня" });
   });
 
@@ -247,10 +247,10 @@ describe("ActivityCard thread reply", () => {
         adminVoiceAvailable
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: /Комментарии/ }));
-    expect(screen.getByRole("group", { name: "От чьего имени комментировать" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "🐆 Лео" }));
-    fireEvent.click(screen.getByRole("button", { name: "Отправить" }));
+    fireEvent.click(screen.getByRole("button", { name: /Comments/ }));
+    expect(screen.getByRole("group", { name: "Comment as" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "🐆 Leo" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
     expect(onSubmit).toHaveBeenCalledWith("Привет стае", null, "leo");
   });
 
@@ -261,16 +261,16 @@ describe("ActivityCard thread reply", () => {
         streak={2}
         threadReplies={thread}
         threadComposer={composer}
-        threadReplyIntent={{ replyToThreadId: 11, authorLabel: "Лео", excerpt: "Красиво пробежал" }}
+        threadReplyIntent={{ replyToThreadId: 11, authorLabel: "Leo", excerpt: "Красиво пробежал" }}
         onCancelThreadReplyIntent={() => {}}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: /Комментарии/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Comments/ }));
     const banner = document.querySelector(".act-card__reply-intent");
-    expect(banner?.textContent).toContain("Ответ");
-    expect(banner?.textContent).toContain("Лео");
+    expect(banner?.textContent).toContain("Reply");
+    expect(banner?.textContent).toContain("Leo");
     expect(banner?.textContent).toContain("Красиво пробежал");
-    expect(screen.getByPlaceholderText("Сообщение для Лео…")).toBeTruthy();
+    expect(screen.getByPlaceholderText("Message for Leo…")).toBeTruthy();
   });
 });
 

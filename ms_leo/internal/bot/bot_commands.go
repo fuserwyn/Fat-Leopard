@@ -35,24 +35,24 @@ func (b *Bot) handleHelp(msg *tgbotapi.Message) {
 		return
 	}
 
-	helpText := `🦁 Fat Leopard — Справка
+	helpText := `🦁 Fat Leopard — Help
 
-🐆 Вход:
-• Нажми /start — доступ к мини-приложению открывается сразу и бесплатно
-• Отмечай любое движение каждый день: 8 дней без активности — и ты выбываешь из стаи
-• Вернуться после выбывания можно только за оплату (картой РФ или звёздами Telegram)
+🐆 Getting in:
+• Tap /start — mini app access is immediate and free
+• Log any movement daily: 8 days without activity and you drop from the pack
+• After dropping out, return is paid only (Russia card or Telegram Stars)
 
-❤️ Поддержать проект:
-• Кнопка «Задонатить» в профиле мини-приложения
-• Звёздами Telegram — из любой страны, картой — для РФ
-• Донат добровольный: он не влияет на доступ и не отменяет выбывание
+❤️ Support the project:
+• «Donate» in the mini app profile
+• Telegram Stars — worldwide; card — Russia
+• Donations are optional: they don't affect access or removal rules
 
-💬 Поддержка:
-• Нажми кнопку «💬 Поддержка» внизу экрана
-• Или напиши нам — твоё сообщение придёт команде напрямую
-• Отвечаем в личном чате с ботом
+💬 Support:
+• Tap «💬 Support» at the bottom
+• Or message us — it goes straight to the team
+• We reply in your DM with the bot
 
-Оставайся активным! 🦁`
+Stay active! 🦁`
 
 	reply := tgbotapi.NewMessage(msg.Chat.ID, helpText)
 
@@ -146,14 +146,14 @@ func (b *Bot) handleStart(msg *tgbotapi.Message) {
 	}
 
 	if challengeInvite != nil {
-		welcomeText += fmt.Sprintf("\n\n🔥 Тебя позвали в челлендж «%s» — %d %s подряд с тренировкой. Открой мини-апп, чтобы принять.",
+		welcomeText += fmt.Sprintf("\n\n🔥 You're invited to challenge «%s» — %d %s in a row with a workout. Open the mini app to accept.",
 			challengeInvite.Title, challengeInvite.LengthDays, daysWordForm(challengeInvite.LengthDays))
 	}
 
 	reply := tgbotapi.NewMessage(msg.Chat.ID, welcomeText)
 	if msg.Chat.IsPrivate() && msg.From != nil {
 		if b.isAdminTelegramUser(msg.From.ID) {
-			welcomeText += "\n\n⚙️ Админ-панель — кнопка «" + botAdminReplyButtonText + "» внизу экрана (или /admin)."
+			welcomeText += "\n\n⚙️ Admin panel — tap «" + botAdminReplyButtonText + "» at the bottom (or /admin)."
 			reply.Text = welcomeText
 		}
 		if kb := b.privateBottomReplyKeyboard(msg.From.ID); kb != nil {
@@ -163,7 +163,7 @@ func (b *Bot) handleStart(msg *tgbotapi.Message) {
 		// отдельным сообщением, чтобы не конфликтовать с reply-клавиатурой выше.
 		if b.paywallActive() && !b.paywallPrivateNeedsPayFirst(msg.From.ID) {
 			if ikb := b.miniappOpenInlineKeyboard(msg.From.ID); ikb != nil {
-				open := tgbotapi.NewMessage(msg.Chat.ID, "Открыть тренировки — тапни кнопку ниже 👇")
+				open := tgbotapi.NewMessage(msg.Chat.ID, "Open workouts — tap the button below 👇")
 				open.ReplyMarkup = *ikb
 				if _, err := b.api.Send(open); err != nil {
 					b.logger.Warnf("send miniapp open button user=%d: %v", msg.From.ID, err)
@@ -181,37 +181,37 @@ func (b *Bot) handleStart(msg *tgbotapi.Message) {
 	}
 }
 
-// handleRejoin — после миграции на мини-апп TG-группа выпилена; /rejoin превратили в напоминание открыть мини-апп.
+// handleRejoin — после миграции на мини-апп TG-группа выпилена; /rejoin turned intoи в напоминание открыть мини-апп.
 func (b *Bot) handleRejoin(msg *tgbotapi.Message) {
 	if !msg.Chat.IsPrivate() {
-		_, _ = b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "ℹ️ Команда /rejoin работает в личке с ботом."))
+		_, _ = b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "ℹ️ /rejoin works in DM with the bot."))
 		return
 	}
 	if !b.paywallActive() || msg.From == nil {
-		_, _ = b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "ℹ️ Платный вход сейчас не используется."))
+		_, _ = b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "ℹ️ Paid entry isn't used right now."))
 		return
 	}
 	if b.paywallPrivateNeedsPayFirst(msg.From.ID) {
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "⚠️ Сначала оплати доступ. Нажми /start, чтобы получить счёт.")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "⚠️ Pay for access first. Tap /start to get an invoice.")
 		if kb := b.privateBottomReplyKeyboard(msg.From.ID); kb != nil {
 			reply.ReplyMarkup = kb
 		}
 		if _, err := b.api.Send(reply); err == nil {
 			if ik := b.paywallUnpaidInlineKeyboard(); ik != nil {
-				methods := tgbotapi.NewMessage(msg.Chat.ID, "Способы оплаты:")
+				methods := tgbotapi.NewMessage(msg.Chat.ID, "Payment methods:")
 				methods.ReplyMarkup = ik
 				_, _ = b.api.Send(methods)
 			}
 		}
 		return
 	}
-	_, _ = b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "✅ Доступ активен. Открой мини-приложение бота — внизу экрана в этом чате (или через меню ⋮)."))
+	_, _ = b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "✅ Access is active. Open the bot mini app — at the bottom of this chat (or via the ⋮ menu)."))
 }
 
 func (b *Bot) handleDB(msg *tgbotapi.Message) {
 	// Проверяем права администратора
 	if !b.isAdmin(msg.Chat.ID, msg.From.ID) {
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Только администраторы или владелец могут использовать эту команду!")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Only administrators or the owner can use this command!")
 		b.api.Send(reply)
 		return
 	}
@@ -220,13 +220,13 @@ func (b *Bot) handleDB(msg *tgbotapi.Message) {
 	stats, err := b.db.GetDatabaseStats()
 	if err != nil {
 		b.logger.Errorf("Failed to get database stats: %v", err)
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Ошибка при получении данных")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Failed to load data")
 		b.api.Send(reply)
 		return
 	}
 
 	// Формируем отчет
-	report := fmt.Sprintf("📊 Статистика БД:\n\n👥 Всего пользователей: %v\n✅ С training_done: %v\n🏥 На больничном: %v\n💪 Выздоровели: %v",
+	report := fmt.Sprintf("📊 DB stats:\n\n👥 Total users: %v\n✅ With training_done: %v\n🏥 On sick leave: %v\n💪 Recovered: %v",
 		stats["total_users"], stats["training_done"], stats["sick_leave"], stats["healthy"])
 
 	reply := tgbotapi.NewMessage(msg.Chat.ID, report)
@@ -246,20 +246,20 @@ func (b *Bot) handleTop(msg *tgbotapi.Message) {
 	topUsers, err := b.db.GetTopUsers(rowChat, 10)
 	if err != nil {
 		b.logger.Errorf("Failed to get top users: %v", err)
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Ошибка при получении данных")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Failed to load data")
 		b.api.Send(reply)
 		return
 	}
 
 	if len(topUsers) == 0 {
-		emptyText := "🏆 **Топ пользователей:**\n\n📊 Пока нет данных о тренировках"
+		emptyText := "🏆 **Leaderboard:**\n\n📊 No workout data yet"
 		reply := tgbotapi.NewMessage(msg.Chat.ID, emptyText)
 		reply.ParseMode = "Markdown"
 		b.api.Send(reply)
 		return
 	}
 
-	topText := "🏆 Топ пользователей по кубкам:\n\n"
+	topText := "🏆 Leaderboard by cups:\n\n"
 	for i, user := range topUsers {
 		emoji := "🥇"
 		if i == 1 {
@@ -289,7 +289,7 @@ func (b *Bot) handleCups(msg *tgbotapi.Message) {
 	cups, err := b.db.GetUserCups(msg.From.ID, rowChat)
 	if err != nil {
 		b.logger.Errorf("Failed to get user cups: %v", err)
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Ошибка при получении данных")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Failed to load data")
 		b.api.Send(reply)
 		return
 	}
@@ -318,14 +318,14 @@ func (b *Bot) handleCups(msg *tgbotapi.Message) {
 		username = fmt.Sprintf("User%d", msg.From.ID)
 	}
 
-	// Формируем сообщение в зависимости от количества кубков
+	// Формируем сообщение в зависимости от количества cups
 	var cupsText string
 	if cups > 420 {
-		cupsText = fmt.Sprintf("🌟⚡ СУПЕР-УРОВЕНЬ! ⚡🌟\n\n👤 %s\n🎯 Всего заработано кубков: %d\n\n🎊 ВСЕ ОЖИДАНИЯ ПРЕВЗОЙДЕНЫ! 🎊\n\n🦁 Fat Leopard в полном восторге!\n💪 Ты не просто чемпион - ты СУПЕР-ЧЕМПИОН!\n🔥 Твоя сила и мощь безграничны!\n⭐️ Ты вдохновляешь всю стаю!\n👑 Мотивация не верит, что такое бывает!\n🌟 Ты сияешь ярче всех!\n\n🎯 Продолжай в том же духе, супер-леопард!", username, cups)
+		cupsText = fmt.Sprintf("🌟⚡ SUPER LEVEL! ⚡🌟\n\n👤 %s\n🎯 Total cups earned: %d\n\n🎊 BEYOND ALL EXPECTATIONS! 🎊\n\n🦁 Fat Leopard is thrilled!\n💪 You're not just a champion — you're a SUPER-CHAMPION!\n🔥 Your power knows no bounds!\n⭐️ You inspire the whole pack!\n👑 Motivation can't believe it!\n🌟 You shine brightest!\n\n🎯 Keep it up, super leopard!", username, cups)
 	} else if cups >= 420 {
-		cupsText = fmt.Sprintf("🎊 ПОЗДРАВЛЯЕМ! 🎊\n\n👤 %s\n🎯 Всего заработано кубков: %d\n\n🏆 ТЫ %s ЦЕЛИ РОЗЫГРЫША!\n🎁 Участвуешь в розыгрыше футболки Fat Leopard!\n💪 Ты настоящий %s!\n🔥 Продолжай тренироваться!", username, cups, strings.ToUpper(forms.Reached), forms.Champion)
+		cupsText = fmt.Sprintf("🎊 CONGRATS! 🎊\n\n👤 %s\n🎯 Total cups earned: %d\n\n🏆 YOU %s THE RAFFLE GOAL!\n🎁 You're in the Fat Leopard tee raffle!\n💪 You're a true %s!\n🔥 Keep logging workouts!", username, cups, strings.ToUpper(forms.Reached), forms.Champion)
 	} else {
-		cupsText = fmt.Sprintf("🏆 Ваши кубки:\n\n👤 %s\n🎯 Всего заработано кубков: %d\n\n💡 Отмечайте тренировки в мини-аппе для получения кубков!\n\n🎊 Розыгрыш футболки Fat Leopard при достижении 420 кубков!", username, cups)
+		cupsText = fmt.Sprintf("🏆 Your cups:\n\n👤 %s\n🎯 Total cups earned: %d\n\n💡 Log workouts in the mini app to earn cups!\n\n🎊 Fat Leopard tee raffle at 420 cups!", username, cups)
 	}
 
 	reply := tgbotapi.NewMessage(msg.Chat.ID, cupsText)
@@ -342,7 +342,7 @@ func (b *Bot) handleCups(msg *tgbotapi.Message) {
 func (b *Bot) handleSetExempt(msg *tgbotapi.Message) {
 	// Проверяем права администратора
 	if !b.isAdmin(msg.Chat.ID, msg.From.ID) {
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Только администраторы или владелец могут использовать эту команду!")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Only administrators or the owner can use this command!")
 		b.api.Send(reply)
 		return
 	}
@@ -352,7 +352,7 @@ func (b *Bot) handleSetExempt(msg *tgbotapi.Message) {
 	// Парсим аргументы команды
 	args := strings.Fields(msg.Text)
 	if len(args) < 2 {
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Использование: /set_exempt @username")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Usage: /set_exempt @username")
 		b.api.Send(reply)
 		return
 	}
@@ -367,7 +367,7 @@ func (b *Bot) handleSetExempt(msg *tgbotapi.Message) {
 	userID, err := b.db.GetUserIDByUsername(searchUsername, rowChat)
 	if err != nil {
 		b.logger.Errorf("Failed to get user ID by username '%s': %v", searchUsername, err)
-		reply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("❌ Пользователь %s не найден в базе данных", searchUsername))
+		reply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("❌ User %s not found in the database", searchUsername))
 		b.api.Send(reply)
 		return
 	}
@@ -378,7 +378,7 @@ func (b *Bot) handleSetExempt(msg *tgbotapi.Message) {
 	messageLog, err := b.db.GetMessageLog(userID, rowChat)
 	if err != nil {
 		b.logger.Errorf("Failed to get message log: %v", err)
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Ошибка при получении данных пользователя")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Failed to load user data")
 		b.api.Send(reply)
 		return
 	}
@@ -386,7 +386,7 @@ func (b *Bot) handleSetExempt(msg *tgbotapi.Message) {
 	messageLog.IsExemptFromDeletion = true
 	if err := b.db.SaveMessageLog(messageLog); err != nil {
 		b.logger.Errorf("Failed to save message log: %v", err)
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Ошибка при сохранении данных")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Failed to save data")
 		b.api.Send(reply)
 		return
 	}
@@ -394,14 +394,14 @@ func (b *Bot) handleSetExempt(msg *tgbotapi.Message) {
 	// Отменяем таймер если он активен
 	b.cancelTimer(userID)
 
-	reply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("✅ Пользователь %s исключен из правила удаления за неактивность", messageLog.Username))
+	reply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("✅ User %s is exempt from inactivity removal", messageLog.Username))
 	b.api.Send(reply)
 }
 
 func (b *Bot) handleRemoveExempt(msg *tgbotapi.Message) {
 	// Проверяем права администратора
 	if !b.isAdmin(msg.Chat.ID, msg.From.ID) {
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Только администраторы или владелец могут использовать эту команду!")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Only administrators or the owner can use this command!")
 		b.api.Send(reply)
 		return
 	}
@@ -411,7 +411,7 @@ func (b *Bot) handleRemoveExempt(msg *tgbotapi.Message) {
 	// Парсим аргументы команды
 	args := strings.Fields(msg.Text)
 	if len(args) < 2 {
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Использование: /remove_exempt @username")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Usage: /remove_exempt @username")
 		b.api.Send(reply)
 		return
 	}
@@ -426,7 +426,7 @@ func (b *Bot) handleRemoveExempt(msg *tgbotapi.Message) {
 	userID, err := b.db.GetUserIDByUsername(searchUsername, rowChat)
 	if err != nil {
 		b.logger.Errorf("Failed to get user ID by username '%s': %v", searchUsername, err)
-		reply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("❌ Пользователь %s не найден в базе данных", searchUsername))
+		reply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("❌ User %s not found in the database", searchUsername))
 		b.api.Send(reply)
 		return
 	}
@@ -437,7 +437,7 @@ func (b *Bot) handleRemoveExempt(msg *tgbotapi.Message) {
 	messageLog, err := b.db.GetMessageLog(userID, rowChat)
 	if err != nil {
 		b.logger.Errorf("Failed to get message log: %v", err)
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Ошибка при получении данных пользователя")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Failed to load user data")
 		b.api.Send(reply)
 		return
 	}
@@ -445,7 +445,7 @@ func (b *Bot) handleRemoveExempt(msg *tgbotapi.Message) {
 	messageLog.IsExemptFromDeletion = false
 	if err := b.db.SaveMessageLog(messageLog); err != nil {
 		b.logger.Errorf("Failed to save message log: %v", err)
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Ошибка при сохранении данных")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Failed to save data")
 		b.api.Send(reply)
 		return
 	}
@@ -453,14 +453,14 @@ func (b *Bot) handleRemoveExempt(msg *tgbotapi.Message) {
 	// Запускаем таймер для пользователя
 	b.startTimer(userID, rowChat, messageLog.Username)
 
-	reply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("✅ Пользователь %s больше не исключен из правила удаления. Таймер запущен.", messageLog.Username))
+	reply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("✅ User %s is no longer exempt from inactivity removal. Timer started.", messageLog.Username))
 	b.api.Send(reply)
 }
 
 func (b *Bot) handleListUsers(msg *tgbotapi.Message) {
 	// Проверяем права администратора
 	if !b.isAdmin(msg.Chat.ID, msg.From.ID) {
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Только администраторы или владелец могут использовать эту команду!")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Only administrators or the owner can use this command!")
 		b.api.Send(reply)
 		return
 	}
@@ -471,20 +471,20 @@ func (b *Bot) handleListUsers(msg *tgbotapi.Message) {
 	users, err := b.db.GetUsersByChatID(rowChat)
 	if err != nil {
 		b.logger.Errorf("Failed to get users: %v", err)
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Ошибка при получении списка пользователей")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Failed to load user list")
 		b.api.Send(reply)
 		return
 	}
 
 	if len(users) == 0 {
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "📝 В чате нет пользователей в базе данных")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "📝 No users in the database for this chat")
 		b.api.Send(reply)
 		return
 	}
 
 	// Формируем список пользователей
 	var userList strings.Builder
-	userList.WriteString("📋 Список пользователей в чате:\n\n")
+	userList.WriteString("📋 Users in this chat:\n\n")
 
 	for i, user := range users {
 		exemptStatus := "❌"
@@ -496,16 +496,16 @@ func (b *Bot) handleListUsers(msg *tgbotapi.Message) {
 			i+1, user.Username, user.UserID, exemptStatus))
 	}
 
-	userList.WriteString("\n✅ = исключен из удаления\n❌ = подпадает под правило удаления")
+	userList.WriteString("\n✅ = exempt from removal\n❌ = subject to inactivity removal")
 
 	reply := tgbotapi.NewMessage(msg.Chat.ID, userList.String())
 	b.api.Send(reply)
 }
 
 func (b *Bot) handleSendToChat(msg *tgbotapi.Message) {
-	// Проверяем права доступа - только админ из env может отправлять сообщения в другие чаты.
+	// Проверяем права access - только админ из env может отправлять сообщения в другие чаты.
 	if !b.config.IsAdminTelegramUser(msg.From.ID) {
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ У вас нет прав для использования этой команды")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ You don't have permission to use this command")
 		b.api.Send(reply)
 		return
 	}
@@ -513,7 +513,7 @@ func (b *Bot) handleSendToChat(msg *tgbotapi.Message) {
 	// Получаем аргументы команды
 	args := msg.CommandArguments()
 	if args == "" {
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Использование: /send_to_chat <chat_id> <текст_сообщения>")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Usage: /send_to_chat <chat_id> <message text>")
 		b.api.Send(reply)
 		return
 	}
@@ -521,7 +521,7 @@ func (b *Bot) handleSendToChat(msg *tgbotapi.Message) {
 	// Разбираем аргументы
 	parts := strings.SplitN(args, " ", 2)
 	if len(parts) != 2 {
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Использование: /send_to_chat <chat_id> <текст_сообщения>")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Usage: /send_to_chat <chat_id> <message text>")
 		b.api.Send(reply)
 		return
 	}
@@ -546,7 +546,7 @@ func (b *Bot) handleSendToChat(msg *tgbotapi.Message) {
 	idClean := filtered.String()
 	chatID, err := strconv.ParseInt(idClean, 10, 64)
 	if err != nil {
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Неверный формат chat_id")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Invalid chat_id format")
 		b.api.Send(reply)
 		return
 	}
@@ -561,7 +561,7 @@ func (b *Bot) handleSendToChat(msg *tgbotapi.Message) {
 	b.logger.Infof("Sending message to chat %d: %s", chatID, messageText)
 	_, err = b.api.Send(chatMessage)
 	if err != nil {
-		errorMsg := fmt.Sprintf("❌ Ошибка при отправке сообщения в чат %d: %v", chatID, err)
+		errorMsg := fmt.Sprintf("❌ Failed to send message to chat %d: %v", chatID, err)
 		reply := tgbotapi.NewMessage(msg.Chat.ID, errorMsg)
 		b.api.Send(reply)
 		b.logger.Errorf("Failed to send message to chat %d: %v", chatID, err)
@@ -582,7 +582,7 @@ func (b *Bot) handleSendToChat(msg *tgbotapi.Message) {
 			b.logger.Infof("Persisted send_to_chat message for chat %d", chatID)
 		}
 
-		successMsg := fmt.Sprintf("✅ Сообщение успешно отправлено в чат %d", chatID)
+		successMsg := fmt.Sprintf("✅ Message sent to chat %d", chatID)
 		reply := tgbotapi.NewMessage(msg.Chat.ID, successMsg)
 		b.api.Send(reply)
 		b.logger.Infof("Successfully sent message to chat %d", chatID)
@@ -590,9 +590,9 @@ func (b *Bot) handleSendToChat(msg *tgbotapi.Message) {
 }
 
 func (b *Bot) handleAnnounceAI(msg *tgbotapi.Message) {
-	// Проверяем права доступа - только админ из env может отправлять объявления.
+	// Проверяем права access - только админ из env может отправлять объявления.
 	if !b.config.IsAdminTelegramUser(msg.From.ID) {
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ У вас нет прав для использования этой команды")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ You don't have permission to use this command")
 		b.api.Send(reply)
 		return
 	}
@@ -601,35 +601,35 @@ func (b *Bot) handleAnnounceAI(msg *tgbotapi.Message) {
 	chatIDs, err := b.db.GetAllChatIDs()
 	if err != nil {
 		b.logger.Errorf("Failed to get chat IDs: %v", err)
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Ошибка при получении списка чатов")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Failed to load chat list")
 		b.api.Send(reply)
 		return
 	}
 
 	if len(chatIDs) == 0 {
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Чаты не найдены")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ No chats found")
 		b.api.Send(reply)
 		return
 	}
 
 	// Формируем объявление о ИИ
-	announcement := `🦁 Леопард ожил! 🎉
+	announcement := `🦁 The leopard is alive! 🎉
 
-Теперь со мной можно общаться! Я стал умнее благодаря ИИ:
+You can chat with me now — I'm smarter thanks to AI:
 
-💬 Что я умею:
-• Давать советы по тренировкам
-• Рассказывать твою статистику
-• Анализировать твой прогресс
-• Мотивировать и поддерживать
+💬 What I can do:
+• Give workout advice
+• Share your stats
+• Analyze your progress
+• Motivate and cheer you on
 
-🤖 Как со мной общаться:
-• Отметь меня @LeoPoacherBot в сообщении
-• Или ответь на любое мое сообщение (reply)
+🤖 How to talk to me:
+• Mention @LeoPoacherBot in a message
+• Or reply to any of my messages
 
-Спрашивай меня о чем угодно: тренировки, статистика, мотивация!
+Ask me anything: workouts, stats, motivation!
 
-💪 Давай вместе становиться лучше!`
+💪 Let's get better together!`
 
 	// Отправляем объявление во все чаты
 	successCount := 0
@@ -649,7 +649,7 @@ func (b *Bot) handleAnnounceAI(msg *tgbotapi.Message) {
 	}
 
 	// Отправляем отчет владельцу
-	resultMsg := fmt.Sprintf("✅ Объявление отправлено!\n\nУспешно: %d чатов\nОшибок: %d чатов", successCount, errorCount)
+	resultMsg := fmt.Sprintf("✅ Announcement sent!\n\nSuccess: %d chats\nErrors: %d chats", successCount, errorCount)
 	reply := tgbotapi.NewMessage(msg.Chat.ID, resultMsg)
 	b.api.Send(reply)
 }

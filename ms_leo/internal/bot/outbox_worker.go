@@ -184,7 +184,7 @@ func (b *Bot) processRefundRequested(payload refundRequestedPayload) error {
 		if err := b.refundStarPayment(req.UserID, req.TelegramPaymentChargeID.String); err != nil {
 			return err
 		}
-		b.paywallNotifyUser(req.UserID, "✅ Оплата возвращена. Попробуй ещё раз чуть позже.")
+		b.paywallNotifyUser(req.UserID, "✅ Payment refunded. Please try again in a bit.")
 		return nil
 	}
 	if req.YookassaPaymentID.Valid && strings.TrimSpace(req.YookassaPaymentID.String) != "" {
@@ -202,7 +202,7 @@ func (b *Bot) processRefundRequested(payload refundRequestedPayload) error {
 		if err := b.refundYookassaPayment(req.YookassaPaymentID.String, amount, currency); err != nil {
 			return err
 		}
-		b.paywallNotifyUser(req.UserID, "✅ Оплата возвращена. Попробуй ещё раз чуть позже.")
+		b.paywallNotifyUser(req.UserID, "✅ Payment refunded. Please try again in a bit.")
 		return nil
 	}
 	return nonRetryableOutboxError{msg: fmt.Sprintf("refund unsupported: request=%d currency=%s requires manual provider refund", req.ID, req.Currency.String)}

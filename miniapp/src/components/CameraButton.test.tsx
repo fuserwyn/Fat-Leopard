@@ -15,7 +15,7 @@ describe("CameraButton", () => {
   });
 
   it("clicking the button opens the hidden input", () => {
-    const { container } = render(<CameraButton onChange={() => {}} ariaLabel="Сделать фото" />);
+    const { container } = render(<CameraButton onChange={() => {}} ariaLabel="Take photo" />);
     const input = container.querySelector("input[type=file]") as HTMLInputElement;
     const spy = vi.spyOn(input, "click");
     fireEvent.click(container.querySelector("button")!);

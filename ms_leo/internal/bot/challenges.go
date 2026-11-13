@@ -17,11 +17,11 @@ import (
 	initdata "github.com/telegram-mini-apps/init-data-golang"
 )
 
-// Челленджи: участник берёт N дней подряд с тренировкой.
+// Челленджи: участник берёт N days подряд с тренировкой.
 //
-// День засчитывается первой тренировкой в календарный день участника (его локальная
-// дата, как в calculateTrainingDayOutcome). Пропуск дня проваливает челлендж, если
-// стрик в этот день сгорел; попытка спасения и больничный стрик не жгут — тогда и
+// День засчитывается первой тренировкой в календарный day участника (его локальная
+// дата, как в calculateTrainingDayOutcome). Пропуск days проваливает челлендж, если
+// стрик в этот day сгорел; попытка спасения и больничный стрик не жгут — тогда и
 // челлендж продолжается. Сгорел ли стрик, решают те же функции, что считают стрик:
 // sickAdjustedLastTrainingDate и ComputeStreakDays, — своей арифметики тут нет.
 
@@ -68,7 +68,7 @@ type ChallengeParticipationView struct {
 	DaysDone        int           `json:"days_done"`
 	LastCountedDate string        `json:"last_counted_date,omitempty"`
 	FinishedAt      string        `json:"finished_at,omitempty"`
-	// AtRisk — день пропущен и стрик сгорел, но его ещё можно спасти попыткой:
+	// AtRisk — day пропущен и стрик сгорел, но его ещё можно спасти попыткой:
 	// тогда челлендж продолжится.
 	AtRisk bool `json:"at_risk"`
 }
@@ -100,15 +100,15 @@ func challengeDaysBetween(from, to string) int {
 	return int(b.Sub(a).Hours()/24 + 0.5)
 }
 
-// streakContinues — по ответу ComputeStreakDays: тренировка в этот день продолжает стрик
-// (он не сгорел) или это повтор того же дня.
+// streakContinues — по ответу ComputeStreakDays: workout в этот day продолжает стрик
+// (он не сгорел) или это повтор того же days.
 func streakContinues(prevStreak, newStreak int, sameDay bool) bool {
 	return sameDay || (prevStreak > 0 && newStreak == prevStreak+1)
 }
 
 // challengeStepOnTraining — что делать с активным челленджем, когда участник записал
-// тренировку в день today. streakContinued — стрик этой тренировкой продолжился.
-// Первый засчитанный день — первая тренировка после принятия челленджа.
+// тренировку в day today. streakContinued — стрик этой тренировкой продолжился.
+// Первый засчитанный day — первая workout после принятия челленджа.
 func challengeStepOnTraining(lastCounted, today string, streakContinued bool) challengeStep {
 	lastCounted = strings.TrimSpace(lastCounted)
 	if lastCounted == "" {
@@ -124,7 +124,7 @@ func challengeStepOnTraining(lastCounted, today string, streakContinued bool) ch
 	return challengeStepFail
 }
 
-// challengeStepIdle — проверка без тренировки (открыт экран или ежечасный обход).
+// challengeStepIdle — проверка без workouts (открыт экран или ежечасный обход).
 // streakAlive — стрик не сгорел; saveOpen — сгорел, но попыткой его ещё можно спасти.
 func challengeStepIdle(lastCounted, today string, streakAlive, saveOpen bool) challengeStep {
 	lastCounted = strings.TrimSpace(lastCounted)
@@ -134,7 +134,7 @@ func challengeStepIdle(lastCounted, today string, streakAlive, saveOpen bool) ch
 	return challengeStepFail
 }
 
-// challengeEffectiveLastTraining — дата последней тренировки с учётом больничного
+// challengeEffectiveLastTraining — дата послеdays workouts с учётом больничного
 // (дни болезни стрик не жгут).
 func (b *Bot) challengeEffectiveLastTraining(ml *domain.MessageLog, today string) *string {
 	if ml == nil || ml.LastTrainingDate == nil {
@@ -147,8 +147,8 @@ func (b *Bot) challengeEffectiveLastTraining(ml *domain.MessageLog, today string
 	return &last
 }
 
-// challengeIdleStep решает судьбу активного челленджа без новой тренировки.
-// atRisk — день пропущен, но стрик ещё можно спасти попыткой.
+// challengeIdleStep решает судьбу активного челленджа без новой workouts.
+// atRisk — day пропущен, но стрик ещё можно спасти попыткой.
 func (b *Bot) challengeIdleStep(p *database.ChallengeParticipant) (step challengeStep, atRisk bool) {
 	if p == nil || strings.TrimSpace(p.LastCountedDate) == "" {
 		return challengeStepKeep, false
@@ -197,9 +197,9 @@ func (b *Bot) applyChallengeStep(p *database.ChallengeParticipant, step challeng
 		p.DaysDone, p.LastCountedDate, p.Status = days, today, status
 		if status == database.ChallengeStatusCompleted {
 			b.trackChallenge(database.EventChallengeCompleted, p, nil)
-			text := fmt.Sprintf("🏆 Челлендж «%s» пройден: %d %s подряд!", p.Challenge.Title, days, daysWordForm(days))
+			text := fmt.Sprintf("🏆 Challenge \"%s\" completed: %d %s in a row!", p.Challenge.Title, days, daysWordForm(days))
 			if p.Challenge.LengthDays >= challengeCreatorDays {
-				text += "\n\nТеперь ты можешь создавать свои челленджи в мини-аппе."
+				text += "\n\nYou can create your own challenges in the mini app now."
 			}
 			b.notifyUserTextByID(p.UserID, p.UserID, text, "", 0)
 		}
@@ -215,7 +215,7 @@ func (b *Bot) applyChallengeStep(p *database.ChallengeParticipant, step challeng
 		p.Status = database.ChallengeStatusFailed
 		b.trackChallenge(database.EventChallengeFailed, p, map[string]any{"reason": "missed_day"})
 		b.notifyUserTextByID(p.UserID, p.UserID, fmt.Sprintf(
-			"Челлендж «%s» прерван: пропущен день. Засчитано %d из %d. Новый можно взять сразу — в мини-аппе.",
+			"Challenge \"%s\" ended: a day was missed. Progress: %d of %d. Start a new one anytime in the mini app.",
 			p.Challenge.Title, p.DaysDone, p.Challenge.LengthDays), "", 0)
 	}
 }
@@ -233,7 +233,7 @@ func (b *Bot) trackChallenge(name string, p *database.ChallengeParticipant, extr
 	b.db.TrackEvent(database.AnalyticsEvent{Name: name, UserID: p.UserID, TelegramID: p.UserID, Payload: payload})
 }
 
-// challengeOnTraining — участник записал тренировку в свой день today.
+// challengeOnTraining — участник записал тренировку в свой day today.
 // streakContinued — стрик ею продолжился (см. streakContinues).
 func (b *Bot) challengeOnTraining(userID int64, today string, streakContinued bool) {
 	if b == nil || b.db == nil || userID == 0 {
@@ -413,8 +413,8 @@ func (b *Bot) GetChallengesStateForViewer(viewerUserID int64, initD initdata.Ini
 	return out, nil
 }
 
-// AcceptChallengeForViewer — участник принимает челлендж (по коду). Если сегодня он уже
-// тренировался, первый день засчитывается сразу.
+// AcceptChallengeForViewer — участник принимает челлендж (по коду). Если сегоdays он уже
+// тренировался, первый day засчитывается сразу.
 func (b *Bot) AcceptChallengeForViewer(viewerUserID int64, initD initdata.InitData, code string) (ChallengeParticipationView, error) {
 	if err := b.assertChallengeViewer(viewerUserID, initD); err != nil {
 		return ChallengeParticipationView{}, err
@@ -510,8 +510,8 @@ func newChallengeCode() (string, error) {
 	return sb.String(), nil
 }
 
-// CreateChallengeForViewer — свой челлендж. Доступен тем, кто прошёл 100-дневный;
-// длина 3–365 дней, название до 40 символов и та же модерация, что у комментариев.
+// CreateChallengeForViewer — свой челлендж. Accessен тем, кто прошёл 100-дневный;
+// длина 3–365 days, название до 40 символов и та же модерация, что у комментариев.
 func (b *Bot) CreateChallengeForViewer(viewerUserID int64, initD initdata.InitData, title string, lengthDays int) (ChallengeView, error) {
 	if err := b.assertChallengeViewer(viewerUserID, initD); err != nil {
 		return ChallengeView{}, err

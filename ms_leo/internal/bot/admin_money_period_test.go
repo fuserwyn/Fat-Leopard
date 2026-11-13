@@ -32,11 +32,11 @@ func TestAdminMoneyPeriod(t *testing.T) {
 
 func TestAdminMoneyPeriodLabel(t *testing.T) {
 	cases := map[[2]string]string{
-		{"", ""}:                     "за всё время",
-		{"2026-09-01", "2026-09-30"}: "за 01.09.26–30.09.26",
-		{"2026-09-05", "2026-09-05"}: "за 05.09.26",
-		{"2026-09-01", ""}:           "с 01.09.26",
-		{"", "2026-09-30"}:           "по 30.09.26",
+		{"", ""}:                     "all time",
+		{"2026-09-01", "2026-09-30"}: "for 01.09.26–30.09.26",
+		{"2026-09-05", "2026-09-05"}: "for 05.09.26",
+		{"2026-09-01", ""}:           "from 01.09.26",
+		{"", "2026-09-30"}:           "through 30.09.26",
 	}
 	for in, want := range cases {
 		if got := adminMoneyPeriodLabel(in[0], in[1]); got != want {

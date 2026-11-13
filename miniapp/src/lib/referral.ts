@@ -55,21 +55,17 @@ export async function fetchReferralState(initData: string): Promise<ReferralStat
 
 /** Склонение «друг» по числу. */
 export function friendsWord(n: number): string {
-  const n10 = n % 10;
-  const n100 = n % 100;
-  if (n10 === 1 && n100 !== 11) return "друг";
-  if (n10 >= 2 && n10 <= 4 && (n100 < 12 || n100 > 14)) return "друга";
-  return "друзей";
+  return n === 1 ? "friend" : "friends";
 }
 
-/** Строка прогресса к следующей попытке спасти стрик. */
+/** Progress line toward the next streak save. */
 export function referralProgressLine(s: ReferralState): string {
   const done = s.qualified % s.rewardEvery;
-  return `До попытки спасти стрик: ${done} из ${s.rewardEvery} — ещё ${s.nextIn} ${friendsWord(s.nextIn)} с первой тренировкой`;
+  return `Streak save progress: ${done} of ${s.rewardEvery} — ${s.nextIn} more ${friendsWord(s.nextIn)} with a first workout`;
 }
 
-/** Ссылка на окно Telegram «Поделиться» с приглашением. */
+/** Telegram share URL with invite text. */
 export function referralShareUrl(link: string): string {
-  const text = "Тренируйся со мной в стае Fat Leopard — отмечаем тренировки каждый день 🐆";
+  const text = "Train with me in the Fat Leopard pack — log workouts every day 🐆";
   return `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
 }

@@ -146,7 +146,7 @@ func (b *Bot) recordUGCViolation(userID, packChatID int64, autoMute bool) int {
 			b.logger.Warnf("ugc auto mute user=%d: %v", userID, err)
 		} else {
 			b.notifyUserTextByID(userID, packChatID,
-				"🔇 Публикации в Стае временно ограничены на 24 часа из‑за нарушений правил. Если это ошибка — поддержка в профиле.",
+				"🔇 Pack posts are limited for 24 hours due to rule violations. If this is a mistake — contact support in Profile.",
 				"", 0)
 		}
 	}
@@ -158,16 +158,16 @@ func (b *Bot) adminMuteUserUGC(chatID, targetUserID, packChatID int64, hours int
 		hours = 24
 	}
 	if err := b.db.MuteUserUGCUntil(targetUserID, packChatID, time.Now().UTC().Add(time.Duration(hours)*time.Hour)); err != nil {
-		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Не удалось замьютить: "+err.Error()))
+		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Failed to mute: "+err.Error()))
 		return
 	}
 	count, _ := b.db.IncrementUGCViolationCount(targetUserID, packChatID)
 	b.api.Send(tgbotapi.NewMessage(chatID, fmt.Sprintf(
-		"🔇 Пользователь %d: UGC-мьют на %d ч. Нарушений: %d.",
+		"🔇 User %d: UGC mute for %d h. Violations: %d.",
 		targetUserID, hours, count,
 	)))
 	b.notifyUserTextByID(targetUserID, packChatID,
-		fmt.Sprintf("🔇 Публикации в Стае ограничены на %d ч. по решению модератора.", hours),
+		fmt.Sprintf("🔇 Pack posts are limited for %d h by a moderator.", hours),
 		"", 0)
 }
 
@@ -177,20 +177,20 @@ func (b *Bot) adminUnmuteUserUGC(chatID, targetUserID, packChatID int64) {
 	}
 	muted, err := b.db.IsUserUGCMuted(targetUserID, packChatID)
 	if err != nil {
-		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Не удалось проверить мьют: "+err.Error()))
+		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Failed to check mute status: "+err.Error()))
 		return
 	}
 	if !muted {
-		b.api.Send(tgbotapi.NewMessage(chatID, fmt.Sprintf("ℹ️ Пользователь %d не в UGC-мьюте.", targetUserID)))
+		b.api.Send(tgbotapi.NewMessage(chatID, fmt.Sprintf("ℹ️ User %d is not UGC-muted.", targetUserID)))
 		return
 	}
 	if err := b.db.UnmuteUserUGC(targetUserID, packChatID); err != nil {
-		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Не удалось размьютить: "+err.Error()))
+		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Failed to unmute: "+err.Error()))
 		return
 	}
-	b.api.Send(tgbotapi.NewMessage(chatID, fmt.Sprintf("🔊 Пользователь %d: UGC-мьют снят.", targetUserID)))
+	b.api.Send(tgbotapi.NewMessage(chatID, fmt.Sprintf("🔊 User %d: UGC mute lifted.", targetUserID)))
 	b.notifyUserTextByID(targetUserID, packChatID,
-		"🔊 Ограничения на публикации в Стае сняты. Можно снова писать в ленте, чате и заметках.",
+		"🔊 Pack posting limits lifted. You can write in the feed, chat, and notes again.",
 		"", 0)
 }
 
@@ -216,19 +216,19 @@ func (b *Bot) notifyAdminsModerationAlert(userID int64, surface moderation.Surfa
 	surfaceLabel := "UGC"
 	switch surface {
 	case moderation.SurfaceTrainingNote:
-		surfaceLabel = "заметка тренировки"
+		surfaceLabel = "workout note"
 	case moderation.SurfaceFeedComment:
-		surfaceLabel = "комментарий в ленте"
+		surfaceLabel = "feed comment"
 	case moderation.SurfacePackGroupChat:
-		surfaceLabel = "общий чат стаи"
+		surfaceLabel = "pack group chat"
 	case moderation.SurfaceAdminPost, moderation.SurfaceAdminPollQuestion, moderation.SurfaceAdminPollOption:
-		surfaceLabel = "админ-публикация"
+		surfaceLabel = "admin post"
 	case moderation.SurfaceLeoChat:
-		surfaceLabel = "личный чат с Лео"
+		surfaceLabel = "private chat with Leo"
 	}
 	preview := truncateForDM(rawText, 200)
 	body := fmt.Sprintf(
-		"🚨 PRE-модерация · %s\nПользователь: %d\nПричина: %s\n\n«%s»",
+		"🚨 PRE-moderation · %s\nUser: %d\nReason: %s\n\n«%s»",
 		surfaceLabel, userID, res.Reason, preview,
 	)
 	for _, adminID := range b.config.AdminTelegramUserIDs() {

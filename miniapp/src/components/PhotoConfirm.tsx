@@ -52,12 +52,12 @@ export function PhotoConfirm({ file, onCancel, onConfirm, onCrop, onReplace }: P
   };
 
   return (
-    <div className="ph-confirm" role="dialog" aria-modal="true" aria-label="Фото тренировки">
+    <div className="ph-confirm" role="dialog" aria-modal="true" aria-label="Workout photo">
       <header className="ph-confirm__head">
         <button type="button" className="ph-confirm__btn ph-confirm__btn--ghost" onClick={onCancel} disabled={busy}>
-          Отмена
+          Cancel
         </button>
-        <span className="ph-confirm__title">Фото тренировки</span>
+        <span className="ph-confirm__title">Workout photo</span>
         <span className="ph-confirm__head-spacer" aria-hidden="true" />
       </header>
       <div className="ph-confirm__stage">
@@ -72,10 +72,10 @@ export function PhotoConfirm({ file, onCancel, onConfirm, onCrop, onReplace }: P
           onClick={() => void confirm()}
           disabled={busy}
         >
-          {busy ? "…" : "Готово"}
+          {busy ? "…" : "Done"}
         </button>
         <button type="button" className="ph-confirm__btn" onClick={onCrop} disabled={busy}>
-          Обрезать фото
+          Crop photo
         </button>
         <button
           type="button"
@@ -83,7 +83,7 @@ export function PhotoConfirm({ file, onCancel, onConfirm, onCrop, onReplace }: P
           onClick={() => replaceRef.current?.click()}
           disabled={busy}
         >
-          Загрузить другое фото
+          Choose another photo
         </button>
       </div>
       <input

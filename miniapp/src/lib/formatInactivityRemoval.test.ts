@@ -13,6 +13,6 @@ describe("formatInactivityRemovalHint", () => {
     const hint = formatInactivityRemovalHint("2026-07-08T00:00:00+03:00");
     expect(hint).toBeTruthy();
     expect(hint!).toMatch(/8/);
-    expect(hint!).toMatch(/00:00|0:00/);
+    expect(hint!).toMatch(/12:00 AM|00:00|0:00/);
   });
 });

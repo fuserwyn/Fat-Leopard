@@ -121,7 +121,7 @@ func TestFormatDurationToDays(t *testing.T) {
 	// Тест 1: Только дни
 	duration := 5 * 24 * time.Hour
 	result := bot.formatDurationToDays(duration)
-	expected := "5 дней"
+	expected := "5 days"
 	if result != expected {
 		t.Errorf("Expected %s, got %s", expected, result)
 	}
@@ -129,7 +129,7 @@ func TestFormatDurationToDays(t *testing.T) {
 	// Тест 2: Дни и часы
 	duration = 3*24*time.Hour + 5*time.Hour
 	result = bot.formatDurationToDays(duration)
-	expected = "3 дня 5 ч."
+	expected = "3 days 5 h."
 	if result != expected {
 		t.Errorf("Expected %s, got %s", expected, result)
 	}
@@ -137,7 +137,7 @@ func TestFormatDurationToDays(t *testing.T) {
 	// Тест 3: Только часы
 	duration = 2 * time.Hour
 	result = bot.formatDurationToDays(duration)
-	expected = "2 ч."
+	expected = "2 h."
 	if result != expected {
 		t.Errorf("Expected %s, got %s", expected, result)
 	}
@@ -145,7 +145,7 @@ func TestFormatDurationToDays(t *testing.T) {
 	// Тест 4: Часы и минуты
 	duration = 1*time.Hour + 30*time.Minute
 	result = bot.formatDurationToDays(duration)
-	expected = "1 ч. 30 мин."
+	expected = "1 h. 30 min."
 	if result != expected {
 		t.Errorf("Expected %s, got %s", expected, result)
 	}
@@ -153,7 +153,7 @@ func TestFormatDurationToDays(t *testing.T) {
 	// Тест 5: Только минуты
 	duration = 45 * time.Minute
 	result = bot.formatDurationToDays(duration)
-	expected = "45 мин."
+	expected = "45 min."
 	if result != expected {
 		t.Errorf("Expected %s, got %s", expected, result)
 	}

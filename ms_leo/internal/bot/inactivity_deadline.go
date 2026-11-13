@@ -8,7 +8,7 @@ import (
 	"leo-bot/internal/utils"
 )
 
-// inactiveWarningLocalHour — локальный час отправки предупреждений о неактивности (день 5/6/7).
+// inactiveWarningLocalHour — локальный час отправки предупреждений о неактивности (day 5/6/7).
 const inactiveWarningLocalHour = 9
 
 // userLocalLoc — фиксированная зона юзера: UTC+3 (МСК) + смещение относительно МСК.
@@ -16,11 +16,11 @@ func userLocalLoc(tzOffsetFromMoscow int) *time.Location {
 	return time.FixedZone("UserLocal", (3+tzOffsetFromMoscow)*3600)
 }
 
-// localDailySendDue — пора ли отправить ежедневное сообщение (напоминание, мудрость дня),
+// localDailySendDue — пора ли отправить ежедневное сообщение (напоминание, мудрость days),
 // которое должно прийти в hour:minute по локальному времени юзера, и какую дату отметить
 // отправленной. Окно — от hour:minute до конца часа. Идемпотентность — по ЛОКАЛЬНОЙ дате:
 // с датой МСК при смене пояса сообщение терялось (Белград → Москва: в 23:00 по Белграду
-// уже наступили сутки МСК, и напоминание в 23:00 МСК в день возвращения не приходило).
+// уже наступили сутки МСК, и напоминание в 23:00 МСК в day возвращения не приходило).
 func localDailySendDue(now time.Time, tzOffsetFromMoscow, hour, minute int, lastSentDate string) (bool, string) {
 	localNow := now.In(userLocalLoc(tzOffsetFromMoscow))
 	today := localNow.Format("2006-01-02")
@@ -33,7 +33,7 @@ func localDailySendDue(now time.Time, tzOffsetFromMoscow, hour, minute int, last
 	return true, today
 }
 
-// inactiveWarningAtLocal — 9:00 локального TZ в календарный день, за hoursBefore до кика в полночь.
+// inactiveWarningAtLocal — 9:00 локального TZ в календарный day, за hoursBefore до кика в полночь.
 func inactiveWarningAtLocal(removalAt time.Time, hoursBefore int, loc *time.Location) time.Time {
 	t := removalAt.Add(-time.Duration(hoursBefore) * time.Hour).In(loc)
 	y, m, d := t.Date()
@@ -41,7 +41,7 @@ func inactiveWarningAtLocal(removalAt time.Time, hoursBefore int, loc *time.Loca
 }
 
 // removalDeadlineLocal — момент кика за неактивность: 00:00 локального TZ юзера
-// **следующего** календарного дня после дня, на который приходится (lastTraining + 7×24ч).
+// **следующего** календарного days после days, на который приходится (lastTraining + 7×24ч).
 func removalDeadlineLocal(lastTraining time.Time, tzOffsetFromMoscow int) time.Time {
 	loc := userLocalLoc(tzOffsetFromMoscow)
 	t := lastTraining.In(loc).Add(7 * 24 * time.Hour)
@@ -50,7 +50,7 @@ func removalDeadlineLocal(lastTraining time.Time, tzOffsetFromMoscow int) time.T
 	return startOfThatCalendarDay.AddDate(0, 0, 1)
 }
 
-// nextCalendarMidnightAfterMoscow — 00:00 МСК **следующего** календарного дня относительно момента t (как «до конца суток после #healthy»).
+// nextCalendarMidnightAfterMoscow — 00:00 МСК **следующего** календарного days относительно момента t (как «до конца суток после #healthy»).
 func nextCalendarMidnightAfterMoscow(t time.Time) time.Time {
 	loc := utils.GetMoscowTime().Location()
 	d := t.In(loc)
@@ -140,18 +140,18 @@ func (b *Bot) formatInactivityRemovalSummary(ml *domain.MessageLog) (remaining t
 func sickLeaveRemovalNotice(remainingText, deadlineLocal string, afterRecovery bool) string {
 	var b strings.Builder
 	if afterRecovery {
-		b.WriteString("⏳ До удаления осталось: ")
+		b.WriteString("⏳ Time until removal: ")
 	} else {
-		b.WriteString("⏳ До удаления: ")
+		b.WriteString("⏳ Until removal: ")
 	}
 	b.WriteString(remainingText)
 	if !afterRecovery {
-		b.WriteString(" — столько останется после выздоровления")
+		b.WriteString(" — that much remains after recovery")
 	}
 	if deadlineLocal != "" {
-		b.WriteString("\n📅 Крайний срок: ")
+		b.WriteString("\n📅 Deadline: ")
 		b.WriteString(deadlineLocal)
-		b.WriteString(" (твоё время)")
+		b.WriteString(" (your local time)")
 	}
 	return b.String()
 }

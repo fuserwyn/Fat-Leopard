@@ -114,13 +114,13 @@ func (b *Bot) appendPackGroupSQLContext(packChatID int64, contextText *strings.B
 			continue
 		}
 		who := strings.TrimSpace(m.Username)
-		if m.IsLeo {
-			who = "Лео"
+		if m.IsLeo || who == "Лео" || strings.EqualFold(who, "Leo") {
+			who = "Leo"
 		}
 		if who == "" {
-			who = "Участник"
+			who = "Member"
 		}
-		if !strings.HasPrefix(who, "@") && who != "Лео" {
+		if !strings.HasPrefix(who, "@") && who != "Leo" && who != "Лео" {
 			who = "@" + who
 		}
 		txt := strings.TrimSpace(m.Text)
@@ -130,9 +130,9 @@ func (b *Bot) appendPackGroupSQLContext(packChatID int64, contextText *strings.B
 		// Фото-вложение помечаем явно, чтобы Лео знал о картинке даже без текста.
 		if strings.TrimSpace(m.PhotoURL) != "" {
 			if txt == "" {
-				txt = "[фото]"
+				txt = "[photo]"
 			} else {
-				txt += " [фото]"
+				txt += " [photo]"
 			}
 		}
 		if txt == "" {
@@ -142,14 +142,14 @@ func (b *Bot) appendPackGroupSQLContext(packChatID int64, contextText *strings.B
 		replyMark := ""
 		if m.ReplyToID != 0 {
 			rwho := strings.TrimSpace(m.ReplyToUsername)
-			if m.ReplyToIsLeo {
-				rwho = "Лео"
+			if m.ReplyToIsLeo || rwho == "Лео" || strings.EqualFold(rwho, "Leo") {
+				rwho = "Leo"
 			}
 			if rwho != "" {
-				if rwho != "Лео" && !strings.HasPrefix(rwho, "@") {
+				if rwho != "Leo" && rwho != "Лео" && !strings.HasPrefix(rwho, "@") {
 					rwho = "@" + rwho
 				}
-				replyMark = " (в ответ на " + rwho + ")"
+				replyMark = " (replying to " + rwho + ")"
 			}
 		}
 		ts := strings.TrimSpace(m.CreatedAt)

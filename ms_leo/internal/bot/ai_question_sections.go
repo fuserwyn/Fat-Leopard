@@ -34,26 +34,26 @@ func formatUserEntityLine(u *domain.MessageLog, cups int, remaining string) stri
 	if !strings.HasPrefix(name, "@") {
 		name = "@" + name
 	}
-	status := "✅ активен"
+	status := "✅ active"
 	switch {
 	case u.HasSickLeave:
-		status = "🏥 больничный"
+		status = "🏥 sick leave"
 	case u.HasHealthy:
-		status = "💚 после #healthy"
+		status = "💚 after #healthy"
 	}
-	line := fmt.Sprintf("👤 %s (id=%d) | 🏆 кубки: %d | 💪 стрик: %d %s | %s",
+	line := fmt.Sprintf("👤 %s (id=%d) | 🏆 cups: %d | 💪 streak: %d %s | %s",
 		name, u.UserID, cups, u.StreakDays, daysWordForm(u.StreakDays), status)
 	if u.LastTrainingDate != nil && strings.TrimSpace(*u.LastTrainingDate) != "" {
-		line += fmt.Sprintf(" | 📅 последняя: %s", strings.TrimSpace(*u.LastTrainingDate))
+		line += fmt.Sprintf(" | 📅 last workout: %s", strings.TrimSpace(*u.LastTrainingDate))
 	}
 	if remaining != "" {
 		line += fmt.Sprintf(" | ⏳ %s", remaining)
 	}
 	g := strings.TrimSpace(strings.ToLower(u.Gender))
 	if g == "m" {
-		line += " | пол: м"
+		line += " | gender: m"
 	} else if g == "f" {
-		line += " | пол: ж"
+		line += " | gender: f"
 	}
 	return line
 }
@@ -69,16 +69,16 @@ func formatTrainingFactLine(createdAt, username string, userID int64, messageTyp
 	tag := strings.TrimSpace(messageType)
 	switch tag {
 	case "training_done":
-		tag = "отчёт"
+		tag = "workout"
 	case "sick_leave":
-		tag = "больничный"
+		tag = "sick leave"
 	case "healthy":
-		tag = "выздоровление"
+		tag = "recovery"
 	case "ai_reply":
-		tag = "ответ Лео"
+		tag = "Leo reply"
 	default:
 		if tag == "" || tag == "general" {
-			tag = "текст"
+			tag = "text"
 		}
 	}
 	t := strings.TrimSpace(text)

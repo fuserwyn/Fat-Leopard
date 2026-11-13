@@ -30,7 +30,7 @@ import {
 import { tgConfirm } from "../lib/tgConfirm";
 import "./AdminOpsScreen.css";
 
-/** Разделы админки, которые раньше были только в чате (/admin). */
+/** Admin sections that used to live only in chat (/admin). */
 export type AdminOpsSection = "analytics" | "visits" | "payments" | "admins" | "scheduled" | "poll" | "wipe";
 
 type Props = {
@@ -40,23 +40,23 @@ type Props = {
 };
 
 const PERIODS = [
-  { days: 7, label: "7 дней" },
-  { days: 30, label: "30 дней" },
-  { days: 90, label: "90 дней" },
-  { days: 0, label: "всё время" },
+  { days: 7, label: "7 days" },
+  { days: 30, label: "30 days" },
+  { days: 90, label: "90 days" },
+  { days: 0, label: "all time" },
 ];
 
 const PAYMENTS_PAGE = 20;
 
 const PAYMENT_KINDS: { kind: AdminPaymentsKind; label: string }[] = [
-  { kind: "", label: "Оплаты и донаты" },
-  { kind: "access", label: "Платежи" },
-  { kind: "donation", label: "Донаты" },
+  { kind: "", label: "Payments & donations" },
+  { kind: "access", label: "Payments" },
+  { kind: "donation", label: "Donations" },
 ];
 
 const PAYMENT_ORDERS: { order: AdminPaymentsOrder; label: string }[] = [
-  { order: "desc", label: "Сначала новые" },
-  { order: "asc", label: "Сначала старые" },
+  { order: "desc", label: "Newest first" },
+  { order: "asc", label: "Oldest first" },
 ];
 
 function Table({ table }: { table: AdminTable }) {
@@ -84,7 +84,7 @@ function Table({ table }: { table: AdminTable }) {
           </tbody>
         </table>
       </div>
-      {table.rows.length === 0 ? <p className="ops-muted">Пусто</p> : null}
+      {table.rows.length === 0 ? <p className="ops-muted">Empty</p> : null}
     </section>
   );
 }
@@ -124,7 +124,7 @@ export function AdminOpsScreen({ section, initData, showAlert }: Props) {
   const [postAt, setPostAt] = useState("");
 
   const [question, setQuestion] = useState("");
-  const [options, setOptions] = useState("Да | Нет");
+  const [options, setOptions] = useState("Yes | No");
 
   const [wipe, setWipe] = useState<AdminWipeCounts | null>(null);
 
@@ -141,8 +141,8 @@ export function AdminOpsScreen({ section, initData, showAlert }: Props) {
         setTables(j.analytics.tables ?? []);
         setNote(
           j.analytics.last_event_at
-            ? `Период: ${j.analytics.period} · последнее событие ${j.analytics.last_event_at}`
-            : `Период: ${j.analytics.period}`,
+            ? `Period: ${j.analytics.period} · last event ${j.analytics.last_event_at}`
+            : `Period: ${j.analytics.period}`,
         );
       } else if (section === "visits") {
         const j = await fetchAdminVisits(initData);
@@ -166,9 +166,9 @@ export function AdminOpsScreen({ section, initData, showAlert }: Props) {
         setPaymentsTotal(p.total);
         const filtered = Boolean(paymentsQuery || paymentsFrom || paymentsTo);
         const what =
-          paymentsKind === "access" ? "Платежей" : paymentsKind === "donation" ? "Донатов" : "Оплат и донатов";
-        const empty = filtered ? `${what} по этим фильтрам нет` : `${what} пока нет`;
-        setNote(p.total > 0 ? `Строки ${paymentsOffset + 1}–${paymentsOffset + shown} из ${p.total}` : empty);
+          paymentsKind === "access" ? "Payments" : paymentsKind === "donation" ? "Donations" : "Payments & donations";
+        const empty = filtered ? `No ${what.toLowerCase()} for these filters` : `No ${what.toLowerCase()} yet`;
+        setNote(p.total > 0 ? `Rows ${paymentsOffset + 1}–${paymentsOffset + shown} of ${p.total}` : empty);
       } else if (section === "admins") {
         const j = await fetchAdminAdmins(initData);
         setAdmins(j.admins ?? []);
@@ -180,7 +180,7 @@ export function AdminOpsScreen({ section, initData, showAlert }: Props) {
         setWipe(j.counts);
       }
     } catch (e) {
-      fail(e, "Не удалось загрузить раздел");
+      fail(e, "Couldn’t load section");
     } finally {
       setLoading(false);
     }
@@ -205,17 +205,17 @@ export function AdminOpsScreen({ section, initData, showAlert }: Props) {
   const addAdmin = async () => {
     const q = adminQuery.trim();
     if (!q) {
-      showAlert("Укажи @ник или id.");
+      showAlert("Enter @username or id.");
       return;
     }
     setBusy(true);
     try {
       const j = await addAdminPerson(initData, q);
       setAdminQuery("");
-      showAlert(`Выдал права: ${j.user_id}`);
+      showAlert(`Granted admin: ${j.user_id}`);
       await load();
     } catch (e) {
-      fail(e, "Не удалось выдать права");
+      fail(e, "Couldn’t grant admin");
     } finally {
       setBusy(false);
     }
@@ -223,14 +223,14 @@ export function AdminOpsScreen({ section, initData, showAlert }: Props) {
 
   const dropAdmin = async (person: AdminPerson) => {
     const label = person.username ? `@${person.username}` : String(person.user_id);
-    if (!(await tgConfirm(`Снять права у ${label}?`))) return;
+    if (!(await tgConfirm(`Remove admin rights from ${label}?`))) return;
     setBusy(true);
     try {
       await removeAdminPerson(initData, person.user_id);
-      showAlert("Права сняты.");
+      showAlert("Admin rights removed.");
       await load();
     } catch (e) {
-      fail(e, "Не удалось снять права");
+      fail(e, "Couldn’t remove admin rights");
     } finally {
       setBusy(false);
     }
@@ -239,7 +239,7 @@ export function AdminOpsScreen({ section, initData, showAlert }: Props) {
   const schedulePost = async () => {
     const text = postText.trim();
     if (!text || !postAt) {
-      showAlert("Нужен текст и время.");
+      showAlert("Need text and time.");
       return;
     }
     setBusy(true);
@@ -247,24 +247,24 @@ export function AdminOpsScreen({ section, initData, showAlert }: Props) {
       await addAdminScheduledPost(initData, postAuthor, text, postAt);
       setPostText("");
       setPostAt("");
-      showAlert("Пост поставлен в очередь.");
+      showAlert("Post queued.");
       await load();
     } catch (e) {
-      fail(e, "Не удалось запланировать пост");
+      fail(e, "Couldn’t schedule post");
     } finally {
       setBusy(false);
     }
   };
 
   const dropPost = async (post: AdminScheduledPost) => {
-    if (!(await tgConfirm(`Снять пост на ${post.scheduled_at}?`))) return;
+    if (!(await tgConfirm(`Cancel post scheduled for ${post.scheduled_at}?`))) return;
     setBusy(true);
     try {
       await cancelAdminScheduledPost(initData, post.id);
-      showAlert("Пост снят.");
+      showAlert("Post canceled.");
       await load();
     } catch (e) {
-      fail(e, "Не удалось снять пост");
+      fail(e, "Couldn’t cancel post");
     } finally {
       setBusy(false);
     }
@@ -279,46 +279,46 @@ export function AdminOpsScreen({ section, initData, showAlert }: Props) {
     try {
       await publishAdminPoll(initData, question.trim(), opts);
       setQuestion("");
-      setOptions("Да | Нет");
-      showAlert("Опрос опубликован в ленте.");
+      setOptions("Yes | No");
+      showAlert("Poll published to the feed.");
     } catch (e) {
-      fail(e, "Не удалось опубликовать опрос");
+      fail(e, "Couldn’t publish poll");
     } finally {
       setBusy(false);
     }
   };
 
   const doWipe = async () => {
-    if (!(await tgConfirm("Удалить ленту и переписку стаи? Отменить будет нельзя."))) return;
+    if (!(await tgConfirm("Delete the feed and pack chat? This can’t be undone."))) return;
     setBusy(true);
     try {
       const j = await wipePackFeed(initData, true);
       setWipe(j.counts);
-      showAlert("Лента и чат очищены.");
+      showAlert("Feed and chat cleared.");
     } catch (e) {
-      fail(e, "Не удалось очистить");
+      fail(e, "Couldn’t clear");
     } finally {
       setBusy(false);
     }
   };
 
-  if (loading) return <p className="ops-muted">Загрузка…</p>;
+  if (loading) return <p className="ops-muted">Loading…</p>;
 
   if (section === "admins") {
     return (
       <div className="ops">
         <p className="ops-muted">
-          Права из переменных окружения снять нельзя — они помечены как «из настроек». Остальным права выдаются и
-          снимаются здесь.
+          Admins from environment variables can’t be removed here — they’re marked “from config”. Everyone else is
+          granted and revoked on this screen.
         </p>
         <div className="ops-row">
           <input
             value={adminQuery}
             onChange={(e) => setAdminQuery(e.target.value)}
-            placeholder="@ник или telegram id"
+            placeholder="@username or telegram id"
           />
           <button type="button" className="ops-primary" disabled={busy} onClick={() => void addAdmin()}>
-            Выдать права
+            Grant admin
           </button>
         </div>
         <ul className="ops-list">
@@ -326,11 +326,11 @@ export function AdminOpsScreen({ section, initData, showAlert }: Props) {
             <li key={`${p.user_id}-${p.static ? "s" : "d"}`}>
               <span>
                 <b>{p.username ? `@${p.username}` : p.user_id}</b>
-                <small>{p.static ? "из настроек" : `добавлен ${p.added_at}`}</small>
+                <small>{p.static ? "from config" : `added ${p.added_at}`}</small>
               </span>
               {p.static ? null : (
                 <button type="button" className="ops-danger" disabled={busy} onClick={() => void dropAdmin(p)}>
-                  Снять
+                  Remove
                 </button>
               )}
             </li>
@@ -347,32 +347,32 @@ export function AdminOpsScreen({ section, initData, showAlert }: Props) {
           <textarea
             value={postText}
             onChange={(e) => setPostText(e.target.value)}
-            placeholder="Текст поста в ленту"
+            placeholder="Feed post text"
           />
           <div className="ops-row">
             <select value={postAuthor} onChange={(e) => setPostAuthor(e.target.value as "admin" | "leo")}>
-              <option value="admin">От админа</option>
-              <option value="leo">От Лео</option>
+              <option value="admin">From admin</option>
+              <option value="leo">From Leo</option>
             </select>
             <input type="datetime-local" value={postAt} onChange={(e) => setPostAt(e.target.value)} />
             <button type="button" className="ops-primary" disabled={busy} onClick={() => void schedulePost()}>
-              Запланировать
+              Schedule
             </button>
           </div>
-          <p className="ops-muted">Время по Москве. Публикует тот же воркер, что и посты из чата.</p>
+          <p className="ops-muted">Moscow time. Same worker as chat-scheduled posts.</p>
         </div>
         <ul className="ops-list">
-          {posts.length === 0 ? <li className="ops-muted">Очередь пуста</li> : null}
+          {posts.length === 0 ? <li className="ops-muted">Queue is empty</li> : null}
           {posts.map((p) => (
             <li key={p.id}>
               <span>
                 <b>{p.scheduled_at}</b>
                 <small>
-                  {p.author === "leo" ? "от Лео" : "от админа"} · {p.text.slice(0, 90)}
+                  {p.author === "leo" ? "from Leo" : "from admin"} · {p.text.slice(0, 90)}
                 </small>
               </span>
               <button type="button" className="ops-danger" disabled={busy} onClick={() => void dropPost(p)}>
-                Снять
+                Remove
               </button>
             </li>
           ))}
@@ -385,15 +385,15 @@ export function AdminOpsScreen({ section, initData, showAlert }: Props) {
     return (
       <div className="ops">
         <div className="ops-card">
-          <input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Вопрос" />
+          <input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Question" />
           <input
             value={options}
             onChange={(e) => setOptions(e.target.value)}
-            placeholder="Варианты через | — например: Да | Нет"
+            placeholder="Options separated by | — e.g. Yes | No"
           />
-          <p className="ops-muted">От 2 до 10 вариантов, каждый до 100 символов.</p>
+          <p className="ops-muted">2–10 options, up to 100 characters each.</p>
           <button type="button" className="ops-primary" disabled={busy} onClick={() => void sendPoll()}>
-            Опубликовать опрос
+            Publish poll
           </button>
         </div>
       </div>
@@ -405,12 +405,12 @@ export function AdminOpsScreen({ section, initData, showAlert }: Props) {
       <div className="ops">
         <div className="ops-card ops-card--danger">
           <p>
-            Удалятся посты ленты ({wipe?.feed_posts ?? 0}), комментарии ({wipe?.feed_threads ?? 0}), жалобы (
-            {wipe?.feed_reports ?? 0}) и сообщения чата стаи ({wipe?.pack_chat_messages ?? 0}).
+            This deletes feed posts ({wipe?.feed_posts ?? 0}), comments ({wipe?.feed_threads ?? 0}), reports (
+            {wipe?.feed_reports ?? 0}), and pack chat messages ({wipe?.pack_chat_messages ?? 0}).
           </p>
-          <p className="ops-muted">Действие необратимо: восстановить содержимое будет нечем.</p>
+          <p className="ops-muted">Irreversible — nothing to restore from.</p>
           <button type="button" className="ops-danger ops-danger--block" disabled={busy} onClick={() => void doWipe()}>
-            Очистить ленту и чат
+            Clear feed and chat
           </button>
         </div>
       </div>
@@ -437,7 +437,7 @@ export function AdminOpsScreen({ section, initData, showAlert }: Props) {
         <>
           <div className="ops-row">
             <select
-              aria-label="Тип"
+              aria-label="Type"
               value={paymentsKind}
               onChange={(e) => {
                 setPaymentsKind(e.target.value as AdminPaymentsKind);
@@ -451,12 +451,11 @@ export function AdminOpsScreen({ section, initData, showAlert }: Props) {
               ))}
             </select>
             <select
-              aria-label="Период"
+              aria-label="Period"
               value={paymentsPeriodMode}
               onChange={(e) => {
                 const mode = e.target.value as PaymentsPeriodMode;
                 if (mode === "custom" && paymentsPeriodMode !== "custom") {
-                  // Свой период начинаем с того, что было выбрано, — его удобно подправить.
                   const r = paymentsPeriodRange(paymentsPeriodMode, paymentsAnchor);
                   setPaymentsCustomFrom(r.from);
                   setPaymentsCustomTo(r.to);
@@ -476,7 +475,7 @@ export function AdminOpsScreen({ section, initData, showAlert }: Props) {
             <div className="ops-row ops-period-nav">
               <button
                 type="button"
-                aria-label="Предыдущий период"
+                aria-label="Previous period"
                 onClick={() => {
                   setPaymentsAnchor(shiftPaymentsAnchor(paymentsPeriodMode, paymentsAnchor, -1));
                   setPaymentsOffset(0);
@@ -487,7 +486,7 @@ export function AdminOpsScreen({ section, initData, showAlert }: Props) {
               <span className="ops-period-nav__title">{paymentsPeriodTitle(paymentsPeriodMode, paymentsAnchor)}</span>
               <button
                 type="button"
-                aria-label="Следующий период"
+                aria-label="Next period"
                 disabled={!canShiftPaymentsForward(paymentsPeriodMode, paymentsAnchor, todayMsk())}
                 onClick={() => {
                   setPaymentsAnchor(shiftPaymentsAnchor(paymentsPeriodMode, paymentsAnchor, 1));
@@ -502,7 +501,7 @@ export function AdminOpsScreen({ section, initData, showAlert }: Props) {
             <div className="ops-row">
               <input
                 type="date"
-                aria-label="С даты"
+                aria-label="From date"
                 value={paymentsCustomFrom}
                 max={paymentsCustomTo || undefined}
                 onChange={(e) => {
@@ -512,7 +511,7 @@ export function AdminOpsScreen({ section, initData, showAlert }: Props) {
               />
               <input
                 type="date"
-                aria-label="По дату"
+                aria-label="To date"
                 value={paymentsCustomTo}
                 min={paymentsCustomFrom || undefined}
                 onChange={(e) => {
@@ -534,10 +533,10 @@ export function AdminOpsScreen({ section, initData, showAlert }: Props) {
               type="search"
               value={paymentsQueryDraft}
               onChange={(e) => setPaymentsQueryDraft(e.target.value)}
-              placeholder="@ник, имя или id"
+              placeholder="@username, name, or id"
             />
             <button type="submit" className="ops-primary">
-              Найти
+              Find
             </button>
             {paymentsQuery ? (
               <button
@@ -548,13 +547,13 @@ export function AdminOpsScreen({ section, initData, showAlert }: Props) {
                   setPaymentsOffset(0);
                 }}
               >
-                Сбросить
+                Reset
               </button>
             ) : null}
           </form>
           <div className="ops-row">
             <select
-              aria-label="Сортировка"
+              aria-label="Sort"
               value={paymentsOrder}
               onChange={(e) => {
                 setPaymentsOrder(e.target.value as AdminPaymentsOrder);
@@ -568,15 +567,15 @@ export function AdminOpsScreen({ section, initData, showAlert }: Props) {
               ))}
             </select>
             <select
-              aria-label="Статус"
+              aria-label="Status"
               value={paymentsPaidOnly ? "paid" : "any"}
               onChange={(e) => {
                 setPaymentsPaidOnly(e.target.value === "paid");
                 setPaymentsOffset(0);
               }}
             >
-              <option value="any">Любой статус</option>
-              <option value="paid">Только оплаченные</option>
+              <option value="any">Any status</option>
+              <option value="paid">Paid only</option>
             </select>
           </div>
         </>
@@ -592,14 +591,14 @@ export function AdminOpsScreen({ section, initData, showAlert }: Props) {
             disabled={paymentsOffset === 0}
             onClick={() => setPaymentsOffset(Math.max(0, paymentsOffset - PAYMENTS_PAGE))}
           >
-            ◀ Назад
+            ◀ Back
           </button>
           <button
             type="button"
             disabled={paymentsOffset + PAYMENTS_PAGE >= paymentsTotal}
             onClick={() => setPaymentsOffset(paymentsOffset + PAYMENTS_PAGE)}
           >
-            Вперёд ▶
+            Forward ▶
           </button>
         </div>
       ) : null}

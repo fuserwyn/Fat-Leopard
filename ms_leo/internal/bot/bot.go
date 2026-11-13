@@ -33,7 +33,7 @@ type Bot struct {
 	sickApprovalMutex    sync.Mutex
 	adminSessions        map[int64]*adminSession
 	adminSessionsMutex   sync.Mutex
-	// privateBottomKeyboardKind — последняя reply-клавиатура внизу лички: "admin" | "support".
+	// privateBottomKeyboardKind — послеdaysя reply-клавиатура внизу лички: "admin" | "support".
 	privateBottomKeyboardKind sync.Map
 	userSupportSessions       map[int64]struct{}
 	userSupportSessionsMutex  sync.Mutex
@@ -43,7 +43,7 @@ type Bot struct {
 	// miniappReplyOrigin — пока активна обработка сообщения из мини-аппа,
 	// ключ userID → канал ответов в очередь мини-аппа. Используется в helper-ах
 	// notify*, чтобы НЕ дублировать сообщения Лео в TG-личку (см. требование:
-	// «не дублировать в ТГ из мини-аппа, кроме предупреждений 5/6/7 дней»).
+	// «не дублировать в ТГ из мини-аппа, кроме предупреждений 5/6/7 days»).
 	// Маркер ставит/снимает runMiniAppPrivateTextWorker.
 	miniappReplyOrigin sync.Map
 	// miniappTrainingPhotoURL — следующий URL фото для отчёта #training_done из мини‑аппа (съедается при сохранении user_messages).
@@ -56,38 +56,38 @@ type Bot struct {
 }
 
 // leopardOnboardingBodyText — полный текст онбординга Fat Leopard (редактируй здесь).
-const leopardOnboardingBodyText = `Добро пожаловать в стаю, Fat Leopard 🐆🔥
+const leopardOnboardingBodyText = `Welcome to the pack, Fat Leopard 🐆🔥
 
-Здесь не нужно быть идеальным — нужно просто двигаться. Пробежка, йога, прогулка или 10 отжиманий — всё считается.
+You don't need to be perfect here — just move. A run, yoga, a walk, or 10 push-ups all count.
 
-⚡️ КАК ОТМЕТИТЬ ТРЕНИРОВКУ
-Открой мини-апп Fat Leopard и нажми «+» — заполни тип, минуты и интенсивность. Одного отчёта в день достаточно.
+⚡️ HOW TO LOG A WORKOUT
+Open the Fat Leopard mini app and tap «+» — fill in type, minutes, and intensity. One report per day is enough.
 
-🏆 КУБКИ И СТРИК
-За отчёт начисляются кубки по формуле (длина и суть тренировки). Дни подряд без пропуска растят стрик и открывают ачивки.
+🏆 CUPS AND STREAK
+Each report earns cups by formula (length and type of workout). Consecutive days without a miss grow your streak and unlock achievements.
 
-⏰ ЧТО БУДЕТ, ЕСЛИ ПРОПУСКАТЬ
-- День 5 без тренировки — предупреждение в личку
-- День 6 — второе предупреждение
-- День 7 — кубки обнуляются
-- День 8 — удаление из стаи
+⏰ IF YOU SKIP DAYS
+- Day 5 without a workout — DM warning
+- Day 6 — second warning
+- Day 7 — cups reset to zero
+- Day 8 — removed from the pack
 
-Чтобы получать предупреждения, открой диалог с ботом: /start в личке
+To get warnings, open a chat with the bot: /start in DM
 
-🏆 АЧИВКИ
-Ачивки даются на отметках 7, 14, 21, 30, 42, 50 и 100 дней подряд.
+🏆 ACHIEVEMENTS
+Achievements unlock at 7, 14, 21, 30, 42, 50, and 100 days in a row.
 
-Ачивку можно потратить на:
-- Заморозку — стрик под защитой 7 дней
-- Спасение — в критический момент ачивка не даёт тебя удалить
+You can spend an achievement on:
+- Freeze — streak protected for 7 days
+- Save — at a critical moment an achievement stops removal
 
-❄️ ПЛАТНАЯ ЗАМОРОЗКА
-Нет ачивок, но нужна пауза? 42 ₽ за 7 дней.
+❄️ PAID FREEZE
+No achievements but need a break? 42 ₽ for 7 days.
 
-🔄 ВЕРНУТЬСЯ В СТАЮ
-Был удалён — возвращайся за 210 ₽. Кубки и ачивки не сохраняются.
+🔄 REJOIN THE PACK
+Removed? Rejoin for 210 ₽. Cups and achievements don't carry over.
 
-🎯 Начни прямо сейчас — отметь тренировку в мини-аппе`
+🎯 Start now — log a workout in the mini app`
 
 func New(cfg *config.Config, db *database.Database, log logger.Logger) (*Bot, error) {
 	api, err := tgbotapi.NewBotAPI(cfg.APIToken)
@@ -201,7 +201,7 @@ func (b *Bot) Start(ctx context.Context) error {
 		hasMessages, err := b.db.HasAnyMessages()
 		if err == nil && !hasMessages {
 			b.logger.Info("SCAN_HISTORY_ON_START=true and database is empty, starting initial history scan...")
-			go b.scanChatHistory(ctx, 60) // Сканируем за последние 60 дней
+			go b.scanChatHistory(ctx, 60) // Сканируем за последние 60 days
 		} else if hasMessages {
 			b.logger.Info("Messages already exist in database, skipping history scan. New messages will be saved automatically.")
 		}
@@ -209,7 +209,7 @@ func (b *Bot) Start(ctx context.Context) error {
 		b.logger.Info("SCAN_HISTORY_ON_START=false, skipping history scan. New messages will be saved automatically.")
 	}
 
-	// Запускаем ежемесячную сводку (1-го числа 16:20) и «мудрость дня» (ежедневно 04:20)
+	// Запускаем ежемесячную сводку (1-го числа 16:20) и «мудрость days» (ежедневно 04:20)
 	go b.startDailySummaryScheduler(ctx)
 	go b.startDailyWisdomScheduler(ctx)
 	go b.startOutboxWorker(ctx)
@@ -231,11 +231,11 @@ func (b *Bot) Start(ctx context.Context) error {
 	go b.startInactivityKickWatchdog(ctx)
 	// Напоминания «внеси тренировку» в локальный час пользователя (см. startWorkoutReminderScheduler).
 	go b.startWorkoutReminderScheduler(ctx)
-	// Подписка на «мудрость дня» в личку бота (см. startDailyWisdomSubscriptionScheduler).
+	// Подписка на «мудрость days» в личку бота (см. startDailyWisdomSubscriptionScheduler).
 	go b.startDailyWisdomSubscriptionScheduler(ctx)
 	// Release Notes от Лео раз в две недели (см. release_notes.go).
 	go b.startReleaseNotesScheduler(ctx)
-	// Челленджи: проваливает те, где пропущен день, даже если участник не заходил.
+	// Челленджи: проваливает те, где пропущен day, даже если участник не заходил.
 	go b.startChallengeSweepScheduler(ctx)
 	// Оплата прошла, а вебхук ms_payments не дошёл — дожимаем доступ сами (см. paywall_reconciler.go).
 	go b.startPaywallYookassaReconciler(ctx)
@@ -315,7 +315,7 @@ func (b *Bot) handleUpdate(update tgbotapi.Update) {
 		return
 	}
 
-	// Счёт в звёздах на донат из профиля и счёт за платный возврат различаем по payload
+	// Счёт в Starsах на донат из профиля и счёт за платный возврат различаем по payload
 	// (dn_<id> против pw_<id>): у них разные суммы, таблицы и последствия.
 	if update.PreCheckoutQuery != nil {
 		metrics.PaymentRequests.WithLabelValues("precheckout").Inc()
@@ -371,7 +371,7 @@ func (b *Bot) dispatchTextMessageFromUser(msg *tgbotapi.Message, personalReplyCh
 
 	// Отчёт о тренировке из мини-аппа — не ответ мастеру и не вопрос в поддержку.
 	// Иначе у админа с открытым мастером (или у юзера в сессии поддержки) отчёт
-	// молча проглатывался: ни стрика, ни кубков, в мини-аппе «загляни в личку».
+	// молча проглатывался: ни стрика, ни cups, в мини-аппе «загляни в личку».
 	miniappTrainingReport := personalReplyCh != nil && leopardmoney.IsTrainingReportLine(msg.Text)
 
 	// Админ-мастер перехватывает сообщения владельца в личке при активной сессии.
@@ -379,7 +379,7 @@ func (b *Bot) dispatchTextMessageFromUser(msg *tgbotapi.Message, personalReplyCh
 		return
 	}
 
-	// Поддержка в личке (оплата, доступ) — до мини-аппа, без Лео.
+	// Support в личке (оплата, доступ) — до мини-аппа, без Лео.
 	if !miniappTrainingReport && b.handleUserSupportFlowMessage(msg) {
 		return
 	}
@@ -458,7 +458,7 @@ func (b *Bot) handleCommand(msg *tgbotapi.Message) {
 	case "announce_ai":
 		b.handleAnnounceAI(msg)
 	case "send_wisdom":
-		// Ручной запуск рассылки мудрости дня
+		// Ручной запуск рассылки мудрости days
 		b.generateAndSendDailyWisdom()
 	case "admin":
 		b.handleAdmin(msg)

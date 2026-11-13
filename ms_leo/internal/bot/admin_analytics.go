@@ -11,17 +11,17 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-// Раздел «Аналитика» в админ-панели — читаемый вид воронок и метрик из
+// Раздел «Аналитика» в admin-панели — читаемый вид воронок и метрик из
 // analytics_BT_v1.md поверх таблицы events. Только чтение, без записи.
 
-// analyticsPeriods — окна, которые админ переключает кнопками. 0 = всё время.
+// analyticsPeriods — окна, которые admin переключает кнопками. 0 = всё время.
 var analyticsPeriods = []struct {
 	Days  int
 	Label string
 }{
-	{0, "Всё"},
-	{30, "30д"},
-	{7, "7д"},
+	{0, "All"},
+	{30, "30d"},
+	{7, "7d"},
 }
 
 func analyticsPeriodLabel(days int) string {
@@ -31,9 +31,9 @@ func analyticsPeriodLabel(days int) string {
 		}
 	}
 	if days <= 0 {
-		return "Всё"
+		return "All"
 	}
-	return strconv.Itoa(days) + "д"
+	return strconv.Itoa(days) + "d"
 }
 
 // analyticsPeriodRow — ряд переключателей периода для конкретного экрана.
@@ -61,37 +61,37 @@ func analyticsPct(num, den int64) string {
 // showAdminAnalyticsMenu — корневое меню аналитики.
 func (b *Bot) showAdminAnalyticsMenu(chatID int64) {
 	var sb strings.Builder
-	sb.WriteString("📈 Аналитика Fat Leopard\n\n")
-	sb.WriteString("Воронки и метрики из БТ поверх таблицы events.\n")
+	sb.WriteString("📈 Analytics Fat Leopard\n\n")
+	sb.WriteString("Funnels and metrics from the spec over the events table.\n")
 	if last, ok := b.db.AnalyticsLastEventAt(); ok {
-		sb.WriteString("Последнее событие: " + last.In(time.FixedZone("MSK", 3*3600)).Format("02.01 15:04") + " (МСК)\n")
+		sb.WriteString("Last event: " + last.In(time.FixedZone("MSK", 3*3600)).Format("02.01 15:04") + " (MSK)\n")
 	} else {
-		sb.WriteString("Событий пока нет — данные появятся после первых действий юзеров.\n")
+		sb.WriteString("No events yet — data appears after users start acting.\n")
 	}
-	sb.WriteString("\nВыбери раздел:")
+	sb.WriteString("\nChoose a section:")
 
 	rows := [][]tgbotapi.InlineKeyboardButton{
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("1️⃣ Воронка: бот→оплата", "admin_an_f1_0"),
+			tgbotapi.NewInlineKeyboardButtonData("1️⃣ Funnel: bot→pay", "admin_an_f1_0"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("2️⃣ Воронка: активация", "admin_an_f2_0"),
+			tgbotapi.NewInlineKeyboardButtonData("2️⃣ Funnel: activation", "admin_an_f2_0"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("3️⃣ Retention и серии", "admin_an_f3_0"),
+			tgbotapi.NewInlineKeyboardButtonData("3️⃣ Retention & streaks", "admin_an_f3_0"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("⭐ Сводка KPI", "admin_an_kpi_0"),
+			tgbotapi.NewInlineKeyboardButtonData("⭐ KPI summary", "admin_an_kpi_0"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📡 Каналы", "admin_an_channels_0"),
-			tgbotapi.NewInlineKeyboardButtonData("🗂 Все события", "admin_an_overview_0"),
+			tgbotapi.NewInlineKeyboardButtonData("📡 Channels", "admin_an_channels_0"),
+			tgbotapi.NewInlineKeyboardButtonData("🗂 All events", "admin_an_overview_0"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🐆 Хочу не только спорт", "admin_an_nonsport_0"),
+			tgbotapi.NewInlineKeyboardButtonData("🐆 Not just sport", "admin_an_nonsport_0"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("⬅️ К админке", "admin_open"),
+			tgbotapi.NewInlineKeyboardButtonData("⬅️ Admin panel", "admin_open"),
 		),
 	}
 	msg := tgbotapi.NewMessage(chatID, sb.String())
@@ -104,7 +104,7 @@ func analyticsBottomRows(prefix string, days int) [][]tgbotapi.InlineKeyboardBut
 	return [][]tgbotapi.InlineKeyboardButton{
 		analyticsPeriodRow(prefix, days),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("⬅️ К аналитике", "admin_analytics"),
+			tgbotapi.NewInlineKeyboardButtonData("⬅️ Analytics", "admin_analytics"),
 		),
 	}
 }
@@ -113,7 +113,7 @@ func analyticsBottomRows(prefix string, days int) [][]tgbotapi.InlineKeyboardBut
 func (b *Bot) showAdminAnalyticsFunnel1(chatID int64, days int) {
 	counts, err := b.db.EventUniqueCounts(days)
 	if err != nil {
-		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Не удалось загрузить воронку: "+err.Error()))
+		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Could not load funnel: "+err.Error()))
 		return
 	}
 
@@ -121,15 +121,15 @@ func (b *Bot) showAdminAnalyticsFunnel1(chatID int64, days int) {
 		Event string
 		Label string
 	}{
-		{database.EventBotStarted, "Старт бота"},
-		{database.EventPaywallViewed, "Пэйвол"},
-		{database.EventPaymentMethodSelected, "Выбор способа"},
-		{database.EventPaymentInitiated, "К оплате"},
-		{database.EventPaymentCompleted, "Оплатил"},
-		{database.EventMiniappOpened, "Открыл миниапп"},
+		{database.EventBotStarted, "Bot start"},
+		{database.EventPaywallViewed, "Paywall"},
+		{database.EventPaymentMethodSelected, "Method pick"},
+		{database.EventPaymentInitiated, "To checkout"},
+		{database.EventPaymentCompleted, "Paid"},
+		{database.EventMiniappOpened, "Opened mini app"},
 	}
 
-	tbl := newAdminTable([]string{"Стадия", "Юзеры", "Конв"}, []int{14, 6, 5})
+	tbl := newAdminTable([]string{"Stage", "Users", "Conv"}, []int{14, 6, 5})
 	var prev int64 = -1
 	for _, s := range stages {
 		n := counts[s.Event]
@@ -144,18 +144,18 @@ func (b *Bot) showAdminAnalyticsFunnel1(chatID int64, days int) {
 	started := counts[database.EventBotStarted]
 	paid := counts[database.EventPaymentCompleted]
 	paywall := counts[database.EventPaywallViewed]
-	subtitle := fmt.Sprintf("Период: %s · конверсия = к предыдущей стадии\n⭐ пэйвол→оплата: %s · старт→оплата: %s",
+	subtitle := fmt.Sprintf("Period: %s · conversion vs previous stage\n⭐ paywall→paid: %s · start→paid: %s",
 		analyticsPeriodLabel(days), analyticsPct(paid, paywall), analyticsPct(paid, started))
 
 	kb := &tgbotapi.InlineKeyboardMarkup{InlineKeyboard: analyticsBottomRows("admin_an_f1_", days)}
-	b.sendAdminHTMLPreTable(chatID, "1️⃣ Воронка: бот → оплата", subtitle, tbl.render(), kb)
+	b.sendAdminHTMLPreTable(chatID, "1️⃣ Funnel: bot → pay", subtitle, tbl.render(), kb)
 }
 
 // showAdminAnalyticsFunnel2 — воронка активации (§4), включая kill-метрику.
 func (b *Bot) showAdminAnalyticsFunnel2(chatID int64, days int) {
 	counts, err := b.db.EventUniqueCounts(days)
 	if err != nil {
-		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Не удалось загрузить воронку: "+err.Error()))
+		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Could not load funnel: "+err.Error()))
 		return
 	}
 
@@ -163,13 +163,13 @@ func (b *Bot) showAdminAnalyticsFunnel2(chatID int64, days int) {
 		Event string
 		Label string
 	}{
-		{database.EventMiniappOpened, "Открыл миниапп"},
-		{database.EventWorkoutLogStarted, "Открыл форму"},
-		{database.EventWorkoutLogged, "Залогал трен."},
-		{database.EventLeoCommentReceived, "Коммент Лео"},
+		{database.EventMiniappOpened, "Opened mini app"},
+		{database.EventWorkoutLogStarted, "Opened form"},
+		{database.EventWorkoutLogged, "Logged workout"},
+		{database.EventLeoCommentReceived, "Leo comment"},
 	}
 
-	tbl := newAdminTable([]string{"Стадия", "Юзеры", "Конв"}, []int{14, 6, 5})
+	tbl := newAdminTable([]string{"Stage", "Users", "Conv"}, []int{14, 6, 5})
 	var prev int64 = -1
 	for _, s := range stages {
 		n := counts[s.Event]
@@ -184,18 +184,18 @@ func (b *Bot) showAdminAnalyticsFunnel2(chatID int64, days int) {
 	logged := counts[database.EventWorkoutLogged]
 	paid := counts[database.EventPaymentCompleted]
 	kill := analyticsPct(logged, paid)
-	subtitle := fmt.Sprintf("Период: %s\n⭐ kill-метрика (первая трен./оплата): %s\nТаргет ≥35%% · kill <20%% (BRD)",
+	subtitle := fmt.Sprintf("Period: %s\n⭐ kill metric (first workout/payment): %s\nTarget ≥35%% · kill <20%% (BRD)",
 		analyticsPeriodLabel(days), kill)
 
 	kb := &tgbotapi.InlineKeyboardMarkup{InlineKeyboard: analyticsBottomRows("admin_an_f2_", days)}
-	b.sendAdminHTMLPreTable(chatID, "2️⃣ Воронка: активация", subtitle, tbl.render(), kb)
+	b.sendAdminHTMLPreTable(chatID, "2️⃣ Funnel: activation", subtitle, tbl.render(), kb)
 }
 
 // showAdminAnalyticsFunnel3 — retention и серии (§5).
 func (b *Bot) showAdminAnalyticsFunnel3(chatID int64, days int) {
 	counts, err := b.db.EventUniqueCounts(days)
 	if err != nil {
-		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Не удалось загрузить retention: "+err.Error()))
+		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Could not load retention: "+err.Error()))
 		return
 	}
 
@@ -203,43 +203,43 @@ func (b *Bot) showAdminAnalyticsFunnel3(chatID int64, days int) {
 		Event string
 		Label string
 	}{
-		{database.EventStreakIncremented, "Стрик растёт"},
-		{database.EventStreakAttemptUsed, "Попытка спасла"},
-		{database.EventStreakBroken, "Стрик сгорел"},
-		{database.EventLevelUp, "Новый уровень"},
-		{database.EventMilestoneAchieved, "Ачивка стрика"},
-		{database.EventBurnWarningSent, "Burn-алерт"},
-		{database.EventBurnRecovered, "Спасся после"},
-		{database.EventSickLeaveStarted, "Больничный вкл"},
-		{database.EventSickLeaveEnded, "Больничный выкл"},
-		{database.EventAccountDeletedInactivity, "Удалён (8д)"},
-		{database.EventAccountReactivated, "Вернулся"},
-		{database.EventChallengeJoined, "Взял челлендж"},
-		{database.EventChallengeCompleted, "Прошёл челлендж"},
-		{database.EventChallengeFailed, "Провалил челлендж"},
-		{database.EventChallengeCreated, "Создал челлендж"},
-		{database.EventJointTrainingInvite, "Позвал на трен."},
+		{database.EventStreakIncremented, "Streak up"},
+		{database.EventStreakAttemptUsed, "Attempt saved"},
+		{database.EventStreakBroken, "Streak broke"},
+		{database.EventLevelUp, "Level up"},
+		{database.EventMilestoneAchieved, "Streak milestone"},
+		{database.EventBurnWarningSent, "Burn alert"},
+		{database.EventBurnRecovered, "Recovered after"},
+		{database.EventSickLeaveStarted, "Sick leave on"},
+		{database.EventSickLeaveEnded, "Sick leave off"},
+		{database.EventAccountDeletedInactivity, "Removed (8d)"},
+		{database.EventAccountReactivated, "Came back"},
+		{database.EventChallengeJoined, "Joined challenge"},
+		{database.EventChallengeCompleted, "Finished challenge"},
+		{database.EventChallengeFailed, "Failed challenge"},
+		{database.EventChallengeCreated, "Created challenge"},
+		{database.EventJointTrainingInvite, "Invited to workout"},
 	}
 
-	tbl := newAdminTable([]string{"Событие", "Юзеры"}, []int{16, 6})
+	tbl := newAdminTable([]string{"Event", "Users"}, []int{16, 6})
 	for _, r := range rows {
 		tbl.addRow(r.Label, strconv.FormatInt(counts[r.Event], 10))
 	}
 
 	burnRecovery := analyticsPct(counts[database.EventBurnRecovered], counts[database.EventBurnWarningSent])
 	reactivation := analyticsPct(counts[database.EventAccountReactivated], counts[database.EventAccountDeletedInactivity])
-	subtitle := fmt.Sprintf("Период: %s · уникальные юзеры\nBurn recovery: %s · Реактивация: %s\nNSM/D7/D30 — когортные, считаются отдельным SQL",
+	subtitle := fmt.Sprintf("Period: %s · unique users\nBurn recovery: %s · Reactivation: %s\nNSM/D7/D30 — cohort SQL",
 		analyticsPeriodLabel(days), burnRecovery, reactivation)
 
 	kb := &tgbotapi.InlineKeyboardMarkup{InlineKeyboard: analyticsBottomRows("admin_an_f3_", days)}
-	b.sendAdminHTMLPreTable(chatID, "3️⃣ Retention и серии", subtitle, tbl.render(), kb)
+	b.sendAdminHTMLPreTable(chatID, "3️⃣ Retention & streaks", subtitle, tbl.render(), kb)
 }
 
 // showAdminAnalyticsKPI — сводка ключевых метрик с таргетами (§7).
 func (b *Bot) showAdminAnalyticsKPI(chatID int64, days int) {
 	counts, err := b.db.EventUniqueCounts(days)
 	if err != nil {
-		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Не удалось загрузить KPI: "+err.Error()))
+		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Could not load KPI: "+err.Error()))
 		return
 	}
 
@@ -249,33 +249,33 @@ func (b *Bot) showAdminAnalyticsKPI(chatID int64, days int) {
 	miniapp := counts[database.EventMiniappOpened]
 	logged := counts[database.EventWorkoutLogged]
 
-	tbl := newAdminTable([]string{"Метрика", "Знач", "Цель", "Kill"}, []int{15, 5, 5, 4})
-	tbl.addRow("Активация (трен/опл)", analyticsPct(logged, paid), ">35%", "<20%")
-	tbl.addRow("Пэйвол→оплата", analyticsPct(paid, paywall), "—", "—")
-	tbl.addRow("Старт→пэйвол", analyticsPct(paywall, started), "—", "—")
-	tbl.addRow("Оплата→миниапп", analyticsPct(miniapp, paid), "—", "—")
+	tbl := newAdminTable([]string{"Metric", "Val", "Target", "Kill"}, []int{15, 5, 5, 4})
+	tbl.addRow("Activation (work/pay)", analyticsPct(logged, paid), ">35%", "<20%")
+	tbl.addRow("Paywall→paid", analyticsPct(paid, paywall), "—", "—")
+	tbl.addRow("Start→paywall", analyticsPct(paywall, started), "—", "—")
+	tbl.addRow("Paid→mini app", analyticsPct(miniapp, paid), "—", "—")
 	tbl.addRow("Burn recovery", analyticsPct(counts[database.EventBurnRecovered], counts[database.EventBurnWarningSent]), "—", "—")
-	tbl.addRow("Реактивация", analyticsPct(counts[database.EventAccountReactivated], counts[database.EventAccountDeletedInactivity]), "—", "—")
+	tbl.addRow("Reactivation", analyticsPct(counts[database.EventAccountReactivated], counts[database.EventAccountDeletedInactivity]), "—", "—")
 
-	subtitle := fmt.Sprintf("Период: %s · по уникальным юзерам\nNSM (стрик≥7 на 14д), D7/D30 retention, Sean Ellis — когортные, не в events напрямую",
+	subtitle := fmt.Sprintf("Period: %s · unique users\nNSM (streak≥7 by day 14), D7/D30 retention, Sean Ellis — cohort metrics, not in events directly",
 		analyticsPeriodLabel(days))
 
 	kb := &tgbotapi.InlineKeyboardMarkup{InlineKeyboard: analyticsBottomRows("admin_an_kpi_", days)}
-	b.sendAdminHTMLPreTable(chatID, "⭐ Сводка KPI", subtitle, tbl.render(), kb)
+	b.sendAdminHTMLPreTable(chatID, "⭐ KPI summary", subtitle, tbl.render(), kb)
 }
 
 // showAdminAnalyticsChannels — атрибуция каналов (§8).
 func (b *Bot) showAdminAnalyticsChannels(chatID int64, days int) {
 	channels, err := b.db.GetChannelAttribution(days)
 	if err != nil {
-		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Не удалось загрузить каналы: "+err.Error()))
+		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Could not load channels: "+err.Error()))
 		return
 	}
 
-	subtitle := fmt.Sprintf("Период: %s · source из deep-link", analyticsPeriodLabel(days))
-	tableText := "Данных по каналам пока нет."
+	subtitle := fmt.Sprintf("Period: %s · source from deep link", analyticsPeriodLabel(days))
+	tableText := "No channel data yet."
 	if len(channels) > 0 {
-		tbl := newAdminTable([]string{"Канал", "Старты", "Опл", "CR"}, []int{16, 6, 4, 5})
+		tbl := newAdminTable([]string{"Channel", "Starts", "Paid", "CR"}, []int{16, 6, 4, 5})
 		for _, c := range channels {
 			tbl.addRow(c.Source, strconv.FormatInt(c.Started, 10), strconv.FormatInt(c.Paid, 10), analyticsPct(c.Paid, c.Started))
 		}
@@ -283,21 +283,21 @@ func (b *Bot) showAdminAnalyticsChannels(chatID int64, days int) {
 	}
 
 	kb := &tgbotapi.InlineKeyboardMarkup{InlineKeyboard: analyticsBottomRows("admin_an_channels_", days)}
-	b.sendAdminHTMLPreTable(chatID, "📡 Каналы приобретения", subtitle, tableText, kb)
+	b.sendAdminHTMLPreTable(chatID, "📡 Acquisition channels", subtitle, tableText, kb)
 }
 
 // showAdminAnalyticsOverview — все типы событий разом (§2/§7): что и сколько трекается.
 func (b *Bot) showAdminAnalyticsOverview(chatID int64, days int) {
 	overview, err := b.db.GetEventOverview(days)
 	if err != nil {
-		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Не удалось загрузить события: "+err.Error()))
+		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Could not load events: "+err.Error()))
 		return
 	}
 
-	subtitle := fmt.Sprintf("Период: %s · всего типов: %d", analyticsPeriodLabel(days), len(overview))
-	tableText := "Событий пока нет."
+	subtitle := fmt.Sprintf("Period: %s · event types: %d", analyticsPeriodLabel(days), len(overview))
+	tableText := "No events yet."
 	if len(overview) > 0 {
-		tbl := newAdminTable([]string{"Событие", "Всего", "Юзер", "Послед"}, []int{24, 6, 5, 8})
+		tbl := newAdminTable([]string{"Event", "Total", "User", "Last"}, []int{24, 6, 5, 8})
 		for _, e := range overview {
 			last := "—"
 			if e.LastAt.Valid {
@@ -309,23 +309,23 @@ func (b *Bot) showAdminAnalyticsOverview(chatID int64, days int) {
 	}
 
 	kb := &tgbotapi.InlineKeyboardMarkup{InlineKeyboard: analyticsBottomRows("admin_an_overview_", days)}
-	b.sendAdminHTMLPreTable(chatID, "🗂 Все события", subtitle, tableText, kb)
+	b.sendAdminHTMLPreTable(chatID, "🗂 All events", subtitle, tableText, kb)
 }
 
 // showAdminAnalyticsNonSport — счётчик заявок на фичу «хочу вносить не только спорт».
-// Событие non_sport_interest дедупится по пользователю, поэтому число = количество людей.
+// Event non_sport_interest дедупится по пользователю, поэтому число = количество людей.
 func (b *Bot) showAdminAnalyticsNonSport(chatID int64, days int) {
 	counts, err := b.db.EventUniqueCounts(days)
 	if err != nil {
-		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Не удалось загрузить счётчик: "+err.Error()))
+		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Could not load counter: "+err.Error()))
 		return
 	}
 	n := counts[database.EventNonSportInterest]
 
 	var sb strings.Builder
-	sb.WriteString("🐆 Хочу вносить не только спорт\n\n")
-	sb.WriteString(fmt.Sprintf("Заявок на фичу: %d\n", n))
-	sb.WriteString("Период: " + analyticsPeriodLabel(days) + " · уникальные люди (по одной заявке на юзера)")
+	sb.WriteString("🐆 Not just sport\n\n")
+	sb.WriteString(fmt.Sprintf("Feature requests: %d\n", n))
+	sb.WriteString("Period: " + analyticsPeriodLabel(days) + " · unique users (one request per user)")
 
 	kb := &tgbotapi.InlineKeyboardMarkup{InlineKeyboard: analyticsBottomRows("admin_an_nonsport_", days)}
 	msg := tgbotapi.NewMessage(chatID, sb.String())

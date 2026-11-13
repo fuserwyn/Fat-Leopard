@@ -49,7 +49,7 @@ func TestExpirePaywallAccessForUser_KickFlow(t *testing.T) {
 			t.Fatalf("ExpirePaywallAccessForUser: %v", err)
 		}
 
-		// 3) После кика повторная проверка доступа должна вернуть false:
+		// 3) После кика повторная проверка access должна вернуть false:
 		// access_expires_at > NOW() уже не выполняется → paywallPrivateNeedsPayFirst вернёт true,
 		// а handleStart покажет paywallPrivateUnpaidUserText с кнопками оплаты.
 		mock.ExpectQuery(`SELECT EXISTS\s*\(\s*SELECT 1 FROM paywall_access_requests`).
@@ -61,7 +61,7 @@ func TestExpirePaywallAccessForUser_KickFlow(t *testing.T) {
 			t.Fatalf("UserHasActivePaywallAccess (after kick): %v", err)
 		}
 		if ok {
-			t.Fatal("после кика активного доступа быть не должно — иначе бот не предложит оплату")
+			t.Fatal("после кика активного access быть не должно — иначе бот не предложит оплату")
 		}
 
 		if err := mock.ExpectationsWereMet(); err != nil {

@@ -16,7 +16,7 @@ describe("formatCupsHistoryDate", () => {
 
 describe("buildCupsHistoryRows", () => {
   it("keeps the caption limit of 42 newest workouts", () => {
-    expect(CUPS_HISTORY_CAPTION).toBe("42 последние тренировки");
+    expect(CUPS_HISTORY_CAPTION).toBe("Last 42 workouts");
     expect(CUPS_HISTORY_LIMIT).toBe(42);
     const workouts = Array.from({ length: 43 }, (_, i) => ({
       date: "2026-01-01",
@@ -42,7 +42,7 @@ describe("buildCupsHistoryRows", () => {
       ],
       [],
     );
-    expect(row?.line).toBe("27.09.2026 бег + плавание 4/5 40 мин +22 кубка");
+    expect(row?.line).toBe("27.09.2026 Run + Swim 4/5 40 min +22 cups");
   });
 
   it("keeps every pack weekly bonus while the workout list is shorter than the limit", () => {
@@ -58,7 +58,7 @@ describe("buildCupsHistoryRows", () => {
       [{ date: "2026-09-01", cups: 50, createdAt: "2026-09-01T12:00:00Z" }],
     );
     expect(rows.filter((row) => row.kind === "pack_weekly")).toHaveLength(1);
-    expect(rows[1]?.line).toBe(`01.09.2026 ${PACK_WEEKLY_CUPS_LABEL} +50 кубков`);
+    expect(rows[1]?.line).toBe(`01.09.2026 ${PACK_WEEKLY_CUPS_LABEL} +50 cups`);
   });
 
   it("drops a pack weekly bonus older than the last 42 workouts", () => {
@@ -80,13 +80,13 @@ describe("buildCupsHistoryRows", () => {
     const weekly = rows.filter((row) => row.kind === "pack_weekly");
     expect(rows.filter((row) => row.kind === "workout")).toHaveLength(42);
     expect(weekly).toHaveLength(1);
-    expect(weekly[0]?.cupsLabel).toBe("+50 кубков");
+    expect(weekly[0]?.cupsLabel).toBe("+50 cups");
   });
 
   it("shows weekly cups when there are no workouts yet", () => {
     const rows = buildCupsHistoryRows([], [{ date: "2026-09-22", cups: 1, createdAt: "2026-09-22T15:00:00Z" }]);
     expect(rows).toHaveLength(1);
-    expect(rows[0]?.line).toBe(`22.09.2026 ${PACK_WEEKLY_CUPS_LABEL} +1 кубок`);
+    expect(rows[0]?.line).toBe(`22.09.2026 ${PACK_WEEKLY_CUPS_LABEL} +1 cup`);
   });
 });
 
@@ -120,7 +120,7 @@ describe("sortCupsHistoryRows", () => {
 
   it("sorts by sport type alphabetically by default", () => {
     const types = sortCupsHistoryRows(rows, "type").map((r) => r.workoutType.toLowerCase());
-    expect(types).toEqual([...types].sort((a, b) => a.localeCompare(b, "ru")));
+    expect(types).toEqual([...types].sort((a, b) => a.localeCompare(b, "en")));
   });
 
   it("does not mutate the input", () => {

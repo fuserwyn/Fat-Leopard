@@ -27,10 +27,10 @@ func (b *Bot) MiniappLeoLabAsk(
 	}
 	q := strings.TrimSpace(question)
 	if q == "" {
-		return "", false, fmt.Errorf("спроси что-нибудь")
+		return "", false, fmt.Errorf("ask something")
 	}
 	if b.aiClient == nil {
-		return "", false, fmt.Errorf("Лео недоступен: не настроен OpenRouter")
+		return "", false, fmt.Errorf("Leo unavailable: OpenRouter not configured")
 	}
 	sys := strings.TrimSpace(systemPrompt)
 	if sys == "" {
@@ -48,7 +48,7 @@ func (b *Bot) MiniappLeoLabAsk(
 		{Role: "user", Content: q},
 	}, "")
 	if err != nil {
-		return "", usedDefault, fmt.Errorf("Лео не ответил: %w", err)
+		return "", usedDefault, fmt.Errorf("Leo did not reply: %w", err)
 	}
 	return strings.TrimSpace(answer), usedDefault, nil
 }
@@ -69,17 +69,17 @@ func (b *Bot) MiniappLeoLabTeach(viewerUserID int64, initD initdata.InitData, te
 	}
 	fact := strings.TrimSpace(text)
 	if fact == "" {
-		return fmt.Errorf("напиши, что Лео должен запомнить")
+		return fmt.Errorf("write what Leo should remember")
 	}
 	if len([]rune(fact)) > 2000 {
 		fact = string([]rune(fact)[:2000])
 	}
 	if b.ragStore == nil || !b.ragStore.Enabled() {
-		return fmt.Errorf("память выключена: не настроен Qdrant")
+		return fmt.Errorf("memory disabled: Qdrant not configured")
 	}
 	packChatID := b.config.MonetizedChatID
 	if packChatID == 0 {
-		return fmt.Errorf("не настроен MonetizedChatID")
+		return fmt.Errorf("MonetizedChatID not configured")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

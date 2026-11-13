@@ -171,7 +171,7 @@ func (b *Bot) processMiniAppPrivateCore(d initdata.InitData, text string, traini
 			return out
 		}
 		b.logger.Warnf("miniapp training_done: empty reply after dispatch user=%d", d.User.ID)
-		out.ReplyText = "✅ Отчёт принят. Если не видишь сводку с кубками и стриком — загляни в личку с ботом в Telegram."
+		out.ReplyText = "✅ Workout logged. If you don't see cups and streak summary — check your Telegram DM with the bot."
 		return out
 	}
 
@@ -224,24 +224,24 @@ func (b *Bot) ProcessMiniAppLeoPhoto(d initdata.InitData, caption, photoURL stri
 // описание изображения (vision) + подпись юзера. Передаётся в обычный путь ИИ.
 func buildLeoPhotoQuestion(caption, desc string) string {
 	var sb strings.Builder
-	sb.WriteString("Пользователь прислал в личный чат фото и хочет рекомендации по нему.\n")
+	sb.WriteString("The user sent a photo in DM and wants advice about it.\n")
 	d := strings.TrimSpace(desc)
 	c := strings.TrimSpace(caption)
 	if d != "" {
-		sb.WriteString("[Что на фото (по описанию vision-модели): " + d + "]\n")
+		sb.WriteString("[What's in the photo (vision model): " + d + "]\n")
 	}
 	if c != "" {
-		sb.WriteString("Подпись/вопрос к фото: " + c + "\n")
+		sb.WriteString("Caption/question: " + c + "\n")
 	}
 	switch {
 	case d == "" && c == "":
 		// Фото рассмотреть не удалось и подписи нет — честно попроси описать словами.
-		sb.WriteString("Фото рассмотреть не получилось, подписи тоже нет. Дружелюбно попроси описать словами, что на снимке и с чем помочь.\n")
+		sb.WriteString("Couldn't read the photo and there is no caption. Kindly ask them to describe the shot and how you can help.\n")
 	case d == "" && c != "":
 		// Нет описания, но есть подпись — отвечай по подписи, не выдумывая содержимое фото.
-		sb.WriteString("Само фото рассмотреть не получилось — отвечай по подписи, не выдумывая, что именно на снимке.\n")
+		sb.WriteString("Couldn't read the image — answer from the caption only; don't guess what's in the photo.\n")
 	case d != "" && c == "":
-		sb.WriteString("Подписи нет — по тому, что на фото, дай полезные рекомендации (техника, форма, питание, экипировка — смотря что на снимке).\n")
+		sb.WriteString("No caption — give useful advice from what's visible (technique, form, food, gear — as appropriate).\n")
 	}
 	return strings.TrimSpace(sb.String())
 }

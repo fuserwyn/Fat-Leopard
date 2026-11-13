@@ -8,9 +8,9 @@ afterEach(cleanup);
 describe("LevelUpToast", () => {
   it("shows the new-level title, number chip and animal name", () => {
     const { container, getByText } = render(<LevelUpToast level={4} onDone={() => {}} />);
-    expect(getByText("Новый уровень!")).toBeTruthy();
+    expect(getByText("New level!")).toBeTruthy();
     // Гепард — 4-й уровень (см. miniappLevel.ts).
-    expect(getByText(/Гепард/)).toBeTruthy();
+    expect(getByText(/Cheetah/)).toBeTruthy();
     expect(container.querySelector(".achievement-toast__level-chip")?.textContent).toBe("4");
   });
 

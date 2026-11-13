@@ -13,41 +13,41 @@ import (
 // showAdminUserPurgePrompt — шаг 1: показываем реальный след юзера в БД по таблицам.
 func (b *Bot) showAdminUserPurgePrompt(chatID, targetUserID int64) {
 	if b == nil || b.db == nil {
-		b.api.Send(tgbotapi.NewMessage(chatID, "❌ База недоступна."))
+		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Database unavailable."))
 		return
 	}
 	report, err := b.db.AdminCountUserFootprint(targetUserID)
 	if err != nil {
-		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Не удалось посчитать данные юзера: "+err.Error()))
+		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Could not count user data: "+err.Error()))
 		return
 	}
 
 	var body strings.Builder
-	body.WriteString(fmt.Sprintf("☠️ <b>Полное удаление пользователя %d</b>\n\n", targetUserID))
-	body.WriteString("Найдено в базе:\n")
+	body.WriteString(fmt.Sprintf("☠️ <b>Full delete for user %d</b>\n\n", targetUserID))
+	body.WriteString("Found in database:\n")
 	rows := report.NonEmpty()
 	if len(rows) == 0 {
-		body.WriteString("• ничего — юзера в базе уже нет\n")
+		body.WriteString("• nothing — user is already gone from the database\n")
 	} else {
 		for _, row := range rows {
 			body.WriteString(fmt.Sprintf("• %s: %d\n", adminEscapeHTML(row.Label), row.Rows))
 		}
 	}
-	body.WriteString(fmt.Sprintf("\nВсего строк: <b>%d</b>\n\n", report.Total))
-	body.WriteString("Удалится безвозвратно и целиком: профиль стаи, кубки, стрик, ачивки, ")
-	body.WriteString("посты и комментарии, чаты, оплаты, аналитика и права админа.\n")
-	body.WriteString("Восстановить через «♻️ Вернуть» будет уже нечего.\n\n")
-	body.WriteString("После удаления юзер придёт как новый: /start и мини-апп проведут его по пути новичка.")
+	body.WriteString(fmt.Sprintf("\nTotal rows: <b>%d</b>\n\n", report.Total))
+	body.WriteString("This permanently deletes: pack profile, cups, streak, achievements, ")
+	body.WriteString("posts and comments, chats, payments, analytics, and admin rights.\n")
+	body.WriteString("Nothing left to restore with ♻️ Restore.\n\n")
+	body.WriteString("After deletion they start fresh: /start and the mini app run the newcomer flow.")
 
 	msg := tgbotapi.NewMessage(chatID, body.String())
 	msg.ParseMode = "HTML"
 	msg.DisableWebPagePreview = true
 	msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("☠️ Стереть полностью", "admin_user_purge_go_"+strconv.FormatInt(targetUserID, 10)),
+			tgbotapi.NewInlineKeyboardButtonData("☠️ Delete completely", "admin_user_purge_go_"+strconv.FormatInt(targetUserID, 10)),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("❌ Отмена", "admin_user_open_"+strconv.FormatInt(targetUserID, 10)),
+			tgbotapi.NewInlineKeyboardButtonData("❌ Cancel", "admin_user_open_"+strconv.FormatInt(targetUserID, 10)),
 		),
 	)
 	b.api.Send(msg)
@@ -56,19 +56,19 @@ func (b *Bot) showAdminUserPurgePrompt(chatID, targetUserID int64) {
 // showAdminUserPurgeConfirm — шаг 2: последнее подтверждение, действие необратимо.
 func (b *Bot) showAdminUserPurgeConfirm(chatID, adminID, targetUserID int64) {
 	text := fmt.Sprintf(
-		"⚠️ Последнее подтверждение.\n\nПользователь %d будет стёрт из всех таблиц без возможности отката.",
+		"⚠️ Final confirmation.\n\nUser %d will be erased from all tables with no undo.",
 		targetUserID,
 	)
 	if adminID == targetUserID {
-		text += "\n\n‼️ Это ТВОЙ аккаунт: ты потеряешь профиль стаи и права админа из базы."
+		text += "\n\n‼️ This is YOUR account: you will lose your pack profile and admin rights stored in the database."
 	}
 	msg := tgbotapi.NewMessage(chatID, text)
 	msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("☠️ Да, стереть навсегда", "admin_user_purge_yes_"+strconv.FormatInt(targetUserID, 10)),
+			tgbotapi.NewInlineKeyboardButtonData("☠️ Yes, delete forever", "admin_user_purge_yes_"+strconv.FormatInt(targetUserID, 10)),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("❌ Отмена", "admin_user_open_"+strconv.FormatInt(targetUserID, 10)),
+			tgbotapi.NewInlineKeyboardButtonData("❌ Cancel", "admin_user_open_"+strconv.FormatInt(targetUserID, 10)),
 		),
 	)
 	b.api.Send(msg)
@@ -77,7 +77,7 @@ func (b *Bot) showAdminUserPurgeConfirm(chatID, adminID, targetUserID int64) {
 // executeAdminUserPurge — сам каскад плюс сброс всего, что бот держал по юзеру в памяти.
 func (b *Bot) executeAdminUserPurge(chatID, adminID, targetUserID int64) {
 	if b == nil || b.db == nil {
-		b.api.Send(tgbotapi.NewMessage(chatID, "❌ База недоступна."))
+		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Database unavailable."))
 		return
 	}
 
@@ -87,7 +87,7 @@ func (b *Bot) executeAdminUserPurge(chatID, adminID, targetUserID int64) {
 
 	report, err := b.db.AdminPurgeUserEverywhere(targetUserID)
 	if err != nil {
-		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Удаление не удалось: "+err.Error()))
+		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Deletion failed: "+err.Error()))
 		return
 	}
 
@@ -95,18 +95,18 @@ func (b *Bot) executeAdminUserPurge(chatID, adminID, targetUserID int64) {
 	b.logger.Infof("admin %d purged user %d completely: %d rows", adminID, targetUserID, report.Total)
 
 	var body strings.Builder
-	body.WriteString(fmt.Sprintf("✅ Пользователь %d полностью удалён из базы.\n\n", targetUserID))
+	body.WriteString(fmt.Sprintf("✅ User %d fully removed from the database.\n\n", targetUserID))
 	body.WriteString(adminUserPurgeSummary(report))
-	body.WriteString("\n\nОн больше не существует для бота — заново пройдёт путь новичка.")
+	body.WriteString("\n\nThey no longer exist for the bot — they will go through the newcomer flow again.")
 	if adminID == targetUserID {
-		body.WriteString("\n\n⚠️ Ты стёр свой аккаунт. Права из OWNER_ID/ADMIN_IDS остаются (они в .env).")
+		body.WriteString("\n\n⚠️ You deleted your own account. Rights from OWNER_ID/ADMIN_IDS remain (they live in .env).")
 	}
 
 	msg := tgbotapi.NewMessage(chatID, body.String())
 	msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("📋 К списку", "admin_users_list_0"),
-			tgbotapi.NewInlineKeyboardButtonData("⬅️ Админка", "admin_open"),
+			tgbotapi.NewInlineKeyboardButtonData("📋 Back to list", "admin_users_list_0"),
+			tgbotapi.NewInlineKeyboardButtonData("⬅️ Admin", "admin_open"),
 		),
 	)
 	b.api.Send(msg)
@@ -115,14 +115,14 @@ func (b *Bot) executeAdminUserPurge(chatID, adminID, targetUserID int64) {
 func adminUserPurgeSummary(report database.AdminUserPurgeReport) string {
 	rows := report.NonEmpty()
 	if len(rows) == 0 {
-		return "Удалять было нечего — записей в базе не нашлось."
+		return "Nothing to delete — no rows were found in the database."
 	}
 	var sb strings.Builder
-	sb.WriteString("Удалено:\n")
+	sb.WriteString("Deleted:\n")
 	for _, row := range rows {
 		sb.WriteString(fmt.Sprintf("• %s: %d\n", row.Label, row.Rows))
 	}
-	sb.WriteString(fmt.Sprintf("Всего строк: %d", report.Total))
+	sb.WriteString(fmt.Sprintf("Total rows: %d", report.Total))
 	return sb.String()
 }
 
@@ -140,9 +140,9 @@ func (b *Bot) forgetUserRuntimeState(userID int64) {
 	b.privateBottomKeyboardKind.Delete(userID)
 	b.miniappReplyOrigin.Delete(userID)
 	b.miniappTrainingPhotoURL.Delete(userID)
-	// Юзер мог быть динамическим админом — перечитываем кэш прав из БД.
+	// User мог быть динамическим adminом — перечитываем кэш прав из БД.
 	b.reloadDynamicAdmins()
-	// Доступа больше нет: прячем web_app-кнопку мини-аппа в личке.
+	// Accessа больше нет: прячем web_app-кнопку мини-аппа в личке.
 	invalidateMiniappMenuButtonCache(userID)
 	b.applyMiniappMenuButtonForUser(userID)
 }

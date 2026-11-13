@@ -55,7 +55,7 @@ func TestPaywallUnpaidScreenShowsMethodsWithPrices(t *testing.T) {
 		t.Fatal(err)
 	}
 	msgs := tg.sent("sendMessage")
-	if len(msgs) != 2 || !strings.Contains(msgs[0].Form.Get("text"), "Ты выбыл из стаи") || msgs[1].Form.Get("text") != "Способы оплаты:" {
+	if len(msgs) != 2 || !strings.Contains(msgs[0].Form.Get("text"), "dropped from the pack") || msgs[1].Form.Get("text") != "Payment methods:" {
 		t.Fatalf("сообщения экрана оплаты: %+v", msgs)
 	}
 	kb := msgs[1].Form.Get("reply_markup")
@@ -77,14 +77,14 @@ func TestPaywallUnpaidScreenShowsMethodsWithPrices(t *testing.T) {
 
 	// Платный вход — другой текст; оплата не настроена — предупреждение без кнопок.
 	b.config.PaywallEntryFree = false
-	if text := b.paywallPrivateUnpaidUserText(); !strings.Contains(text, "Платный вход") {
+	if text := b.paywallPrivateUnpaidUserText(); !strings.Contains(text, "Paid entry") {
 		t.Errorf("текст платного входа: %q", text)
 	}
 	b.config.PaymentStarsEnabled = false
 	b.config.YookassaShopID = ""
 	tg.reset()
 	_ = b.sendPaywallUnpaidPrivateScreen(itUser)
-	if msgs := tg.sent("sendMessage"); len(msgs) != 1 || !strings.Contains(msgs[0].Form.Get("text"), "ещё не настроена") {
+	if msgs := tg.sent("sendMessage"); len(msgs) != 1 || !strings.Contains(msgs[0].Form.Get("text"), "aren't set up") {
 		t.Errorf("без способов оплаты — одно сообщение с предупреждением: %+v", msgs)
 	}
 }

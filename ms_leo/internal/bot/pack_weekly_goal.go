@@ -144,7 +144,7 @@ func (b *Bot) MaybeGrantPackWeeklyGoalBonus(packChatID int64) {
 
 func packWeeklyGoalAchievedFeedMessage(goal int) string {
 	return fmt.Sprintf(
-		"Цель недели стаи достигнута — %d тренировок за неделю! Каждому участнику начислено по %d кубков. Так держать, леопарды!",
+		"Pack weekly goal reached — %d workouts this week! Everyone earned %d cups. Keep it up, leopards!",
 		goal,
 		PackWeeklyGoalCupsBonus,
 	)

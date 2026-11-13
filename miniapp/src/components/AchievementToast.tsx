@@ -23,9 +23,9 @@ export function leoCheer(achievementKey: AchievementKey): string {
   const parsed = parseAchievementKey(achievementKey);
   // Первая в жизни тренировка — самый важный момент новичка, он заслуживает отдельных слов.
   if (parsed?.kind === "workout" && parsed.threshold === 1) {
-    return "Первая тренировка — начало пути! Лео с тобой 🐾";
+    return "First workout — you’re on your way! Leo’s with you 🐾";
   }
-  return parsed?.kind === "streak" ? "Так держать — Лео тобой гордится!" : "Ты просто зверь! Лео даёт лапу 🐾";
+  return parsed?.kind === "streak" ? "Keep it up — Leo’s proud of you!" : "You’re a beast! Leo gives you a paw 🐾";
 }
 
 /**
@@ -71,7 +71,7 @@ export function AchievementToast({ achievementKey, onDone, onShare }: Props) {
           </span>
         </div>
 
-        <div className="achievement-toast__title">Ачивка получена!</div>
+        <div className="achievement-toast__title">Achievement unlocked!</div>
         <div className="achievement-toast__label">{achievementLabel(achievementKey)}</div>
         <div className="achievement-toast__cheer">{leoCheer(achievementKey)}</div>
         {onShare ? (
@@ -83,7 +83,7 @@ export function AchievementToast({ achievementKey, onDone, onShare }: Props) {
               onShare();
             }}
           >
-            Поделиться
+            Share
           </button>
         ) : null}
       </div>

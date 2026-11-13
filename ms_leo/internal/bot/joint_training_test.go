@@ -25,20 +25,20 @@ func TestIsTelegramUsernameToken(t *testing.T) {
 
 func TestJointTrainingTexts(t *testing.T) {
 	t.Parallel()
-	if jointTrainingVerb("m") != "отметил" || jointTrainingVerb("F") != "отметила" || jointTrainingVerb("") != "отметил(а)" {
-		t.Fatal("глагол по полу")
+	if jointTrainingVerb("m") != "tagged" || jointTrainingVerb("F") != "tagged" || jointTrainingVerb("") != "tagged" {
+		t.Fatal("verb")
 	}
-	if s := jointTrainingMemberText("@vasya", "m", "бег"); !strings.HasPrefix(s, "🤝 @vasya отметил тебя на совместной тренировке.") || !strings.Contains(s, "«бег»") {
-		t.Fatalf("участнику: %q", s)
+	if s := jointTrainingMemberText("@vasya", "m", "run"); !strings.HasPrefix(s, "🤝 @vasya tagged you on a joint workout.") || !strings.Contains(s, "«run»") {
+		t.Fatalf("member: %q", s)
 	}
-	if s := jointTrainingInviteText("Аня", "f", "йога"); !strings.Contains(s, "Аня отметила тебя на совместной тренировке в стае") {
-		t.Fatalf("инвайт: %q", s)
+	if s := jointTrainingInviteText("Anna", "f", "yoga"); !strings.Contains(s, "Anna tagged you on a joint workout in the Fat Leopard pack") {
+		t.Fatalf("invite: %q", s)
 	}
-	if s := jointTrainingForwardText("petya", "https://t.me/x?start=ref-1"); !strings.Contains(s, "@petya пока нет в стае") || strings.Contains(s, "@@") || !strings.HasSuffix(s, "https://t.me/x?start=ref-1") {
-		t.Fatalf("пересылка: %q", s)
+	if s := jointTrainingForwardText("petya", "https://t.me/x?start=ref-1"); !strings.Contains(s, "@petya isn't in the pack yet") || strings.Contains(s, "@@") || !strings.HasSuffix(s, "https://t.me/x?start=ref-1") {
+		t.Fatalf("forward: %q", s)
 	}
-	if s := jointTrainingForwardText("@маша", "https://t.me/x?start=ref-1"); strings.Contains(s, "@@") || !strings.Contains(s, "@маша пока нет в стае") {
-		t.Fatalf("пересылка с готовым @: %q", s)
+	if s := jointTrainingForwardText("@masha", "https://t.me/x?start=ref-1"); strings.Contains(s, "@@") || !strings.Contains(s, "@masha isn't in the pack yet") {
+		t.Fatalf("forward with @: %q", s)
 	}
 	if jointTrainingMentionLabel("vasya") != "@vasya" || jointTrainingMentionLabel("@Аня") != "@Аня" {
 		t.Fatal("mention label")

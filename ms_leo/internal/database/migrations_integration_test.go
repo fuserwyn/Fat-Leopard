@@ -206,7 +206,7 @@ func TestAdminMoneyQueriesOnRealSchema(t *testing.T) {
 		}
 	}
 	if fs, err := d.SumMoneyForAdminFiltered(pack, AdminMoneyFilter{Query: "ivan", Kind: "access"}); err != nil || len(fs) != 1 || fs[0].AmountMinor != 21000 || fs[0].Currency != "RUB" {
-		t.Errorf("сводка доступа Ивана: %+v %v", fs, err)
+		t.Errorf("сводка access Ивана: %+v %v", fs, err)
 	}
 }
 

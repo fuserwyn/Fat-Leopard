@@ -46,11 +46,11 @@ export type ProfileData = {
 const EMPTY_PROFILE: ProfileData = { gender: "", displayName: "", timezoneOffset: 0 };
 
 const THEME_LABELS: Record<ThemeMode, string> = {
-  dark: "🌙 Тёмная",
-  light: "☀️ Светлая",
-  leopard: "🐆 Розовый",
-  wild: "🐆 Дикий",
-  pack: "🏆 Стая",
+  dark: "🌙 Dark",
+  light: "☀️ Light",
+  leopard: "🐆 Pink",
+  wild: "🐆 Wild",
+  pack: "🏆 Pack",
 };
 
 export type FriendMember = {
@@ -70,11 +70,7 @@ function normalizeProfileData(profile: ProfileData): ProfileData {
 }
 
 function donateTimesWordRu(n: number): string {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return "раз";
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return "раза";
-  return "раз";
+  return n === 1 ? "time" : "times";
 }
 
 type Props = {
@@ -343,12 +339,12 @@ export function ProfileScreen({
         streak_save_attempts_max?: number;
       };
       if (!res.ok) {
-        showAlert(j.error ?? `Профиль: ошибка ${res.status}`);
+        showAlert(j.error ?? `Profile: error ${res.status}`);
         return;
       }
       if (!j.ok) return;
       const g: ProfileData["gender"] = j.gender === "m" ? "m" : j.gender === "f" ? "f" : "";
-      const dn = (j.display_name ?? "").trim() || (name && name !== "друг" ? name : "");
+      const dn = (j.display_name ?? "").trim() || (name && name !== "friend" ? name : "");
       const tz =
         typeof j.timezone_offset === "number" && Number.isFinite(j.timezone_offset)
           ? Math.max(-12, Math.min(12, Math.trunc(j.timezone_offset)))
@@ -384,7 +380,7 @@ export function ProfileScreen({
         setSaveStreakMax(Math.max(1, j.streak_save_attempts_max));
       }
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : "Сеть");
+      showAlert(e instanceof Error ? e.message : "Network error");
     } finally {
       setProfileLoading(false);
     }
@@ -425,7 +421,7 @@ export function ProfileScreen({
   const saveReminder = useCallback(
     async (enabled: boolean, hour: number) => {
       if (!api || !inTelegram || !initData?.trim()) {
-        showAlert("Открой мини-апп из Telegram (нужен initData).");
+        showAlert("Open the miniapp from Telegram (initData required).");
         return;
       }
       // Оптимистично применяем, чтобы UI не «прыгал».
@@ -444,12 +440,12 @@ export function ProfileScreen({
         if (!res.ok || !j.ok) {
           setReminderEnabled(prevEnabled);
           setReminderHour(prevHour);
-          showAlert(j.error ?? `Напоминания: ошибка ${res.status}`);
+          showAlert(j.error ?? `Reminders: error ${res.status}`);
         }
       } catch (e) {
         setReminderEnabled(prevEnabled);
         setReminderHour(prevHour);
-        showAlert(e instanceof Error ? e.message : "Сеть");
+        showAlert(e instanceof Error ? e.message : "Network error");
       } finally {
         setReminderBusy(false);
       }
@@ -491,7 +487,7 @@ export function ProfileScreen({
   const saveWisdomSub = useCallback(
     async (enabled: boolean, hour: number) => {
       if (!api || !inTelegram || !initData?.trim()) {
-        showAlert("Открой мини-апп из Telegram (нужен initData).");
+        showAlert("Open the miniapp from Telegram (initData required).");
         return;
       }
       // Оптимистично применяем, чтобы UI не «прыгал».
@@ -510,12 +506,12 @@ export function ProfileScreen({
         if (!res.ok || !j.ok) {
           setWisdomEnabled(prevEnabled);
           setWisdomHour(prevHour);
-          showAlert(j.error ?? `Мудрость дня: ошибка ${res.status}`);
+          showAlert(j.error ?? `Daily wisdom: error ${res.status}`);
         }
       } catch (e) {
         setWisdomEnabled(prevEnabled);
         setWisdomHour(prevHour);
-        showAlert(e instanceof Error ? e.message : "Сеть");
+        showAlert(e instanceof Error ? e.message : "Network error");
       } finally {
         setWisdomBusy(false);
       }
@@ -554,7 +550,7 @@ export function ProfileScreen({
   const saveLikeNotify = useCallback(
     async (enabled: boolean) => {
       if (!api || !inTelegram || !initData?.trim()) {
-        showAlert("Открой мини-апп из Telegram (нужен initData).");
+        showAlert("Open the miniapp from Telegram (initData required).");
         return;
       }
       // Оптимистично применяем, чтобы UI не «прыгал».
@@ -570,11 +566,11 @@ export function ProfileScreen({
         const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !j.ok) {
           setLikeNotifyEnabled(prevEnabled);
-          showAlert(j.error ?? `Уведомления о лайках: ошибка ${res.status}`);
+          showAlert(j.error ?? `Like notifications: error ${res.status}`);
         }
       } catch (e) {
         setLikeNotifyEnabled(prevEnabled);
-        showAlert(e instanceof Error ? e.message : "Сеть");
+        showAlert(e instanceof Error ? e.message : "Network error");
       } finally {
         setLikeNotifyBusy(false);
       }
@@ -618,7 +614,7 @@ export function ProfileScreen({
   const saveContactJoin = useCallback(
     async (enabled: boolean) => {
       if (!api || !inTelegram || !initData?.trim()) {
-        showAlert("Открой мини-апп из Telegram (нужен initData).");
+        showAlert("Open the miniapp from Telegram (initData required).");
         return;
       }
       const prevEnabled = contactJoinEnabled;
@@ -633,11 +629,11 @@ export function ProfileScreen({
         const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !j.ok) {
           setContactJoinEnabled(prevEnabled);
-          showAlert(j.error ?? `Контакты в стае: ошибка ${res.status}`);
+          showAlert(j.error ?? `Pack contacts: error ${res.status}`);
         }
       } catch (e) {
         setContactJoinEnabled(prevEnabled);
-        showAlert(e instanceof Error ? e.message : "Сеть");
+        showAlert(e instanceof Error ? e.message : "Network error");
       } finally {
         setContactJoinBusy(false);
       }
@@ -675,24 +671,24 @@ export function ProfileScreen({
     if (!inTelegram || !initData?.trim() || donateStars === null || donateBusy) return;
     const wa = window.Telegram?.WebApp;
     if (!wa?.openInvoice) {
-      showAlert("Обнови Telegram — оплата звёздами доступна в свежих версиях приложения.");
+      showAlert("Update Telegram — Stars payments need a recent app version.");
       return;
     }
     setDonateBusy(true);
     try {
       const invoice = await createStarsDonateInvoice(initData, donateStars);
       if (!invoice) {
-        showAlert("Не удалось создать счёт. Попробуй позже.");
+        showAlert("Couldn't create invoice. Try again later.");
         return;
       }
       wa.openInvoice(invoice.link, (status) => {
         setDonateBusy(false);
         if (status === "paid") finishDonate();
-        else if (status === "failed") showAlert("Оплата не прошла. Попробуй ещё раз.");
+        else if (status === "failed") showAlert("Payment failed. Try again.");
       });
       return; // setDonateBusy(false) вызовет колбэк Telegram
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : "Сеть");
+      showAlert(e instanceof Error ? e.message : "Network error");
     }
     setDonateBusy(false);
   }, [inTelegram, initData, donateStars, donateBusy, showAlert, finishDonate]);
@@ -704,7 +700,7 @@ export function ProfileScreen({
     try {
       const payment = await createCardDonatePayment(initData, donateRub);
       if (!payment) {
-        showAlert("Не удалось создать платёж. Попробуй позже.");
+        showAlert("Couldn't create payment. Try again later.");
         return;
       }
       const wa = window.Telegram?.WebApp;
@@ -712,7 +708,7 @@ export function ProfileScreen({
       else window.open(payment.link, "_blank", "noopener");
       if (await waitForDonationCompleted(initData, payment.donationId)) finishDonate();
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : "Сеть");
+      showAlert(e instanceof Error ? e.message : "Network error");
     } finally {
       setDonateBusy(false);
     }
@@ -731,12 +727,12 @@ export function ProfileScreen({
       });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; members?: FriendMember[] };
       if (!res.ok || !j.ok) {
-        showAlert(j.error ?? `Друзья: ошибка ${res.status}`);
+        showAlert(j.error ?? `Friends: error ${res.status}`);
         return;
       }
       setFriends(Array.isArray(j.members) ? j.members : []);
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : "Сеть");
+      showAlert(e instanceof Error ? e.message : "Network error");
     } finally {
       setFriendsLoading(false);
     }
@@ -767,7 +763,7 @@ export function ProfileScreen({
             }
             return [...list, member].sort((a, b) => b.streak_days - a.streak_days || a.user_id - b.user_id);
           });
-          showAlert(j.error ?? `Ошибка ${res.status}`);
+          showAlert(j.error ?? `Error ${res.status}`);
         }
       } catch (e) {
         setFriends((list) => {
@@ -776,7 +772,7 @@ export function ProfileScreen({
           }
           return [...list, member].sort((a, b) => b.streak_days - a.streak_days || a.user_id - b.user_id);
         });
-        showAlert(e instanceof Error ? e.message : "Сеть");
+        showAlert(e instanceof Error ? e.message : "Network error");
       } finally {
         setFriendBusyId(null);
       }
@@ -809,11 +805,11 @@ export function ProfileScreen({
         const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !j.ok) {
           setFriends(prev);
-          showAlert(j.error ?? `Тренировки друзей: ошибка ${res.status}`);
+          showAlert(j.error ?? `Friend workouts: error ${res.status}`);
         }
       } catch (e) {
         setFriends(prev);
-        showAlert(e instanceof Error ? e.message : "Сеть");
+        showAlert(e instanceof Error ? e.message : "Network error");
       } finally {
         setFriendNotifyBusy(false);
       }
@@ -849,7 +845,7 @@ export function ProfileScreen({
   const sendHealthMessage = useCallback(
     async (text: string) => {
       if (!api || !inTelegram || !initData?.trim()) {
-        showAlert("Открой мини-апп из Telegram (нужен initData).");
+        showAlert("Open the miniapp from Telegram (initData required).");
         return false;
       }
       try {
@@ -860,12 +856,12 @@ export function ProfileScreen({
         });
         const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !j.ok) {
-          showAlert(j.error ?? `Ошибка ${res.status}`);
+          showAlert(j.error ?? `Error ${res.status}`);
           return false;
         }
         return true;
       } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Сеть");
+        showAlert(e instanceof Error ? e.message : "Network error");
         return false;
       }
     },
@@ -875,7 +871,7 @@ export function ProfileScreen({
   const submitSickLeave = useCallback(async () => {
     const reason = sickReason.trim();
     if (reason.length < 3) {
-      showAlert("Опиши, что случилось — пара слов минимум.");
+      showAlert("Describe what happened — a few words minimum.");
       return;
     }
     setHealthBusy(true);
@@ -886,7 +882,7 @@ export function ProfileScreen({
       setSickFormOpen(false);
       setSickReason("");
       setOnSick(true);
-      showAlert("Заявка отправлена. Ответ Лео — во вкладке Чат.");
+      showAlert("Request sent. Leo's reply — in the Chat tab.");
       setTimeout(() => {
         void loadHealth();
         void onRefreshStats?.();
@@ -901,7 +897,7 @@ export function ProfileScreen({
     if (ok) {
       void window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.("success");
       setOnSick(false);
-      showAlert("С выздоровлением");
+      showAlert("Get well soon");
       setTimeout(() => {
         void loadHealth();
         void load();
@@ -912,7 +908,7 @@ export function ProfileScreen({
 
   const useSaveStreak = useCallback(async () => {
     if (!api || !inTelegram || !initData?.trim()) {
-      showAlert("Открой мини-апп из Telegram (нужен initData).");
+      showAlert("Open the miniapp from Telegram (initData required).");
       return;
     }
     if (!canUseStreakSave(daysSinceLastTraining, saveStreakAvail) || saveStreakBusy) return;
@@ -938,15 +934,15 @@ export function ProfileScreen({
       }
       if (!res.ok || !j.ok) {
         if (j.error === "no_attempts") {
-          showAlert("Попыток не осталось — расти по уровням, чтобы получить ещё.");
+          showAlert("No saves left — level up to earn more.");
         } else if (j.error === "not_needed") {
-          showAlert("Стрик ещё жив — спасение не нужно.");
+          showAlert("Streak still alive — save not needed.");
         } else if (j.error === "too_late") {
-          showAlert("Пропущено больше одного дня — одной попыткой не восстановить.");
+          showAlert("More than one day missed — one save can't fix that.");
         } else if (j.error === "nothing_to_save") {
-          showAlert("Нечего восстанавливать — стрика не было.");
+          showAlert("Nothing to restore — no streak yet.");
         } else {
-          showAlert(j.error ?? `Ошибка ${res.status}`);
+          showAlert(j.error ?? `Error ${res.status}`);
         }
         return;
       }
@@ -954,11 +950,11 @@ export function ProfileScreen({
       onStreakSaved?.();
       showAlert(
         typeof j.streak_days === "number" && j.streak_days > 0
-          ? `Стрик восстановлен: ${j.streak_days} ${j.streak_days === 1 ? "день" : j.streak_days < 5 ? "дня" : "дней"}.`
-          : "Попытка использована — стрик защищён.",
+          ? `Streak restored: ${j.streak_days} ${j.streak_days === 1 ? "day" : "days"}.`
+          : "Save used — streak protected.",
       );
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : "Сеть");
+      showAlert(e instanceof Error ? e.message : "Network error");
     } finally {
       setSaveStreakBusy(false);
     }
@@ -966,7 +962,7 @@ export function ProfileScreen({
 
   const saveProfile = useCallback(async () => {
     if (!api || !inTelegram || !initData?.trim()) {
-      showAlert("Открой мини-апп из Telegram (нужен initData).");
+      showAlert("Open the miniapp from Telegram (initData required).");
       return;
     }
     setProfileSaving(true);
@@ -991,7 +987,7 @@ export function ProfileScreen({
       });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok) {
-        showAlert(j.error ?? `Сохранение: ${res.status}`);
+        showAlert(j.error ?? `Save: error ${res.status}`);
         return;
       }
       if (j.ok) {
@@ -999,10 +995,10 @@ export function ProfileScreen({
         setSavedProfile(normalizedProfile);
         void window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.("success");
         onProfileSaved?.(normalizedProfile.displayName);
-        showAlert("Сохранено");
+        showAlert("Saved");
       }
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : "Сеть");
+      showAlert(e instanceof Error ? e.message : "Network error");
     } finally {
       setProfileSaving(false);
     }
@@ -1032,7 +1028,7 @@ export function ProfileScreen({
 
   const healthActionsKeyboard = sickFormOpen && healthInputFocused;
   const healthCollapsedSummary =
-    onSick === true ? " · на больничном" : onSick === false && sickFormOpen ? " · заявка" : "";
+    onSick === true ? " · on sick leave" : onSick === false && sickFormOpen ? " · request" : "";
 
   const toggleHealthOpen = useCallback(() => {
     setHealthOpen((open) => {
@@ -1083,29 +1079,29 @@ export function ProfileScreen({
           {onSick ? <span className="profile__avatar-med">🌡️</span> : null}
         </div>
         <div>
-          <h1 className="profile__name">{(profile.displayName || name).trim() || "Стая"}</h1>
+          <h1 className="profile__name">{(profile.displayName || name).trim() || "Pack member"}</h1>
           <LevelCarousel currentLevel={level} />
           {showDaysWithoutTraining ? (
             <p
               className={`profile__kick profile__kick--inactive-${inactiveHighlight}`}
-              title={`Дней без тренировок: ${displayedInactiveDays}`}
+              title={`Days without workouts: ${displayedInactiveDays}`}
             >
-              Дней без тренировок: {displayedInactiveDays}
+              Days without workouts: {displayedInactiveDays}
             </p>
           ) : null}
           {showKickBanner ? (
-            <p className="profile__danger">ПОТРЕНИРУЙСЯ ДО 00:00 ИЛИ ЛЕО СЪЕСТ ТЕБЯ</p>
+            <p className="profile__danger">WORK OUT BEFORE MIDNIGHT OR LEO WILL EAT YOU</p>
           ) : null}
         </div>
         {onSick && removalRemaining ? (
           <p className="profile__sick-timer muted">
-            После выхода с больничного до удаления: {removalRemaining.text}
+            After sick leave ends, until removal: {removalRemaining.text}
           </p>
         ) : null}
         <button
           type="button"
           className="profile__xp"
-          aria-label={`Кубки: ${cupProgressLabel}, уровень ${level}. История начислений`}
+          aria-label={`Cups: ${cupProgressLabel}, level ${level}. Earning history`}
           onClick={() => setCupsHistoryOpen(true)}
         >
           <div className="profile__xp-meter">
@@ -1130,7 +1126,7 @@ export function ProfileScreen({
               inactiveHighlight !== "none" ? ` stat-card--inactive-${inactiveHighlight}` : ""
             }`}
           >
-            <div className="stat-card__label">Текущий стрик</div>
+            <div className="stat-card__label">Current streak</div>
             <div className="stat-card__val">{displayStreak}</div>
           </div>
           {burnLabel ? (
@@ -1155,7 +1151,7 @@ export function ProfileScreen({
             inactiveHighlight !== "none" ? ` stat-card--inactive-${inactiveHighlight}` : ""
           }`}
         >
-          <div className="stat-card__label">Рекорд стрика</div>
+          <div className="stat-card__label">Streak record</div>
           <div className="stat-card__val">{recordStreak}</div>
         </div>
         <div
@@ -1163,7 +1159,7 @@ export function ProfileScreen({
             inactiveHighlight !== "none" ? ` stat-card--inactive-${inactiveHighlight}` : ""
           }`}
         >
-          <div className="stat-card__label">Рекорд кубков</div>
+          <div className="stat-card__label">Cup record</div>
           <div className="stat-card__val">{recordCups}</div>
         </div>
         <div
@@ -1171,14 +1167,14 @@ export function ProfileScreen({
             inactiveHighlight !== "none" ? ` stat-card--inactive-${inactiveHighlight}` : ""
           }`}
         >
-          <div className="stat-card__label">Всего тренировок</div>
+          <div className="stat-card__label">Total workouts</div>
           <div className="stat-card__val">{workouts}</div>
         </div>
       </div>
 
-      <section className="profile__achievements" aria-label="Ачивки">
+      <section className="profile__achievements" aria-label="Achievements">
         <div className="profile__achievements-group">
-          <span>Ачивки за стрики</span>
+          <span>Streak achievements</span>
           <span className="profile__achievements-count">
             {achievementCount}/{achievementsMax}
           </span>
@@ -1254,12 +1250,12 @@ export function ProfileScreen({
                 {days}
               </span>
             </div>
-            <div className="profile__achievement-label">стрик {days}</div>
+            <div className="profile__achievement-label">{days}-day streak</div>
           </div>
         ))}
         </div>
         <div className="profile__achievements-group">
-          <span>Ачивки за тренировки</span>
+          <span>Workout achievements</span>
           <span className="profile__achievements-count">
             {workoutAchEarned}/{WORKOUT_ACHIEVEMENTS.length}
           </span>
@@ -1370,12 +1366,12 @@ export function ProfileScreen({
           disabled={saveStreakBusy || streakSaveBlocked}
         >
           {saveStreakBusy
-            ? "Отправляю…"
-            : `Спасти стрик осталось ${saveStreakAvail}/${saveStreakMax}`}
+            ? "Sending…"
+            : `Streak saves left ${saveStreakAvail}/${saveStreakMax}`}
         </button>
       </div>
       <p className="profile__hint muted profile__streak-save-hint">
-        Можно восстановить сгоревший стрик, если случайно забыл внести тренировку
+        Restore a lost streak if you forgot to log a workout
       </p>
 
       {onSick === null ? (
@@ -1386,12 +1382,12 @@ export function ProfileScreen({
             aria-expanded={healthOpen}
             onClick={toggleHealthOpen}
           >
-            Здоровье
+            Health
             <span className="profile__notif-chevron" aria-hidden>
               {healthOpen ? "▲" : "▼"}
             </span>
           </button>
-          {healthOpen && <p className="profile__hint muted">Загрузка статуса…</p>}
+          {healthOpen && <p className="profile__hint muted">Loading status…</p>}
         </section>
       ) : (
         <section className="profile__health-section">
@@ -1401,32 +1397,32 @@ export function ProfileScreen({
             aria-expanded={healthOpen}
             onClick={toggleHealthOpen}
           >
-            Здоровье{!healthOpen ? healthCollapsedSummary : ""}
+            Health{!healthOpen ? healthCollapsedSummary : ""}
             <span className="profile__notif-chevron" aria-hidden>
               {healthOpen ? "▲" : "▼"}
             </span>
           </button>
           {healthOpen && (onSick ? (
             <div className="profile__health">
-              <p className="profile__hint">🏥 Ты на больничном — таймер остановлен — возвращайся, когда поправишься</p>
+              <p className="profile__hint">🏥 You’re on sick leave — timer paused — come back when you’re better</p>
               <button
                 type="button"
                 className="profile__save profile__health-btn"
                 onClick={() => void submitHealthy()}
                 disabled={healthBusy}
               >
-                {healthBusy ? "Отправляю…" : "Выйти с больничного"}
+                {healthBusy ? "Sending…" : "End sick leave"}
               </button>
             </div>
           ) : sickFormOpen ? (
             <div className="profile__health">
-              <p className="profile__hint muted">Опиши, что случилось — Лео решит, принимать ли больничный</p>
+              <p className="profile__hint muted">Describe what happened — Leo will decide on sick leave</p>
               <textarea
                 ref={healthTextareaRef}
                 className="profile__input profile__health-textarea"
                 value={sickReason}
                 onChange={(e) => setSickReason(e.target.value.slice(0, 500))}
-                placeholder="Например: температура 38, кашель"
+                placeholder="e.g. fever, cough"
                 rows={3}
                 maxLength={500}
                 disabled={healthBusy}
@@ -1452,7 +1448,7 @@ export function ProfileScreen({
                   onClick={() => void submitSickLeave()}
                   disabled={healthBusy || sickReason.trim().length < 3}
                 >
-                  {healthBusy ? "Отправляю…" : "Отправить заявку"}
+                  {healthBusy ? "Sending…" : "Submit request"}
                 </button>
                 <button
                   type="button"
@@ -1464,7 +1460,7 @@ export function ProfileScreen({
                   }}
                   disabled={healthBusy}
                 >
-                  Отмена
+                  Cancel
                 </button>
               </div>
             </div>
@@ -1477,10 +1473,10 @@ export function ProfileScreen({
                   onClick={() => setSickFormOpen(true)}
                   disabled={healthBusy}
                 >
-                  Взять больничный
+                  Take sick leave
                 </button>
               </div>
-              <p className="profile__hint muted profile__health-hint">Болеешь — таймер остановится до выздоровления</p>
+              <p className="profile__hint muted profile__health-hint">If you’re sick — timer pauses until you recover</p>
             </div>
           ))}
         </section>
@@ -1493,7 +1489,7 @@ export function ProfileScreen({
           aria-expanded={notifOpen}
           onClick={() => setNotifOpen((open) => !open)}
         >
-          🔔 Уведомления
+          🔔 Notifications
           <span className="profile__notif-chevron" aria-hidden>
             {notifOpen ? "▲" : "▼"}
           </span>
@@ -1502,7 +1498,7 @@ export function ProfileScreen({
         <>
         <div className="profile__reminder">
           <label className="profile__reminder-row">
-          <span className="profile__reminder-label">Напоминать внести тренировку</span>
+          <span className="profile__reminder-label">Remind me to log workouts</span>
           <input
             type="checkbox"
             className="profile__reminder-toggle"
@@ -1513,7 +1509,7 @@ export function ProfileScreen({
         </label>
         {reminderEnabled && (
           <label className="profile__field">
-            <span>Время напоминания (по твоему времени)</span>
+            <span>Reminder time (your local time)</span>
             <select
               className="profile__input"
               value={reminderHour}
@@ -1530,12 +1526,12 @@ export function ProfileScreen({
         )}
         <p className="profile__hint muted">
           {reminderEnabled
-            ? "Если до этого часа не отмечена тренировка — Лео мягко напомнит"
-            : "Напоминания выключены — Лео не будет писать о пропущенной тренировке"}
+            ? "If no workout is logged by this hour — Leo will nudge you gently"
+            : "Reminders off — Leo won't message about missed workouts"}
         </p>
 
         <label className="profile__reminder-row">
-          <span className="profile__reminder-label">Мудрость дня в личку</span>
+          <span className="profile__reminder-label">Daily wisdom in DM</span>
           <input
             type="checkbox"
             className="profile__reminder-toggle"
@@ -1546,12 +1542,12 @@ export function ProfileScreen({
         </label>
         <p className="profile__hint muted">
           {wisdomEnabled
-            ? "Каждый день в 04:20 по твоему времени Лео пришлёт короткую мудрость дня в личку"
-            : "Подписка выключена — мудрость дня приходит только в чат стаи"}
+            ? "Every day at 4:20 your time Leo sends daily wisdom in DM"
+            : "Subscription off — daily wisdom only in pack chat"}
         </p>
 
         <label className="profile__reminder-row">
-          <span className="profile__reminder-label">Лайки на постах и в ленте</span>
+          <span className="profile__reminder-label">Likes on posts and in feed</span>
           <input
             type="checkbox"
             className="profile__reminder-toggle"
@@ -1562,12 +1558,12 @@ export function ProfileScreen({
         </label>
         <p className="profile__hint muted">
           {likeNotifyEnabled
-            ? "Лео напишет в личку, когда кто-то лайкнет твою тренировку или комментарий в ленте"
-            : "Уведомления выключены — о лайках на твоих постах и комментариях писать не будем"}
+            ? "Leo DMs you when someone likes your workout or comment"
+            : "Notifications off — no DMs about likes on your posts"}
         </p>
 
         <label className="profile__reminder-row">
-          <span className="profile__reminder-label">Контакты вступили в стаю</span>
+          <span className="profile__reminder-label">Contacts joined the pack</span>
           <input
             type="checkbox"
             className="profile__reminder-toggle"
@@ -1578,14 +1574,14 @@ export function ProfileScreen({
         </label>
         <p className="profile__hint muted">
           {!contactJoinEnabled
-            ? "Уведомления выключены — о вступлении твоих контактов в стаю писать не будем"
+            ? "Notifications off — no DMs when contacts join the pack"
             : contactJoinCount > 0
-              ? `Лео напишет в личку, когда кто-то из твоих контактов вступит в стаю (сохранено: ${contactJoinCount}). Добавить ещё — пришли боту контакт через скрепку → «Контакт»`
-              : "Пришли боту в личку контакт друга (скрепка → «Контакт») — Лео напишет, когда он вступит в стаю"}
+              ? `Leo will DM when a saved contact joins the pack (${contactJoinCount} saved). Add more — send the bot a contact via attach → Contact`
+              : "Send the bot a contact (attach → Contact) — Leo will DM when they join"}
         </p>
 
         <label className="profile__reminder-row">
-          <span className="profile__reminder-label">Тренировки друзей</span>
+          <span className="profile__reminder-label">Friends’ workouts</span>
           <input
             type="checkbox"
             className="profile__reminder-toggle"
@@ -1596,10 +1592,10 @@ export function ProfileScreen({
         </label>
         <p className="profile__hint muted">
           {friends.length === 0
-            ? "Подпишись на участников в ленте («Следить за тренировками») — и Лео сможет писать об их тренировках"
+            ? "Follow people in the feed — Leo can DM about their workouts"
             : friendNotifyEnabled
-              ? "Лео напишет в личку, когда кто-то из «Слежу за» внесёт тренировку"
-              : "Уведомления выключены — о тренировках друзей писать не будем"}
+              ? "Leo DMs when someone you follow logs a workout"
+              : "Notifications off — no friend workout DMs"}
         </p>
 
         <button
@@ -1608,14 +1604,14 @@ export function ProfileScreen({
           aria-expanded={followingOpen}
           onClick={() => setFollowingOpen((open) => !open)}
         >
-          Слежу за{followingList.length > 0 ? ` · ${followingList.length}` : ""} {followingOpen ? "▲" : "▼"}
+          Following{followingList.length > 0 ? ` · ${followingList.length}` : ""} {followingOpen ? "▲" : "▼"}
         </button>
         {followingOpen && (
           friendsLoading && friends.length === 0 ? (
-            <p className="muted">Загрузка…</p>
+            <p className="muted">Loading…</p>
           ) : followingList.length === 0 ? (
             <p className="profile__hint muted">
-              Пока ты ни на кого не подписан — найди отчёт в ленте и нажми «Следить за тренировками»
+              You’re not following anyone yet — find a post in the feed and tap Follow workouts
             </p>
           ) : (
             <ul className="profile__friends-list">
@@ -1633,7 +1629,7 @@ export function ProfileScreen({
                     disabled={friendBusyId === m.user_id}
                     onClick={() => void toggleFollow(m)}
                   >
-                    {friendBusyId === m.user_id ? "…" : "Отписаться"}
+                    {friendBusyId === m.user_id ? "…" : "Unfollow"}
                   </button>
                 </li>
               ))}
@@ -1652,39 +1648,39 @@ export function ProfileScreen({
           aria-expanded={personalOpen}
           onClick={() => setPersonalOpen((open) => !open)}
         >
-          Личные данные
+          Personal details
           <span className="profile__notif-chevron" aria-hidden>
             {personalOpen ? "▲" : "▼"}
           </span>
         </button>
         {personalOpen && (
           <>
-            {profileLoading && <p className="muted">Загрузка профиля…</p>}
+            {profileLoading && <p className="muted">Loading profile…</p>}
             <div className="profile__form">
               <label className="profile__field">
-                <span>Имя (как обращаться)</span>
+                <span>Name (what we call you)</span>
                 <input
                   type="text"
                   className="profile__input"
                   value={profile.displayName}
                   onChange={(e) => setProfile((p) => ({ ...p, displayName: e.target.value.slice(0, 64) }))}
-                  placeholder="Например, Саша"
+                  placeholder="e.g. Alex"
                   maxLength={64}
                   autoComplete="name"
                   disabled={profileLoading}
                 />
               </label>
               <label className="profile__field">
-                <span>Пол</span>
+                <span>Gender</span>
                 <select
                   className="profile__input"
                   value={profile.gender}
                   onChange={(e) => setProfile((p) => ({ ...p, gender: e.target.value as "m" | "f" | "" }))}
                   disabled={profileLoading}
                 >
-                  <option value="">Не указывать</option>
-                  <option value="m">Мужской</option>
-                  <option value="f">Женский</option>
+                  <option value="">Prefer not to say</option>
+                  <option value="m">Male</option>
+                  <option value="f">Female</option>
                 </select>
               </label>
               {(profileDirty || profileSaving) && (
@@ -1694,7 +1690,7 @@ export function ProfileScreen({
                   onClick={() => void saveProfile()}
                   disabled={profileLoading || profileSaving || !profileDirty}
                 >
-                  {profileSaving ? "Сохраняю…" : "Сохранить"}
+                  {profileSaving ? "Saving…" : "Save"}
                 </button>
               )}
             </div>
@@ -1709,14 +1705,14 @@ export function ProfileScreen({
           aria-expanded={themeOpen}
           onClick={() => setThemeOpen((open) => !open)}
         >
-          Тема{!themeOpen ? ` · ${THEME_LABELS[theme]}` : ""}
+          Theme{!themeOpen ? ` · ${THEME_LABELS[theme]}` : ""}
           <span className="profile__notif-chevron" aria-hidden>
             {themeOpen ? "▲" : "▼"}
           </span>
         </button>
         {themeOpen && (
         <>
-        <div className="profile__theme-seg" role="group" aria-label="Тема оформления">
+        <div className="profile__theme-seg" role="group" aria-label="Theme">
           <button
             type="button"
             className={`profile__theme-opt ${theme === "dark" ? "is-active" : ""}`}
@@ -1739,7 +1735,7 @@ export function ProfileScreen({
             aria-pressed={theme === "leopard"}
             aria-disabled={!leopardUnlocked}
             disabled={!leopardUnlocked}
-            title={leopardUnlocked ? "Розовая леопардовая тема" : "С 5 уровня · Лев"}
+            title={leopardUnlocked ? "Pink leopard theme" : "From level 5 · Lion"}
             onClick={() => changeTheme("leopard")}
           >
             {THEME_LABELS.leopard}
@@ -1750,7 +1746,7 @@ export function ProfileScreen({
             aria-pressed={theme === "wild"}
             aria-disabled={!wildUnlocked}
             disabled={!wildUnlocked}
-            title={wildUnlocked ? "Дикая леопардовая тема" : "Стрик 365 дней или 1000 тренировок"}
+            title={wildUnlocked ? "Wild leopard theme" : "365-day streak or 1000 workouts"}
             onClick={() => changeTheme("wild")}
           >
             {THEME_LABELS.wild}
@@ -1761,20 +1757,20 @@ export function ProfileScreen({
             aria-pressed={theme === "pack"}
             aria-disabled={!packUnlocked}
             disabled={!packUnlocked}
-            title={packUnlocked ? "Бонусная тема стаи на сутки" : `${packWorkoutsGoal} тренировок стаи за неделю`}
+            title={packUnlocked ? "Pack bonus theme for 24h" : `${packWorkoutsGoal} pack workouts this week`}
             onClick={() => changeTheme("pack")}
           >
             {THEME_LABELS.pack}
           </button>
         </div>
         {!leopardUnlocked ? (
-          <p className="profile__theme-lock muted">Розовая тема откроется на 5 уровне · Лев</p>
+          <p className="profile__theme-lock muted">Pink theme unlocks at level 5 · Lion</p>
         ) : null}
         {!wildUnlocked ? (
-          <p className="profile__theme-lock muted">Дикая тема — стрик 365 дней или 1000 тренировок</p>
+          <p className="profile__theme-lock muted">Wild theme — 365-day streak or 1000 workouts</p>
         ) : null}
         {!packUnlocked ? (
-          <p className="profile__theme-lock muted">Тема «Стая» — {packWorkoutsGoal} тренировок стаи за неделю (сброс по понедельникам, 00:00 МСК)</p>
+          <p className="profile__theme-lock muted">Pack theme — {packWorkoutsGoal} pack workouts this week (resets Mondays 00:00 MSK)</p>
         ) : null}
         </>
         )}
@@ -1785,15 +1781,15 @@ export function ProfileScreen({
       {(donateOptions.starsAvailable || donateOptions.cardAvailable) && (
         <section className="profile__donate">
           <p className="profile__hint muted profile__donate-intro">
-            Донат по желанию: он не отменяет вылет за неактивность, но помогает Лео и проекту жить. Ты уже
-            поддержал {donateOptions.completedCount} {donateTimesWordRu(donateOptions.completedCount)}. Спасибо!
+            Optional donations don’t stop inactivity removal, but they keep Leo and the project going. You’ve
+            supported {donateOptions.completedCount} {donateTimesWordRu(donateOptions.completedCount)}. Thank you!
           </p>
           <button
             type="button"
             className="profile__save profile__donate-btn"
             onClick={() => setDonateModalOpen(true)}
           >
-            Поддержать проект
+            Support the project
           </button>
         </section>
       )}
@@ -1803,19 +1799,19 @@ export function ProfileScreen({
           <button
             type="button"
             className="profile__donate-modal-backdrop"
-            aria-label="Закрыть"
+            aria-label="Close"
             disabled={donateBusy}
             onClick={() => setDonateModalOpen(false)}
           />
           <div className="profile__donate-modal-box">
             <div className="profile__donate-modal-head">
               <h2 id="profile-donate-title" className="section-title profile__donate-modal-title">
-                Поддержать проект
+                Support the project
               </h2>
               <button
                 type="button"
                 className="profile__donate-modal-close"
-                aria-label="Закрыть"
+                aria-label="Close"
                 disabled={donateBusy}
                 onClick={() => setDonateModalOpen(false)}
               >
@@ -1825,8 +1821,8 @@ export function ProfileScreen({
 
             {donateOptions.starsAvailable && (
               <div className="profile__donate-method">
-                <span className="profile__donate-label">⭐ Звёздами Telegram — из любой страны</span>
-                <div className="profile__donate-tiers" role="group" aria-label="Сумма в звёздах">
+                <span className="profile__donate-label">⭐ Telegram Stars — worldwide</span>
+                <div className="profile__donate-tiers" role="group" aria-label="Amount in Stars">
                   {donateOptions.starsTiers.map((tier) => (
                     <button
                       key={tier}
@@ -1846,15 +1842,15 @@ export function ProfileScreen({
                   onClick={() => void donateWithStars()}
                   disabled={donateBusy || donateStars === null}
                 >
-                  {donateBusy ? "Открываю счёт…" : `Задонатить ${donateStars ?? ""} ⭐`}
+                  {donateBusy ? "Opening invoice…" : `Donate ${donateStars ?? ""} ⭐`}
                 </button>
               </div>
             )}
 
             {donateOptions.cardAvailable && (
               <div className="profile__donate-method">
-                <span className="profile__donate-label">💳 Банковской картой — для РФ</span>
-                <div className="profile__donate-tiers" role="group" aria-label="Сумма в рублях">
+                <span className="profile__donate-label">💳 Bank card — Russia</span>
+                <div className="profile__donate-tiers" role="group" aria-label="Amount in rubles">
                   {donateOptions.cardTiersRub.map((tier) => (
                     <button
                       key={tier}
@@ -1874,10 +1870,10 @@ export function ProfileScreen({
                   onClick={() => void donateWithCard()}
                   disabled={donateBusy || donateRub === null}
                 >
-                  {donateBusy ? "Жду оплату…" : `Задонатить ${donateRub ?? ""} ₽`}
+                  {donateBusy ? "Waiting for payment…" : `Donate ${donateRub ?? ""} ₽`}
                 </button>
                 <p className="profile__hint muted profile__donate-note">
-                  Оплата откроется в браузере — вернись сюда, я дождусь подтверждения
+                  Payment opens in browser — come back here, we’ll wait for confirmation
                 </p>
               </div>
             )}
@@ -1894,21 +1890,21 @@ export function ProfileScreen({
       ) : null}
 
       <div className="profile__support">
-        <h2 className="section-title">Поддержка</h2>
-        <p className="profile__hint muted">Если что-то сломалось или нужен ответ от человека — напиши сюда</p>
+        <h2 className="section-title">Support</h2>
+        <p className="profile__hint muted">If something broke or you need a human — message here</p>
         <button type="button" className="profile__save profile__support-btn" onClick={onSupport}>
-          Сообщить о проблеме
+          Report a problem
         </button>
       </div>
 
       {isAdmin && onAdmin ? (
         <div className="profile__support profile__admin">
-          <h2 className="section-title">Админка</h2>
+          <h2 className="section-title">Admin</h2>
           <p className="profile__hint muted">
-            Сообщество, система, данные, ресурсы и трекер задач — видно только админам
+            Community, system, data, resources, and task tracker — admins only
           </p>
           <button type="button" className="profile__save profile__support-btn" onClick={onAdmin}>
-            Открыть админку
+            Open admin
           </button>
         </div>
       ) : null}

@@ -75,7 +75,7 @@ export function workoutsToChartDays(workoutsByDay: WorkoutDayPoint[]): ProfileCh
 /** Короткая подпись оси: «2 сен». */
 export function formatChartDayLabel(ymd: string): string {
   const d = parseLocalDateYMD(ymd);
-  return d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+  return d.toLocaleDateString("en-US", { day: "numeric", month: "short" });
 }
 
 export function parseWorkoutsByDay(raw: unknown): WorkoutDayPoint[] {

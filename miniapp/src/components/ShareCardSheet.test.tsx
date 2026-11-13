@@ -55,7 +55,7 @@ afterEach(() => {
 
 async function open(onClose = vi.fn(), showAlert = vi.fn()) {
   const utils = render(<ShareCardSheet card={card} initData="init" showAlert={showAlert} onClose={onClose} />);
-  await waitFor(() => expect((utils.getByText("Сторис Telegram").closest("button") as HTMLButtonElement).disabled).toBe(false));
+  await waitFor(() => expect((utils.getByText("Telegram Story").closest("button") as HTMLButtonElement).disabled).toBe(false));
   return { ...utils, onClose, showAlert };
 }
 
@@ -66,40 +66,39 @@ const click = async (el: HTMLElement) => {
 };
 
 describe("ShareCardSheet", () => {
-  it("рисует карточку со ссылкой на бота и сразу грузит её", async () => {
+  it("renders card with bot link and starts upload", async () => {
     const { container } = await open();
     expect(renderShareCard).toHaveBeenCalledWith(card, LINK);
     expect(uploadShareCard).toHaveBeenCalledWith("init", image);
     expect(container.querySelector("img")?.getAttribute("src")).toBe("blob:card");
   });
 
-  it("сторис Telegram с подписью и ссылкой", async () => {
+  it("Telegram Story with caption and link", async () => {
     const { getByText } = await open();
-    await click(getByText("Сторис Telegram"));
+    await click(getByText("Telegram Story"));
     expect(shareToTelegramStory).toHaveBeenCalledWith(IMG, expect.stringContaining(LINK));
     expect(uploadShareCard).toHaveBeenCalledTimes(1);
   });
 
-  it("старый Telegram без сторис — сохраняет картинку и подсказывает", async () => {
+  it("legacy Telegram without stories — save image and hint", async () => {
     shareToTelegramStory.mockReturnValue(false);
     const { getByText, showAlert } = await open();
-    await click(getByText("Сторис Telegram"));
+    await click(getByText("Telegram Story"));
     expect(saveShareImage).toHaveBeenCalledWith(IMG);
-    expect(showAlert).toHaveBeenCalledWith(expect.stringContaining("Сохрани картинку"));
+    expect(showAlert).toHaveBeenCalledWith(expect.stringContaining("Save the image"));
   });
 
-  it("чат Telegram — окно «Поделиться», ВКонтакте — сразу в приложении", async () => {
+  it("Telegram chat share dialog; VK opens app", async () => {
     const { getByText } = await open();
-    await click(getByText("В чат Telegram"));
+    await click(getByText("Telegram chat"));
     expect(openShareLink).toHaveBeenLastCalledWith(expect.stringMatching(/^https:\/\/t\.me\/share\/url\?url=https%3A%2F%2Fcdn\.test/));
-    await click(getByText("ВКонтакте"));
+    await click(getByText("VK"));
     expect(openShareApp).toHaveBeenLastCalledWith("vk", expect.stringMatching(/^https:\/\/vk\.com\/share\.php\?/));
   });
 
-  it("Instagram — сразу открывает камеру сторис, без скачивания и системного окна", async () => {
+  it("Instagram opens app immediately without waiting for upload", async () => {
     let finishUpload: (v: unknown) => void = () => {};
     const { getByText, showAlert } = await open();
-    // Даже если загрузка ещё идёт, переход в приложение не ждёт её.
     uploadShareCard.mockReturnValue(new Promise((r) => (finishUpload = r)));
     await click(getByText("Instagram"));
     expect(openShareApp).toHaveBeenCalledWith("instagram");
@@ -109,7 +108,7 @@ describe("ShareCardSheet", () => {
     finishUpload(null);
   });
 
-  it("TikTok — тоже сразу в приложение", async () => {
+  it("TikTok opens app immediately", async () => {
     uploadShareCard.mockResolvedValue(null);
     const { getByText, showAlert } = await open();
     await click(getByText("TikTok"));
@@ -118,57 +117,56 @@ describe("ShareCardSheet", () => {
     expect(showAlert).not.toHaveBeenCalled();
   });
 
-  it("«Сохранить картинку» — сохраняет через Telegram", async () => {
+  it("Save image via Telegram", async () => {
     const { getByText, showAlert } = await open();
-    await click(getByText("Сохранить картинку"));
+    await click(getByText("Save image"));
     expect(saveShareImage).toHaveBeenCalledWith(IMG);
     expect(openShareApp).not.toHaveBeenCalled();
     expect(showAlert).not.toHaveBeenCalled();
   });
 
-  it("«Сохранить картинку» без downloadFile — картинка открыта ссылкой, подсказка", async () => {
+  it("Save image without downloadFile — opens link and hints", async () => {
     saveShareImage.mockReturnValue(false);
     const { getByText, showAlert } = await open();
-    await click(getByText("Сохранить картинку"));
-    expect(showAlert).toHaveBeenCalledWith(expect.stringContaining("долгим нажатием"));
+    await click(getByText("Save image"));
+    expect(showAlert).toHaveBeenCalledWith(expect.stringContaining("long press"));
   });
 
-  it("«Сохранить картинку» без загруженной картинки — системное «Поделиться»", async () => {
+  it("Save image without upload — system share", async () => {
     uploadShareCard.mockResolvedValue(null);
     const { getByText, showAlert } = await open();
-    await click(getByText("Сохранить картинку"));
+    await click(getByText("Save image"));
     expect(saveShareImage).not.toHaveBeenCalled();
     expect(shareImageViaSystem).toHaveBeenCalledWith(image, expect.any(String));
     expect(showAlert).not.toHaveBeenCalled();
   });
 
-  it("загрузка не удалась — повторяет по нажатию, потом сообщает об ошибке", async () => {
+  it("failed upload retries then shows error", async () => {
     uploadShareCard.mockResolvedValue(null);
     shareImageViaSystem.mockResolvedValue("unsupported");
     const { getByText, showAlert } = await open();
-    await click(getByText("Сторис Telegram"));
+    await click(getByText("Telegram Story"));
     expect(uploadShareCard).toHaveBeenCalledTimes(2);
-    expect(showAlert).toHaveBeenLastCalledWith(expect.stringContaining("Не получилось"));
-    await click(getByText("Сохранить картинку"));
+    expect(showAlert).toHaveBeenLastCalledWith(expect.stringContaining("Couldn't prepare"));
+    await click(getByText("Save image"));
     expect(showAlert).toHaveBeenCalledTimes(2);
-    // В чат без картинки всё равно можно позвать по ссылке на бота.
-    await click(getByText("В чат Telegram"));
+    await click(getByText("Telegram chat"));
     expect(openShareLink).toHaveBeenCalledWith(expect.stringContaining(encodeURIComponent(LINK)));
   });
 
-  it("без холста показывает карточку разметкой и берёт ссылку из ответа сервера", async () => {
+  it("without canvas shows markup fallback and uses server link", async () => {
     renderShareCard.mockResolvedValue(null);
     fetchReferralState.mockResolvedValue(null);
     const { getByText, showAlert, container } = await open();
     expect(container.querySelector("img")).toBeNull();
     expect(getByText("30")).toBeTruthy();
-    await click(getByText("В чат Telegram"));
-    expect(showAlert).toHaveBeenCalledWith(expect.stringContaining("Не получилось"));
+    await click(getByText("Telegram chat"));
+    expect(showAlert).toHaveBeenCalledWith(expect.stringContaining("Couldn't prepare"));
   });
 
-  it("закрывается кнопкой, Escape и тапом по подложке", async () => {
+  it("closes via button, Escape, and overlay tap", async () => {
     const { getByText, onClose, container } = await open();
-    fireEvent.click(getByText("Закрыть"));
+    fireEvent.click(getByText("Close"));
     fireEvent.keyDown(window, { key: "Escape" });
     fireEvent.click(container.querySelector(".share-card-overlay")!);
     fireEvent.click(container.querySelector(".share-card-sheet")!);

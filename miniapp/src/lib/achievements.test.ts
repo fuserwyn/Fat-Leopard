@@ -58,11 +58,11 @@ describe("freshAchievementKeys", () => {
 });
 
 describe("achievementLabel", () => {
-  it("подписи со склонением", () => {
-    expect(achievementLabel("streak-7")).toBe("Стрик 7 дней");
-    expect(achievementLabel("streak-42")).toBe("Стрик 42 дня");
-    expect(achievementLabel("workout-1")).toBe("1 тренировка");
-    expect(achievementLabel("workout-10")).toBe("10 тренировок");
-    expect(achievementLabel("workout-42")).toBe("42 тренировки");
+  it("English labels", () => {
+    expect(achievementLabel("streak-7")).toBe("7-day streak");
+    expect(achievementLabel("streak-42")).toBe("42-day streak");
+    expect(achievementLabel("workout-1")).toBe("1 workout");
+    expect(achievementLabel("workout-10")).toBe("10 workouts");
+    expect(achievementLabel("workout-42")).toBe("42 workouts");
   });
 });

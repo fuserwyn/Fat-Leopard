@@ -79,8 +79,8 @@ describe("dtoToCard pack roar", () => {
         user_id: 0,
       }),
     );
-    expect(card.activity).toBe("Рык стаи");
-    expect(card.name).toBe("Лео");
+    expect(card.activity).toBe("Pack roar");
+    expect(card.name).toBe("Leo");
     expect(card.comment).toContain("Цель недели");
   });
 });
@@ -106,15 +106,15 @@ describe("extractEditableFeedPostText / buildFeedPostTextForSave", () => {
     expect(extractTrainingDoneKinds(raw)).toEqual(["run"]);
     const draft = extractEditableFeedPostText(raw, "training_done");
     const saved = buildFeedPostTextForSave(raw, "training_done", draft, ["swim"]);
-    expect(saved).toBe("#training_done — плавание, 30 мин, интенсивность 3/5\nХорошо пошло");
-    expect(trainingDoneCategoryDisplayLabel(saved)).toBe("Плавание");
+    expect(saved).toBe("#training_done — swim, 30 мин, intensity 3/5\nХорошо пошло");
+    expect(trainingDoneCategoryDisplayLabel(saved)).toBe("Swim");
   });
 
   it("multi-kind edit keeps custom «Другое» label", () => {
     const raw = "#training_done — бег + сап, 40 мин, интенсивность 4/5";
     expect(extractTrainingDoneKinds(raw)).toEqual(["run", "other"]);
     const saved = buildFeedPostTextForSave(raw, "training_done", "40 мин, интенсивность 4/5", ["bike", "other"]);
-    expect(saved).toBe("#training_done — велосипед + сап, 40 мин, интенсивность 4/5");
+    expect(saved).toBe("#training_done — cycling + бег + сап, 40 мин, интенсивность 4/5");
   });
 
   it("unrecognized training format has no kinds", () => {
@@ -154,7 +154,7 @@ describe("feed keys / message detection", () => {
         reply_to_text: "",
         reply_to_username: "",
       }),
-    ).toEqual({ author: "Лео", text: "", isLeo: true, isAdmin: false });
+    ).toEqual({ author: "Leo", text: "", isLeo: true, isAdmin: false });
   });
 
   it("mapFeedThreadQuote keeps a reply to admin voice", () => {
@@ -166,7 +166,7 @@ describe("feed keys / message detection", () => {
         reply_to_text: "важно",
         reply_to_username: "",
       }),
-    ).toEqual({ author: "Админ", text: "важно", isLeo: false, isAdmin: true });
+    ).toEqual({ author: "Admin", text: "важно", isLeo: false, isAdmin: true });
   });
 
   it("mapFeedThreadQuote keeps a reply to a participant", () => {
@@ -187,18 +187,18 @@ describe("feed keys / message detection", () => {
 
 describe("reactions", () => {
   it("resolveVoterPhotoUrl uses miniapp static for Leo even when backend sends API-relative path", () => {
-    expect(resolveVoterPhotoUrl({ name: "Лео", photo_url: "/leo-avatar.png" })).toMatch(/leo-avatar\.png$/);
-    expect(resolveVoterPhotoUrl({ name: "Лео", photo_url: "https://app.example/leo-avatar.png" })).toMatch(
+    expect(resolveVoterPhotoUrl({ name: "Leo", photo_url: "/leo-avatar.png" })).toMatch(/leo-avatar\.png$/);
+    expect(resolveVoterPhotoUrl({ name: "Leo", photo_url: "https://app.example/leo-avatar.png" })).toMatch(
       /leo-avatar\.png$/,
     );
-    expect(resolveVoterPhotoUrl({ name: "Лео" })).toMatch(/leo-avatar\.png$/);
+    expect(resolveVoterPhotoUrl({ name: "Leo" })).toMatch(/leo-avatar\.png$/);
     expect(resolveVoterPhotoUrl({ name: "Аня", photo_url: "/api/miniapp/user-avatar?user_id=1" })).toContain(
       "/api/miniapp/user-avatar",
     );
   });
 
   it("votersToLikers maps Leo string voter to avatar", () => {
-    expect(votersToLikers(["Лео"])).toEqual([{ name: "Лео", photoUrl: expect.stringMatching(/leo-avatar\.png$/) }]);
+    expect(votersToLikers(["Leo"])).toEqual([{ name: "Leo", photoUrl: expect.stringMatching(/leo-avatar\.png$/) }]);
   });
 
   it("trainingFeedAllowedEmojisForReport includes sport from report only", () => {

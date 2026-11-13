@@ -35,26 +35,26 @@ describe("CupsHistorySheet", () => {
       <CupsHistorySheet apiUrl="https://api.example" initData="init" onClose={onClose} />,
     );
 
-    expect(getByRole("dialog", { name: "История кубков" })).toBeTruthy();
+    expect(getByRole("dialog", { name: "Cups history" })).toBeTruthy();
     expect(getByText(CUPS_HISTORY_CAPTION)).toBeTruthy();
     await waitFor(() => {
-      expect(getByText("Бег")).toBeTruthy();
+      expect(getByText("Run")).toBeTruthy();
     });
     expect(getByText("27.09.2026")).toBeTruthy();
     expect(getByText("3/5")).toBeTruthy();
-    expect(getByText("40 мин")).toBeTruthy();
-    expect(getByText("+29 кубков")).toBeTruthy();
+    expect(getByText("40 min")).toBeTruthy();
+    expect(getByText("+29 cups")).toBeTruthy();
     expect(getByText(PACK_WEEKLY_CUPS_LABEL)).toBeTruthy();
-    expect(getByText("+50 кубков")).toBeTruthy();
+    expect(getByText("+50 cups")).toBeTruthy();
 
-    expect(getByRole("button", { name: /Дата/ }).getAttribute("aria-pressed")).toBe("true");
-    fireEvent.click(getByRole("button", { name: /Кубки/ }));
-    expect(getByRole("button", { name: /Кубки/ }).getAttribute("aria-pressed")).toBe("true");
+    expect(getByRole("button", { name: /Date/ }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(getByRole("button", { name: /Cups/ }));
+    expect(getByRole("button", { name: /Cups/ }).getAttribute("aria-pressed")).toBe("true");
     const cupsCells = Array.from(document.querySelectorAll(".cups-history__cups")).map((el) => el.textContent);
-    expect(cupsCells).toEqual(["+50 кубков", "+29 кубков"]);
+    expect(cupsCells).toEqual(["+50 cups", "+29 cups"]);
     expect(document.querySelector(".cups-history__sep")).toBeNull();
 
-    fireEvent.click(getByRole("button", { name: "Закрыть" }));
+    fireEvent.click(getByRole("button", { name: "Close" }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

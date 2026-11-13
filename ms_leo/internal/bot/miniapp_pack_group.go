@@ -167,11 +167,11 @@ func (b *Bot) packGroupRowsToMessages(rows []database.PackGroupChatRow) []*domai
 		if p, ok := parentByID[m.ReplyToID]; ok {
 			m.ReplyToIsLeo = p.IsLeo
 			if p.IsLeo {
-				m.ReplyToUsername = "Лео"
+				m.ReplyToUsername = "Leo"
 			} else {
 				m.ReplyToUsername = strings.TrimSpace(p.Username)
 				if m.ReplyToUsername == "" {
-					m.ReplyToUsername = fmt.Sprintf("Участник %d", p.FromUserID)
+					m.ReplyToUsername = fmt.Sprintf("Member %d", p.FromUserID)
 				}
 			}
 			m.ReplyToText = truncateForDM(p.MessageText, 100)
@@ -314,7 +314,7 @@ func (b *Bot) answerLeoInPackGroupChatIfMentioned(d initdata.InitData, chatID in
 	if strings.TrimSpace(reply) == "" {
 		return ""
 	}
-	leoName := "Лео"
+	leoName := "Leo"
 	if b.api != nil && b.api.Self.ID != 0 && b.api.Self.UserName != "" {
 		leoName = "@" + b.api.Self.UserName
 	}
@@ -342,11 +342,11 @@ func (b *Bot) buildPackGroupLeoQuestion(chatID int64, text, photoURL string, rep
 	if replyToID > 0 {
 		if parent, ok, err := b.db.GetMiniappPackGroupMessageInPack(chatID, replyToID); err == nil && ok {
 			who := strings.TrimSpace(parent.Username)
-			if parent.IsLeo {
-				who = "Лео"
+			if parent.IsLeo || who == "Лео" || strings.EqualFold(who, "Leo") {
+				who = "Leo"
 			}
 			if who == "" {
-				who = "участник"
+				who = "member"
 			}
 			parentLabel = who
 			ptxt := strings.TrimSpace(parent.MessageText)
@@ -354,12 +354,12 @@ func (b *Bot) buildPackGroupLeoQuestion(chatID int64, text, photoURL string, rep
 				ptxt = ptxt[:500] + "…"
 			}
 			parentPhotoURL = strings.TrimSpace(parent.PhotoURL)
-			line := "[Участник отвечает на сообщение от «" + who + "»"
+			line := "[Member replying to message from \"" + who + "\""
 			if ptxt != "" {
-				line += ": «" + ptxt + "»"
+				line += ": \"" + ptxt + "\""
 			}
 			if parentPhotoURL != "" {
-				line += " (с фото)"
+				line += " (with photo)"
 			}
 			line += "]\n"
 			sb.WriteString(line)
@@ -369,15 +369,15 @@ func (b *Bot) buildPackGroupLeoQuestion(chatID int64, text, photoURL string, rep
 	// 2) Анализ фото: текущее сообщение и/или фото родителя реплая.
 	if b.aiClient != nil && b.aiClient.HasVision() {
 		if desc := b.describeImageForLeo(strings.TrimSpace(photoURL), text); desc != "" {
-			sb.WriteString("[Фото, приложенное к сообщению участника — что на нём: " + desc + "]\n")
+			sb.WriteString("[Photo attached to member message — what's in it: " + desc + "]\n")
 		}
 		if parentPhotoURL != "" {
 			if desc := b.describeImageForLeo(parentPhotoURL, ""); desc != "" {
 				lbl := parentLabel
 				if lbl == "" {
-					lbl = "участника"
+					lbl = "member"
 				}
-				sb.WriteString("[Фото из сообщения «" + lbl + "», на которое отвечают — что на нём: " + desc + "]\n")
+				sb.WriteString("[Photo from message \"" + lbl + "\" being replied to — what's in it: " + desc + "]\n")
 			}
 		}
 	}
@@ -385,7 +385,7 @@ func (b *Bot) buildPackGroupLeoQuestion(chatID int64, text, photoURL string, rep
 	if sb.Len() == 0 {
 		return text
 	}
-	sb.WriteString("\nСообщение участника: ")
+	sb.WriteString("\nMember message: ")
 	sb.WriteString(text)
 	return sb.String()
 }
@@ -396,15 +396,14 @@ func (b *Bot) describeImageForLeo(photoURL, userText string) string {
 	if photoURL == "" || b.aiClient == nil || !b.aiClient.HasVision() {
 		return ""
 	}
-	sys := "Ты — ассистент, кратко и по делу описываешь фото для чата фитнес-стаи. " +
-		"Опиши, что на изображении: кто/что, обстановка, если это тренировка/еда/экипировка/скрин — отметь детали, важные для дружеского ответа. " +
-		"Про людей пиши объективно: сколько человек в кадре, их видимый пол (мужчина/женщина) и что каждый делает или держит. " +
-		"ВАЖНО: не считай, что человек в кадре — это обязательно автор поста. Автор мог сам фотографировать и быть ЗА кадром, " +
-		"а в кадре может быть его спутник/попутчик или посторонний. Если по фото не ясно, кто из людей автор, — так и скажи, не домысливай. " +
-		"2–4 коротких предложения, без воды и без выдумок."
+	sys := "You briefly describe photos for a fitness-pack chat. " +
+		"Say what is in the image: who/what, setting; for workouts, food, gear, or screenshots note details useful for a friendly reply. " +
+		"For people: how many, apparent gender, what each is doing or holding. " +
+		"Do not assume someone in frame is the post author — they may be behind the camera. If authorship is unclear, say so. " +
+		"2–4 short sentences, no fluff or guesses."
 	hint := strings.TrimSpace(userText)
 	if hint != "" {
-		hint = "Подпись участника к фото: " + hint
+		hint = "Member caption: " + hint
 	}
 	desc, err := b.aiClient.AnalyzeImages(sys, hint, []string{photoURL})
 	if err != nil {
@@ -426,7 +425,7 @@ func (b *Bot) afterLeoPackGroupReplyInserted(packChatID, recipientUserID int64, 
 		b.logger.Warnf("pack group leo unread insert: %v", err)
 	}
 	preview := truncateForDM(replyText, 160)
-	body := "🦁 Лео ответил в чате стаи.\n\n«" + preview + "»\n\nОткрой мини-апп → «Стая» → «Чат»."
+	body := "🦁 Leo replied in the pack chat.\n\n\"" + preview + "\"\n\nOpen the mini app → Pack → Chat."
 	b.sendTrainingThreadCommentDM(recipientUserID, body)
 }
 
@@ -436,7 +435,7 @@ func (b *Bot) afterPackGroupReplyInserted(packChatID, commenterUserID int64, com
 	}
 	cn := strings.TrimSpace(commenterName)
 	if cn == "" {
-		cn = "Участник стаи"
+		cn = "Pack member"
 	}
 	var notifyUserID int64
 	defer func() {
@@ -468,21 +467,7 @@ func (b *Bot) afterPackGroupReplyInserted(packChatID, commenterUserID int64, com
 		b.logger.Warnf("pack group unread insert: %v", err)
 	}
 	preview := truncateForDM(commentText, 160)
-	commenterGender, _, _ := b.GetMiniappUserProfileJSONForAPI(commenterUserID, packChatID)
-	commenterGender = strings.TrimSpace(strings.ToLower(commenterGender))
-	var body string
-	verb := ""
-	switch commenterGender {
-	case "m":
-		verb = "ответил"
-	case "f":
-		verb = "ответила"
-	}
-	if verb == "" {
-		body = "↩️ Ответ от " + cn + " на твоё сообщение в чате стаи.\n\n«" + preview + "»\n\nОткрой мини-апп → «Стая» → «Чат»."
-	} else {
-		body = "↩️ " + cn + " " + verb + " на твоё сообщение в чате стаи.\n\n«" + preview + "»\n\nОткрой мини-апп → «Стая» → «Чат»."
-	}
+	body := "↩️ " + cn + " replied to your message in the pack chat.\n\n\"" + preview + "\"\n\nOpen the mini app → Pack → Chat."
 	b.sendTrainingThreadCommentDM(notifyUserID, body)
 }
 

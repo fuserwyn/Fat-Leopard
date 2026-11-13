@@ -43,21 +43,21 @@ export type ShareCard = {
   photo?: Blob | null;
 };
 
-const cleanName = (name: string) => name.trim() || "Участник стаи";
+const cleanName = (name: string) => name.trim() || "Pack member";
 
 /** Карточка ачивки: «Стрик 30 дней» или «100 тренировок». */
 export function achievementShareCard(key: AchievementKey, name: string): ShareCard {
   const parsed = parseAchievementKey(key);
   if (!parsed) {
-    return { kind: "achievement", emoji: "🏅", headline: "Ачивка", big: "🏆", bigCaption: achievementLabel(key), name: cleanName(name) };
+    return { kind: "achievement", emoji: "🏅", headline: "Achievement", big: "🏆", bigCaption: achievementLabel(key), name: cleanName(name) };
   }
   if (parsed.kind === "streak") {
     return {
       kind: "achievement",
       emoji: "🔥",
-      headline: "Стрик",
+      headline: "Streak",
       big: String(parsed.threshold),
-      bigCaption: `${daysWordRu(parsed.threshold)} подряд`,
+      bigCaption: `${daysWordRu(parsed.threshold)} in a row`,
       name: cleanName(name),
     };
   }
@@ -65,7 +65,7 @@ export function achievementShareCard(key: AchievementKey, name: string): ShareCa
   return {
     kind: "achievement",
     emoji: "💪",
-    headline: "Ачивка получена",
+    headline: "Achievement unlocked",
     big: String(parsed.threshold),
     bigCaption: label.slice(String(parsed.threshold).length).trim(),
     name: cleanName(name),
@@ -77,7 +77,7 @@ export function levelShareCard(level: number, name: string): ShareCard {
   return {
     kind: "level",
     emoji: miniappLevelEmoji(level),
-    headline: "Новый уровень",
+    headline: "New level",
     big: String(level),
     bigCaption: miniappLevelName(level),
     name: cleanName(name),
@@ -98,17 +98,17 @@ export type WorkoutShareInput = {
 
 /** Карточка засчитанной тренировки: минуты, вид спорта, интенсивность и стрик. */
 export function workoutShareCard(w: WorkoutShareInput): ShareCard {
-  const parts = [w.kindLabel.trim(), `интенсивность ${w.intensity}/5`].filter(Boolean);
+  const parts = [w.kindLabel.trim(), `intensity ${w.intensity}/5`].filter(Boolean);
   return {
     kind: "workout",
     emoji: trainingDoneCategoryEmoji(w.reportLine) || "💪",
-    headline: "Тренировка засчитана",
+    headline: "Workout logged",
     big: String(Math.max(0, Math.round(w.min))),
-    bigCaption: "минут",
+    bigCaption: "minutes",
     details: parts.join(" · "),
     // Стрик — второе, чем хвастаются после самой тренировки: выносим его
     // отдельной крупной плашкой, а не прячем в мелкую строку деталей.
-    badge: w.streak > 0 ? `🔥 Стрик ${w.streak} ${daysWordRu(w.streak)}` : undefined,
+    badge: w.streak > 0 ? `🔥 ${w.streak}-day streak` : undefined,
     name: cleanName(w.name),
     photo: w.photo ?? null,
   };
@@ -123,13 +123,13 @@ export function shareLinkDisplay(link: string): string {
 export function shareCardCaption(card: ShareCard, link: string): string {
   const what =
     card.kind === "level"
-      ? `Новый уровень в Fat Leopard: ${card.big} — ${card.bigCaption} ${card.emoji}`
+      ? `New level in Fat Leopard: ${card.big} — ${card.bigCaption} ${card.emoji}`
       : card.kind === "workout"
-        ? `Тренировка засчитана: ${card.big} ${card.bigCaption} ${card.emoji}${card.badge ? ` · ${card.badge.replace(/^🔥\s*/, "").toLowerCase()} 🔥` : ""}`
-        : card.headline === "Стрик"
-          ? `Стрик ${card.big} ${card.bigCaption} в Fat Leopard 🔥`
-          : `Ачивка в Fat Leopard: ${card.big} ${card.bigCaption} 💪`;
-  const tail = link ? `\nТренируйся со мной: ${link}` : "\nТренируйся со мной в Fat Leopard 🐆";
+        ? `Workout logged: ${card.big} ${card.bigCaption} ${card.emoji}${card.badge ? ` · ${card.badge.replace(/^🔥\s*/, "").toLowerCase()} 🔥` : ""}`
+        : card.headline === "Streak"
+          ? `${card.big}-${card.bigCaption} streak in Fat Leopard 🔥`
+          : `Achievement in Fat Leopard: ${card.big} ${card.bigCaption} 💪`;
+  const tail = link ? `\nTrain with me: ${link}` : "\nJoin me in Fat Leopard 🐆";
   const text = what + tail;
   return text.length > 200 ? `${text.slice(0, 199)}…` : text;
 }
@@ -253,7 +253,7 @@ export function drawShareCard(
   fitFont(ctx, card.name, 800, 72, maxW);
   ctx.fillText(card.name, cx, nameY);
 
-  const shown = link ? shareLinkDisplay(link) : "Fat Leopard в Telegram";
+  const shown = link ? shareLinkDisplay(link) : "Fat Leopard on Telegram";
   ctx.font = `700 44px ${FONT}`;
   const pillW = Math.min(maxW, ctx.measureText(shown).width + 100);
   ctx.save();
@@ -267,7 +267,7 @@ export function drawShareCard(
 
   ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
   ctx.font = `500 38px ${FONT}`;
-  ctx.fillText("Тренируйся со мной в стае", cx, 1850);
+  ctx.fillText("Train with me in the pack", cx, 1850);
 }
 
 /** Фото тренировки → картинка для холста; null, если браузер не умеет её открыть. */

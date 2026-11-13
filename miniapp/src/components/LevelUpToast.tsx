@@ -5,20 +5,20 @@ import "./AchievementToast.css";
 import "./ShareCardSheet.css";
 
 type Props = {
-  /** Достигнутый уровень (1…6). */
+  /** Level reached (1…6). */
   level: number;
-  /** Вызывается, когда поп-ап скрылся (по таймеру или тапу) — родитель снимает его с очереди. */
+  /** Called when the popup hides (timer or tap) — parent clears the queue. */
   onDone: () => void;
-  /** «Поделиться» — открыть карточку для сторис и чатов (тост при этом закрывается). */
+  /** Share — open card for stories and chats (toast closes). */
   onShare?: () => void;
 };
 
 const VISIBLE_MS = 5000;
-/** С кнопкой «Поделиться» тост висит дольше — чтобы успеть до неё дотянуться. */
+/** With Share, the toast stays longer so you can tap it. */
 const VISIBLE_WITH_SHARE_MS = 8000;
 const EXIT_MS = 320;
 
-/** Эмодзи-животное уровня (индекс = номер уровня 1-based; сурикат без своего эмодзи — лапка). */
+/** Level animal emoji (index = 1-based level; meerkat has no emoji — paw). */
 const LEVEL_EMOJI = ["", "🐾", "🦌", "🦓", "🐆", "🦁", "🐘"];
 
 function levelEmoji(level: number): string {
@@ -26,14 +26,13 @@ function levelEmoji(level: number): string {
 }
 
 function levelCheer(level: number): string {
-  if (level >= MAX_CUP_LEVEL) return "Вершина стаи! Лео снимает шляпу 🎩";
-  return "Ты растёшь — Лео тобой гордится! 🐾";
+  if (level >= MAX_CUP_LEVEL) return "Top of the pack! Leo tips his hat 🎩";
+  return "You’re growing — Leo is proud of you! 🐾";
 }
 
 /**
- * Празднующий поп-ап «Новый уровень!» по центру экрана — та же подача, что и у ачивок:
- * аватарка Лео, шеврон с номером уровня, искорки и тёплая фраза. Показывается поверх всего,
- * авто-скрывается, тап закрывает раньше. Очередь и дедуп — на стороне App (по номеру уровня).
+ * Centered “New level!” celebration — same style as achievements: Leo avatar, level
+ * chip, sparkles. Auto-hides; tap closes sooner. Queue/dedup in App (by level number).
  */
 export function LevelUpToast({ level, onDone, onShare }: Props) {
   const [leaving, setLeaving] = useState(false);
@@ -41,7 +40,7 @@ export function LevelUpToast({ level, onDone, onShare }: Props) {
   useEffect(() => {
     const hide = window.setTimeout(() => setLeaving(true), onShare ? VISIBLE_WITH_SHARE_MS : VISIBLE_MS);
     return () => window.clearTimeout(hide);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- таймер ставится один раз на показ
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- timer once per show
   }, []);
 
   useEffect(() => {
@@ -72,7 +71,7 @@ export function LevelUpToast({ level, onDone, onShare }: Props) {
           </span>
         </div>
 
-        <div className="achievement-toast__title">Новый уровень!</div>
+        <div className="achievement-toast__title">New level!</div>
         <div className="achievement-toast__label">
           {levelEmoji(level)} {miniappLevelName(level)}
         </div>
@@ -86,7 +85,7 @@ export function LevelUpToast({ level, onDone, onShare }: Props) {
               onShare();
             }}
           >
-            Поделиться
+            Share
           </button>
         ) : null}
       </div>

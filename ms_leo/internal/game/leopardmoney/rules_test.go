@@ -49,7 +49,7 @@ func TestStreakAchievementIndex(t *testing.T) {
 }
 
 func TestLevelNames(t *testing.T) {
-	expected := []string{"", "Сурикат", "Газель", "Зебра", "Гепард", "Лев", "Слон"}
+	expected := []string{"", "Meerkat", "Gazelle", "Zebra", "Cheetah", "Lion", "Elephant"}
 	if len(LevelNames) != len(expected) {
 		t.Fatalf("len(LevelNames) = %d, want %d", len(LevelNames), len(expected))
 	}
@@ -65,12 +65,12 @@ func TestLevelName(t *testing.T) {
 		level int
 		want  string
 	}{
-		{1, "Сурикат"},
-		{2, "Газель"},
-		{3, "Зебра"},
-		{4, "Гепард"},
-		{5, "Лев"},
-		{6, "Слон"},
+		{1, "Meerkat"},
+		{2, "Gazelle"},
+		{3, "Zebra"},
+		{4, "Cheetah"},
+		{5, "Lion"},
+		{6, "Elephant"},
 		{0, ""},
 		{7, ""},
 		{-1, ""},

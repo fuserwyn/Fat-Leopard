@@ -41,15 +41,15 @@ func (b *Bot) SaveLikeNotificationForViewer(viewerUserID int64, initD initdata.I
 	})
 }
 
-// likeVerbForGender — «оценил/оценила/оценили» в зависимости от пола лайкнувшего.
+// likeVerbForGender — «liked/liked/liked» в зависимости от пола лайкнувшего.
 func likeVerbForGender(gender string) string {
 	switch strings.TrimSpace(strings.ToLower(gender)) {
 	case "m":
-		return "оценил"
+		return "liked"
 	case "f":
-		return "оценила"
+		return "liked"
 	default:
-		return "оценили"
+		return "liked"
 	}
 }
 
@@ -67,7 +67,7 @@ func (b *Bot) notifyFeedPostLiked(packChatID, likerUserID int64, likerName strin
 	if !ok || authorID == 0 || authorID == likerUserID {
 		return
 	}
-	b.deliverFeedLikeDM(packChatID, authorID, likerUserID, likerName, "post", userMessageID, emoji, "твою тренировку")
+	b.deliverFeedLikeDM(packChatID, authorID, likerUserID, likerName, "post", userMessageID, emoji, "your workout report")
 }
 
 // notifyFeedCommentLiked — DM автору комментария, когда его реплику в треде лайкнули.
@@ -79,7 +79,7 @@ func (b *Bot) notifyFeedCommentLiked(packChatID, likerUserID int64, likerName st
 	if authorID == 0 || authorID == likerUserID {
 		return
 	}
-	b.deliverFeedLikeDM(packChatID, authorID, likerUserID, likerName, "comment", threadReplyID, "❤️", "твой комментарий")
+	b.deliverFeedLikeDM(packChatID, authorID, likerUserID, likerName, "comment", threadReplyID, "❤️", "your comment")
 }
 
 // deliverFeedLikeDM — общая доставка: проверяет подписку получателя, дедуп и шлёт личку.
@@ -102,7 +102,7 @@ func (b *Bot) deliverFeedLikeDM(packChatID, recipientID, likerUserID int64, like
 	}
 	name := strings.TrimSpace(likerName)
 	if name == "" {
-		name = "Участник стаи"
+		name = "Pack member"
 	}
 	gender, _, _ := b.GetMiniappUserProfileJSONForAPI(likerUserID, packChatID)
 	verb := likeVerbForGender(gender)
@@ -110,7 +110,7 @@ func (b *Bot) deliverFeedLikeDM(packChatID, recipientID, likerUserID int64, like
 	if badge == "" {
 		badge = "❤️"
 	}
-	body := badge + " " + name + " " + verb + " " + what + " в стае.\n\nОткрой мини-апп → вкладка «Стая»."
+	body := badge + " " + name + " " + verb + " " + what + " in the pack.\n\nOpen the mini app → Pack tab."
 	// Пуш в inbox мини-аппа (доедет на новые устройства) + Telegram-личка, как «мудрость дня».
 	b.miniappPersonalPush(recipientID, body)
 	b.sendTrainingThreadCommentDM(recipientID, body)

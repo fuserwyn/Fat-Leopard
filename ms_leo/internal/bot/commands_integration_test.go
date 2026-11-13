@@ -58,10 +58,10 @@ func TestStartCommandForNewcomer(t *testing.T) {
 		t.Fatalf("новичок должен сразу оказаться в стае: %d", n)
 	}
 	texts := strings.Join(tg.textsTo(itUser), "\n---\n")
-	if !strings.Contains(texts, "Ура, ты в стае") || strings.Contains(texts, "Ты выбыл из стаи") || strings.Contains(texts, "Способы оплаты") {
+	if !strings.Contains(texts, "You're in the pack") || strings.Contains(texts, "dropped from the pack") || strings.Contains(texts, "Payment methods") {
 		t.Errorf("новичку — приветствие без экрана оплаты: %s", texts)
 	}
-	if strings.Contains(texts, "Админ-панель") {
+	if strings.Contains(texts, "Admin panel") {
 		t.Error("обычному участнику про админку не пишем")
 	}
 	eventually(t, "событие bot_started с источником", func() bool {
@@ -87,7 +87,7 @@ func TestStartCommandForKickedMember(t *testing.T) {
 	b.handleUpdate(commandUpdate(itUser, "kicked", "/start"))
 
 	texts := strings.Join(tg.textsTo(itUser), "\n---\n")
-	if !strings.Contains(texts, "Ты выбыл из стаи") || !strings.Contains(texts, "Способы оплаты") || strings.Contains(texts, "Ура, ты в стае") {
+	if !strings.Contains(texts, "dropped from the pack") || !strings.Contains(texts, "Payment methods") || strings.Contains(texts, "You're in the pack") {
 		t.Errorf("выбывшему — экран оплаты, а не приветствие: %s", texts)
 	}
 	if n := count(t, db, `SELECT COUNT(*) FROM paywall_access_requests WHERE user_id = $1 AND status = 'pending'`, itUser); n != 1 {
@@ -99,12 +99,12 @@ func TestStartCommandForKickedMember(t *testing.T) {
 
 	tg.reset()
 	b.handleUpdate(commandUpdate(itUser, "kicked", "/help"))
-	if texts := strings.Join(tg.textsTo(itUser), "\n"); !strings.Contains(texts, "Ты выбыл из стаи") || strings.Contains(texts, "Справка") {
+	if texts := strings.Join(tg.textsTo(itUser), "\n"); !strings.Contains(texts, "dropped from the pack") || strings.Contains(texts, "Help") {
 		t.Errorf("/help у выбывшего — тоже экран оплаты: %s", texts)
 	}
 	tg.reset()
 	b.handleUpdate(commandUpdate(itUser, "kicked", "/rejoin"))
-	if texts := strings.Join(tg.textsTo(itUser), "\n"); !strings.Contains(texts, "Сначала оплати доступ") {
+	if texts := strings.Join(tg.textsTo(itUser), "\n"); !strings.Contains(texts, "Pay for access first") {
 		t.Errorf("/rejoin у выбывшего: %s", texts)
 	}
 }
@@ -119,21 +119,21 @@ func TestInfoCommands(t *testing.T) {
 	}
 
 	b.handleUpdate(commandUpdate(itAdmin, "boss", "/start"))
-	if texts := strings.Join(tg.textsTo(itAdmin), "\n"); !strings.Contains(texts, "Админ-панель") {
+	if texts := strings.Join(tg.textsTo(itAdmin), "\n"); !strings.Contains(texts, "Admin panel") {
 		t.Errorf("админу — подсказка про панель: %s", texts)
 	}
 
 	tg.reset()
 	b.handleUpdate(commandUpdate(itUser, "first", "/help"))
-	if texts := tg.textsTo(itUser); len(texts) != 1 || !strings.Contains(texts[0], "Справка") {
+	if texts := tg.textsTo(itUser); len(texts) != 1 || !strings.Contains(texts[0], "Help") {
 		t.Errorf("/help: %q", texts)
 	}
 
 	tg.reset()
 	b.handleUpdate(commandUpdate(itUser, "first", "/top"))
 	top := strings.Join(tg.textsTo(itUser), "\n")
-	if !strings.Contains(top, "Топ пользователей") || strings.Index(top, "first") > strings.Index(top, "second") || !strings.Contains(top, "300") {
-		t.Errorf("/top — по убыванию кубков: %s", top)
+	if !strings.Contains(top, "Leaderboard") || strings.Index(top, "first") > strings.Index(top, "second") || !strings.Contains(top, "300") {
+		t.Errorf("/top — по убыванию cups: %s", top)
 	}
 
 	tg.reset()
@@ -144,19 +144,19 @@ func TestInfoCommands(t *testing.T) {
 
 	tg.reset()
 	b.handleUpdate(commandUpdate(itUser, "first", "/rejoin"))
-	if texts := strings.Join(tg.textsTo(itUser), "\n"); !strings.Contains(texts, "Доступ активен") {
+	if texts := strings.Join(tg.textsTo(itUser), "\n"); !strings.Contains(texts, "Access is active") {
 		t.Errorf("/rejoin у активного: %s", texts)
 	}
 
 	// Служебные команды — только админам.
 	tg.reset()
 	b.handleUpdate(commandUpdate(itUser, "first", "/db"))
-	if texts := strings.Join(tg.textsTo(itUser), "\n"); !strings.Contains(texts, "Только администраторы") {
+	if texts := strings.Join(tg.textsTo(itUser), "\n"); !strings.Contains(texts, "Only administrators") {
 		t.Errorf("/db не-админу: %s", texts)
 	}
 	tg.reset()
 	b.handleUpdate(commandUpdate(itAdmin, "boss", "/db"))
-	if texts := strings.Join(tg.textsTo(itAdmin), "\n"); !strings.Contains(texts, "Статистика БД") {
+	if texts := strings.Join(tg.textsTo(itAdmin), "\n"); !strings.Contains(texts, "DB stats") {
 		t.Errorf("/db админу: %s", texts)
 	}
 }

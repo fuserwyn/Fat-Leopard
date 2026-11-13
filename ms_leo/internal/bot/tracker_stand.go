@@ -281,10 +281,11 @@ func trackerTaskShippedToStand(t database.TrackerTask) bool {
 	shipped := false
 	for _, s := range t.Steps {
 		low := strings.ToLower(s)
-		if strings.Contains(low, "пуш в ") || strings.Contains(low, "ждём сборку") {
+		if strings.Contains(low, "пуш в ") || strings.Contains(low, "push to ") ||
+			strings.Contains(low, "ждём сборку") || strings.Contains(low, "waiting for stand build") {
 			shipped = true
 		}
-		if strings.Contains(low, "вернули в работу") {
+		if strings.Contains(low, "вернули в работу") || strings.Contains(low, "returned to doing") {
 			shipped = false
 		}
 	}

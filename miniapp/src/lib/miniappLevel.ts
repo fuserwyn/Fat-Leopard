@@ -12,7 +12,7 @@ export const MAX_CUP_LEVEL = CUP_LEVEL_STARTS.length;
  * (ms_leo/internal/game/leopardmoney/const.go). Индекс = номер уровня (1-based);
  * "" на индексе 0 — нулевой уровень не используется.
  */
-export const MINIAPP_LEVEL_NAMES: readonly string[] = ["", "Сурикат", "Газель", "Зебра", "Гепард", "Лев", "Слон"];
+export const MINIAPP_LEVEL_NAMES: readonly string[] = ["", "Meerkat", "Gazelle", "Zebra", "Cheetah", "Lion", "Elephant"];
 
 /**
  * Эмодзи-животные уровней (индекс = номер уровня 1-based, как в правилах Стаи).
@@ -78,7 +78,7 @@ export function nextLevelGoalCups(progress: CupsLevelProgress): number {
 
 /** Текст прогресса: текущие кубки в БД / порог следующего уровня, напр. «425/1260 кубков». */
 export function formatCupsLevelProgressLabel(progress: CupsLevelProgress): string {
-  return `${progress.totalCups}/${nextLevelGoalCups(progress)} кубков`;
+  return `${progress.totalCups}/${nextLevelGoalCups(progress)} cups`;
 }
 
 /** Доля прогресса до следующего уровня (0…100) для полоски. */

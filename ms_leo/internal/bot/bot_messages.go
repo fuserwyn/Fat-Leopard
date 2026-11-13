@@ -13,7 +13,7 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-// Разбор входящих сообщений: отчёты о тренировках, больничный, таймер.
+// Разбор входящих сообщений: отчёты о workoutх, больничный, таймер.
 
 func (b *Bot) handleMessage(msg *tgbotapi.Message, personalReplyCh chan<- string, trainingPhotoURLOverride string) {
 	// Проверяем наличие хештегов в тексте или подписи
@@ -25,7 +25,7 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message, personalReplyCh chan<- string
 	b.tryHandleSickApprovalReply(msg, text)
 
 	if text != "" && strings.Contains(strings.ToLower(text), "#change") {
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "⚠️ #change больше не работает: обмен калорий убран. Сейчас в игре кубки и стрик — отмечай тренировки в мини-аппе («+»).")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "⚠️ #change no longer works: calorie exchange was removed. The game is cups and streak — log workouts in the mini app («+»).")
 		if _, err := b.api.Send(reply); err != nil {
 			b.logger.Errorf("send #change deprecation reply: %v", err)
 		}
@@ -225,7 +225,7 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message, personalReplyCh chan<- string
 	// Реплика из мини-аппа пришла в TG с префиксом — не запускаем ИИ повторно (ответ уже в приложении или не было @).
 	if msg.Chat != nil && msg.Chat.ID == b.config.MonetizedChatID &&
 		(msg.Chat.Type == "supergroup" || msg.Chat.Type == "group") &&
-		text != "" && strings.HasPrefix(strings.TrimSpace(text), "💬 Мини-апп") {
+		text != "" && isLegacyMiniappTelegramGroupEcho(text) {
 		shouldHandleAI = false
 	}
 
@@ -236,7 +236,7 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message, personalReplyCh chan<- string
 		if isPrivateLeo {
 			if _, err := b.enforceLeoChat(text, msg.From.ID); err != nil {
 				var mod *ModerationBlockedError
-				reply := "⚠️ Сообщение не отправлено."
+				reply := "⚠️ Message not sent."
 				if errors.As(err, &mod) && mod != nil && strings.TrimSpace(mod.Message) != "" {
 					reply = "⚠️ " + mod.Message
 				}
@@ -363,19 +363,19 @@ func (b *Bot) evaluateSickLeaveJustification(text string, messageLog *domain.Mes
 	}
 
 	var ctxBuilder strings.Builder
-	ctxBuilder.WriteString("Оцени убедительность больничного запроса.\n")
+	ctxBuilder.WriteString("Assess how convincing this sick-leave request is.\n")
 	if messageLog != nil {
-		ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", messageLog.Username))
+		ctxBuilder.WriteString(fmt.Sprintf("User: %s\n", messageLog.Username))
 		ctxBuilder.WriteString(fmt.Sprintf("StreakDays: %d\n", messageLog.StreakDays))
 		ctxBuilder.WriteString(fmt.Sprintf("HasSickLeave: %t\n", messageLog.HasSickLeave))
 		ctxBuilder.WriteString(fmt.Sprintf("HasHealthy: %t\n", messageLog.HasHealthy))
 	}
-	ctxBuilder.WriteString(fmt.Sprintf("Текст запроса: \"%s\"\n", clean))
-	ctxBuilder.WriteString("Эвристика не нашла явных признаков ни болезни, ни обмана.\n")
+	ctxBuilder.WriteString(fmt.Sprintf("Request text: \"%s\"\n", clean))
+	ctxBuilder.WriteString("Heuristics found no clear signs of illness or excuse.\n")
 
-	question := "Если сообщение описывает реальную болезнь, ответь строго словом APPROVE. " +
-		"Если это похоже на отговорку (работа, дела, лень и т.п.), ответь строго словом REJECT. " +
-		"Никаких других слов или пояснений."
+	question := "If the message describes real illness, reply with the single word APPROVE. " +
+		"If it looks like an excuse (work, errands, laziness, etc.), reply with the single word REJECT. " +
+		"No other words or explanations."
 
 	answer, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String())
 	if err != nil {
@@ -397,7 +397,7 @@ func (b *Bot) evaluateSickLeaveJustification(text string, messageLog *domain.Mes
 func (b *Bot) handleStartTimer(msg *tgbotapi.Message) {
 	// Проверяем права администратора
 	if !b.isAdmin(msg.Chat.ID, msg.From.ID) {
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Только администраторы или владелец могут использовать эту команду!")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Only administrators or the owner can use this command!")
 		b.api.Send(reply)
 		return
 	}
@@ -408,7 +408,7 @@ func (b *Bot) handleStartTimer(msg *tgbotapi.Message) {
 	users, err := b.db.GetUsersByChatID(packScope)
 	if err != nil {
 		b.logger.Errorf("Failed to get users: %v", err)
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Ошибка при получении пользователей")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Failed to load users")
 		b.api.Send(reply)
 		return
 	}
@@ -423,7 +423,7 @@ func (b *Bot) handleStartTimer(msg *tgbotapi.Message) {
 	}
 
 	// Отправляем отчет
-	reply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("🐆 Fat Leopard активирован!\n\n⏱️ Запущено таймеров: %d\n⏰ Время: 7 дней\n💪 Действие: отметь тренировку в мини-аппе", startedCount))
+	reply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("🐆 Fat Leopard activated!\n\n⏱️ Timers started: %d\n⏰ Window: 7 days\n💪 Action: log a workout in the mini app", startedCount))
 
 	b.logger.Infof("Sending start timer message to chat %d", msg.Chat.ID)
 	_, err = b.api.Send(reply)
@@ -432,4 +432,10 @@ func (b *Bot) handleStartTimer(msg *tgbotapi.Message) {
 	} else {
 		b.logger.Infof("Successfully sent start timer message to chat %d", msg.Chat.ID)
 	}
+}
+
+// isLegacyMiniappTelegramGroupEcho — legacy TG group echo prefix from the mini app (RU + EN).
+func isLegacyMiniappTelegramGroupEcho(text string) bool {
+	t := strings.TrimSpace(text)
+	return strings.HasPrefix(t, "💬 Mini app") || strings.HasPrefix(t, "💬 Мини-апп")
 }

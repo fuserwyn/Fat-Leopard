@@ -511,7 +511,7 @@ func TestJourneyAdmin(t *testing.T) {
 		t.Errorf("после отмены отложенных нет: %v", posts)
 	}
 
-	// Цена доступа и цель стаи.
+	// Цена access и цель стаи.
 	price := j.ok(jOwner, "/admin/paywall-price/set", map[string]any{"amount_rub": 499})["price"].(map[string]any)
 	if price["amount_rub"] != float64(499) || price["is_custom"] != true {
 		t.Errorf("цена: %v", price)

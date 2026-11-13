@@ -6,15 +6,15 @@ import { AchievementToast, leoCheer } from "./AchievementToast";
 afterEach(cleanup);
 
 describe("AchievementToast", () => {
-  it("празднует первую тренировку отдельной фразой", () => {
+  it("celebrates first workout with a dedicated phrase", () => {
     const { getByText } = render(<AchievementToast achievementKey="workout-1" onDone={() => {}} />);
-    expect(getByText("Ачивка получена!")).toBeTruthy();
-    expect(getByText("1 тренировка")).toBeTruthy();
-    expect(getByText(/Первая тренировка/)).toBeTruthy();
+    expect(getByText("Achievement unlocked!")).toBeTruthy();
+    expect(getByText("1 workout")).toBeTruthy();
+    expect(getByText(/First workout/)).toBeTruthy();
   });
 
-  it("остальным порогам оставляет прежние фразы", () => {
-    expect(leoCheer("workout-10")).toBe("Ты просто зверь! Лео даёт лапу 🐾");
-    expect(leoCheer("streak-7")).toBe("Так держать — Лео тобой гордится!");
+  it("uses standard cheers for other thresholds", () => {
+    expect(leoCheer("workout-10")).toMatch(/beast.*Leo gives you a paw/);
+    expect(leoCheer("streak-7")).toMatch(/Keep it up.*proud of you/);
   });
 });

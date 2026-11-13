@@ -4,7 +4,7 @@ package leopardmoney
 import "time"
 
 const (
-	// EntryRub — стоимость доступа в Fat Leopard MiniApp (руб.).
+	// EntryRub — стоимость access в Fat Leopard MiniApp (руб.).
 	EntryRub = 99
 	// ReturnRub — повторный доступ после кика за неактивность (руб.).
 	ReturnRub = 210
@@ -21,4 +21,4 @@ const (
 
 // LevelNames — имена уровней по саванне (индекс = номер уровня 1…6+).
 // Леопард — НЕ уровень, это бренд продукта и образ тренера Лео.
-var LevelNames = []string{"", "Сурикат", "Газель", "Зебра", "Гепард", "Лев", "Слон"}
+var LevelNames = []string{"", "Meerkat", "Gazelle", "Zebra", "Cheetah", "Lion", "Elephant"}

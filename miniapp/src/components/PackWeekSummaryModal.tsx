@@ -38,18 +38,18 @@ export function PackWeekSummaryModal({ summary, onClose }: Props) {
         className={`pack-week-summary${summary.goalReached ? " is-reached" : ""}`}
         role="dialog"
         aria-modal="true"
-        aria-label="Итоги недели стаи"
+        aria-label="Pack week summary"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="pack-week-summary__eyebrow">Итоги недели стаи{range ? ` · ${range}` : ""}</div>
+        <div className="pack-week-summary__eyebrow">Pack week recap{range ? ` · ${range}` : ""}</div>
         <img className="pack-week-summary__leo" src={LEO_AVATAR_URL} alt="" />
         <div className="pack-week-summary__title">{packWeekSummaryHeadline(summary)}</div>
 
-        <div className="pack-week-summary__score" aria-label={`${summary.workouts} из ${summary.goal}`}>
+        <div className="pack-week-summary__score" aria-label={`${summary.workouts} of ${summary.goal}`}>
           <span className="pack-week-summary__count">{summary.workouts}</span>
           <span className="pack-week-summary__goal">/ {summary.goal}</span>
         </div>
-        <div className="pack-week-summary__caption">{workoutsWord(summary.workouts)} стаи за неделю</div>
+        <div className="pack-week-summary__caption">{workoutsWord(summary.workouts)} pack workouts this week</div>
         <div className="pack-week-summary__bar" aria-hidden>
           <div className="pack-week-summary__bar-fill" style={{ width: `${pct}%` }} />
         </div>
@@ -57,21 +57,21 @@ export function PackWeekSummaryModal({ summary, onClose }: Props) {
         <div className="pack-week-summary__stats">
           <div className="pack-week-summary__stat">
             <span className="pack-week-summary__stat-value">{summary.myWorkouts}</span>
-            <span className="pack-week-summary__stat-label">твой вклад</span>
+            <span className="pack-week-summary__stat-label">your contribution</span>
           </div>
           <div className="pack-week-summary__stat">
             <span className="pack-week-summary__stat-value">{summary.participants}</span>
-            <span className="pack-week-summary__stat-label">леопардов в зачёте</span>
+            <span className="pack-week-summary__stat-label">leopards counted</span>
           </div>
           <div className="pack-week-summary__stat">
             <span className="pack-week-summary__stat-value">{summary.nextGoal}</span>
-            <span className="pack-week-summary__stat-label">цель новой недели</span>
+            <span className="pack-week-summary__stat-label">next week's goal</span>
           </div>
         </div>
 
         <p className="pack-week-summary__next">{packWeekSummaryNextLine(summary)}</p>
         <button type="button" className="pack-week-summary__btn" onClick={onClose}>
-          Вперёд, стая!
+          Onward, pack!
         </button>
       </div>
     </div>

@@ -29,9 +29,8 @@ describe("GuestFeedScreen", () => {
     expect(getByText("Анна")).toBeTruthy();
     expect(getByText("Борис")).toBeTruthy();
     expect(getByText(/утренняя пробежка/)).toBeTruthy();
-    // Только чтение: ни поля комментария, ни меню поста.
     expect(queryByRole("textbox")).toBeNull();
-    fireEvent.click(getByRole("button", { name: "Вступить" }));
+    fireEvent.click(getByRole("button", { name: "Join" }));
     expect(openTelegramLink).toHaveBeenCalledWith("https://t.me/leo_bot?start=src-guest_feed");
     expect(onInPack).not.toHaveBeenCalled();
   });
@@ -40,8 +39,8 @@ describe("GuestFeedScreen", () => {
     const close = vi.fn();
     (window as unknown as { Telegram: unknown }).Telegram = { WebApp: { close } };
     const { getByText, getByRole } = render(<GuestFeedScreen initData="x" onInPack={vi.fn()} initialFeed={null} />);
-    expect(getByText(/Свежих тренировок пока не видно/)).toBeTruthy();
-    fireEvent.click(getByRole("button", { name: "Вступить" }));
+    expect(getByText(/No recent workouts to show/)).toBeTruthy();
+    fireEvent.click(getByRole("button", { name: "Join" }));
     expect(close).toHaveBeenCalled();
   });
 
@@ -63,8 +62,8 @@ describe("GuestFeedScreen", () => {
     vi.resetModules();
     const { GuestFeedScreen: Fresh } = await import("./GuestFeedScreen");
     const { getByText, findByText } = render(<Fresh initData="x" onInPack={vi.fn()} />);
-    expect(getByText("Загружаем ленту…")).toBeTruthy();
+    expect(getByText("Loading feed…")).toBeTruthy();
     expect(await findByText("Вера")).toBeTruthy();
-    await waitFor(() => expect(() => getByText("Загружаем ленту…")).toThrow());
+    await waitFor(() => expect(() => getByText("Loading feed…")).toThrow());
   });
 });

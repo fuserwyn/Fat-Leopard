@@ -30,14 +30,14 @@ describe("packWeeklyGoal", () => {
   });
 
   it("describes weekly goal reward in hint", () => {
-    expect(PACK_WEEKLY_GOAL_HINT).toMatch(/75 тренировок/i);
-    expect(PACK_WEEKLY_GOAL_HINT).toMatch(/50 дополнительных кубков/i);
-    expect(PACK_WEEKLY_GOAL_HINT).toMatch(/цель следующей на 5 тренировок/i);
+    expect(PACK_WEEKLY_GOAL_HINT).toMatch(/75 workouts/i);
+    expect(PACK_WEEKLY_GOAL_HINT).toMatch(/50 bonus cups/i);
+    expect(PACK_WEEKLY_GOAL_HINT).toMatch(/next week.*5 workouts/i);
   });
 
   it("uses server goal in hint", () => {
-    expect(packWeeklyGoalHint(50)).toMatch(/50 тренировок/i);
-    expect(packWeeklyGoalHint(0)).toMatch(/75 тренировок/i);
+    expect(packWeeklyGoalHint(50)).toMatch(/50 workouts/i);
+    expect(packWeeklyGoalHint(0)).toMatch(/75 workouts/i);
   });
 
   it("defaults to 75 when goal is missing", () => {

@@ -49,27 +49,27 @@ describe("pack week summary", () => {
   });
 
   it("labels the week range", () => {
-    expect(packWeekRangeLabel("2026-10-05", "2026-10-11")).toBe("5–11 октября");
-    expect(packWeekRangeLabel("2026-09-28", "2026-10-04")).toBe("28 сентября – 4 октября");
-    expect(packWeekRangeLabel("2026-09-28", "")).toBe("с 28 сентября");
+    expect(packWeekRangeLabel("2026-10-05", "2026-10-11")).toBe("5–11 October");
+    expect(packWeekRangeLabel("2026-09-28", "2026-10-04")).toBe("28 September – 4 October");
+    expect(packWeekRangeLabel("2026-09-28", "")).toBe("from 28 September");
     expect(packWeekRangeLabel("", "")).toBe("");
     expect(packWeekRangeLabel("2026-13-01", "")).toBe("");
   });
 
-  it("declines «тренировка»", () => {
+  it("declines workout", () => {
     expect([1, 2, 5, 11, 12, 21, 22, 75, 80, 104].map(workoutsWord)).toEqual([
-      "тренировка", "тренировки", "тренировок", "тренировок", "тренировок",
-      "тренировка", "тренировки", "тренировок", "тренировок", "тренировки",
+      "workout", "workouts", "workouts", "workouts", "workouts",
+      "workout", "workouts", "workouts", "workouts", "workouts",
     ]);
   });
 
   it("explains what happens next", () => {
-    expect(packWeekSummaryHeadline(closed)).toBe("Цель недели закрыта!");
-    expect(packWeekSummaryNextLine(closed)).toBe("Планка растёт: цель новой недели — 80 тренировок (+5).");
-    expect(packWeekSummaryNextLine({ ...closed, nextGoal: 75 })).toBe("Цель новой недели — 75 тренировок.");
+    expect(packWeekSummaryHeadline(closed)).toBe("Weekly goal reached!");
+    expect(packWeekSummaryNextLine(closed)).toBe("Bar rises: next week's goal is 80 workouts (+5).");
+    expect(packWeekSummaryNextLine({ ...closed, nextGoal: 75 })).toBe("Next week's goal is 75 workouts.");
     const open = { ...closed, workouts: 70, goalReached: false, nextGoal: 75 };
-    expect(packWeekSummaryHeadline(open)).toBe("Цель недели не закрыта");
-    expect(packWeekSummaryNextLine(open)).toMatch(/Не хватило 5 тренировок\. Цель новой недели та же — 75/);
+    expect(packWeekSummaryHeadline(open)).toBe("Weekly goal not reached");
+    expect(packWeekSummaryNextLine(open)).toMatch(/Short by 5 workouts\. Same goal next week — 75/);
   });
 });
 

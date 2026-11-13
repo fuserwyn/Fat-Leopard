@@ -29,7 +29,7 @@ const CALLS: [name: string, run: (a: Api) => Promise<unknown>, path: string, bod
   ["user card", (a) => a.fetchAdminUserCard("i", 5), "/admin/users/card", { target_user_id: 5 }],
   ["user stat", (a) => a.setAdminUserStat("i", 5, "cups", "add", -10), "/admin/users/stat", { target_user_id: 5, field: "cups", mode: "add", value: -10 }],
   ["user action", (a) => a.sendAdminUserAction("i", 5, "kick"), "/admin/users/action", { target_user_id: 5, action: "kick" }],
-  ["publish", (a) => a.publishAdminPost("i", "Объявление", "leo"), "/admin/publish", { text: "Объявление", author: "leo" }],
+  ["publish", (a) => a.publishAdminPost("i", "Announcement", "leo"), "/admin/publish", { text: "Announcement", author: "leo" }],
   ["price", (a) => a.fetchAdminPaywallPrice("i"), "/admin/paywall-price", {}],
   ["price set", (a) => a.saveAdminPaywallPrice("i", 499), "/admin/paywall-price/set", { amount_rub: 499 }],
   ["price reset", (a) => a.resetAdminPaywallPrice("i"), "/admin/paywall-price/set", { reset: true }],
@@ -87,21 +87,21 @@ describe("admin API client", () => {
     if (backend) expect(contractProblems(backend, sent)).toEqual([]);
 
     mockFetch(() => ({ status: 403, json: { error: "forbidden" } }));
-    await expect(api.sendAdminSupportReplyPhoto("i", 5, "", photo)).rejects.toThrow("Нет прав администратора");
+    await expect(api.sendAdminSupportReplyPhoto("i", 5, "", photo)).rejects.toThrow("No admin rights");
   });
 
   it("turns server errors into readable messages", async () => {
     const api = await load();
     mockFetch(() => ({ status: 403, json: { error: "forbidden" } }));
-    await expect(api.fetchAdminOverview("i")).rejects.toThrow("Нет прав администратора");
+    await expect(api.fetchAdminOverview("i")).rejects.toThrow("No admin rights");
     // Текст от сервера важнее кода.
     mockFetch(() => ({ status: 400, json: { error: "admin_error", message: "цена должна быть от 1 до 100000 ₽" } }));
     await expect(api.saveAdminPaywallPrice("i", 0)).rejects.toThrow("цена должна быть от 1 до 100000 ₽");
     // Код 200, но ok=false — тоже ошибка.
     mockFetch(() => ({ json: { ok: false, error: "not_found" } }));
-    await expect(api.fetchAdminUserCard("i", 1)).rejects.toThrow("Не найдено или уже обработано");
+    await expect(api.fetchAdminUserCard("i", 1)).rejects.toThrow("Not found or already handled");
     mockFetch(() => ({ status: 502 }));
-    await expect(api.fetchAdminReports("i")).rejects.toThrow("Ошибка 502");
+    await expect(api.fetchAdminReports("i")).rejects.toThrow("Error 502");
     mockFetch(() => ({ status: 400, json: { error: "что-то новое" } }));
     await expect(api.fetchAdminReports("i")).rejects.toThrow("что-то новое");
   });
@@ -109,18 +109,18 @@ describe("admin API client", () => {
   it("refuses to call anything without an API address", async () => {
     const api = await importWithApi(() => import("./adminApi"), "");
     const calls = mockFetch(() => ({ json: { ok: true } }));
-    await expect(api.fetchAdminOverview("i")).rejects.toThrow("API не настроен");
-    expect(() => api.sendAdminSupportReplyPhoto("i", 1, "", photo)).toThrow("API не настроен");
+    await expect(api.fetchAdminOverview("i")).rejects.toThrow("API not configured");
+    expect(() => api.sendAdminSupportReplyPhoto("i", 1, "", photo)).toThrow("API not configured");
     expect(calls).toHaveLength(0);
   });
 
   it("labels error codes and payment kinds", async () => {
     const api = await load();
-    expect(api.adminErrorLabel("chat_mismatch")).toBe("Открой мини-апп из чата стаи");
-    expect(api.adminErrorLabel("tracker_not_configured")).toBe("Доска недоступна");
+    expect(api.adminErrorLabel("chat_mismatch")).toBe("Open the miniapp from the pack chat");
+    expect(api.adminErrorLabel("tracker_not_configured")).toBe("Board unavailable");
     expect(api.adminErrorLabel()).toBe("");
-    expect(api.moneyKindLabel("donation", "xtr")).toBe("Донат · ⭐");
-    expect(api.moneyKindLabel("access", "RUB")).toBe("Доступ · ₽");
+    expect(api.moneyKindLabel("donation", "xtr")).toBe("Donation · ⭐");
+    expect(api.moneyKindLabel("access", "RUB")).toBe("Access · ₽");
   });
 });
 

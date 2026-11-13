@@ -109,36 +109,36 @@ describe("sortWorkoutCategoriesByCountDesc", () => {
 
 describe("заголовок карточки", () => {
   it("показывает оба вида как ввёл пользователь", () => {
-    expect(trainingDoneCategoryDisplayLabel("бег + плавание, 30 мин, инт. 3/5")).toBe("бег + плавание");
+    expect(trainingDoneCategoryDisplayLabel("бег + плавание, 30 мин, инт. 3/5")).toBe("Run + Swim");
   });
 
   it("показывает теннис и падел как отдельные подписи", () => {
-    expect(trainingDoneCategoryDisplayLabel("теннис, 60 мин, инт. 3/5")).toBe("Теннис");
-    expect(trainingDoneCategoryDisplayLabel("падел, 45 мин, инт. 4/5")).toBe("Падел");
+    expect(trainingDoneCategoryDisplayLabel("теннис, 60 мин, инт. 3/5")).toBe("Tennis");
+    expect(trainingDoneCategoryDisplayLabel("падел, 45 мин, инт. 4/5")).toBe("Padel");
   });
 
   it("показывает футбол и волейбол как отдельные подписи", () => {
-    expect(trainingDoneCategoryDisplayLabel("футбол, 60 мин, инт. 3/5")).toBe("Футбол");
-    expect(trainingDoneCategoryDisplayLabel("волейбол, 45 мин, инт. 4/5")).toBe("Волейбол");
+    expect(trainingDoneCategoryDisplayLabel("футбол, 60 мин, инт. 3/5")).toBe("Football");
+    expect(trainingDoneCategoryDisplayLabel("волейбол, 45 мин, инт. 4/5")).toBe("Volleyball");
   });
 
   it("показывает гимнастику как отдельную подпись", () => {
-    expect(trainingDoneCategoryDisplayLabel("гимнастика, 45 мин, инт. 3/5")).toBe("Гимнастика");
+    expect(trainingDoneCategoryDisplayLabel("гимнастика, 45 мин, инт. 3/5")).toBe("Gymnastics");
   });
 
   it("показывает зарядку как отдельную подпись", () => {
-    expect(trainingDoneCategoryDisplayLabel("зарядка, 15 мин, инт. 2/5")).toBe("Зарядка");
+    expect(trainingDoneCategoryDisplayLabel("зарядка, 15 мин, инт. 2/5")).toBe("Morning mobility");
   });
 });
 
 describe("expandTrainingIntensityLabel / stripLeadingCategoryFromTrainingReport", () => {
   it("раскрывает устаревшее «инт.» в теле карточки", () => {
-    expect(stripLeadingCategoryFromTrainingReport("бег, 15 мин, инт. 3/5")).toBe("15 мин, интенсивность 3/5");
+    expect(stripLeadingCategoryFromTrainingReport("бег, 15 мин, инт. 3/5")).toBe("15 мин, intensity 3/5");
   });
 
   it("оставляет новый формат без изменений", () => {
     expect(stripLeadingCategoryFromTrainingReport("бег, 15 мин, интенсивность 3/5")).toBe(
-      "15 мин, интенсивность 3/5",
+      "15 мин, intensity 3/5",
     );
   });
 });

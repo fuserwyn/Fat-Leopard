@@ -46,7 +46,7 @@ func TestTrackerDueStartedNote(t *testing.T) {
 		Num:    1,
 		Prompt: "починить подпись стрика",
 	})
-	if !strings.Contains(note, "#1") || !strings.Contains(note, "началась") {
+	if !strings.Contains(note, "#1") || !strings.Contains(note, "started") {
 		t.Fatalf("note: %q", note)
 	}
 	if !strings.Contains(note, "починить подпись стрика") {
@@ -76,7 +76,7 @@ func TestTrackerTaskTitle(t *testing.T) {
 	if got := trackerTaskTitle("Сделай донат 10 звезд"); got != "Сделай донат 10 звезд" {
 		t.Fatalf("plain: %q", got)
 	}
-	if got := trackerTaskTitle("[Спринт 2] кнопка удалить"); got != "кнопка удалить" {
+	if got := trackerTaskTitle("[Sprint 2] кнопка удалить"); got != "кнопка удалить" {
 		t.Fatalf("sprint: %q", got)
 	}
 	if got := trackerTaskTitle("Задача #40.\n\nНазвание в уведомлении"); got != "Название в уведомлении" {
@@ -85,17 +85,17 @@ func TestTrackerTaskTitle(t *testing.T) {
 }
 
 func TestTrackerNotifyLabel(t *testing.T) {
-	if got := trackerNotifyLabel(40, "Название в уведомлении"); got != "Задача #40: Название в уведомлении" {
+	if got := trackerNotifyLabel(40, "Название в уведомлении"); got != "Task #40: Название в уведомлении" {
 		t.Fatalf("with title: %q", got)
 	}
-	if got := trackerNotifyLabel(40, ""); got != "Задача #40" {
+	if got := trackerNotifyLabel(40, ""); got != "Task #40" {
 		t.Fatalf("no title: %q", got)
 	}
 }
 
 func TestTrackerFullyDoneNoteIncludesTitle(t *testing.T) {
 	note := trackerFullyDoneNote(database.TrackerTask{Num: 40, Prompt: "Название в уведомлении"})
-	if !strings.Contains(note, "Задача #40: Название в уведомлении") {
+	if !strings.Contains(note, "Task #40: Название в уведомлении") {
 		t.Fatalf("note: %q", note)
 	}
 	if strings.Contains(note, "1. Выполнение:") {
@@ -107,7 +107,7 @@ func TestTrackerFullyDoneNoteIncludesExecutionSummary(t *testing.T) {
 	task := database.TrackerTask{
 		Num:    100,
 		Prompt: "Короткий отчёт в уведомлении",
-		Steps:  []string{"сделано: поправил уведомление о выкате"},
+		Steps:  []string{"done: поправил уведомление о выкате"},
 	}
 	note := trackerFullyDoneNote(task)
 	if !strings.Contains(note, "поправил уведомление о выкате") {
@@ -122,15 +122,15 @@ func TestTrackerFullyDoneNoteSkipsDoneForTaskBoilerplate(t *testing.T) {
 	task := database.TrackerTask{
 		Num:    100,
 		Prompt: "Необязательно в уведомлении писать про все 5 пунктов",
-		Steps:  []string{"сделано: Сделано для задачи #100."},
+		Steps:  []string{"done: Done for task #100."},
 	}
 	note := trackerFullyDoneNote(task)
-	if strings.Contains(note, "Сделано для задачи") {
+	if strings.Contains(note, "Done for task") {
 		t.Fatalf("notify must not repeat agent boilerplate: %q", note)
 	}
 	wantParts := []string{
-		"✅ Задача #100:",
-		"Выехала на прод (ветка main).",
+		"✅ Task #100:",
+		"Shipped to prod (main branch).",
 	}
 	for _, part := range wantParts {
 		if !strings.Contains(note, part) {
@@ -147,23 +147,23 @@ func TestTrackerDoneBriefIncludesPipeline(t *testing.T) {
 		Num:    67,
 		Prompt: "Короткий отчёт в выполненной задаче",
 		Steps: []string{
-			"сделано: поправил уведомление о выкате",
-			"коммит abc1234 выполнение",
-			"коммит def5678 ревью",
-			"ревью: пройдено (коммит def5678)",
-			"коммит fedcba9 тест",
-			"тест: пройден (коммит fedcba9)",
-			"пуш в main",
-			"стенд собрался",
+			"done: поправил уведомление о выкате",
+			"commit abc1234 execution",
+			"commit def5678 review",
+			"review: passed (commit def5678)",
+			"commit fedcba9 test",
+			"test: passed (commit fedcba9)",
+			"push to main",
+			"stand build succeeded",
 		},
 	}
 	brief := trackerDoneBrief(task)
 	for _, want := range []string{
-		"1. Выполнение: поправил уведомление о выкате",
-		"2. Ревью: пройдено (коммит def5678)",
-		"3. Тест: пройден (коммит fedcba9)",
-		"4. Сборка: Выехала на прод (ветка main)",
-		"5. Уведомление админам отправлено.",
+		"1. Execution: поправил уведомление о выкате",
+		"2. Review: passed (commit def5678)",
+		"3. Test: passed (commit fedcba9)",
+		"4. Deploy: Shipped to prod (main branch)",
+		"5. Admin notification sent.",
 	} {
 		if !strings.Contains(brief, want) {
 			t.Fatalf("brief missing %q: %q", want, brief)
@@ -186,7 +186,7 @@ func TestTrackerRecordPhaseSummaryDoing(t *testing.T) {
 	task := database.TrackerTask{DevColumn: trackerColDoing}
 	text := "Задача #67: отчёт: коммит выполнения abc1234 на ветке tracker/67-584.\n\nДобавил краткий отчёт.\n\nСледующий шаг — review."
 	trackerRecordPhaseSummary(&task, trackerColDoing, text)
-	if got := trackerStepPrefixedSummary(task.Steps, "сделано:"); got != "Добавил краткий отчёт." {
+	if got := trackerStepPrefixedSummary(task.Steps, "done:"); got != "Добавил краткий отчёт." {
 		t.Fatalf("stored doing summary: %q", got)
 	}
 }

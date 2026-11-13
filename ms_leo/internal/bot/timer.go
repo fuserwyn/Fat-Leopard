@@ -52,14 +52,14 @@ func recentlyReported(b *Bot, userID, chatID int64) bool {
 }
 
 func removalDMText() string {
-	return "Как хорошо, что ты не занимался.\nЛео удалил тебя из стаи: 7 дней без движения, и стая тебя больше не видит.\nПрогресс в стае сброшен, доступ к мини-аппу закрыт.\nЕсли захочешь вернуться — нажми кнопку ниже и пройди повторный вход."
+	return "Good thing you didn't move.\nLeo removed you from the pack: 7 days without movement, and the pack no longer sees you.\nPack progress reset; mini app access closed.\nTo return — tap the button below and pay to rejoin."
 }
 
 func removalDMReplyMarkup() *tgbotapi.InlineKeyboardMarkup {
 	return &tgbotapi.InlineKeyboardMarkup{
 		InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
 			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("Вернуться в стаю", paywallCallbackReturnToPack),
+				tgbotapi.NewInlineKeyboardButtonData("Rejoin the pack", paywallCallbackReturnToPack),
 			),
 		},
 	}
@@ -91,7 +91,7 @@ func normalizeUserDisplayName(username string) string {
 	return "@" + clean
 }
 
-// removeUser — «кик» из стаи после 7 дней без движения. Физически из TG-группы никого не выкидываем
+// removeUser — «кик» из стаи после 7 days без движения. Физически из TG-группы никого не выкидываем
 // (TG-группы как сущности нет, миграция на мини-апп):
 //  1. шлём DM с предложением вернуться;
 //  2. аннулируем купленный paywall-доступ — повторный вход только через новую оплату;
@@ -110,7 +110,7 @@ func (b *Bot) removeUser(userID, chatID int64, username string) {
 		return
 	}
 
-	// Защита от устаревшего removal-таймера: если дедлайн уже отодвинут (тренировка,
+	// Защита от устаревшего removal-таймера: если дедлайн уже отодвинут (workout,
 	// возврат через админку, выход с больничного — всё сбрасывает timer_start = NOW),
 	// НЕ удаляем. Иначе ранее запланированный goroutine, не успевший отмениться через
 	// cancelTimer, добивал бы только что восстановленного/вернувшегося юзера.

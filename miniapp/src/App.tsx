@@ -31,7 +31,11 @@ import { miniappLevelFromCups } from "./lib/miniappLevel";
 import { getStoredTheme, hasStoredTheme, hydrateThemeFromCloud, hydrateThemeFromServer, isThemeMode, persistTheme, persistThemeToServer } from "./lib/theme";
 import { PACK_WEEKLY_GOAL_DEFAULT } from "./lib/packWeeklyGoal";
 import { buildOptimisticTrainingFeedItem, type PackFeedItemDTO } from "./lib/packFeed";
-import type { WorkoutCategoryId } from "./lib/workoutCategories";
+import { WORKOUT_CATEGORY_OPTIONS, type WorkoutCategoryId } from "./lib/workoutCategories";
+
+const WORKOUT_KIND_LABEL: Record<string, string> = Object.fromEntries(
+  WORKOUT_CATEGORY_OPTIONS.map((o) => [o.id, o.label]),
+);
 import { parseSuggestedWorkoutTypes } from "./lib/workoutSuggest";
 import { sendMiniappPrivateText, sendMiniappTrainingWithPhoto } from "./lib/miniappPrivateSend";
 import { isModerationError, moderationUserMessage } from "./lib/moderationMessages";
@@ -41,30 +45,12 @@ import { fetchPackGroupUnreadCount } from "./lib/packGroupUnread";
 import { ensureMiniappOnboarding, miniappAccessGate } from "./lib/miniappOnboarding";
 import { syncDeviceTimezone, watchDeviceTimezone } from "./lib/timezoneSync";
 import { reportMiniappOpened, reportWorkoutLogStarted, reportNonSportInterest } from "./lib/miniappEvents";
+import { formatTrainingDoneAlert } from "./lib/formatTrainingDoneAlert";
 import "./App.css";
 
 type Tab = "chat" | "feed" | "rules" | "profile";
 /** guest — ещё не в стае (пришёл по чужой ссылке): гостевая лента и «Вступить». */
 type AccessGateStatus = "checking" | "ok" | "deleted" | "guest";
-
-function formatTrainingDoneAlert(replyParts: string[]): string {
-  const summary = replyParts.filter(Boolean).join("\n\n").trim();
-  if (!summary.startsWith("✅ Отчёт принят")) return summary;
-
-  const lines = summary
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  const title = lines.find((line) => line.startsWith("✅ Отчёт принят")) ?? "";
-  const streakLineRaw = lines.find((line) => /Стрик:|Серия:/i.test(line)) ?? "";
-  const cupsLineRaw = lines.find((line) => line.startsWith("🏆")) ?? "";
-  const streakLine = streakLineRaw.replace(/^🦁\s*(Стрик|Серия):\s*/i, "Стрик: ");
-  const cupsLine = cupsLineRaw.replace(/^🏆\s*/u, "");
-
-  const compact = [title, [streakLine, cupsLine].filter(Boolean).join("\n")].filter(Boolean).join("\n\n").trim();
-  return compact || summary;
-}
 
 export function App() {
   useAppKeyboardInset();
@@ -416,12 +402,12 @@ export function App() {
       const t = text.trim();
       if (!t && !photo) return false;
       if (!inTelegram || !initData) {
-        showAlert("Открой мини-апп из Telegram.");
+        showAlert("Open the miniapp from Telegram.");
         return false;
       }
       const apiBase = (import.meta.env.VITE_MINIAPP_API_URL as string | undefined)?.replace(/\/$/, "") ?? "";
       if (!apiBase) {
-        showAlert("Сборка без VITE_MINIAPP_API_URL.");
+        showAlert("Build is missing VITE_MINIAPP_API_URL.");
         return false;
       }
       try {
@@ -447,12 +433,12 @@ export function App() {
             return false;
           }
           const errMap: Record<string, string> = {
-            empty_text: "Пустое сообщение",
-            text_too_long: "Слишком длинное сообщение",
-            chat_mismatch: "Открой мини-апп из чата стаи",
-            forbidden: "Нет доступа",
+            empty_text: "Empty message",
+            text_too_long: "Message too long",
+            chat_mismatch: "Open the miniapp from the pack chat",
+            forbidden: "No access",
           };
-          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Ошибка ${res.status}`);
+          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Error ${res.status}`);
           return false;
         }
         tg?.HapticFeedback?.impactOccurred?.("light");
@@ -461,14 +447,14 @@ export function App() {
         void refreshTabBadges();
         return true;
       } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Сеть");
+        showAlert(e instanceof Error ? e.message : "Network error");
         return false;
       }
     },
     [inTelegram, initData, showAlert, tg, refreshTabBadges],
   );
 
-  const effectiveName = profileDisplayName.trim() || name.trim() || "друг";
+  const effectiveName = profileDisplayName.trim() || name.trim() || "friend";
   // Админка — шторка поверх приложения, профиль остаётся виден в зазоре сверху.
   const tabsVisible = !supportOpen && !workoutOpen;
 
@@ -495,7 +481,7 @@ export function App() {
   return (
     <div className="app">
       <div className="app__tabs">
-        <TabKeepAlive active={tab === "feed"} hidden={!tabsVisible} label="Лента">
+        <TabKeepAlive active={tab === "feed"} hidden={!tabsVisible} label="Feed">
           <FeedScreen
             active={tab === "feed" && tabsVisible}
             streak={streak}
@@ -519,7 +505,7 @@ export function App() {
             packBonusThemeActive={packBonusThemeActive}
           />
         </TabKeepAlive>
-        <TabKeepAlive active={tab === "chat"} hidden={!tabsVisible} label="Чат">
+        <TabKeepAlive active={tab === "chat"} hidden={!tabsVisible} label="Chat">
           <ChatScreen
             active={tab === "chat" && tabsVisible}
             name={effectiveName}
@@ -530,10 +516,10 @@ export function App() {
             onInboxDrained={onLeoInboxDrained}
           />
         </TabKeepAlive>
-        <TabKeepAlive active={tab === "rules"} hidden={!tabsVisible} label="Правила">
+        <TabKeepAlive active={tab === "rules"} hidden={!tabsVisible} label="Rules">
           <RulesScreen />
         </TabKeepAlive>
-        <TabKeepAlive active={tab === "profile"} hidden={!tabsVisible} label="Профиль">
+        <TabKeepAlive active={tab === "profile"} hidden={!tabsVisible} label="Profile">
           <ProfileScreen
             active={tab === "profile" && tabsVisible}
             name={effectiveName}
@@ -585,7 +571,7 @@ export function App() {
       ) : null}
 
       {adminOpen && isAdmin ? (
-        <ErrorBoundary label="Админка">
+        <ErrorBoundary label="Admin">
           <AdminScreen
             initData={initData}
             inTelegram={inTelegram}
@@ -694,42 +680,15 @@ export function App() {
           onClose={() => setWorkoutOpen(false)}
           onSave={async ({ types, min, intensity, note, photo, otherLabel }) => {
             if (!inTelegram || !initData) {
-              showAlert("Открой мини-апп из Telegram (нужен initData).");
+              showAlert("Open the miniapp from Telegram (initData required).");
               return false;
             }
-            const labels: Record<string, string> = {
-              run: "бег",
-              walk: "ходьба",
-              bike: "велосипед",
-              swim: "плавание",
-              yoga: "йога",
-              rowing: "гребля",
-              workout: "воркаут",
-              crossfit: "кроссфит",
-              stretch: "растяжка",
-              dance: "танцы",
-              hiit: "hiit",
-              cardio: "кардио",
-              kettlebell: "гиря",
-              strength: "силовая",
-              jump_rope: "скакалка",
-              pole: "пилон",
-              rollerblade: "ролики",
-              basketball: "баскетбол",
-              football: "футбол",
-              volleyball: "волейбол",
-              tennis: "теннис",
-              padel: "падел",
-              gymnastics: "гимнастика",
-              morning_exercise: "зарядка",
-              climbing: "скалолазание",
-              other: "другое",
-            };
-            // Несколько видов объединяем через « + » — бэкенд начислит кубки за самый эффективный.
             const kind = types
-              .map((t) => (t === "other" && otherLabel?.trim() ? otherLabel.trim() : labels[t] ?? t))
+              .map((t) =>
+                t === "other" && otherLabel?.trim() ? otherLabel.trim() : WORKOUT_KIND_LABEL[t] ?? t,
+              )
               .join(" + ");
-            const base = `${kind}, ${min} мин, интенсивность ${intensity}/5`;
+            const base = `${kind}, ${min} min, intensity ${intensity}/5`;
             const line = note ? `${base}\n\n${note}` : base;
             tg?.HapticFeedback?.impactOccurred?.("medium");
             // Отчёт: сервер отдаёт reply_text сразу (стрик, кубки, ачивки).
@@ -757,7 +716,7 @@ export function App() {
             window.setTimeout(() => void refreshTabBadges(), 6000);
             const summary = formatTrainingDoneAlert(result.replyParts);
             const fallback =
-              "Отчёт принят. Комментарий Лео скоро появится в ленте.";
+              "Workout logged. Leo's comment will appear in the feed soon.";
             const msg = summary.length > 0 ? summary : fallback;
             setWorkoutDone({
               message: msg.length > 400 ? `${msg.slice(0, 397)}…` : msg,

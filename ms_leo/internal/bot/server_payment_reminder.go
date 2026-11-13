@@ -56,10 +56,10 @@ func serverPaymentReminderDue(now time.Time) bool {
 }
 
 func serverPaymentReminderText(month time.Time, nextAdminLabel string) string {
-	text := fmt.Sprintf("💳 Напоминание: пора оплатить ресурсы сервера Fat Leopard за %s %d.\n\nВ этом месяце платишь ты.",
+	text := fmt.Sprintf("💳 Reminder: time to pay Fat Leopard server resources for %s %d.\n\nYou're paying this month.",
 		monthNameNominative(month.Month()), month.Year())
 	if nextAdminLabel != "" {
-		text += "\nВ следующем месяце — " + nextAdminLabel + "."
+		text += "\nNext month — " + nextAdminLabel + "."
 	}
 	return text
 }
@@ -104,9 +104,9 @@ func serverPaymentAmountLine(stars int, usd float64) string {
 		return ""
 	}
 	if usd <= 0 {
-		return fmt.Sprintf("\n\nК оплате: %d ⭐", stars)
+		return fmt.Sprintf("\n\nAmount due: %d ⭐", stars)
 	}
-	return fmt.Sprintf("\n\nРасход Railway: $%.2f — к оплате %d ⭐", usd, stars)
+	return fmt.Sprintf("\n\nRailway spend: $%.2f — amount due %d ⭐", usd, stars)
 }
 
 // serverPaymentReminderMessage — сообщение админу; link пустой — без кнопки оплаты.
@@ -114,7 +114,7 @@ func serverPaymentReminderMessage(adminID int64, text, link string, stars int) t
 	m := tgbotapi.NewMessage(adminID, text)
 	if link != "" {
 		m.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonURL(fmt.Sprintf("Оплатить %d ⭐", stars), link),
+			tgbotapi.NewInlineKeyboardButtonURL(fmt.Sprintf("Pay %d ⭐", stars), link),
 		))
 	}
 	return m
@@ -131,7 +131,7 @@ func (b *Bot) serverPaymentInvoiceLink(adminID int64, month time.Time, stars int
 		return ""
 	}
 	period := fmt.Sprintf("%s %d", monthNameNominative(month.Month()), month.Year())
-	link, err := b.createStarsInvoiceLink(donationID, stars, "Сервер Fat Leopard", "Оплата сервера Fat Leopard", "Оплата ресурсов сервера за "+period)
+	link, err := b.createStarsInvoiceLink(donationID, stars, "Fat Leopard server", "Fat Leopard server payment", "Server resources for "+period)
 	if err != nil {
 		b.logger.Errorf("server payment invoice admin=%d: %v", adminID, err)
 		return ""
@@ -140,8 +140,8 @@ func (b *Bot) serverPaymentInvoiceLink(adminID int64, month time.Time, stars int
 }
 
 func monthNameNominative(m time.Month) string {
-	names := []string{"январь", "февраль", "март", "апрель", "май", "июнь",
-		"июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь"}
+	names := []string{"January", "February", "March", "April", "May", "June",
+		"July", "August", "September", "October", "November", "December"}
 	return names[m-1]
 }
 
@@ -203,7 +203,7 @@ func (b *Bot) runServerPaymentReminder(now time.Time) bool {
 	if link != "" {
 		text += serverPaymentAmountLine(stars, usd)
 	} else if stars > 0 {
-		text += "\n\nСсылку на оплату создать не удалось — оплати напрямую в Railway."
+		text += "\n\nCould not create payment link — pay directly in Railway."
 	}
 	if _, err := b.api.Send(serverPaymentReminderMessage(adminID, text, link, stars)); err != nil {
 		b.logger.Errorf("server payment reminder %s to %d: %v", month, adminID, err)

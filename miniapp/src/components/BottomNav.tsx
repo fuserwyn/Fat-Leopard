@@ -100,7 +100,7 @@ export function BottomNav({
   };
 
   return (
-    <nav ref={navRef} className="bottom-nav" role="navigation" aria-label="Основное меню">
+    <nav ref={navRef} className="bottom-nav" role="navigation" aria-label="Main menu">
       {/* Компоуз-поле вынесено отдельной строкой НАД таббаром: текст → сообщение
           в ленту, «+» → форма тренировки. Скрыто на экране тренировки/поддержки. */}
       <div
@@ -133,8 +133,8 @@ export function BottomNav({
               className={`bottom-nav__compose-attach${photo ? " bottom-nav__compose-attach--on" : ""}`}
               disabled={sending || !showCompose}
               onClick={() => photoInputRef.current?.click()}
-              aria-label={photo ? "Заменить фото из галереи" : "Прикрепить фото из галереи"}
-              title={photo ? "Заменить фото из галереи" : "Прикрепить фото из галереи"}
+              aria-label={photo ? "Replace photo from gallery" : "Attach photo from gallery"}
+              title={photo ? "Replace photo from gallery" : "Attach photo from gallery"}
             >
               📎
             </button>
@@ -153,7 +153,7 @@ export function BottomNav({
                   type="button"
                   className="bottom-nav__compose-thumb-x"
                   onClick={() => setPhoto(null)}
-                  aria-label="Убрать фото"
+                  aria-label="Remove photo"
                 >
                   ✕
                 </button>
@@ -166,8 +166,8 @@ export function BottomNav({
               onChange={(e) => setMsg(e.target.value)}
               onFocus={onComposeFocus}
               onBlur={onComposeBlur}
-              placeholder={photo ? "Добавить подпись…" : "Написать в ленту…"}
-              aria-label="Сообщение в ленту стаи"
+              placeholder={photo ? "Add a caption…" : "Post to feed…"}
+              aria-label="Message to pack feed"
               maxLength={4000}
               autoComplete="off"
               enterKeyHint="send"
@@ -177,8 +177,8 @@ export function BottomNav({
               type="submit"
               className="bottom-nav__compose-send"
               disabled={sending || !showCompose || (!msg.trim() && !photo)}
-              aria-label="Отправить сообщение в ленту"
-              title="Отправить в ленту"
+              aria-label="Send message to feed"
+              title="Send to feed"
             >
               {sending ? "…" : "➤"}
             </button>
@@ -191,34 +191,34 @@ export function BottomNav({
         className={`bottom-nav__item ${active === "feed" ? "is-active" : ""}`}
         onClick={onFeed}
         aria-current={active === "feed" ? "page" : undefined}
-        aria-label={feedBadge ? `Стая, непрочитанных: ${feedBadgeCount}` : "Стая"}
+        aria-label={feedBadge ? `Pack, unread: ${feedBadgeCount}` : "Pack"}
       >
         <span className="bottom-nav__icon-wrap" aria-hidden>
           <span className="bottom-nav__icon">🐆</span>
           {feedBadge && (
-            <span className="bottom-nav__badge bottom-nav__badge--feed" title="Новые ответы в ленте стаи">
+            <span className="bottom-nav__badge bottom-nav__badge--feed" title="New replies in pack feed">
               {feedBadge}
             </span>
           )}
         </span>
-        <span className="bottom-nav__label">Стая</span>
+        <span className="bottom-nav__label">Pack</span>
       </button>
       <button
         type="button"
         className={`bottom-nav__item ${active === "chat" ? "is-active" : ""}`}
         onClick={onChat}
         aria-current={active === "chat" ? "page" : undefined}
-        aria-label={leoBadge ? `Лео, непрочитанных: ${leoBadgeCount}` : "Лео"}
+        aria-label={leoBadge ? `Leo, unread: ${leoBadgeCount}` : "Leo"}
       >
         <span className="bottom-nav__icon-wrap" aria-hidden>
           <span className="bottom-nav__icon">💬</span>
           {leoBadge && (
-            <span className="bottom-nav__badge" title="Новое от Лео">
+            <span className="bottom-nav__badge" title="New from Leo">
               {leoBadge}
             </span>
           )}
         </span>
-        <span className="bottom-nav__label">Лео</span>
+        <span className="bottom-nav__label">Leo</span>
       </button>
 
       {/* «+» всегда по центру таб-бара — добавить тренировку можно отовсюду. */}
@@ -226,8 +226,8 @@ export function BottomNav({
         type="button"
         className="bottom-nav__add"
         onClick={onAddWorkout}
-        aria-label="Добавить тренировку"
-        title="Добавить тренировку"
+        aria-label="Log workout"
+        title="Log workout"
       >
         <svg className="bottom-nav__add-plus" viewBox="0 0 24 24" aria-hidden focusable="false">
           <path d="M12 5v14M5 12h14" />
@@ -243,7 +243,7 @@ export function BottomNav({
         <span className="bottom-nav__icon" aria-hidden>
           📔
         </span>
-        <span className="bottom-nav__label">Правила</span>
+        <span className="bottom-nav__label">Rules</span>
       </button>
       <button
         type="button"
@@ -254,7 +254,7 @@ export function BottomNav({
         <span className="bottom-nav__icon" aria-hidden>
           👤
         </span>
-        <span className="bottom-nav__label">Профиль</span>
+        <span className="bottom-nav__label">Profile</span>
       </button>
       </div>
     </nav>

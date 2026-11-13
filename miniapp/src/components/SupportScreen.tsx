@@ -312,11 +312,11 @@ export function SupportScreen({ initData, inTelegram, showAlert, onClose }: Prop
     const sentPhoto = photo;
     if ((!t && !sentPhoto) || sending) return;
     if (!envApi) {
-      showAlert("Не настроен API для поддержки.");
+      showAlert("Support API not configured.");
       return;
     }
     if (!inTelegram || !initData) {
-      showAlert("Открой мини-апп из Telegram (нужен initData).");
+      showAlert("Open the miniapp from Telegram (initData required).");
       return;
     }
 
@@ -349,17 +349,17 @@ export function SupportScreen({ initData, inTelegram, showAlert, onClose }: Prop
       const j = (await res.json().catch(() => ({}))) as { error?: string; message?: string; ok?: boolean };
       if (!res.ok || !j.ok) {
         const errMap: Record<string, string> = {
-          media_not_configured: "Загрузка фото на сервере не настроена.",
-          unsupported_image: "Не удалось прочитать фото. Попробуй JPG, PNG, WEBP или GIF.",
-          photo_too_large: "Фото слишком большое. Максимум 6 МБ.",
-          invalid_multipart: "Не удалось отправить фото. Выбери снимок заново.",
-          missing_photo: "Фото не приложено.",
-          chat_mismatch: "Открой мини-апп из чата стаи",
+          media_not_configured: "Photo upload isn’t configured on the server.",
+          unsupported_image: "Couldn’t read the photo. Try JPG, PNG, WEBP, or GIF.",
+          photo_too_large: "Photo too large. Max 6 MB.",
+          invalid_multipart: "Couldn’t send the photo. Pick the image again.",
+          missing_photo: "No photo attached.",
+          chat_mismatch: "Open the miniapp from the pack chat",
         };
-        showAlert(j.message ?? errMap[j.error ?? ""] ?? j.error ?? `Ошибка ${res.status}`);
+        showAlert(j.message ?? errMap[j.error ?? ""] ?? j.error ?? `Error ${res.status}`);
       }
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : "Сеть");
+      showAlert(e instanceof Error ? e.message : "Network error");
     } finally {
       setSending(false);
     }
@@ -440,7 +440,7 @@ export function SupportScreen({ initData, inTelegram, showAlert, onClose }: Prop
         <button
           type="button"
           className="chat__photo-wrap"
-          aria-label="Открыть фото"
+          aria-label="Open photo"
           onClick={() => setLightboxUrl(m.photoUrl ?? null)}
         >
           <img className="chat__photo" src={m.photoUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
@@ -459,7 +459,7 @@ export function SupportScreen({ initData, inTelegram, showAlert, onClose }: Prop
           if (!sending) closeSheet();
         }}
       />
-      <div ref={sheetRef} className="sup" role="dialog" aria-modal="true" aria-label="Поддержка">
+      <div ref={sheetRef} className="sup" role="dialog" aria-modal="true" aria-label="Support">
         <div className="sup__grabber" aria-hidden="true" />
         <div className="chat support-chat">
           <header className="chat__head">
@@ -467,21 +467,21 @@ export function SupportScreen({ initData, inTelegram, showAlert, onClose }: Prop
               ?
             </div>
             <div className="chat__head-text">
-              <h1 className="chat__title">Поддержка</h1>
-              <p className="chat__sub">Здесь отвечает человек, не Лео</p>
+              <h1 className="chat__title">Support</h1>
+              <p className="chat__sub">A human replies here, not Leo</p>
             </div>
-            <button type="button" className="sup__close" onClick={closeSheet} aria-label="Закрыть">
+            <button type="button" className="sup__close" onClick={closeSheet} aria-label="Close">
               ✕
             </button>
           </header>
-          <div className="chat__log" role="log" aria-label="Сообщения поддержки" ref={logRef}>
+          <div className="chat__log" role="log" aria-label="Support messages" ref={logRef}>
             {loaded && items.length === 0 && (
               <div className="chat__row chat__row--sys">
                 <div className="support-chat__bubble-avatar" aria-hidden>
                   ?
                 </div>
                 <div className="chat__bubble chat__bubble--sys">
-                  Напиши в поддержку, если что-то сломалось, нужна помощь с оплатой или вопрос не для Лео.
+                  Message support if something broke, you need billing help, or the question isn’t for Leo.
                 </div>
               </div>
             )}
@@ -509,8 +509,8 @@ export function SupportScreen({ initData, inTelegram, showAlert, onClose }: Prop
           {photoPreview != null && (
             <div className="chat__photo-pending">
               <img className="chat__photo-pending-img" src={photoPreview} alt="" />
-              <span className="chat__photo-pending-name">{photo?.name ?? "Фото"}</span>
-              <button type="button" className="chat__photo-pending-remove" aria-label="Убрать фото" onClick={clearPhoto}>
+              <span className="chat__photo-pending-name">{photo?.name ?? "Photo"}</span>
+              <button type="button" className="chat__photo-pending-remove" aria-label="Remove photo" onClick={clearPhoto}>
                 ✕
               </button>
             </div>
@@ -534,7 +534,7 @@ export function SupportScreen({ initData, inTelegram, showAlert, onClose }: Prop
             <button
               type="button"
               className="chat__attach"
-              aria-label="Прикрепить фото из галереи"
+              aria-label="Attach photo from gallery"
               disabled={sending}
               onClick={() => photoInputRef.current?.click()}
             >
@@ -545,7 +545,7 @@ export function SupportScreen({ initData, inTelegram, showAlert, onClose }: Prop
               className="chat__input"
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder={photo ? "Подпись к фото (необязательно)…" : "Сообщение в поддержку…"}
+              placeholder={photo ? "Photo caption (optional)…" : "Message to support…"}
               maxLength={4000}
               autoComplete="off"
               enterKeyHint="send"

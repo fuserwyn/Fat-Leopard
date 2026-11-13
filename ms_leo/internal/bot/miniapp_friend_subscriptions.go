@@ -22,7 +22,7 @@ func packMemberDisplayName(displayName, username string) string {
 		name = normalizeUserDisplayName(username)
 	}
 	if strings.TrimSpace(name) == "" {
-		name = "Участник стаи"
+		name = "Pack member"
 	}
 	return name
 }
@@ -164,14 +164,10 @@ func (b *Bot) notifyFriendWorkoutWatchers(authorUserID, packChatID int64, author
 	}
 	name := strings.TrimSpace(authorName)
 	if name == "" {
-		name = "Леопард"
+		name = "Pack member"
 	}
-	verb := "потренировался"
-	switch strings.TrimSpace(strings.ToLower(authorGender)) {
-	case "f":
-		verb = "потренировалась"
-	}
-	body := fmt.Sprintf("🦁 %s %s! 🔥 Стрик: %d.\n\nОткрой мини-апп → вкладка «Стая».", name, verb, streak)
+	_ = authorGender
+	body := fmt.Sprintf("🦁 %s logged a workout! 🔥 Streak: %d.\n\nOpen the mini app → Pack tab.", name, streak)
 	for _, subID := range subscriberIDs {
 		if subID == authorUserID {
 			continue

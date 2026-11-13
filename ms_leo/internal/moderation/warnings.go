@@ -4,23 +4,23 @@ import "fmt"
 
 // UserWarnings — системные тексты при PRE-блоке (не LLM). UX Lead может заменить.
 var UserWarnings = map[Reason]string{
-	ReasonProfanity:   "Не опубликовал — в тексте есть недопустимые слова. Перепиши без оскорблений и мата.",
-	ReasonLink:        "Не опубликовал — ссылки в Стае пока запрещены.",
-	ReasonCriticalRU:  "Не опубликовал — такой текст нельзя публиковать.",
-	ReasonRateLimited: "Подожди немного перед следующим сообщением.",
-	ReasonMuted:       "Публикация в Стае временно ограничена. Если это ошибка — напиши в поддержку.",
-	ReasonLeoDaily:    "Достигнут лимит — 20 сообщений Лео в день. Завтра можно продолжить.",
-	ReasonSpam:        "Не опубликовал — слишком много повторяющихся слов. Перепиши понятнее.",
+	ReasonProfanity:   "Not published — your text contains words we can't allow. Please rewrite without insults or profanity.",
+	ReasonLink:        "Not published — links in the Pack feed aren't allowed yet.",
+	ReasonCriticalRU:  "Not published — this kind of text can't be posted.",
+	ReasonRateLimited: "Wait a moment before your next message.",
+	ReasonMuted:       "Posting in the Pack is temporarily limited. If this is a mistake, contact support.",
+	ReasonLeoDaily:    "Daily limit reached — 20 messages to Leo today. You can continue tomorrow.",
+	ReasonSpam:        "Not published — too many repeated words. Try writing more clearly.",
 }
 
 func warningFor(reason Reason, maxRunes int) string {
 	if reason == ReasonTooLong {
-		return fmt.Sprintf("Слишком длинно — сократи до %d символов.", maxRunes)
+		return fmt.Sprintf("Too long — shorten to %d characters.", maxRunes)
 	}
 	if msg, ok := UserWarnings[reason]; ok {
 		return msg
 	}
-	return "Не опубликовал — текст не прошёл проверку."
+	return "Not published — your text didn't pass moderation."
 }
 
 func apiCodeFor(reason Reason) string {

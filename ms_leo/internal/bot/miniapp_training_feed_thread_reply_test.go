@@ -76,6 +76,9 @@ func TestPackFeedPostIsLeo(t *testing.T) {
 		t.Fatal("pack roar is Leo's post")
 	}
 	if !packFeedPostIsLeo(userMessageTypeAdminPost, "Лео") {
+		t.Fatal("admin post from Leo (legacy RU name)")
+	}
+	if !packFeedPostIsLeo(userMessageTypeAdminPost, "Leo") {
 		t.Fatal("admin post from Leo")
 	}
 	if packFeedPostIsLeo(userMessageTypeAdminPost, "Админ") {
@@ -116,29 +119,29 @@ func TestShouldLeoReplyInFeedThread(t *testing.T) {
 
 func TestFeedThreadLeoPromptKind(t *testing.T) {
 	t.Parallel()
-	if got := feedThreadLeoPromptKind("sick_leave"); got != "заявкой на больничный" {
+	if got := feedThreadLeoPromptKind("sick_leave"); got != "a sick-leave request" {
 		t.Fatalf("sick_leave: %q", got)
 	}
-	if got := feedThreadLeoPromptKind("training_done"); got != "отчётом о тренировке" {
+	if got := feedThreadLeoPromptKind("training_done"); got != "a training report" {
 		t.Fatalf("training_done: %q", got)
 	}
-	if got := feedThreadLeoPromptKind(userMessageTypeDailyWisdom); got != "мудростью дня" {
+	if got := feedThreadLeoPromptKind(userMessageTypeDailyWisdom); got != "wisdom of the day" {
 		t.Fatalf("daily_wisdom: %q", got)
 	}
-	if got := feedThreadLeoPromptKind(userMessageTypePackRoar); got != "рыком стаи" {
+	if got := feedThreadLeoPromptKind(userMessageTypePackRoar); got != "a pack roar" {
 		t.Fatalf("pack_roar: %q", got)
 	}
 }
 
 func TestFeedThreadAuthorLabel(t *testing.T) {
 	t.Parallel()
-	if got := feedThreadAuthorLabel(database.TrainingFeedThreadRow{FromUserID: 0, Username: "x"}); got != "Лео" {
+	if got := feedThreadAuthorLabel(database.TrainingFeedThreadRow{FromUserID: 0, Username: "x"}); got != "Leo" {
 		t.Fatalf("system Leo: %q", got)
 	}
-	if got := feedThreadAuthorLabel(database.TrainingFeedThreadRow{FromUserID: 9, PostedAs: "leo", Username: "админ"}); got != "Лео" {
+	if got := feedThreadAuthorLabel(database.TrainingFeedThreadRow{FromUserID: 9, PostedAs: "leo", Username: "админ"}); got != "Leo" {
 		t.Fatalf("posted_as leo: %q", got)
 	}
-	if got := feedThreadAuthorLabel(database.TrainingFeedThreadRow{FromUserID: 9, PostedAs: "admin", Username: "админ"}); got != "Админ" {
+	if got := feedThreadAuthorLabel(database.TrainingFeedThreadRow{FromUserID: 9, PostedAs: "admin", Username: "админ"}); got != "Admin" {
 		t.Fatalf("posted_as admin: %q", got)
 	}
 	if got := feedThreadAuthorLabel(database.TrainingFeedThreadRow{FromUserID: 9, Username: "Аня"}); got != "Аня" {

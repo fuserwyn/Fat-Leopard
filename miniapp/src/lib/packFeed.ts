@@ -125,7 +125,7 @@ export type VoterLiker = { name: string; photoUrl?: string };
 export function resolveVoterPhotoUrl(v: Pick<VoterDTO, "name" | "photo_url">): string | undefined {
   const name = (v.name || "").trim();
   const raw = (v.photo_url ?? "").trim();
-  if (name === "Лео" || raw.includes("leo-avatar")) {
+  if (name === "Leo" || raw.includes("leo-avatar")) {
     return LEO_AVATAR_URL;
   }
   if (!raw) return undefined;
@@ -138,7 +138,7 @@ export function votersToLikers(voters?: VoterDTO[] | string[]): VoterLiker[] {
   return voters.map((v) => {
     if (typeof v === "string") {
       const name = v.trim();
-      return { name: v, photoUrl: name === "Лео" ? LEO_AVATAR_URL : undefined };
+      return { name: v, photoUrl: name === "Leo" || name === "Leo" ? LEO_AVATAR_URL : undefined };
     }
     return {
       name: v.name,
@@ -258,7 +258,7 @@ function buildTrainingDoneKindLabel(oldRawKind: string, kinds: readonly WorkoutC
   for (const id of kinds) {
     if (id === "other") {
       if (custom.length > 0) parts.push(...custom);
-      else parts.push("другое");
+      else parts.push("other");
       continue;
     }
     const label = WORKOUT_CATEGORY_OPTIONS.find((o) => o.id === id)?.label;
@@ -289,7 +289,7 @@ export function buildFeedPostTextForSave(
     const nl = withoutTag.indexOf("\n");
     const firstLine = nl >= 0 ? withoutTag.slice(0, nl) : withoutTag;
     const kindMatch = firstLine.match(/^([^,]+),\s*(.+)$/);
-    if (!kindMatch || !/\d+\s*мин/i.test(kindMatch[2])) {
+    if (!kindMatch || !/\d+\s*(?:мин|min)/i.test(kindMatch[2])) {
       return `${prefix}${body}`;
     }
     const kind = kinds && kinds.length > 0 ? buildTrainingDoneKindLabel(kindMatch[1], kinds) : kindMatch[1];
@@ -385,7 +385,7 @@ export function mapFeedThreadQuote(
   const username = (tr.reply_to_username || "").trim();
   const text = (tr.reply_to_text || "").trim();
   if (!isLeo && !isAdmin && text === "" && username === "") return undefined;
-  const author = isLeo ? "Лео" : isAdmin ? "Админ" : username || `Участник ${tr.user_id}`;
+  const author = isLeo ? "Leo" : isAdmin ? "Admin" : username || `Member ${tr.user_id}`;
   return { author, text, isLeo, isAdmin };
 }
 
@@ -540,29 +540,29 @@ function typeMeta(t: string): { emoji: string; activity: string; details: string
     case "training_done":
       return { emoji: "💪", activity: "", details: "" };
     case "sick_leave":
-      return { emoji: "🏥", activity: "Больничный", details: "" };
+      return { emoji: "🏥", activity: "Sick leave", details: "" };
     case "healthy":
-      return { emoji: "💚", activity: "Выздоровление", details: "" };
+      return { emoji: "💚", activity: "Recovery", details: "" };
     case "pack_join":
-      return { emoji: "🐆", activity: "Лео · приветствие", details: "" };
+      return { emoji: "🐆", activity: "Leo · greeting", details: "" };
     case "pack_rejoin":
-      return { emoji: "🐆", activity: "Лео · приветствие", details: "" };
+      return { emoji: "🐆", activity: "Leo · greeting", details: "" };
     case "daily_wisdom":
-      return { emoji: "🌅", activity: "Мудрость дня", details: "" };
+      return { emoji: "🌅", activity: "Daily wisdom", details: "" };
     case "pack_roar":
-      return { emoji: "🐆", activity: "Рык стаи", details: "" };
+      return { emoji: "🐆", activity: "Pack roar", details: "" };
     case "pack_removed":
-      return { emoji: "🐆", activity: "Лео · стая", details: "Выбыл за неактивность" };
+      return { emoji: "🐆", activity: "Leo · pack", details: "Removed for inactivity" };
     case "admin_post":
-      return { emoji: "📢", activity: "Админ · объявление", details: "Кастомный пост" };
+      return { emoji: "📢", activity: "Admin · announcement", details: "Custom post" };
     case "admin_poll":
-      return { emoji: "🗳️", activity: "Админ · опрос", details: "Голосование в miniapp" };
+      return { emoji: "🗳️", activity: "Admin · poll", details: "Miniapp poll" };
     case "inactive_notice":
-      return { emoji: "⏳", activity: "Лео · напоминание стае", details: "Таймер неактивности (дубль контекста)" };
+      return { emoji: "⏳", activity: "Leo · pack nudge", details: "Inactivity timer (context duplicate)" };
     case "pack_message":
       return { emoji: "💬", activity: "", details: "" };
     default:
-      return { emoji: "📝", activity: t, details: "Сообщение" };
+      return { emoji: "📝", activity: t, details: "Message" };
   }
 }
 
@@ -604,7 +604,7 @@ export function dtoToCard(d: PackFeedItemDTO): ActivityCardProps {
     d.type === "pack_removed";
   const isAdminPost = d.type === "admin_post";
   const isAdminPoll = d.type === "admin_poll";
-  const newcomer = (d.username || "").trim() || `Участник ${d.user_id}`;
+  const newcomer = (d.username || "").trim() || `Member ${d.user_id}`;
   const pic = resolveFeedAvatarUrl(d.author_photo_url);
   let commentRaw = d.text.trim();
   if (d.type === "healthy") {
@@ -630,7 +630,7 @@ export function dtoToCard(d: PackFeedItemDTO): ActivityCardProps {
     if (d.type === "pack_removed") leoDetails = newcomer;
     return {
       avatar: LEO_AVATAR_URL,
-      name: "Лео",
+      name: "Leo",
       streak: 0,
       hideStreak: true,
       timeAgo: formatLocalDateTime(d.created_at),
@@ -641,17 +641,17 @@ export function dtoToCard(d: PackFeedItemDTO): ActivityCardProps {
     };
   }
   if (isAdminPost) {
-    // Пост может публиковаться от имени Лео (username "Лео") или от имени Админа.
-    const fromLeo = (d.username || "").trim() === "Лео";
+    // Пост может публиковаться от имени Лео (username "Leo") или от имени Админа.
+    const fromLeo = (d.username || "").trim() === "Leo" || (d.username || "").trim() === "Leo";
     return {
       avatar: fromLeo ? LEO_AVATAR_URL : "📢",
-      name: fromLeo ? "Лео" : "Админ",
+      name: fromLeo ? "Leo" : "Admin",
       streak: 0,
       hideStreak: true,
       lightTone: true,
       timeAgo: formatLocalDateTime(d.created_at),
       emoji: fromLeo ? "🐆" : m.emoji,
-      activity: fromLeo ? "Объявление" : m.activity,
+      activity: fromLeo ? "Announcement" : m.activity,
       details: "",
       comment,
     };
@@ -659,14 +659,14 @@ export function dtoToCard(d: PackFeedItemDTO): ActivityCardProps {
   if (isAdminPoll) {
     return {
       avatar: "🗳️",
-      name: "Админ",
+      name: "Admin",
       streak: 0,
       hideStreak: true,
       lightTone: true,
       timeAgo: formatLocalDateTime(d.created_at),
       emoji: m.emoji,
       activity: m.activity,
-      details: d.poll?.total_votes ? `${d.poll.total_votes} голосов` : "",
+      details: d.poll?.total_votes ? `${d.poll.total_votes} votes` : "",
       comment: d.poll?.question?.trim() || comment,
     };
   }
@@ -674,7 +674,7 @@ export function dtoToCard(d: PackFeedItemDTO): ActivityCardProps {
     // Сообщение общего чата как карточка ленты: автор + текст (+ фото), без стрика/активности.
     return {
       avatar: (pic || "").trim() || avatarFor(d.username),
-      name: d.is_you ? "Ты" : d.username || `Участник ${d.user_id}`,
+      name: d.is_you ? "You" : d.username || `Member ${d.user_id}`,
       streak: 0,
       hideStreak: true,
       timeAgo: formatLocalDateTime(d.created_at),
@@ -687,7 +687,7 @@ export function dtoToCard(d: PackFeedItemDTO): ActivityCardProps {
   }
   return {
     avatar: (pic || "").trim() || avatarFor(d.username),
-    name: d.is_you ? "Ты" : d.username || `Участник ${d.user_id}`,
+    name: d.is_you ? "You" : d.username || `Member ${d.user_id}`,
     streak: d.streak_days,
     timeAgo: formatLocalDateTime(d.created_at),
     emoji: trainingEmoji,

@@ -29,8 +29,8 @@ func memberStateOf(t *testing.T, db *sql.DB, userID int64) memberState {
 	return s
 }
 
-// setTrainingHistory выставляет участнику прошлое: стрик и дату последней
-// тренировки daysAgo дней назад (по московскому времени, как считает бот).
+// setTrainingHistory выставляет участнику прошлое: стрик и дату послеdays
+// workouts daysAgo days назад (по московскому времени, как считает бот).
 func setTrainingHistory(t *testing.T, db *sql.DB, userID int64, streak, maxStreak, daysAgo int) {
 	t.Helper()
 	last := utils.GetMoscowTime().AddDate(0, 0, -daysAgo).Format("2006-01-02")
@@ -58,7 +58,7 @@ func logWorkout(b *Bot, userID int64, text string) string {
 	}
 }
 
-// Первая тренировка начинает стрик, начисляет кубки и пишется в историю.
+// Первая workout начинает стрик, начисляет кубки и пишется в историю.
 func TestWorkoutFirstReportStartsStreak(t *testing.T) {
 	b, _, db := newIntegrationBot(t, nil)
 	seedMember(t, db, itUser, "leopard", false)
@@ -70,9 +70,9 @@ func TestWorkoutFirstReportStartsStreak(t *testing.T) {
 	today := utils.GetMoscowTime().Format("2006-01-02")
 	wantCups := leopardmoney.TrainingCupsFromReportText(report)
 	if st.Streak != 1 || st.MaxStreak != 1 || st.Cups != wantCups || st.LastTraining != today {
-		t.Errorf("состояние после первой тренировки: %+v (кубков ждали %d, дата %s)", st, wantCups, today)
+		t.Errorf("состояние после первой workouts: %+v (cups ждали %d, дата %s)", st, wantCups, today)
 	}
-	if !strings.Contains(summary, "Отчёт принят") || !strings.Contains(summary, "Стрик: 1 ") {
+	if !strings.Contains(summary, "Report accepted") || !strings.Contains(summary, "Streak: 1 ") {
 		t.Errorf("сводка пользователю: %q", summary)
 	}
 	var sessions, cups int
@@ -80,12 +80,12 @@ func TestWorkoutFirstReportStartsStreak(t *testing.T) {
 		t.Fatal(err)
 	}
 	if sessions != 1 || cups != wantCups {
-		t.Errorf("запись в истории тренировок: %d шт., %d кубков", sessions, cups)
+		t.Errorf("запись в истории workouts: %d шт., %d cups", sessions, cups)
 	}
 }
 
 // Правила стрика на настоящей базе: вчера → +1, пропуск → с единицы,
-// вторая тренировка за день стрик не меняет, рекорд не уменьшается.
+// вторая workout за day стрик не меняет, рекорд не уменьшается.
 func TestWorkoutStreakRules(t *testing.T) {
 	b, _, db := newIntegrationBot(t, nil)
 	seedMember(t, db, itUser, "leopard", false)
@@ -93,12 +93,12 @@ func TestWorkoutStreakRules(t *testing.T) {
 	setTrainingHistory(t, db, itUser, 5, 5, 1)
 	logWorkout(b, itUser, "#training_done йога")
 	if st := memberStateOf(t, db, itUser); st.Streak != 6 || st.MaxStreak != 6 {
-		t.Fatalf("тренировка на следующий день: %+v", st)
+		t.Fatalf("workout на следующий day: %+v", st)
 	}
 
 	logWorkout(b, itUser, "#training_done ещё раз")
 	if st := memberStateOf(t, db, itUser); st.Streak != 6 {
-		t.Fatalf("вторая тренировка за день не растит стрик: %+v", st)
+		t.Fatalf("вторая workout за day не растит стрик: %+v", st)
 	}
 
 	setTrainingHistory(t, db, itUser, 10, 10, 3)
@@ -111,22 +111,22 @@ func TestWorkoutStreakRules(t *testing.T) {
 	}
 }
 
-// Стрик в 7 дней даёт первую ачивку — и только один раз.
+// Стрик в 7 days даёт первую ачивку — и только один раз.
 func TestWorkoutStreakMilestoneGrantsAchievement(t *testing.T) {
 	b, _, db := newIntegrationBot(t, nil)
 	seedMember(t, db, itUser, "leopard", false)
 
 	setTrainingHistory(t, db, itUser, 5, 5, 1)
-	logWorkout(b, itUser, "#training_done день шестой")
+	logWorkout(b, itUser, "#training_done day шестой")
 	if st := memberStateOf(t, db, itUser); st.Achievements != 0 {
-		t.Fatalf("на шестой день ачивки ещё нет: %+v", st)
+		t.Fatalf("на шестой day ачивки ещё нет: %+v", st)
 	}
 
 	setTrainingHistory(t, db, itUser, 6, 6, 1)
-	logWorkout(b, itUser, "#training_done день седьмой")
+	logWorkout(b, itUser, "#training_done day седьмой")
 	st := memberStateOf(t, db, itUser)
 	if st.Streak != 7 || st.Achievements != leopardmoney.AchievementsCountForStreak(7) || st.Achievements == 0 {
-		t.Fatalf("на седьмой день — первая ачивка: %+v", st)
+		t.Fatalf("на седьмой day — первая ачивка: %+v", st)
 	}
 
 	// Стрик сгорел и снова дошёл до семи — рекорд тот же, ачивка не дублируется.
@@ -148,7 +148,7 @@ func TestWorkoutClosesPackWeeklyGoal(t *testing.T) {
 
 	logWorkout(b, itUser, "#training_done раз")
 	if p := b.GetMiniappPackWeeklyProgressForAPI(itPack); p.Goal != 2 || p.WorkoutsWeek != 1 || p.GoalReached || p.BonusActive {
-		t.Fatalf("до цели одна тренировка: %+v", p)
+		t.Fatalf("до цели одна workout: %+v", p)
 	}
 	friendBefore := memberStateOf(t, db, itUser+1).Cups
 
@@ -168,7 +168,7 @@ func TestWorkoutClosesPackWeeklyGoal(t *testing.T) {
 		t.Errorf("бонус недели выдаётся один раз: +%d", got)
 	}
 	var posts int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM user_messages WHERE message_text LIKE 'Цель недели стаи достигнута%'`).Scan(&posts); err != nil || posts != 1 {
+	if err := db.QueryRow(`SELECT COUNT(*) FROM user_messages WHERE message_text LIKE 'Pack weekly goal reached%'`).Scan(&posts); err != nil || posts != 1 {
 		t.Errorf("пост в ленте о закрытой цели: %d %v", posts, err)
 	}
 }

@@ -16,32 +16,32 @@ afterEach(cleanup);
 
 const leoProps = {
   avatar: "🐆",
-  name: "Лео",
-  timeAgo: "4 ч назад",
+  name: "Leo",
+  timeAgo: "4 h ago",
   emoji: "🌅",
-  activity: "Мудрость дня",
+  activity: "Daily wisdom",
   details: "",
   hideStreak: true,
   streak: 0,
 };
 
 const wisdom =
-  "Равновесие — это не отсутствие движения, а контроль над ним. Сегодня фокусируйся " +
-  "на технике: каждое действие, даже самое простое, делай осознанно. Дисциплина важнее порыва.";
+  "Balance isn't the absence of movement, but control over it. Today focus on " +
+  "technique: do every move, even the simplest, with intent. Discipline beats impulse.";
 
-describe("Карточка Лео в ленте", () => {
-  it("мудрость дня видна целиком, без «Показать полностью»", () => {
+describe("Leo card in feed", () => {
+  it("shows daily wisdom in full without Show more", () => {
     render(<ActivityCard {...leoProps} comment={wisdom} commentAlwaysFull />);
     expect(screen.getByText(wisdom)).toBeTruthy();
-    expect(screen.queryByText("Показать полностью")).toBeNull();
+    expect(screen.queryByText("Show more")).toBeNull();
   });
 
-  it("прочие длинные посты Лео по-прежнему сворачиваются", () => {
-    render(<ActivityCard {...leoProps} activity="Лео" comment={wisdom} />);
-    expect(screen.getByText("Показать полностью")).toBeTruthy();
+  it("other long Leo posts still collapse", () => {
+    render(<ActivityCard {...leoProps} activity="Leo" comment={wisdom} />);
+    expect(screen.getByText("Show more")).toBeTruthy();
   });
 
-  it("под мудростью дня можно оставить комментарий", () => {
+  it("comment under daily wisdom works", () => {
     render(
       <ActivityCard
         {...leoProps}
@@ -55,7 +55,7 @@ describe("Карточка Лео в ленте", () => {
         }}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: /Комментарии/i }));
-    expect(screen.getByPlaceholderText("Написать комментарий…")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Comments/i }));
+    expect(screen.getByPlaceholderText("Write a comment…")).toBeTruthy();
   });
 });

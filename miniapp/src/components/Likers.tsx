@@ -149,7 +149,7 @@ export function ReactionPickerPopover({
   style: CSSProperties;
 }) {
   return createPortal(
-    <div className="act-card__react-picker" role="menu" aria-label="Выбор реакции" ref={popRef} style={style}>
+    <div className="act-card__react-picker" role="menu" aria-label="Pick a reaction" ref={popRef} style={style}>
       {reactions.map((r) => (
         <button
           key={r.emoji}
@@ -171,7 +171,7 @@ export function LikersPopover({
   groups,
   popRef,
   style,
-  label = "Кто отреагировал",
+  label = "Who reacted",
 }: {
   groups: LikerGroup[];
   popRef: RefObject<HTMLDivElement>;
@@ -193,7 +193,7 @@ export function LikersPopover({
               return (
                 <div key={`${name}-${i}`} className="act-card__likers-item">
                   <LikerAvatar photoUrl={v.photoUrl} name={name} />
-                  <span className="act-card__likers-name">{name || "Участник"}</span>
+                  <span className="act-card__likers-name">{name || "Member"}</span>
                 </div>
               );
             })}

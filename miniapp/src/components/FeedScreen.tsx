@@ -127,9 +127,9 @@ type MockFeedReason = "no-api" | "no-telegram" | "no-initdata";
 function mockFallback(streak: number, reason: MockFeedReason): ActivityCardProps[] {
   const card = (emoji: string, activity: string, details: string, comment: string): ActivityCardProps => ({
     avatar: "💬",
-    name: "Стая",
+    name: "Pack",
     streak: Math.max(streak, 0),
-    timeAgo: "сейчас",
+    timeAgo: "now",
     emoji,
     activity,
     details,
@@ -141,14 +141,14 @@ function mockFallback(streak: number, reason: MockFeedReason): ActivityCardProps
       return [
         {
           avatar: "🌸",
-          name: "Анна",
+          name: "Anna",
           streak: 12,
-          timeAgo: "5 мин",
+          timeAgo: "5 min",
           emoji: "🚴",
-          activity: "Велосипед",
-          details: "90 мин · интенсивность 3/5 · 20 км",
-          comment: "Доехала до фонтана и обратно, ноги горят 🔥",
-          aiText: "Анна, 20 км — серьёзный заезд. Ритм у тебя уже свой.",
+          activity: "Cycling",
+          details: "90 min · intensity 3/5 · 20 km",
+          comment: "Rode to the fountain and back — legs are on fire 🔥",
+          aiText: "Anna, 20 km is a serious ride. You’ve found your pace.",
           trainingPhotoUrl: "https://picsum.photos/seed/leobike/640/420",
           reactions: [
             { emoji: "🔥", count: 4, me: false },
@@ -157,25 +157,25 @@ function mockFallback(streak: number, reason: MockFeedReason): ActivityCardProps
         },
         {
           avatar: "🐯",
-          name: "Олег",
+          name: "Oleg",
           streak: 5,
-          timeAgo: "1 ч",
+          timeAgo: "1 hr",
           emoji: "🏃",
-          activity: "Бег",
-          details: "30 мин · интенсивность 4/5 · 5 км",
-          comment: "Утренняя пробежка перед работой.",
+          activity: "Run",
+          details: "30 min · intensity 4/5 · 5 km",
+          comment: "Morning run before work.",
           reactions: [{ emoji: "❤️", count: 7, me: false }],
         },
         {
           avatar: "🧘‍♀️",
-          name: "Лена",
+          name: "Lena",
           streak: 30,
-          timeAgo: "3 ч",
+          timeAgo: "3 hr",
           emoji: "🧘",
-          activity: "Йога",
-          details: "45 мин · интенсивность 2/5",
-          comment: "Растянулась, спина сказала спасибо.",
-          aiText: "Лена, 30 дней подряд — это характер. Спокойно и верно.",
+          activity: "Yoga",
+          details: "45 min · intensity 2/5",
+          comment: "Stretched — my back said thanks.",
+          aiText: "Lena, 30 days in a row — that’s character. Steady and right.",
           reactions: [
             { emoji: "🧘", count: 3, me: false },
             { emoji: "❤️", count: 5, me: true },
@@ -183,24 +183,24 @@ function mockFallback(streak: number, reason: MockFeedReason): ActivityCardProps
         },
         {
           avatar: "🏀",
-          name: "Макс",
+          name: "Max",
           streak: 8,
-          timeAgo: "вчера",
+          timeAgo: "yesterday",
           emoji: "🏀",
-          activity: "Баскетбол",
-          details: "60 мин · интенсивность 4/5",
-          comment: "Дворовый матч 3х3, выложились полностью.",
+          activity: "Basketball",
+          details: "60 min · intensity 4/5",
+          comment: "Pickup 3-on-3 — went all in.",
           reactions: [{ emoji: "🔥", count: 6, me: false }],
         },
         {
           avatar: "🛼",
-          name: "Катя",
+          name: "Kate",
           streak: 3,
-          timeAgo: "вчера",
+          timeAgo: "yesterday",
           emoji: "🛼",
-          activity: "Ролики",
-          details: "40 мин · интенсивность 3/5",
-          comment: "Накаталась по набережной на закате.",
+          activity: "Rollerblading",
+          details: "40 min · intensity 3/5",
+          comment: "Rolled along the waterfront at sunset.",
           reactions: [
             { emoji: "🛼", count: 9, me: true },
             { emoji: "🔥", count: 2, me: false },
@@ -211,9 +211,9 @@ function mockFallback(streak: number, reason: MockFeedReason): ActivityCardProps
       return [
         card(
           "📲",
-          "Открой через Telegram",
-          "Мини-апп вне Telegram",
-          "Запусти мини-апп кнопкой меню бота. В браузере или старом клиенте лента недоступна.",
+          "Open via Telegram",
+          "Miniapp outside Telegram",
+          "Launch the miniapp from the bot menu. Feed isn't available in a browser or old client.",
         ),
       ];
     case "no-initdata":
@@ -221,9 +221,9 @@ function mockFallback(streak: number, reason: MockFeedReason): ActivityCardProps
       return [
         card(
           "🔄",
-          "Не получили данные Telegram",
-          "Обнови приложение",
-          "Telegram не передал данные входа. Обнови Telegram до последней версии и переоткрой мини-апп.",
+          "Telegram sign-in data missing",
+          "Update the app",
+          "Telegram didn't pass sign-in data. Update Telegram and reopen the miniapp.",
         ),
       ];
   }
@@ -534,12 +534,12 @@ export function FeedScreen({
         };
         if (!res.ok) {
           if (res.status === 403) {
-            setErr("Нет доступа к ленте стаи: нужна подписка/участие в группе, как в боте.");
+            setErr("No access to the pack feed: you need pack membership, same as in the bot.");
             if (!opts?.silent) setFeedItems([]);
             return;
           }
           if (!opts?.silent) {
-            setErr(j.error ?? `Ошибка ${res.status}`);
+            setErr(j.error ?? `Error ${res.status}`);
             setFeedItems([]);
           }
           return;
@@ -606,7 +606,7 @@ export function FeedScreen({
         loadedOnceRef.current = true;
       } catch (e) {
         if (!opts?.silent) {
-          setErr(e instanceof Error ? e.message : "Сеть");
+          setErr(e instanceof Error ? e.message : "Network error");
           setFeedItems([]);
         }
       } finally {
@@ -716,13 +716,13 @@ export function FeedScreen({
         const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !j.ok) {
           setFriendOnAuthor(currentlyFriend);
-          showAlert(j.error ?? `Ошибка ${res.status}`);
+          showAlert(j.error ?? `Error ${res.status}`);
         } else {
           hapticLight();
         }
       } catch (e) {
         setFriendOnAuthor(currentlyFriend);
-        showAlert(e instanceof Error ? e.message : "Сеть");
+        showAlert(e instanceof Error ? e.message : "Network error");
       } finally {
         setFollowPosting((p) => ({ ...p, [authorId]: false }));
       }
@@ -759,13 +759,13 @@ export function FeedScreen({
           const j = (await res.json().catch(() => ({}))) as { error?: string };
           if (!res.ok) {
             applyToggle();
-            showAlert(j.error === "invalid_emoji" ? "Такую реакцию нельзя" : j.error ?? `Ошибка ${res.status}`);
+            showAlert(j.error === "invalid_emoji" ? "That reaction isn't allowed" : j.error ?? `Error ${res.status}`);
             return;
           }
           void syncFeed({ full: true, silent: true });
         } catch (e) {
           applyToggle();
-          showAlert(e instanceof Error ? e.message : "Сеть");
+          showAlert(e instanceof Error ? e.message : "Network error");
         }
       })();
     },
@@ -799,13 +799,13 @@ export function FeedScreen({
           const j = (await res.json().catch(() => ({}))) as { error?: string };
           if (!res.ok) {
             applyToggle();
-            showAlert(j.error === "invalid_emoji" ? "Такую реакцию нельзя" : j.error ?? `Ошибка ${res.status}`);
+            showAlert(j.error === "invalid_emoji" ? "That reaction isn't allowed" : j.error ?? `Error ${res.status}`);
             return;
           }
           void syncFeed({ full: true, silent: true });
         } catch (e) {
           applyToggle();
-          showAlert(e instanceof Error ? e.message : "Сеть");
+          showAlert(e instanceof Error ? e.message : "Network error");
         }
       })();
     },
@@ -820,7 +820,7 @@ export function FeedScreen({
     async (cardId: number, text: string, photo?: File | null, replyToCommentId?: number) => {
       const t = text.trim();
       if (!t && !photo) {
-        showAlert("Введи текст комментария или прикрепи фото.");
+        showAlert("Enter comment text or attach a photo.");
         return;
       }
       if (!apiBase || !initData) return;
@@ -848,14 +848,14 @@ export function FeedScreen({
             showAlert(moderationUserMessage(j.error, j.message));
             return;
           }
-          showAlert(j.error ?? `Ошибка ${res.status}`);
+          showAlert(j.error ?? `Error ${res.status}`);
           return;
         }
         setMsgThreadDrafts((d) => ({ ...d, [cardId]: "" }));
         setMsgThreadReplyTargets((r) => ({ ...r, [cardId]: undefined }));
         await syncFeed({ full: true, silent: true });
       } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Сеть");
+        showAlert(e instanceof Error ? e.message : "Network error");
       } finally {
         setMsgThreadPosting((p) => ({ ...p, [cardId]: false }));
       }
@@ -868,7 +868,7 @@ export function FeedScreen({
     async (cardId: number, replyId: number, text: string) => {
       const t = text.trim();
       if (!t) {
-        showAlert("Комментарий не может быть пустым.");
+        showAlert("Comment can't be empty.");
         return;
       }
       if (!apiBase || !initData) return;
@@ -885,14 +885,14 @@ export function FeedScreen({
             showAlert(moderationUserMessage(j.error, j.message));
             return;
           }
-          showAlert(j.error ?? `Ошибка ${res.status}`);
+          showAlert(j.error ?? `Error ${res.status}`);
           return;
         }
         setMsgThreadEdit((r) => ({ ...r, [cardId]: undefined }));
         setMsgThreadDrafts((d) => ({ ...d, [cardId]: "" }));
         await syncFeed({ full: true, silent: true });
       } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Сеть");
+        showAlert(e instanceof Error ? e.message : "Network error");
       } finally {
         setMsgThreadPosting((p) => ({ ...p, [cardId]: false }));
       }
@@ -913,12 +913,12 @@ export function FeedScreen({
         });
         const j = (await res.json().catch(() => ({}))) as { error?: string };
         if (!res.ok) {
-          showAlert(j.error ?? `Ошибка ${res.status}`);
+          showAlert(j.error ?? `Error ${res.status}`);
           return;
         }
         await syncFeed({ full: true, silent: true });
       } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Сеть");
+        showAlert(e instanceof Error ? e.message : "Network error");
       } finally {
         setThreadReplyDeleting((p) => ({ ...p, [replyId]: false }));
       }
@@ -941,16 +941,16 @@ export function FeedScreen({
         const j = (await res.json().catch(() => ({}))) as { error?: string };
         if (!res.ok) {
           const errMap: Record<string, string> = {
-            cannot_report_self: "Нельзя пожаловаться на своё сообщение",
-            cannot_report_leo: "На это сообщение пожаловаться нельзя",
-            already_reported: "Ты уже отправлял жалобу на это",
+            cannot_report_self: "You can't report your own message",
+            cannot_report_leo: "You can't report this message",
+            already_reported: "You already reported this",
           };
-          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Ошибка ${res.status}`);
+          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Error ${res.status}`);
           return;
         }
-        showAlert("Жалоба отправлена. Админы увидят её в поддержке.");
+        showAlert("Report sent. Admins will see it in support.");
       } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Сеть");
+        showAlert(e instanceof Error ? e.message : "Network error");
       } finally {
         setThreadReplyReporting((p) => ({ ...p, [messageId]: false }));
         setFeedReportPosting((p) => ({ ...p, [messageId]: false }));
@@ -961,7 +961,7 @@ export function FeedScreen({
 
   const confirmReportMessage = useCallback(
     async (messageId: number) => {
-      if (!(await tgConfirm("Отправить жалобу?\n\nАдмины проверят её в разделе поддержки."))) return;
+      if (!(await tgConfirm("Send a report?\n\nAdmins will review it in support."))) return;
       void reportMessageContent(messageId);
     },
     [reportMessageContent],
@@ -971,7 +971,7 @@ export function FeedScreen({
   const deleteMessageCard = useCallback(
     async (cardId: number) => {
       if (!apiBase || !initData) return;
-      if (!(await tgConfirm("Удалить сообщение из ленты?"))) return;
+      if (!(await tgConfirm("Remove this message from the feed?"))) return;
       setFeedDeletePosting((p) => ({ ...p, [cardId]: true }));
       try {
         const res = await fetch(`${apiBase}/api/miniapp/pack-group/messages/delete`, {
@@ -981,13 +981,13 @@ export function FeedScreen({
         });
         const j = (await res.json().catch(() => ({}))) as { error?: string };
         if (!res.ok) {
-          showAlert(j.error ?? `Ошибка ${res.status}`);
+          showAlert(j.error ?? `Error ${res.status}`);
           return;
         }
         setFeedItems((prev) => prev.filter((it) => !(it.id === cardId && isFeedMessage(it))));
         await syncFeed({ full: true, silent: true });
       } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Сеть");
+        showAlert(e instanceof Error ? e.message : "Network error");
       } finally {
         setFeedDeletePosting((p) => ({ ...p, [cardId]: false }));
       }
@@ -1007,18 +1007,18 @@ export function FeedScreen({
         const j = (await res.json().catch(() => ({}))) as { error?: string };
         if (!res.ok) {
           const errMap: Record<string, string> = {
-            not_found: "Опрос не найден",
-            invalid_option: "Неверный вариант",
-            forbidden: "Нет доступа",
-            chat_mismatch: "Открой miniapp из чата стаи",
-            poll_vote_error: "Не удалось сохранить голос",
+            not_found: "Poll not found",
+            invalid_option: "Invalid option",
+            forbidden: "No access",
+            chat_mismatch: "Open the miniapp from the pack chat",
+            poll_vote_error: "Couldn't save vote",
           };
-          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Ошибка ${res.status}`);
+          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Error ${res.status}`);
           return;
         }
         await syncFeed({ full: true, silent: true });
       } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Сеть");
+        showAlert(e instanceof Error ? e.message : "Network error");
       }
     },
     [apiBase, initData, syncFeed, showAlert],
@@ -1028,7 +1028,7 @@ export function FeedScreen({
     async (userMessageId: number, text: string, replyToThreadId?: number, photo?: File | null, postAs?: "self" | "leo" | "admin") => {
       const t = text.trim();
       if (!t && !photo) {
-        showAlert("Введи текст комментария или прикрепи фото.");
+        showAlert("Enter comment text or attach a photo.");
         return;
       }
       if (!apiBase || !initData) return;
@@ -1072,21 +1072,21 @@ export function FeedScreen({
             return;
           }
           const errMap: Record<string, string> = {
-            empty_text: "Пустой комментарий",
-            text_too_long: "Слишком длинно (максимум 500 символов)",
-            not_found: "Запись не найдена (обнови ленту)",
-            forbidden: "Нет доступа",
-            chat_mismatch: "Открой мини-апп из чата стаи",
-            thread_error: "Сервер не сохранил комментарий (таблица миграции или БД)",
-            invalid_reply: "Не удалось ответить на это сообщение (обнови ленту)",
-            invalid_multipart: "Не удалось прочитать фото — попробуй ещё раз",
-            photo_open_error: "Не удалось открыть фото",
-            photo_too_large: "Фото слишком большое",
-            unsupported_type: "Неподдерживаемый формат фото",
-            media_write_error: "Не удалось загрузить фото — попробуй ещё раз",
-            media_not_configured: "Загрузка фото недоступна",
+            empty_text: "Empty comment",
+            text_too_long: "Too long (max 500 characters)",
+            not_found: "Post not found (refresh feed)",
+            forbidden: "No access",
+            chat_mismatch: "Open the miniapp from the pack chat",
+            thread_error: "Server didn't save comment (migration or DB)",
+            invalid_reply: "Couldn't reply to this message (refresh feed)",
+            invalid_multipart: "Couldn't read photo — try again",
+            photo_open_error: "Couldn't open photo",
+            photo_too_large: "Photo too large",
+            unsupported_type: "Unsupported photo format",
+            media_write_error: "Couldn't upload photo — try again",
+            media_not_configured: "Photo upload unavailable",
           };
-          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Ошибка ${res.status}`);
+          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Error ${res.status}`);
           return;
         }
         const postedThread = j.thread;
@@ -1103,7 +1103,7 @@ export function FeedScreen({
           window.setTimeout(() => void syncFeed({ full: true, silent: true }), 5000);
         }
       } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Сеть");
+        showAlert(e instanceof Error ? e.message : "Network error");
       } finally {
         setThreadPosting((p) => ({ ...p, [userMessageId]: false }));
       }
@@ -1115,7 +1115,7 @@ export function FeedScreen({
     async (item: PackFeedItemDTO) => {
       const draft = (postEditDrafts[item.id] ?? "").trim();
       if (!draft) {
-        showAlert("Текст не может быть пустым.");
+        showAlert("Text can't be empty.");
         return;
       }
       if (!apiBase || !initData) return;
@@ -1138,14 +1138,14 @@ export function FeedScreen({
             return;
           }
           const errMap: Record<string, string> = {
-            empty_text: "Текст не может быть пустым",
-            text_too_long: "Слишком длинный текст",
-            not_found: "Пост не найден (обнови ленту)",
-            forbidden: "Нет доступа",
-            chat_mismatch: "Открой мини-апп из чата стаи",
-            feed_edit_error: "Не удалось сохранить",
+            empty_text: "Text can't be empty",
+            text_too_long: "Text too long",
+            not_found: "Post not found (refresh feed)",
+            forbidden: "No access",
+            chat_mismatch: "Open the miniapp from the pack chat",
+            feed_edit_error: "Couldn't save",
           };
-          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Ошибка ${res.status}`);
+          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Error ${res.status}`);
           return;
         }
         setPostEditId(null);
@@ -1168,7 +1168,7 @@ export function FeedScreen({
         );
         await syncFeed({ full: true, silent: true });
       } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Сеть");
+        showAlert(e instanceof Error ? e.message : "Network error");
       } finally {
         setPostEditPosting((p) => ({ ...p, [item.id]: false }));
       }
@@ -1193,16 +1193,16 @@ export function FeedScreen({
             return;
           }
           const errMap: Record<string, string> = {
-            photo_too_large: "Фото слишком большое (до 6 МБ)",
-            unsupported_image: "Формат фото не поддерживается",
-            missing_photo: "Выбери фото",
-            invalid_multipart: "Не удалось прочитать фото — попробуй ещё раз",
-            not_found: "Пост не найден (обнови ленту)",
-            forbidden: "Нет доступа",
-            chat_mismatch: "Открой мини-апп из чата стаи",
-            feed_photo_error: "Не удалось сохранить фото",
+            photo_too_large: "Photo too large (max 6 MB)",
+            unsupported_image: "Photo format not supported",
+            missing_photo: "Choose a photo",
+            invalid_multipart: "Couldn't read photo — try again",
+            not_found: "Post not found (refresh feed)",
+            forbidden: "No access",
+            chat_mismatch: "Open the miniapp from the pack chat",
+            feed_photo_error: "Couldn't save photo",
           };
-          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Ошибка ${res.status}`);
+          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Error ${res.status}`);
           return;
         }
         setFeedItems((prev) =>
@@ -1210,7 +1210,7 @@ export function FeedScreen({
         );
         await syncFeed({ full: true, silent: true });
       } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Сеть");
+        showAlert(e instanceof Error ? e.message : "Network error");
       } finally {
         setPostPhotoBusy((p) => ({ ...p, [item.id]: false }));
       }
@@ -1221,7 +1221,7 @@ export function FeedScreen({
   const removeFeedPostPhoto = useCallback(
     async (item: PackFeedItemDTO) => {
       if (!apiBase || !initData) return;
-      if (!(await tgConfirm("Удалить фото из поста?"))) return;
+      if (!(await tgConfirm("Remove photo from post?"))) return;
       setPostPhotoBusy((p) => ({ ...p, [item.id]: true }));
       try {
         const res = await fetch(`${apiBase}/api/miniapp/feed/photo/delete`, {
@@ -1232,12 +1232,12 @@ export function FeedScreen({
         const j = (await res.json().catch(() => ({}))) as { error?: string };
         if (!res.ok) {
           const errMap: Record<string, string> = {
-            not_found: "Пост не найден (обнови ленту)",
-            forbidden: "Нет доступа",
-            chat_mismatch: "Открой мини-апп из чата стаи",
-            feed_photo_error: "Не удалось удалить фото",
+            not_found: "Post not found (refresh feed)",
+            forbidden: "No access",
+            chat_mismatch: "Open the miniapp from the pack chat",
+            feed_photo_error: "Couldn't remove photo",
           };
-          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Ошибка ${res.status}`);
+          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Error ${res.status}`);
           return;
         }
         setFeedItems((prev) =>
@@ -1245,7 +1245,7 @@ export function FeedScreen({
         );
         await syncFeed({ full: true, silent: true });
       } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Сеть");
+        showAlert(e instanceof Error ? e.message : "Network error");
       } finally {
         setPostPhotoBusy((p) => ({ ...p, [item.id]: false }));
       }
@@ -1262,7 +1262,7 @@ export function FeedScreen({
     ) => {
       const t = text.trim();
       if (!t) {
-        showAlert("Комментарий не может быть пустым.");
+        showAlert("Comment can't be empty.");
         return;
       }
       if (!apiBase || !initData) return;
@@ -1288,14 +1288,14 @@ export function FeedScreen({
             return;
           }
           const errMap: Record<string, string> = {
-            empty_text: "Пустой комментарий",
-            text_too_long: "Слишком длинно (максимум 500 символов)",
-            not_found: "Комментарий не найден (обнови ленту)",
-            forbidden: "Нет доступа",
-            chat_mismatch: "Открой мини-апп из чата стаи",
-            thread_edit_error: "Не удалось сохранить",
+            empty_text: "Empty comment",
+            text_too_long: "Too long (max 500 characters)",
+            not_found: "Comment not found (refresh feed)",
+            forbidden: "No access",
+            chat_mismatch: "Open the miniapp from the pack chat",
+            thread_edit_error: "Couldn't save",
           };
-          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Ошибка ${res.status}`);
+          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Error ${res.status}`);
           return;
         }
         setThreadEditTargets((r) => ({ ...r, [trainingUserMessageId]: undefined }));
@@ -1310,7 +1310,7 @@ export function FeedScreen({
         }
       } catch (e) {
         setThreadDrafts((d) => ({ ...d, [trainingUserMessageId]: originalText }));
-        showAlert(e instanceof Error ? e.message : "Сеть");
+        showAlert(e instanceof Error ? e.message : "Network error");
       } finally {
         setThreadPosting((p) => ({ ...p, [trainingUserMessageId]: false }));
       }
@@ -1334,12 +1334,12 @@ export function FeedScreen({
         };
         if (!res.ok) {
           const errMap: Record<string, string> = {
-            not_found: "Комментарий не найден или уже удалён",
-            forbidden: "Нет доступа",
-            chat_mismatch: "Открой мини-апп из чата стаи",
-            thread_delete_error: "Не удалось удалить",
+            not_found: "Comment not found or already deleted",
+            forbidden: "No access",
+            chat_mismatch: "Open the miniapp from the pack chat",
+            thread_delete_error: "Couldn't delete",
           };
-          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Ошибка ${res.status}`);
+          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Error ${res.status}`);
           return;
         }
         const updated = j.thread;
@@ -1351,7 +1351,7 @@ export function FeedScreen({
           await syncFeed({ full: true, silent: true });
         }
       } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Сеть");
+        showAlert(e instanceof Error ? e.message : "Network error");
       } finally {
         setThreadReplyDeleting((p) => ({ ...p, [threadReplyId]: false }));
       }
@@ -1364,7 +1364,7 @@ export function FeedScreen({
       if (!apiBase || !initData || !isAdmin) return;
       if (
         !(await tgConfirm(
-          "Удалить публикацию из ленты?\n\nОна исчезнет у всех, но останется в админке (раздел «Скрытое») — оттуда её можно восстановить.",
+          "Remove this post from the feed?\n\nIt disappears for everyone but stays in admin (Hidden) — you can restore it there.",
         ))
       ) {
         return;
@@ -1379,12 +1379,12 @@ export function FeedScreen({
         const j = (await res.json().catch(() => ({}))) as { error?: string };
         if (!res.ok) {
           const errMap: Record<string, string> = {
-            not_found: "Пост не найден или уже скрыт",
-            forbidden: "Нет прав",
-            chat_mismatch: "Открой мини-апп из чата стаи",
-            feed_delete_error: "Не удалось скрыть",
+            not_found: "Post not found or already hidden",
+            forbidden: "No permission",
+            chat_mismatch: "Open the miniapp from the pack chat",
+            feed_delete_error: "Couldn't hide",
           };
-          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Ошибка ${res.status}`);
+          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Error ${res.status}`);
           return;
         }
         setFeedItems((prev) => prev.filter((it) => it.id !== userMessageId));
@@ -1395,7 +1395,7 @@ export function FeedScreen({
           return next;
         });
       } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Сеть");
+        showAlert(e instanceof Error ? e.message : "Network error");
       } finally {
         setFeedDeletePosting((p) => ({ ...p, [userMessageId]: false }));
       }
@@ -1426,12 +1426,12 @@ export function FeedScreen({
         const j = (await res.json().catch(() => ({}))) as { error?: string };
         if (!res.ok) {
           const errMap: Record<string, string> = {
-            not_found: "Объявление не найдено или уже удалено",
-            forbidden: "Закреплять может только админ",
-            chat_mismatch: "Открой мини-апп из чата стаи",
-            feed_pin_error: "Не удалось изменить закреп",
+            not_found: "Announcement not found or already removed",
+            forbidden: "Only admins can pin",
+            chat_mismatch: "Open the miniapp from the pack chat",
+            feed_pin_error: "Couldn't change pin",
           };
-          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Ошибка ${res.status}`);
+          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Error ${res.status}`);
           // Откат — следующий синк восстановит истину с сервера.
           void syncFeed({ silent: true });
           return;
@@ -1439,7 +1439,7 @@ export function FeedScreen({
         // Подтягиваем авторитетный набор закреплённых.
         void syncFeed({ silent: true });
       } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Сеть");
+        showAlert(e instanceof Error ? e.message : "Network error");
         void syncFeed({ silent: true });
       } finally {
         setFeedPinPosting((p) => ({ ...p, [userMessageId]: false }));
@@ -1468,24 +1468,24 @@ export function FeedScreen({
         const j = (await res.json().catch(() => ({}))) as { error?: string };
         if (!res.ok) {
           const errMap: Record<string, string> = {
-            not_found: "Запись не найдена (обнови ленту)",
-            forbidden: "Нет доступа",
-            chat_mismatch: "Открой мини-апп из чата стаи",
-            cannot_report_self: "Нельзя пожаловаться на своё сообщение",
-            cannot_report_leo: "На это сообщение пожаловаться нельзя",
-            already_reported: "Ты уже отправлял жалобу на это",
-            report_error: "Не удалось отправить жалобу",
+            not_found: "Post not found (refresh feed)",
+            forbidden: "No access",
+            chat_mismatch: "Open the miniapp from the pack chat",
+            cannot_report_self: "You can't report your own message",
+            cannot_report_leo: "You can't report this message",
+            already_reported: "You already reported this",
+            report_error: "Couldn't send report",
           };
-          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Ошибка ${res.status}`);
+          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Error ${res.status}`);
           return;
         }
         showAlert(
           threadReplyId > 0
-            ? "Жалоба на комментарий отправлена. Админы увидят её в поддержке."
-            : "Жалоба отправлена. Админы увидят её в поддержке.",
+            ? "Comment report sent. Admins will see it in support."
+            : "Report sent. Admins will see it in support.",
         );
       } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Сеть");
+        showAlert(e instanceof Error ? e.message : "Network error");
       } finally {
         setPosting((p) => ({ ...p, [postingKey]: false }));
       }
@@ -1497,7 +1497,7 @@ export function FeedScreen({
     async (userMessageId: number) => {
       if (
         !(await tgConfirm(
-          "Отправить жалобу на эту публикацию?\n\nАдмины проверят её в разделе поддержки.",
+          "Report this post?\n\nAdmins will review it in support.",
         ))
       ) {
         return;
@@ -1511,7 +1511,7 @@ export function FeedScreen({
     async (userMessageId: number, threadReplyId: number) => {
       if (
         !(await tgConfirm(
-          "Отправить жалобу на этот комментарий?\n\nАдмины проверят его в разделе поддержки.",
+          "Report this comment?\n\nAdmins will review it in support.",
         ))
       ) {
         return;
@@ -1549,7 +1549,7 @@ export function FeedScreen({
           const j = (await res.json().catch(() => ({}))) as { error?: string; thread?: PackFeedThreadReplyDTO[] };
           if (!res.ok) {
             applyToggle();
-            showAlert(j.error ?? `Ошибка ${res.status}`);
+            showAlert(j.error ?? `Error ${res.status}`);
             return;
           }
           const updated = j.thread;
@@ -1562,7 +1562,7 @@ export function FeedScreen({
           }
         } catch (e) {
           applyToggle();
-          showAlert(e instanceof Error ? e.message : "Сеть");
+          showAlert(e instanceof Error ? e.message : "Network error");
         }
       })();
     },
@@ -1720,11 +1720,11 @@ export function FeedScreen({
 
   const ptrStatusText =
     ptr.status === "refreshing"
-      ? "Обновление…"
+      ? "Refreshing…"
       : ptr.status === "ready"
-        ? "Отпусти, чтобы обновить"
+        ? "Release to refresh"
         : ptr.status === "pulling"
-          ? "Тяни вниз"
+          ? "Pull down"
           : "";
 
   return (
@@ -1733,7 +1733,7 @@ export function FeedScreen({
         <button
           type="button"
           className="feed__cat-list-dismiss"
-          aria-label="Применить фильтр типов"
+          aria-label="Apply type filters"
           onClick={applyCatListAndClose}
         />
       )}
@@ -1744,19 +1744,19 @@ export function FeedScreen({
           <div className="feed__hero">
             <div className="feed__streak" aria-label={streakStreakAriaLabel(streak)} title={streakStreakAriaLabel(streak)}>
               <span className="feed__streak-row">
-                <span className="feed__streak-word">Стрик</span>
+                <span className="feed__streak-word">Streak</span>
                 <span className="feed__streak-num">{streak}</span>
               </span>
             </div>
           </div>
         </header>
         {sub === "activity" && (
-          <div className="feed__filters" aria-label="Фильтры ленты" data-no-ptr>
+          <div className="feed__filters" aria-label="Feed filters" data-no-ptr>
             {/* Единый ряд фильтров: тип контента (Тренировки/Сообщения) и «чьи»
                 (Друзья/Мои) — независимые измерения, работают как пересечение (И).
                 Напр. «Друзья» + «Сообщения» → сообщения только друзей. «Все» —
                 сброс обоих измерений; активна, когда ни один фильтр не выбран. */}
-            <div className="feed__filter-scope" role="group" aria-label="Фильтры ленты">
+            <div className="feed__filter-scope" role="group" aria-label="Feed filters">
               <button
                 type="button"
                 className={`feed__filter-pill${
@@ -1769,7 +1769,7 @@ export function FeedScreen({
                   setCatListOpen(false);
                 }}
               >
-                Все
+                All
               </button>
               <button
                 type="button"
@@ -1779,7 +1779,7 @@ export function FeedScreen({
                   setFeedScope((p) => (p === "mine" ? "all" : "mine"));
                 }}
               >
-                Мои
+                Mine
               </button>
               <button
                 type="button"
@@ -1789,7 +1789,7 @@ export function FeedScreen({
                   setFeedScope((p) => (p === "friends" ? "all" : "friends"));
                 }}
               >
-                Друзья
+                Friends
               </button>
               <button
                 type="button"
@@ -1799,7 +1799,7 @@ export function FeedScreen({
                   setFeedTypeFilter((p) => (p === "training" ? "all" : "training"));
                 }}
               >
-                Тренировки
+                Workouts
               </button>
               <button
                 type="button"
@@ -1813,7 +1813,7 @@ export function FeedScreen({
                   });
                 }}
               >
-                Сообщения
+                Messages
               </button>
             </div>
             <div
@@ -1824,7 +1824,7 @@ export function FeedScreen({
               {...(feedTypeFilter === "message" ? { inert: true as const } : {})}
             >
               <div className="feed__filter-cats-clip">
-              <div className="feed__filter-cats" role="group" aria-label="Тип тренировки">
+              <div className="feed__filter-cats" role="group" aria-label="Workout type">
                 <div
                   role="button"
                   tabIndex={0}
@@ -1841,7 +1841,7 @@ export function FeedScreen({
                     }
                   }}
                 >
-                  <span className="feed__filter-chip-label">Все типы</span>
+                  <span className="feed__filter-chip-label">All types</span>
                   <span className="feed__filter-chip-caret" aria-hidden>
                     ▾
                   </span>
@@ -1881,7 +1881,7 @@ export function FeedScreen({
               </div>
               </div>
               {catListOpen && (
-                <div className="feed__cat-list" role="listbox" aria-label="Все типы тренировок">
+                <div className="feed__cat-list" role="listbox" aria-label="All workout types">
                   <button
                     type="button"
                     role="option"
@@ -1892,7 +1892,7 @@ export function FeedScreen({
                     <span className="feed__cat-list-emoji" aria-hidden>
                       🏷️
                     </span>
-                    <span className="feed__cat-list-label">Все типы</span>
+                    <span className="feed__cat-list-label">All types</span>
                     {feedCategoryIds.length === 0 && (
                       <span className="feed__cat-list-check" aria-hidden>
                         ✓
@@ -1951,10 +1951,10 @@ export function FeedScreen({
       <div className={`feed__subpane${sub !== "activity" ? " feed__subpane--hidden" : ""}`}>
           <div
             className={`feed__pack-progress feed__pack-progress--plain${packGoalReached ? " is-complete" : ""}${packBonusThemeActive ? " is-bonus" : ""}`}
-            aria-label={`Стая: ${packWeeklyProgressLabel(packWorkoutsWeek, packWorkoutsGoal)} тренировок за неделю`}
+            aria-label={`Pack: ${packWeeklyProgressLabel(packWorkoutsWeek, packWorkoutsGoal)} workouts this week`}
           >
             <div className="feed__pack-progress-row">
-              <span className="feed__pack-progress-title">Неделя стаи</span>
+              <span className="feed__pack-progress-title">Pack week</span>
               <div
                 className="feed__pack-progress-bar"
                 role="progressbar"
@@ -1972,7 +1972,7 @@ export function FeedScreen({
               <button
                 type="button"
                 className="feed__pack-progress-help"
-                aria-label="Подсказка о недельной цели стаи"
+                aria-label="Pack weekly goal hint"
                 onClick={() => {
                   hapticLight();
                   showAlert(packWeeklyGoalHint(packWorkoutsGoal));
@@ -1984,16 +1984,16 @@ export function FeedScreen({
             {packGoalReached ? (
               <span className="feed__pack-progress-bonus">
                 {packBonusThemeActive
-                  ? "Цель достигнута · +50 кубков каждому · бонусная тема активна"
-                  : "Цель достигнута · +50 кубков каждому"}
+                  ? "Goal reached · +50 cups each · bonus theme active"
+                  : "Goal reached · +50 cups each"}
               </span>
             ) : null}
           </div>
           {err && <p className="feed__err">{err}</p>}
-          {loading && <p className="feed__load muted">Загрузка…</p>}
+          {loading && <p className="feed__load muted">Loading…</p>}
           <div className={`feed__list${listSwapClass ? ` ${listSwapClass}` : ""}`}>
             {!loading && !useMockFeed && feedItems.length === 0 && !err && (
-              <p className="feed__empty muted">Пока нет отчётов в базе (или нет MONETIZED_CHAT_ID).</p>
+              <p className="feed__empty muted">No reports in the database yet (or MONETIZED_CHAT_ID is missing).</p>
             )}
             {!loading &&
               !useMockFeed &&
@@ -2002,8 +2002,8 @@ export function FeedScreen({
               !err && (
                 <p className="feed__empty muted">
                   {feedScope === "friends"
-                    ? "Здесь отчёты друзей. Подпишись на участников в профиле → «Друзья по стае»."
-                    : "Ничего не подходит под фильтры — выбери другой тип или «Все типы» / «Все»."}
+                    ? "Friend workouts live here. Follow people in Profile → Pack friends."
+                    : "Nothing matches filters — pick another type or All types / All."}
                 </p>
               )}
             {useMockFeed &&
@@ -2022,7 +2022,7 @@ export function FeedScreen({
                 // Объявление от Лео (и закреплённое — тоже голос Лео): полный текст без сворачивания.
                 const isLeoAnnouncementPost =
                   it.type === "admin_post" &&
-                  ((it.username || "").trim() === "Лео" || isPinnedAnnouncement);
+                  ((it.username || "").trim() === "Leo" || isPinnedAnnouncement);
                 // Мудрость дня читают целиком: это короткий текст дня, и «Показать
                 // полностью» на нём — лишний шаг ради двух строк.
                 const alwaysFullComment =
@@ -2030,9 +2030,9 @@ export function FeedScreen({
                 // Закреп — исключительно голос Лео: единый аватар/имя независимо от автора поста.
                 const pinnedLeoProps: Partial<ActivityCardProps> = isPinnedAnnouncement
                   ? {
-                      name: "Лео",
+                      name: "Leo",
                       avatar: LEO_AVATAR_URL,
-                      activity: "Объявление",
+                      activity: "Announcement",
                       emoji: "🐆",
                       hideStreak: true,
                     }
@@ -2062,7 +2062,7 @@ export function FeedScreen({
                   const rq = mapFeedThreadQuote(tr);
                   return {
                     id: tr.id,
-                    author: (tr.username || "").trim() || `Участник ${tr.user_id}`,
+                    author: (tr.username || "").trim() || `Member ${tr.user_id}`,
                     text: tr.text,
                     timeAgo: formatLocalDateTime(tr.created_at),
                     isYou: tr.is_you || (userId > 0 && tr.user_id === userId),
@@ -2365,17 +2365,17 @@ export function FeedScreen({
             {!useMockFeed && !loading && feedItems.length > 0 && (
               <div ref={olderSentinelRef} className="feed__older">
                 {loadingOlder ? (
-                  <p className="feed__load muted">Загрузка истории…</p>
+                  <p className="feed__load muted">Loading history…</p>
                 ) : hasMoreOlder ? (
                   <button
                     type="button"
                     className="feed__load-more"
                     onClick={() => void loadOlder()}
                   >
-                    Показать ещё
+                    Show more
                   </button>
                 ) : (
-                  <p className="feed__load muted">Это начало истории стаи</p>
+                  <p className="feed__load muted">This is the start of pack history</p>
                 )}
               </div>
             )}

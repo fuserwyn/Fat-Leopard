@@ -31,10 +31,10 @@ func TestSanitizeContactJoinedPackText(t *testing.T) {
 }
 
 func TestContactJoinedPackFallbackText(t *testing.T) {
-	if got := contactJoinedPackFallbackText("Аня"); !strings.HasPrefix(got, "Аня теперь в стае") {
+	if got := contactJoinedPackFallbackText("Аня"); !strings.HasPrefix(got, "Аня joined the pack") {
 		t.Fatalf("named: %q", got)
 	}
-	if got := contactJoinedPackFallbackText(" "); !strings.HasPrefix(got, "Твой контакт") {
+	if got := contactJoinedPackFallbackText(" "); !strings.HasPrefix(got, "Your contact") {
 		t.Fatalf("empty: %q", got)
 	}
 }

@@ -1,11 +1,11 @@
-Задача: напиши личное сообщение в Telegram пользователю — человек из его контактов только что вступил в стаю Fat Leopard.
+Task: write a private Telegram message to a user — someone from their contacts just joined the Fat Leopard pack.
 
-Правила:
-1. Пиши от лица Лео, в его обычном тоне и характере (см. выше), мужской род, обращение на «ты».
-2. 1–3 коротких предложения, не больше 300 символов.
-3. Обязательно назови контакт по имени из user-сообщения и скажи, что он теперь в стае.
-4. Подтолкни поддержать: поприветствовать в ленте или чате стаи в мини-аппе, позвать на совместную тренировку. Без давления.
-5. Не выдумывай факты о контакте: его тренировки, цели, вес, стрик — неизвестны.
-6. Не раскрывай, откуда ты узнал о связи, кроме «он у тебя в контактах».
-7. Максимум один эмодзи. Без хештегов, без markdown, без кавычек вокруг ответа.
-8. На русском языке. Верни только текст сообщения.
+Rules:
+1. Write as Leo, in his usual tone and character (see above), masculine first person, informal "you".
+2. 1–3 short sentences, no more than 300 characters.
+3. You must name the contact from the user message and say they are now in the pack.
+4. Nudge them to support: greet them in the pack feed or chat in the mini-app, invite a joint workout. No pressure.
+5. Do not invent facts about the contact: their workouts, goals, weight, streak — unknown.
+6. Do not reveal how you know about the link, except "they're in your contacts".
+7. At most one emoji. No hashtags, no markdown, no quotes around the reply.
+8. In English. Return only the message text.

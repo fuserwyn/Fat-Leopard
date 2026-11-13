@@ -13,11 +13,11 @@ func TestPaywallInvoiceShortHintBranches(t *testing.T) {
 		err  *tgbotapi.Error
 		want string
 	}{
-		{&tgbotapi.Error{Code: 400, Message: "CURRENCY_TOTAL_AMOUNT_INVALID"}, "Платёж не прошёл проверку. Нажми /start и запроси счёт снова."},
-		{&tgbotapi.Error{Code: 400, Message: "INVOICE_PAYLOAD_INVALID"}, "Счёт отклонён Telegram. Обнови приложение или выбери оплату картой другой кнопкой."},
-		{&tgbotapi.Error{Code: 403, Message: "Forbidden"}, "Разблокируй бота: ⋮ в чате → Разблокировать."},
-		{&tgbotapi.Error{Code: 400, Message: "Bad Request: chat not found"}, "Напиши боту любое сообщение в личке и снова нажми кнопку."},
-		{&tgbotapi.Error{Code: 500, Message: "internal"}, "Не вышло отправить счёт. Попробуй оплату картой другой кнопкой или /start позже."},
+		{&tgbotapi.Error{Code: 400, Message: "CURRENCY_TOTAL_AMOUNT_INVALID"}, "Payment didn't pass validation. Tap /start and request an invoice again."},
+		{&tgbotapi.Error{Code: 400, Message: "INVOICE_PAYLOAD_INVALID"}, "Telegram rejected the invoice. Update the app or pay by card with another button."},
+		{&tgbotapi.Error{Code: 403, Message: "Forbidden"}, "Unblock the bot: ⋮ in chat → Unblock."},
+		{&tgbotapi.Error{Code: 400, Message: "Bad Request: chat not found"}, "Send the bot any message in DM and tap the button again."},
+		{&tgbotapi.Error{Code: 500, Message: "internal"}, "Couldn't send the invoice. Try card payment with another button or /start later."},
 	}
 	for _, tc := range cases {
 		if got := paywallInvoiceShortHintForUser(tc.err); got != tc.want {
@@ -31,15 +31,15 @@ func TestPaywallYookassaShortHint(t *testing.T) {
 		t.Fatal("nil err")
 	}
 	cases := map[string]string{
-		"yookassa: credentials empty":     "Оплата ЮKassa временно недоступна (не заданы ключи). Напиши администратору.",
-		"amount must be positive":         "Оплата ЮKassa временно недоступна (некорректная сумма). Напиши администратору.",
-		"return_url must be http(s)":      "Оплата ЮKassa временно недоступна (некорректный URL возврата). Напиши администратору.",
-		"yookassa: HTTP 401 unauthorized": "ЮKassa отклонила запрос (проверь ключи магазина). Попробуй позже.",
-		"yookassa: HTTP 403":              "ЮKassa отклонила запрос (проверь ключи магазина). Попробуй позже.",
-		"yookassa: HTTP 400 bad":          "ЮKassa вернула ошибку параметров платежа. Попробуй позже.",
-		"context deadline exceeded":       "ЮKassa долго отвечает. Попробуй ещё раз через минуту.",
-		"dial tcp: i/o timeout":           "ЮKassa долго отвечает. Попробуй ещё раз через минуту.",
-		"something else":                  "Ссылка на оплату не создалась. Попробуй позже.",
+		"yookassa: credentials empty":     "YooKassa payments are temporarily unavailable (keys not set). Contact an admin.",
+		"amount must be positive":         "YooKassa payments are temporarily unavailable (invalid amount). Contact an admin.",
+		"return_url must be http(s)":      "YooKassa payments are temporarily unavailable (invalid return URL). Contact an admin.",
+		"yookassa: HTTP 401 unauthorized": "YooKassa rejected the request (check store keys). Try again later.",
+		"yookassa: HTTP 403":              "YooKassa rejected the request (check store keys). Try again later.",
+		"yookassa: HTTP 400 bad":          "YooKassa returned a payment parameter error. Try again later.",
+		"context deadline exceeded":       "YooKassa is slow to respond. Try again in a minute.",
+		"dial tcp: i/o timeout":           "YooKassa is slow to respond. Try again in a minute.",
+		"something else":                  "Payment link wasn't created. Try again later.",
 	}
 	for in, want := range cases {
 		if got := paywallYookassaShortHintForUser(errors.New(in)); got != want {
@@ -49,16 +49,16 @@ func TestPaywallYookassaShortHint(t *testing.T) {
 }
 
 func TestStarsWordsRU(t *testing.T) {
-	words := map[int]string{1: "звезда", 2: "звезды", 4: "звезды", 5: "звёзд", 11: "звёзд", 14: "звёзд", 21: "звезда", 100: "звёзд", 102: "звезды"}
+	words := map[int]string{1: "Star", 2: "Stars", 4: "Stars", 5: "Stars", 11: "Stars", 14: "Stars", 21: "Star", 100: "Stars", 102: "Stars"}
 	for n, want := range words {
-		if got := starsWordRU(n); got != want {
-			t.Fatalf("starsWordRU(%d) = %q, want %q", n, got, want)
+		if got := starsWordEN(n); got != want {
+			t.Fatalf("starsWordEN(%d) = %q, want %q", n, got, want)
 		}
 	}
-	verbs := map[int]string{1: "спишется", 21: "спишется", 2: "спишутся", 11: "спишутся", 50: "спишутся"}
+	verbs := map[int]string{1: "will be charged", 21: "will be charged", 2: "will be charged", 11: "will be charged", 50: "will be charged"}
 	for n, want := range verbs {
-		if got := starsChargeVerbRU(n); got != want {
-			t.Fatalf("starsChargeVerbRU(%d) = %q, want %q", n, got, want)
+		if got := starsChargeVerbEN(n); got != want {
+			t.Fatalf("starsChargeVerbEN(%d) = %q, want %q", n, got, want)
 		}
 	}
 }

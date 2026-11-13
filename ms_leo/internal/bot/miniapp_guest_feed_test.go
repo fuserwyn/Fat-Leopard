@@ -8,9 +8,9 @@ import (
 
 func TestGuestFeedName(t *testing.T) {
 	cases := map[string]string{
-		"":          "Участник стаи",
-		"  ":        "Участник стаи",
-		"user12345": "Участник стаи",
+		"":          "Pack member",
+		"  ":        "Pack member",
+		"user12345": "Pack member",
 		" Анна ":    "Анна",
 		"userka":    "userka",
 	}

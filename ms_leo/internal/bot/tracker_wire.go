@@ -32,13 +32,13 @@ func (b *Bot) pingTrackerWire() error {
 	client := &http.Client{Timeout: 8 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("трекер недоступен: %w", err)
+		return fmt.Errorf("tracker unavailable: %w", err)
 	}
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<16))
 	var parsed trackerWireStatus
 	if json.Unmarshal(raw, &parsed) != nil || !parsed.OK {
-		return fmt.Errorf("трекер не ответил на /health")
+		return fmt.Errorf("tracker did not respond on /health")
 	}
 	// Старый /health без wire ещё живой. Новый без notify — доска глухая.
 	if len(parsed.Wire) > 0 {
@@ -46,7 +46,7 @@ func (b *Bot) pingTrackerWire() error {
 			Notify bool `json:"notify"`
 		}
 		if json.Unmarshal(parsed.Wire, &wire) == nil && !wire.Notify {
-			return fmt.Errorf("на трекере нет LEO_NOTIFY_URL — доска не узнает о сдаче")
+			return fmt.Errorf("LEO_NOTIFY_URL is missing on the tracker — the board cannot report submissions")
 		}
 	}
 	return nil

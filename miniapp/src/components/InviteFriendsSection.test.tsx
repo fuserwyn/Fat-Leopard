@@ -21,11 +21,11 @@ const state: ReferralState = {
 describe("InviteFriendsSection", () => {
   it("shows counters and progress", () => {
     const { getByText, getAllByText } = render(<InviteFriendsSection initData="x" initialState={state} />);
-    expect(getAllByText("Позвать в стаю").length).toBe(2);
-    expect(getByText("пришли по ссылке").previousSibling?.textContent).toBe("14");
-    expect(getByText("записали тренировку").previousSibling?.textContent).toBe("12");
-    expect(getByText("попыток получено").previousSibling?.textContent).toBe("1");
-    expect(getByText(/2 из 10 — ещё 8 друзей/)).toBeTruthy();
+    expect(getAllByText("Invite to the pack").length).toBe(2);
+    expect(getByText("joined via link").previousSibling?.textContent).toBe("14");
+    expect(getByText("logged a workout").previousSibling?.textContent).toBe("12");
+    expect(getByText("saves earned").previousSibling?.textContent).toBe("1");
+    expect(getByText(/2 of 10 — 8 more friends/)).toBeTruthy();
     expect(getByText(state.link)).toBeTruthy();
   });
 
@@ -38,7 +38,7 @@ describe("InviteFriendsSection", () => {
     const openTelegramLink = vi.fn();
     (window as unknown as { Telegram: unknown }).Telegram = { WebApp: { openTelegramLink } };
     const { getByRole } = render(<InviteFriendsSection initData="x" initialState={state} />);
-    fireEvent.click(getByRole("button", { name: "Позвать в стаю" }));
+    fireEvent.click(getByRole("button", { name: "Invite to the pack" }));
     expect(openTelegramLink).toHaveBeenCalledWith(expect.stringContaining("https://t.me/share/url?url="));
   });
 
@@ -48,11 +48,11 @@ describe("InviteFriendsSection", () => {
     const writeText = vi.fn(async () => {});
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
     const { getByRole, getByText } = render(<InviteFriendsSection initData="x" initialState={state} />);
-    fireEvent.click(getByRole("button", { name: "Позвать в стаю" }));
+    fireEvent.click(getByRole("button", { name: "Invite to the pack" }));
     expect(openLink).toHaveBeenCalled();
     delete (window as { Telegram?: unknown }).Telegram;
-    fireEvent.click(getByRole("button", { name: "Позвать в стаю" }));
-    await waitFor(() => expect(getByText("скопировано")).toBeTruthy());
+    fireEvent.click(getByRole("button", { name: "Invite to the pack" }));
+    await waitFor(() => expect(getByText("copied")).toBeTruthy());
     expect(writeText).toHaveBeenCalledWith(state.link);
   });
 
@@ -65,7 +65,7 @@ describe("InviteFriendsSection", () => {
     vi.resetModules();
     const { InviteFriendsSection: Fresh } = await import("./InviteFriendsSection");
     const { findByText } = render(<Fresh initData="x" />);
-    expect((await findByText("пришли по ссылке")).previousSibling?.textContent).toBe("3");
+    expect((await findByText("joined via link")).previousSibling?.textContent).toBe("3");
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
   });
@@ -84,17 +84,16 @@ describe("InviteFriendsSection", () => {
     vi.resetModules();
     const { InviteFriendsSection: Fresh } = await import("./InviteFriendsSection");
     const { findByText, getByText } = render(<Fresh initData="x" />);
-    expect((await findByText("пришли по ссылке")).previousSibling?.textContent).toBe("0");
+    expect((await findByText("joined via link")).previousSibling?.textContent).toBe("0");
 
     joined = 1;
     document.dispatchEvent(new Event("visibilitychange"));
-    await waitFor(() => expect(getByText("пришли по ссылке").previousSibling?.textContent).toBe("1"));
+    await waitFor(() => expect(getByText("joined via link").previousSibling?.textContent).toBe("1"));
 
-    // Сбой сети при обновлении не прячет блок.
     fail = true;
     document.dispatchEvent(new Event("visibilitychange"));
     await new Promise((r) => setTimeout(r, 0));
-    expect(getByText("пришли по ссылке").previousSibling?.textContent).toBe("1");
+    expect(getByText("joined via link").previousSibling?.textContent).toBe("1");
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
   });

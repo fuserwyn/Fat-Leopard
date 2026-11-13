@@ -30,22 +30,22 @@ const (
 	leoAutonomyMaxTasks = 5
 )
 
-const leoAutonomySprintPrompt = `Ты — Лео, суровый и остроумный леопард, тренер стаи Fat Leopard.
-Ты сам ведёшь продукт: мини-апп стаи (лента тренировок, комментарии, стрики,
-ачивки, чат, профиль, админка) и бот.
+const leoAutonomySprintPrompt = `You are Leo, a sharp-witted leopard and coach of the Fat Leopard pack.
+You drive the product: the pack mini-app (workout feed, comments, streaks,
+achievements, chat, profile, admin) and the bot.
 
-Придумай короткий спринт: одну тему и %d задач, которые реально улучшат
-приложение для участников стаи.
+Invent a short sprint: one theme and %d tasks that genuinely improve the app
+for pack members.
 
-Ответь JSON без обрамления и пояснений:
+Reply with JSON only:
 {"theme": "...", "reply": "...", "tasks": ["...", "..."]}
 
-theme — 2–5 слов, о чём спринт.
-reply — 1–2 предложения твоим голосом: дерзко, с юмором, по делу.
-tasks — формулировки для разработчика: что сделать и зачем, каждая одним
-абзацем до 400 символов, без эмодзи и без обращения к человеку. Задачи должны
-быть разными и не ломать существующие сценарии.
-Не предлагай переписать проект целиком, не трогай оплату и удаление данных.`
+theme — 2–5 words about the sprint.
+reply — 1–2 sentences in your voice: bold, witty, on point.
+tasks — developer-ready specs: what to do and why, each one paragraph up to
+400 characters, no emoji, no addressing a human. Tasks must differ and must
+not break existing flows.
+Do not propose rewriting the whole project; do not touch payments or data deletion.`
 
 // startLeoAutonomyScheduler — фоновый цикл автономного режима.
 func (b *Bot) startLeoAutonomyScheduler(ctx context.Context) {
@@ -81,7 +81,7 @@ func (b *Bot) runLeoAutonomyIfDue() {
 		b.logger.Warnf("автономный Лео: спринт не вышел: %v", err)
 		// Отметку о прогоне ставим и при неудаче: иначе сломанный ключ модели
 		// заставил бы нас долбиться в неё каждые пять минут.
-		_ = b.db.MarkLeoAutonomyRun("не получилось: " + err.Error())
+		_ = b.db.MarkLeoAutonomyRun("failed: " + err.Error())
 	}
 }
 
@@ -125,9 +125,9 @@ func leoPlannerPrompt(messages []ai.ChatMessage) (system, prompt string) {
 		case dialog == 1:
 			turns = append(turns, text)
 		case m.Role == "assistant":
-			turns = append(turns, "Лео: "+text)
+			turns = append(turns, "Leo: "+text)
 		default:
-			turns = append(turns, "Админ: "+text)
+			turns = append(turns, "Admin: "+text)
 		}
 	}
 	return strings.Join(sys, "\n\n"), strings.Join(turns, "\n\n")
@@ -136,7 +136,7 @@ func leoPlannerPrompt(messages []ai.ChatMessage) (system, prompt string) {
 // runLeoSprint — спросить у Лео спринт и поставить задачи на доску.
 func (b *Bot) runLeoSprint(state database.LeoAutonomy) error {
 	if b.aiClient == nil {
-		return fmt.Errorf("не настроен OpenRouter")
+		return fmt.Errorf("OpenRouter is not configured")
 	}
 	count := state.TasksPerRun
 	if count <= 0 {
@@ -151,7 +151,7 @@ func (b *Bot) runLeoSprint(state database.LeoAutonomy) error {
 		{Role: "user", Content: leoSprintUserHint(state)},
 	})
 	if err != nil {
-		return fmt.Errorf("Лео не ответил: %w", err)
+		return fmt.Errorf("Leo did not reply: %w", err)
 	}
 	var parsed struct {
 		Theme string   `json:"theme"`
@@ -160,21 +160,21 @@ func (b *Bot) runLeoSprint(state database.LeoAutonomy) error {
 	}
 	block := leoJSONBlock.FindString(raw)
 	if block == "" {
-		return fmt.Errorf("Лео ответил не JSON")
+		return fmt.Errorf("Leo reply was not JSON")
 	}
 	if err := json.Unmarshal([]byte(block), &parsed); err != nil {
-		return fmt.Errorf("ответ Лео не разобрался: %w", err)
+		return fmt.Errorf("could not parse Leo reply: %w", err)
 	}
 
 	theme := strings.TrimSpace(parsed.Theme)
 	created, failed := b.createLeoSprintTasks(theme, parsed.Tasks, count)
 	if created == 0 {
-		return fmt.Errorf("ни одной задачи не поставилось: %s", failed)
+		return fmt.Errorf("no tasks were created: %s", failed)
 	}
 
-	note := fmt.Sprintf("%s — задач: %d", theme, created)
+	note := fmt.Sprintf("%s — tasks: %d", theme, created)
 	if failed != "" {
-		note += "; не удалось: " + failed
+		note += "; failed: " + failed
 	}
 	if err := b.db.MarkLeoAutonomyRun(note); err != nil {
 		b.logger.Warnf("автономный Лео: не записать прогон: %v", err)
@@ -186,9 +186,9 @@ func (b *Bot) runLeoSprint(state database.LeoAutonomy) error {
 // leoSprintUserHint — чтобы спринты не повторялись, показываем Лео прошлую тему.
 func leoSprintUserHint(state database.LeoAutonomy) string {
 	if note := strings.TrimSpace(state.LastNote); note != "" {
-		return "Прошлый твой спринт: " + note + ". Возьми другую тему."
+		return "Your previous sprint: " + note + ". Pick a different theme."
 	}
-	return "Первый спринт: возьми то, что важнее всего для участников стаи."
+	return "First sprint: pick what matters most for pack members."
 }
 
 // createLeoSprintTasks — поставить задачи на нашу доску от имени Лео.
@@ -206,14 +206,14 @@ func (b *Bot) createLeoSprintTasks(theme string, tasks []string, limit int) (cre
 		if theme != "" {
 			text = "[" + theme + "] " + text
 		}
-		when := fmt.Sprintf("через %d мин", 5+i*20)
+		when := fmt.Sprintf("in %d min", 5+i*20)
 		if _, err := b.trackerRequest("create", 0, map[string]any{
 			"when":           when,
 			"prompt":         text,
 			"leo":            true,
 			"needs_approval": true,
 			"auto_push":      true,
-		}, b.leoBoardUserID(), "Лео"); err != nil {
+		}, b.leoBoardUserID(), "Leo"); err != nil {
 			problems = append(problems, err.Error())
 			continue
 		}
@@ -240,11 +240,11 @@ func (b *Bot) leoBoardUserID() int64 {
 
 // announceLeoSprint — рассказать админам, что Лео придумал на этот раз.
 func (b *Bot) announceLeoSprint(theme, reply string, created int, state database.LeoAutonomy) {
-	text := fmt.Sprintf("🐆 Лео придумал спринт: %s\nЗадач поставлено: %d", theme, created)
+	text := fmt.Sprintf("🐆 Leo planned a sprint: %s\nTasks created: %d", theme, created)
 	if reply != "" {
 		text += "\n\n" + reply
 	}
-	text += fmt.Sprintf("\n\nСам работает до %s.", state.ActiveUntil.Format("02.01 15:04"))
+	text += fmt.Sprintf("\n\nAutonomous mode until %s.", state.ActiveUntil.Format("02.01 15:04"))
 	if err := b.NotifyTrackerResult(0, text); err != nil {
 		b.logger.Warnf("автономный Лео: не сообщить админам: %v", err)
 	}
@@ -277,7 +277,7 @@ func (b *Bot) MiniappLeoAutonomy(
 		return out, ErrPackFeedForbidden
 	}
 	if b.db == nil {
-		return out, fmt.Errorf("база недоступна")
+		return out, fmt.Errorf("database unavailable")
 	}
 
 	switch strings.TrimSpace(action) {

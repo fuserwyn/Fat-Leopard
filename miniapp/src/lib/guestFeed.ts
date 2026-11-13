@@ -32,7 +32,7 @@ export function parseGuestFeed(raw: unknown): GuestFeed | null {
     items.push({
       id: num(it.id),
       user_id: 0,
-      username: str(it.username).trim() || "Участник стаи",
+      username: str(it.username).trim() || "Pack member",
       type: str(it.type) || "training_done",
       source: "feed",
       text,

@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-// GetPackPaywallAmountMinor — цена доступа, заданная админом (копейки RUB).
+// GetPackPaywallAmountMinor — цена access, заданная админом (копейки RUB).
 // ok=false, если строки нет или сумма не задана: тогда вызывающий берёт env-дефолт.
 func (d *Database) GetPackPaywallAmountMinor(packChatID int64) (amountMinor int, ok bool, err error) {
 	if d == nil || packChatID == 0 {
@@ -24,7 +24,7 @@ func (d *Database) GetPackPaywallAmountMinor(packChatID int64) (amountMinor int,
 	return amountMinor, amountMinor > 0, nil
 }
 
-// SetPackPaywallAmountMinor — админ выставляет цену доступа (копейки RUB).
+// SetPackPaywallAmountMinor — админ выставляет цену access (копейки RUB).
 func (d *Database) SetPackPaywallAmountMinor(packChatID int64, amountMinor int, updatedBy int64) error {
 	if packChatID == 0 {
 		return fmt.Errorf("pack not configured")

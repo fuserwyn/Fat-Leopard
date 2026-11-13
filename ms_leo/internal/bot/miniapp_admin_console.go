@@ -14,15 +14,15 @@ import (
 	initdata "github.com/telegram-mini-apps/init-data-golang"
 )
 
-// Технические разделы админки: база проекта и деньги.
+// Технические разделы adminки: база проекта и деньги.
 //
 // «Данные» — таблицы и SQL-редактор, только чтение (см. database.AdminRunQuery).
 // «Ресурсы» — сколько Railway насчитал за текущий месяц и сколько за тот же
 // период пришло оплат, всё в долларах, чтобы разницу было видно одним числом.
 
-// requireMiniappDataAdmin — доступ к сырым данным базы (таблицы и SQL-редактор).
+// requireMiniappDataAdmin — access к сырым данным базы (таблицы и SQL-редактор).
 // Там видно всё, включая платежи и переписку, поэтому пускаем только владельца
-// и админов из настроек сервера; выданные через панель права сюда не дают.
+// и adminов из настроек сервера; выданные через панель права сюда не дают.
 func (b *Bot) requireMiniappDataAdmin(viewerUserID int64, initD initdata.InitData) (int64, error) {
 	packID, err := b.requireMiniappAdmin(viewerUserID, initD)
 	if err != nil {
@@ -124,26 +124,26 @@ func (b *Bot) MiniappAdminResources(viewerUserID int64, initD initdata.InitData)
 	msk := time.FixedZone("MSK", 3*3600)
 	now := time.Now().In(msk)
 	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, msk)
-	out.Month = fmt.Sprintf("%s (по %s)", monthStart.Format("01.2006"), now.Format("02.01"))
+	out.Month = fmt.Sprintf("%s (through %s)", monthStart.Format("01.2006"), now.Format("02.01"))
 
 	// --- расход
 	if strings.TrimSpace(b.config.RailwayToken) == "" || strings.TrimSpace(b.config.RailwayProjectID) == "" {
-		out.CostNote = "Не задан RAILWAY_API_TOKEN или RAILWAY_PROJECT_ID — расход Railway не показать."
+		out.CostNote = "RAILWAY_API_TOKEN or RAILWAY_PROJECT_ID not set — cannot show Railway cost."
 	} else {
 		parts, total, err := b.railwayCost()
 		if err != nil {
-			out.CostNote = "Railway не ответил: " + err.Error()
+			out.CostNote = "Railway error: " + err.Error()
 		} else {
 			out.CostUSD = total
 			out.CostParts = parts
 			out.CostNote = fmt.Sprintf(
-				"Ставки: RAM $%.2f/ГБ·мес · CPU $%.2f/vCPU·мес · диск $%.2f/ГБ·мес · трафик $%.2f/ГБ",
+				"Rates: RAM $%.2f/GB·mo · CPU $%.2f/vCPU·mo · disk $%.2f/GB·mo · egress $%.2f/GB",
 				b.config.UsagePriceRAMGBMonth, b.config.UsagePriceCPUMonth,
 				b.config.UsagePriceDiskGBMonth, b.config.UsagePriceEgressGB)
 		}
 	}
 
-	// --- доход: покупки доступа и донаты, по звёздам и рублям
+	// --- доход: покупки access и donations, по звёздам и рублям
 	packChatID := b.adminPackChatID()
 	sums, err := b.db.AdminSumCompletedMoney(packChatID, monthStart.UTC(), true)
 	if err != nil {
@@ -176,12 +176,12 @@ func (b *Bot) MiniappAdminResources(viewerUserID int64, initD initdata.InitData)
 	}
 	out.IncomeUSD = round2(out.IncomeUSD)
 	out.NetUSD = round2(out.IncomeUSD - out.CostUSD)
-	out.RatesNote = fmt.Sprintf("Курс: $1 = %.2f ₽ · звезда = $%.4f (меняется в USD_RUB_RATE и USD_PER_STAR)",
+	out.RatesNote = fmt.Sprintf("Rate: $1 = %.2f ₽ · star = $%.4f (set in USD_RUB_RATE and USD_PER_STAR)",
 		b.config.UsdRubRate, b.config.UsdPerStar)
 	if len(out.Income) == 0 {
-		out.PaymentsNote = "В этом месяце оплат и донатов ещё не было."
+		out.PaymentsNote = "No payments or donations this month yet."
 	} else {
-		out.PaymentsNote = "Доступ — покупка входа/возврата; донат — поддержка из профиля. Завершённые за месяц."
+		out.PaymentsNote = "Access — entry/return purchase; donation — profile support. Completed this month."
 	}
 	return out, nil
 }
@@ -197,14 +197,14 @@ func (b *Bot) railwayCost() ([]MiniappCostPart, float64, error) {
 		minutes = 43800
 	}
 	parts := []MiniappCostPart{
-		{Key: "MEMORY_USAGE_GB", Label: "Память", Raw: raw["MEMORY_USAGE_GB"],
+		{Key: "MEMORY_USAGE_GB", Label: "Memory", Raw: raw["MEMORY_USAGE_GB"],
 			USD: raw["MEMORY_USAGE_GB"] / minutes * b.config.UsagePriceRAMGBMonth},
 		{Key: "CPU_USAGE", Label: "CPU", Raw: raw["CPU_USAGE"],
 			USD: raw["CPU_USAGE"] / minutes * b.config.UsagePriceCPUMonth},
-		{Key: "DISK_USAGE_GB", Label: "Диск", Raw: raw["DISK_USAGE_GB"],
+		{Key: "DISK_USAGE_GB", Label: "Disk", Raw: raw["DISK_USAGE_GB"],
 			USD: raw["DISK_USAGE_GB"] / minutes * b.config.UsagePriceDiskGBMonth},
-		// Трафик тарифицируется разово за гигабайт — на время не делим.
-		{Key: "NETWORK_TX_GB", Label: "Трафик", Raw: raw["NETWORK_TX_GB"],
+		// Egress тарифицируется разово за гигабайт — на время не делим.
+		{Key: "NETWORK_TX_GB", Label: "Egress", Raw: raw["NETWORK_TX_GB"],
 			USD: raw["NETWORK_TX_GB"] * b.config.UsagePriceEgressGB},
 	}
 	total := 0.0

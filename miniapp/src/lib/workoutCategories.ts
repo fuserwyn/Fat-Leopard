@@ -31,37 +31,37 @@ export type WorkoutCategoryOption = { id: WorkoutCategoryId; label: string; emoj
 
 /** Порядок — как в форме новой тренировки (можно импортировать как список типов в форме). */
 export const WORKOUT_CATEGORY_OPTIONS: WorkoutCategoryOption[] = [
-  { id: "run", label: "Бег", emoji: "🏃" },
-  { id: "walk", label: "Ходьба", emoji: "🚶" },
-  { id: "bike", label: "Велосипед", emoji: "🚴" },
-  { id: "swim", label: "Плавание", emoji: "🏊" },
-  { id: "yoga", label: "Йога", emoji: "🧘" },
-  { id: "rowing", label: "Гребля", emoji: "🚣" },
-  { id: "workout", label: "Воркаут", emoji: "🔥" },
-  { id: "crossfit", label: "Кроссфит", emoji: "🎯" },
-  { id: "stretch", label: "Растяжка", emoji: "🧎" },
-  { id: "dance", label: "Танцы", emoji: "💃" },
+  { id: "run", label: "Run", emoji: "🏃" },
+  { id: "walk", label: "Walk", emoji: "🚶" },
+  { id: "bike", label: "Cycling", emoji: "🚴" },
+  { id: "swim", label: "Swim", emoji: "🏊" },
+  { id: "yoga", label: "Yoga", emoji: "🧘" },
+  { id: "rowing", label: "Rowing", emoji: "🚣" },
+  { id: "workout", label: "Workout", emoji: "🔥" },
+  { id: "crossfit", label: "CrossFit", emoji: "🎯" },
+  { id: "stretch", label: "Stretch", emoji: "🧎" },
+  { id: "dance", label: "Dance", emoji: "💃" },
   { id: "hiit", label: "HIIT", emoji: "⚡" },
-  { id: "cardio", label: "Кардио", emoji: "💓" },
-  { id: "kettlebell", label: "Гиря", emoji: "🏋️" },
-  { id: "strength", label: "Силовая", emoji: "🏋️" },
-  { id: "jump_rope", label: "Скакалка", emoji: "🪢" },
-  { id: "pole", label: "Пилон", emoji: "🤸" },
-  { id: "rollerblade", label: "Ролики", emoji: "🛼" },
-  { id: "basketball", label: "Баскетбол", emoji: "🏀" },
-  { id: "football", label: "Футбол", emoji: "⚽" },
-  { id: "volleyball", label: "Волейбол", emoji: "🏐" },
-  { id: "tennis", label: "Теннис", emoji: "🎾" },
-  { id: "padel", label: "Падел", emoji: "🏏" },
-  { id: "gymnastics", label: "Гимнастика", emoji: "🙆" },
-  { id: "morning_exercise", label: "Зарядка", emoji: "☀️" },
-  { id: "climbing", label: "Скалолазание", emoji: "🧗" },
-  { id: "other", label: "Другое", emoji: "✨" },
+  { id: "cardio", label: "Cardio", emoji: "💓" },
+  { id: "kettlebell", label: "Kettlebell", emoji: "🏋️" },
+  { id: "strength", label: "Strength", emoji: "🏋️" },
+  { id: "jump_rope", label: "Jump rope", emoji: "🪢" },
+  { id: "pole", label: "Pole", emoji: "🤸" },
+  { id: "rollerblade", label: "Rollerblading", emoji: "🛼" },
+  { id: "basketball", label: "Basketball", emoji: "🏀" },
+  { id: "football", label: "Football", emoji: "⚽" },
+  { id: "volleyball", label: "Volleyball", emoji: "🏐" },
+  { id: "tennis", label: "Tennis", emoji: "🎾" },
+  { id: "padel", label: "Padel", emoji: "🏏" },
+  { id: "gymnastics", label: "Gymnastics", emoji: "🙆" },
+  { id: "morning_exercise", label: "Morning mobility", emoji: "☀️" },
+  { id: "climbing", label: "Climbing", emoji: "🧗" },
+  { id: "other", label: "Other", emoji: "✨" },
 ];
 
 /** Для фильтра ленты: по русскому алфавиту названий (HIIT и латиница — по правилам `ru`). */
 export const WORKOUT_CATEGORY_OPTIONS_ALPHABETICAL: WorkoutCategoryOption[] = [...WORKOUT_CATEGORY_OPTIONS].sort(
-  (a, b) => a.label.localeCompare(b.label, "ru", { sensitivity: "base" }),
+  (a, b) => a.label.localeCompare(b.label, "en", { sensitivity: "base" }),
 );
 
 /**
@@ -94,7 +94,7 @@ function compareWorkoutCategoriesByCountDesc(
   if (b === "other") return -1;
   const la = WORKOUT_CATEGORY_OPTIONS.find((o) => o.id === a)?.label ?? a;
   const lb = WORKOUT_CATEGORY_OPTIONS.find((o) => o.id === b)?.label ?? b;
-  return la.localeCompare(lb, "ru", { sensitivity: "base" });
+  return la.localeCompare(lb, "en", { sensitivity: "base" });
 }
 
 /** Сортировка видов по убыванию частоты в стае; «Другое» — в конце при равных счётчиках. */
@@ -123,6 +123,35 @@ const LABEL_TO_ID = Object.fromEntries(
   WORKOUT_CATEGORY_OPTIONS.map((o) => [o.label.trim().toLowerCase(), o.id]),
 ) as Record<string, WorkoutCategoryId>;
 
+/** Legacy Russian labels in stored reports (pre-English UI). */
+const LEGACY_LABEL_TO_ID: Record<string, WorkoutCategoryId> = {
+  бег: "run",
+  ходьба: "walk",
+  велосипед: "bike",
+  плавание: "swim",
+  йога: "yoga",
+  гребля: "rowing",
+  воркаут: "workout",
+  кроссфит: "crossfit",
+  растяжка: "stretch",
+  танцы: "dance",
+  кардио: "cardio",
+  гиря: "kettlebell",
+  силовая: "strength",
+  скакалка: "jump_rope",
+  пилон: "pole",
+  ролики: "rollerblade",
+  баскетбол: "basketball",
+  футбол: "football",
+  волейбол: "volleyball",
+  теннис: "tennis",
+  падел: "padel",
+  гимнастика: "gymnastics",
+  зарядка: "morning_exercise",
+  скалолазание: "climbing",
+  другое: "other",
+};
+
 const ID_TO_EMOJI = Object.fromEntries(WORKOUT_CATEGORY_OPTIONS.map((o) => [o.id, o.emoji])) as Record<
   WorkoutCategoryId,
   string
@@ -144,23 +173,40 @@ const KIND_SPLIT_RE = /\s*[+/]\s*/;
  */
 export function trainingDoneCategoryDisplayLabel(text: string): string {
   const raw = parseTrainingDoneRawKind(text);
-  if (raw === null) return "Другое";
-  const id = LABEL_TO_ID[raw.toLowerCase()];
-  if (id) return WORKOUT_CATEGORY_OPTIONS.find((o) => o.id === id)?.label ?? "Другое";
+  if (raw === null) return "Other";
+  const parts = raw.split(KIND_SPLIT_RE).filter((p) => p.trim());
+  if (parts.length > 1) {
+    return parts
+      .map((part) => {
+        const key = part.trim().toLowerCase();
+        const id = rawKindToCategory(part);
+        if (id !== "other" || LABEL_TO_ID[key] || LEGACY_LABEL_TO_ID[key]) {
+          return WORKOUT_CATEGORY_OPTIONS.find((o) => o.id === id)?.label ?? part.trim();
+        }
+        return part.trim();
+      })
+      .join(" + ");
+  }
+  const key = raw.toLowerCase();
+  const id = rawKindToCategory(raw);
+  if (id !== "other" || LABEL_TO_ID[key] || LEGACY_LABEL_TO_ID[key]) {
+    return WORKOUT_CATEGORY_OPTIONS.find((o) => o.id === id)?.label ?? "Other";
+  }
   return raw;
 }
 
 /** Сырой вид активности из первой строки отчёта (с исходным регистром), либо null. */
 function parseTrainingDoneRawKind(text: string): string | null {
   const line = (text.trim().split("\n")[0] ?? "").trim();
-  const m = line.match(/^(?:#training_done\s*[—–-]\s*)?([^,]+),\s*\d+\s*мин/i);
+  const m = line.match(/^(?:#training_done\s*[—–-]\s*)?([^,]+),\s*\d+\s*(?:мин|min)/i);
   if (!m) return null;
   return m[1].trim();
 }
 
 /** Один вид из «сырой» подписи (нижний регистр → id); неизвестный → "other". */
 function rawKindToCategory(raw: string): WorkoutCategoryId {
-  return LABEL_TO_ID[raw.trim().toLowerCase()] ?? "other";
+  const key = raw.trim().toLowerCase();
+  return LABEL_TO_ID[key] ?? LEGACY_LABEL_TO_ID[key] ?? "other";
 }
 
 /**
@@ -191,7 +237,9 @@ export function parseTrainingDoneCategories(text: string): WorkoutCategoryId[] {
 
 /** В ленте показываем полное слово вместо устаревшего «инт.». */
 export function expandTrainingIntensityLabel(text: string): string {
-  return text.replace(/инт\.\s*/gi, "интенсивность ");
+  return text
+    .replace(/инт\.\s*/gi, "intensity ")
+    .replace(/интенсивность\s*/gi, "intensity ");
 }
 
 /**
@@ -210,7 +258,7 @@ export function stripLeadingCategoryFromTrainingReport(text: string): string {
   const m = firstLine.match(/^([^,]+),\s*(.+)$/);
   if (!m) return trimmed;
   const afterKind = m[2].trim();
-  if (!/\d+\s*мин/i.test(afterKind)) return trimmed;
+  if (!/\d+\s*(?:мин|min)/i.test(afterKind)) return trimmed;
 
   const body = rest ? `${afterKind}\n${rest}` : afterKind;
   return expandTrainingIntensityLabel(body.trim());

@@ -84,7 +84,7 @@ function PackMessageReactions({
     <div
       className="packroom__react-chips"
       role="group"
-      aria-label="Реакции на сообщение"
+      aria-label="Message reactions"
       ref={anchorRef}
       {...hoverProps}
     >
@@ -205,7 +205,7 @@ function PackGroupMessageMenu({
   const confirmReport = () => {
     if (
       !window.confirm(
-        "Отправить жалобу на это сообщение?\n\nАдмины проверят его в разделе поддержки.",
+        "Report this message?\n\nAdmins will review it in Support.",
       )
     ) {
       return;
@@ -221,7 +221,7 @@ function PackGroupMessageMenu({
         className={`packroom__more-toggle${open ? " packroom__more-toggle--open" : ""}`}
         aria-expanded={open}
         aria-haspopup="menu"
-        aria-label="Реакции и действия"
+        aria-label="Reactions and actions"
         disabled={reporting}
         onClick={() => setOpen((v) => !v)}
       >
@@ -241,7 +241,7 @@ function PackGroupMessageMenu({
               onTouchMove={(e) => e.stopPropagation()}
               onTouchStart={(e) => e.stopPropagation()}
             >
-              <div className="packroom__more-emojis" role="group" aria-label="Реакции">
+              <div className="packroom__more-emojis" role="group" aria-label="Reactions">
                 {reactions.map((r) => (
                   <button
                     key={r.emoji}
@@ -260,7 +260,7 @@ function PackGroupMessageMenu({
               {canReport && onReport != null && (
                 <div className="packroom__more-footer">
                   <button type="button" className="packroom__more-item" role="menuitem" onClick={confirmReport}>
-                    Пожаловаться на сообщение
+                    Report message
                   </button>
                 </div>
               )}
@@ -272,7 +272,7 @@ function PackGroupMessageMenu({
   );
 }
 
-// Свайп сообщения влево = "Ответить". Жест распознаётся как горизонтальный,
+// Свайп сообщения влево = "Reply". Жест распознаётся как горизонтальный,
 // чтобы не мешать вертикальному скроллу ленты; при достижении порога даём haptic.
 function SwipeToReply({ onReply, children }: { onReply: () => void; children: ReactNode }) {
   const startX = useRef(0);
@@ -428,16 +428,16 @@ function resolveReplyQuote(
   const parentId = m.reply_to_id ?? 0;
   if (parentId <= 0) return null;
 
-  const serverAuthor = m.reply_to_is_leo ? "Лео" : (m.reply_to_username || "").trim();
+  const serverAuthor = m.reply_to_is_leo ? "Leo" : (m.reply_to_username || "").trim();
   const serverText = (m.reply_to_text || "").trim();
   if (serverAuthor !== "" || serverText !== "") {
-    return { author: serverAuthor || "Сообщение", text: serverText, parentId };
+    return { author: serverAuthor || "Message", text: serverText, parentId };
   }
 
   const parent = byId.get(parentId);
   if (parent) {
     return {
-      author: parent.is_leo ? "Лео" : parent.username,
+      author: parent.is_leo ? "Leo" : parent.username,
       text: excerptText(parent.text),
       parentId,
     };
@@ -569,16 +569,16 @@ export function PackGroupChatPanel({
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; messages?: PackGroupMessage[]; error?: string };
       if (!res.ok) {
         if (res.status === 403) {
-          setErr("Нет доступа к чату стаи.");
+          setErr("No access to pack chat.");
           setItems([]);
           return;
         }
-        setErr(j.error ?? `Ошибка ${res.status}`);
+        setErr(j.error ?? `Error ${res.status}`);
         return;
       }
       setItems(j.messages ?? []);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Сеть");
+      setErr(e instanceof Error ? e.message : "Network error");
     }
   }, [inTelegram, initData]);
 
@@ -752,11 +752,11 @@ export function PackGroupChatPanel({
     const t = text.trim();
     if ((!t && !photo) || sending) return;
     if (!apiBase) {
-      showAlert("Сборка без VITE_MINIAPP_API_URL.");
+      showAlert("Build is missing VITE_MINIAPP_API_URL.");
       return;
     }
     if (!inTelegram || !initData) {
-      showAlert("Открой мини-апп из Telegram.");
+      showAlert("Open the miniapp from Telegram.");
       return;
     }
     setSending(true);
@@ -783,19 +783,19 @@ export function PackGroupChatPanel({
             return;
           }
           const errMap: Record<string, string> = {
-            not_found: "Сообщение не найдено (обнови чат)",
-            forbidden: "Нет доступа",
-            chat_mismatch: "Открой мини-апп из чата стаи",
-            empty_text: "Сообщение не может быть пустым",
-            text_too_long: "Слишком длинное сообщение",
+            not_found: "Message not found (refresh chat)",
+            forbidden: "No access",
+            chat_mismatch: "Open the miniapp from the pack chat",
+            empty_text: "Message can't be empty",
+            text_too_long: "Message too long",
           };
-          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Ошибка ${res.status}`);
+          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Error ${res.status}`);
           return;
         }
         await load();
       } catch (e) {
         setItems((prev) => prev.map((m) => (m.id === editId ? { ...m, text: original } : m)));
-        showAlert(e instanceof Error ? e.message : "Сеть");
+        showAlert(e instanceof Error ? e.message : "Network error");
       } finally {
         setSending(false);
       }
@@ -833,9 +833,9 @@ export function PackGroupChatPanel({
       };
       if (replyToId > 0) {
         optimistic.reply_to_id = replyToId;
-        optimistic.reply_to_username = replyLabel === "Лео" ? "" : replyLabel;
+        optimistic.reply_to_username = replyLabel === "Leo" ? "" : replyLabel;
         optimistic.reply_to_text = replyExcerpt;
-        optimistic.reply_to_is_leo = replyLabel === "Лео";
+        optimistic.reply_to_is_leo = replyLabel === "Leo";
       }
       return [...prev, optimistic];
     });
@@ -877,15 +877,15 @@ export function PackGroupChatPanel({
           return;
         }
         const errMap: Record<string, string> = {
-          media_not_configured: "Загрузка фото на сервере не настроена.",
-          unsupported_image: "Не удалось прочитать фото. Попробуй JPG, PNG, WEBP или GIF.",
-          photo_too_large: "Фото слишком большое. Максимум 6 МБ.",
-          invalid_multipart: "Не удалось отправить фото. Выбери снимок заново.",
-          missing_photo: "Фото не приложено.",
-          chat_mismatch: "Открой мини-апп из чата стаи",
-          forbidden: "Нет доступа",
+          media_not_configured: "Photo upload not configured on server.",
+          unsupported_image: "Couldn't read photo. Try JPG, PNG, WEBP, or GIF.",
+          photo_too_large: "Photo too large. Max 6 MB.",
+          invalid_multipart: "Couldn't send photo. Pick again.",
+          missing_photo: "No photo attached.",
+          chat_mismatch: "Open the miniapp from the pack chat",
+          forbidden: "No access",
         };
-        showAlert(errMap[j.error ?? ""] ?? j.error ?? `Ошибка ${res.status}`);
+        showAlert(errMap[j.error ?? ""] ?? j.error ?? `Error ${res.status}`);
         return;
       }
       await load();
@@ -893,7 +893,7 @@ export function PackGroupChatPanel({
     } catch (e) {
       setItems((prev) => prev.filter((m) => m.id !== tempId));
       cleanupLocalPhoto();
-      showAlert(e instanceof Error ? e.message : "Сеть");
+      showAlert(e instanceof Error ? e.message : "Network error");
     } finally {
       setSending(false);
     }
@@ -912,20 +912,20 @@ export function PackGroupChatPanel({
         const j = (await res.json().catch(() => ({}))) as { error?: string };
         if (!res.ok) {
           const errMap: Record<string, string> = {
-            not_found: "Сообщение не найдено (обнови чат)",
-            forbidden: "Нет доступа",
-            chat_mismatch: "Открой мини-апп из чата стаи",
-            cannot_report_self: "Нельзя пожаловаться на своё сообщение",
-            cannot_report_leo: "На это сообщение пожаловаться нельзя",
-            already_reported: "Ты уже отправлял жалобу на это",
-            report_error: "Не удалось отправить жалобу",
+            not_found: "Message not found (refresh chat)",
+            forbidden: "No access",
+            chat_mismatch: "Open the miniapp from the pack chat",
+            cannot_report_self: "You can't report your own message",
+            cannot_report_leo: "You can't report this message",
+            already_reported: "You already reported this",
+            report_error: "Couldn't send report",
           };
-          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Ошибка ${res.status}`);
+          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Error ${res.status}`);
           return;
         }
-        showAlert("Жалоба отправлена. Админы увидят её в поддержке.");
+        showAlert("Report sent. Admins will see it in support.");
       } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Сеть");
+        showAlert(e instanceof Error ? e.message : "Network error");
       } finally {
         setReportPosting((p) => ({ ...p, [messageID]: false }));
       }
@@ -934,7 +934,7 @@ export function PackGroupChatPanel({
   );
 
   const startReply = useCallback((m: PackGroupMessage) => {
-    const authorLabel = m.is_leo ? "Лео" : m.username;
+    const authorLabel = m.is_leo ? "Leo" : m.username;
     const excerpt = m.text.length > 100 ? `${m.text.slice(0, 99).trim()}…` : m.text.trim();
     setEditIntent(null);
     setReplyIntent({ replyToMessageId: m.id, authorLabel, excerpt });
@@ -973,12 +973,12 @@ export function PackGroupChatPanel({
       const f = e.target.files?.[0] ?? null;
       if (!f) return;
       if (!/^image\//.test(f.type)) {
-        showAlert("Можно прикрепить только изображение (JPG, PNG, WEBP, GIF).");
+        showAlert("Only images allowed (JPG, PNG, WEBP, GIF).");
         if (photoInputRef.current) photoInputRef.current.value = "";
         return;
       }
       if (f.size > 6 * 1024 * 1024) {
-        showAlert("Фото слишком большое. Максимум 6 МБ.");
+        showAlert("Photo too large. Max 6 MB.");
         if (photoInputRef.current) photoInputRef.current.value = "";
         return;
       }
@@ -1032,12 +1032,12 @@ export function PackGroupChatPanel({
         });
         const j = (await res.json().catch(() => ({}))) as { error?: string };
         if (!res.ok) {
-          showAlert(j.error ?? `Ошибка ${res.status}`);
+          showAlert(j.error ?? `Error ${res.status}`);
           return;
         }
         setItems((prev) => prev.filter((m) => m.id !== messageID));
       } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Сеть");
+        showAlert(e instanceof Error ? e.message : "Network error");
       }
     },
     [inTelegram, initData, showAlert],
@@ -1072,7 +1072,7 @@ export function PackGroupChatPanel({
                 prev.map((m) => (m.id === messageId ? { ...m, reactions: snapshot } : m)),
               );
             }
-            showAlert(j.error === "invalid_emoji" ? "Такую реакцию нельзя" : j.error ?? `Ошибка ${res.status}`);
+            showAlert(j.error === "invalid_emoji" ? "That reaction isn't allowed" : j.error ?? `Error ${res.status}`);
           }
         } catch (e) {
           if (snapshot !== undefined) {
@@ -1080,7 +1080,7 @@ export function PackGroupChatPanel({
               prev.map((m) => (m.id === messageId ? { ...m, reactions: snapshot } : m)),
             );
           }
-          showAlert(e instanceof Error ? e.message : "Сеть");
+          showAlert(e instanceof Error ? e.message : "Network error");
         }
       })();
     },
@@ -1151,14 +1151,14 @@ export function PackGroupChatPanel({
         clearSearch();
         window.setTimeout(() => scrollToQuotedMessage(m.id), 40);
       } else {
-        showAlert("Это сообщение в старой истории — оно вне загруженного окна чата, перейти к нему нельзя.");
+        showAlert("This message is in older history — outside the loaded window; can't jump to it.");
       }
     },
     [itemsById, clearSearch, scrollToQuotedMessage, showAlert],
   );
 
   if (!apiBase) {
-    return <p className="packroom__warn muted">Нет API URL в билде.</p>;
+    return <p className="packroom__warn muted">No API URL in build.</p>;
   }
 
   return (
@@ -1174,8 +1174,8 @@ export function PackGroupChatPanel({
             type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Поиск по всей истории чата"
-            aria-label="Поиск по сообщениям чата"
+            placeholder="Search full chat history"
+            aria-label="Search chat messages"
             autoComplete="off"
             onKeyDown={(e) => {
               if (e.key === "Escape") clearSearch();
@@ -1185,7 +1185,7 @@ export function PackGroupChatPanel({
             <button
               type="button"
               className="packroom__search-btn packroom__search-btn--clear"
-              aria-label="Очистить поиск"
+              aria-label="Clear search"
               onClick={clearSearch}
             >
               ✕
@@ -1193,13 +1193,13 @@ export function PackGroupChatPanel({
           )}
         </div>
         {searchQuery.trim() !== "" && (
-          <div className="packroom__search-results" role="listbox" aria-label="Результаты поиска">
+          <div className="packroom__search-results" role="listbox" aria-label="Search results">
             {searching && serverResults.length === 0 ? (
-              <p className="packroom__search-empty muted">Поиск…</p>
+              <p className="packroom__search-empty muted">Searching…</p>
             ) : searchQuery.trim().length < 2 ? (
-              <p className="packroom__search-empty muted">Введите минимум 2 символа</p>
+              <p className="packroom__search-empty muted">Enter at least 2 characters</p>
             ) : serverResults.length === 0 ? (
-              <p className="packroom__search-empty muted">Ничего не найдено</p>
+              <p className="packroom__search-empty muted">Nothing found</p>
             ) : (
               <ul className="packroom__search-list">
                 {serverResults.map((m) => {
@@ -1213,7 +1213,7 @@ export function PackGroupChatPanel({
                       >
                         <span className="packroom__search-result-head">
                           <span className="packroom__search-result-author">
-                            {m.is_leo ? "Лео" : m.username || "Участник"}
+                            {m.is_leo ? "Leo" : m.username || "Member"}
                           </span>
                           <span className="packroom__search-result-time muted">{formatChatTime(m.created_at)}</span>
                         </span>
@@ -1232,7 +1232,7 @@ export function PackGroupChatPanel({
       <div
         className="packroom__log"
         role="log"
-        aria-label="Чат стаи"
+        aria-label="Pack chat"
         ref={logRef}
       >
         <div className="packroom__log-inner">
@@ -1279,8 +1279,8 @@ export function PackGroupChatPanel({
                 <div className="packroom__content">
                   <div className="packroom__meta-row">
                     <div className="packroom__meta">
-                      {m.is_leo ? "Лео" : m.username} · {formatChatTime(m.created_at)}
-                      {m.edited_at ? <span className="packroom__edited"> · изменено</span> : null}
+                      {m.is_leo ? "Leo" : m.username} · {formatChatTime(m.created_at)}
+                      {m.edited_at ? <span className="packroom__edited"> · edited</span> : null}
                     </div>
                   </div>
                   <div className="packroom__bubble-wrap">
@@ -1289,7 +1289,7 @@ export function PackGroupChatPanel({
                         <button
                           type="button"
                           className="packroom__quote"
-                          aria-label="Перейти к сообщению, на которое ответили"
+                          aria-label="Jump to replied message"
                           onClick={() => scrollToQuotedMessage(replyQuote.parentId)}
                         >
                           <span className="packroom__quote-author">{replyQuote.author}</span>
@@ -1302,7 +1302,7 @@ export function PackGroupChatPanel({
                         <button
                           type="button"
                           className="packroom__photo-wrap"
-                          aria-label="Открыть фото"
+                          aria-label="Open photo"
                           onClick={() => setLightboxUrl(photoUrl)}
                         >
                           <img
@@ -1322,7 +1322,7 @@ export function PackGroupChatPanel({
                     </div>
                     <div className="packroom__bubble-actions">
                       <button type="button" className="packroom__reply" onClick={() => startReply(m)}>
-                        Ответить
+                        Reply
                       </button>
                       <PackGroupMessageMenu
                         reactions={reactions}
@@ -1334,7 +1334,7 @@ export function PackGroupChatPanel({
                       />
                       {mine && (
                         <button type="button" className="packroom__edit" onClick={() => startEdit(m)}>
-                          Изменить
+                          Edit
                         </button>
                       )}
                       {(mine || (isAdmin && !m.is_leo)) && (
@@ -1343,13 +1343,13 @@ export function PackGroupChatPanel({
                           className="packroom__del"
                           onClick={() => {
                             const q = mine
-                              ? "Удалить сообщение?"
-                              : "Скрыть сообщение участника?\n\nВернуть можно в боте: Поддержка → Скрытое.";
+                              ? "Delete message?"
+                              : "Hide member message?\n\nRestore in bot: Support → Hidden.";
                             if (!window.confirm(q)) return;
                             void removeMine(m.id);
                           }}
                         >
-                          {mine ? "Удалить" : "Скрыть"}
+                          {mine ? "Delete" : "Hide"}
                         </button>
                       )}
                       {activeReactions.length > 0 && (
@@ -1380,7 +1380,7 @@ export function PackGroupChatPanel({
           <div className="packroom__reply-intent packroom__reply-intent--edit">
             <div className="packroom__reply-intent-row">
               <span className="packroom__reply-intent-label">
-                Редактирование сообщения
+                Editing message
               </span>
               <button type="button" className="packroom__reply-intent-cancel" onClick={cancelEdit}>
                 ✕
@@ -1392,7 +1392,7 @@ export function PackGroupChatPanel({
           <div className="packroom__reply-intent">
             <div className="packroom__reply-intent-row">
               <span className="packroom__reply-intent-label">
-                Ответ <strong>{replyIntent.authorLabel}</strong>
+                Reply to <strong>{replyIntent.authorLabel}</strong>
               </span>
               <button type="button" className="packroom__reply-intent-cancel" onClick={() => setReplyIntent(null)}>
                 ✕
@@ -1406,11 +1406,11 @@ export function PackGroupChatPanel({
         {photoPreview != null && editIntent == null && (
           <div className="packroom__photo-pending">
             <img className="packroom__photo-pending-img" src={photoPreview} alt="" />
-            <span className="packroom__photo-pending-name">{photo?.name ?? "Фото"}</span>
+            <span className="packroom__photo-pending-name">{photo?.name ?? "Photo"}</span>
             <button
               type="button"
               className="packroom__photo-pending-remove"
-              aria-label="Убрать фото"
+              aria-label="Remove photo"
               onClick={clearPhoto}
             >
               ✕
@@ -1431,7 +1431,7 @@ export function PackGroupChatPanel({
           <button
             type="button"
             className="packroom__attach"
-            aria-label="Прикрепить фото из галереи"
+            aria-label="Attach photo from gallery"
             disabled={sending}
             onClick={() => photoInputRef.current?.click()}
           >
@@ -1448,10 +1448,10 @@ export function PackGroupChatPanel({
           onChange={(e) => setText(e.target.value)}
           placeholder={
             editIntent != null
-              ? "Измени сообщение…"
+              ? "Edit message…"
               : replyIntent != null
-                ? `Ответ ${replyIntent.authorLabel}… @leo — чтобы ответил бот`
-                : "Сообщение… @leo — чтобы ответил бот"
+                ? `Reply to ${replyIntent.authorLabel}… @leo — ping the bot`
+                : "Message… @leo to ping the bot"
           }
           maxLength={4000}
           autoComplete="off"
@@ -1467,7 +1467,7 @@ export function PackGroupChatPanel({
           type="submit"
           className="packroom__send"
           disabled={sending || (!text.trim() && !photo)}
-          aria-label={editIntent != null ? "Сохранить изменения" : "Отправить"}
+          aria-label={editIntent != null ? "Save changes" : "Send"}
         >
           {sending ? "…" : editIntent != null ? "✓" : "➤"}
         </button>

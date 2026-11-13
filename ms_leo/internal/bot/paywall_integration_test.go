@@ -66,7 +66,7 @@ func TestPaywallWhoMustPay(t *testing.T) {
 	}
 }
 
-// Возврат в стаю за звёзды: проверка счёта, оплата, выдача доступа — и
+// Возврат в стаю за звёзды: проверка счёта, оплата, выдача access — и
 // повторное уведомление Telegram не выдаёт доступ и приветствие второй раз.
 func TestPaywallStarsReturnFlow(t *testing.T) {
 	b, tg, db := newIntegrationBot(t, starsConfig)
@@ -90,16 +90,16 @@ func TestPaywallStarsReturnFlow(t *testing.T) {
 	if ok, _ := checkout(tgbotapi.PreCheckoutQuery{ID: "q1", From: from, Currency: "XTR", TotalAmount: 350, InvoicePayload: payload}); !ok {
 		t.Fatal("верный счёт должен проходить")
 	}
-	if ok, msg := checkout(tgbotapi.PreCheckoutQuery{ID: "q2", From: from, Currency: "XTR", TotalAmount: 1, InvoicePayload: payload}); ok || !strings.Contains(msg, "Неверная сумма") {
+	if ok, msg := checkout(tgbotapi.PreCheckoutQuery{ID: "q2", From: from, Currency: "XTR", TotalAmount: 1, InvoicePayload: payload}); ok || !strings.Contains(msg, "Wrong amount") {
 		t.Errorf("чужая сумма: ok=%v %q", ok, msg)
 	}
-	if ok, msg := checkout(tgbotapi.PreCheckoutQuery{ID: "q3", From: &tgbotapi.User{ID: itUser + 7}, Currency: "XTR", TotalAmount: 350, InvoicePayload: payload}); ok || !strings.Contains(msg, "не для этого аккаунта") {
+	if ok, msg := checkout(tgbotapi.PreCheckoutQuery{ID: "q3", From: &tgbotapi.User{ID: itUser + 7}, Currency: "XTR", TotalAmount: 350, InvoicePayload: payload}); ok || !strings.Contains(msg, "isn't for this account") {
 		t.Errorf("чужой аккаунт: ok=%v %q", ok, msg)
 	}
-	if ok, msg := checkout(tgbotapi.PreCheckoutQuery{ID: "q4", From: from, Currency: "XTR", TotalAmount: 350, InvoicePayload: "мусор"}); ok || !strings.Contains(msg, "Некорректный платёж") {
+	if ok, msg := checkout(tgbotapi.PreCheckoutQuery{ID: "q4", From: from, Currency: "XTR", TotalAmount: 350, InvoicePayload: "мусор"}); ok || !strings.Contains(msg, "Invalid payment") {
 		t.Errorf("чужой payload: ok=%v %q", ok, msg)
 	}
-	if ok, msg := checkout(tgbotapi.PreCheckoutQuery{ID: "q5", From: from, Currency: "XTR", TotalAmount: 350, InvoicePayload: paywallPayloadPrefix + "999999"}); ok || !strings.Contains(msg, "Заявка не найдена") {
+	if ok, msg := checkout(tgbotapi.PreCheckoutQuery{ID: "q5", From: from, Currency: "XTR", TotalAmount: 350, InvoicePayload: paywallPayloadPrefix + "999999"}); ok || !strings.Contains(msg, "Request not found") {
 		t.Errorf("нет заявки: ok=%v %q", ok, msg)
 	}
 	if ok, _ := checkout(tgbotapi.PreCheckoutQuery{ID: "q6", Currency: "XTR", TotalAmount: 350, InvoicePayload: payload}); ok {
@@ -128,7 +128,7 @@ func TestPaywallStarsReturnFlow(t *testing.T) {
 	}
 	welcome := 0
 	for _, text := range tg.textsTo(itUser) {
-		if strings.Contains(text, "Ура, ты в стае") {
+		if strings.Contains(text, "You're in the pack") {
 			welcome++
 		}
 	}
@@ -152,12 +152,12 @@ func TestPaywallStarsReturnFlow(t *testing.T) {
 	tg.reset()
 	pay(350)
 	for _, text := range tg.textsTo(itUser) {
-		if strings.Contains(text, "Ура, ты в стае") {
+		if strings.Contains(text, "You're in the pack") {
 			t.Error("повторное уведомление не должно слать приветствие второй раз")
 		}
 	}
 	// По закрытой заявке счёт больше не принимается.
-	if ok, msg := checkout(tgbotapi.PreCheckoutQuery{ID: "q7", From: from, Currency: "XTR", TotalAmount: 350, InvoicePayload: payload}); ok || !strings.Contains(msg, "неактуален") {
+	if ok, msg := checkout(tgbotapi.PreCheckoutQuery{ID: "q7", From: from, Currency: "XTR", TotalAmount: 350, InvoicePayload: payload}); ok || !strings.Contains(msg, "no longer valid") {
 		t.Errorf("закрытая заявка: ok=%v %q", ok, msg)
 	}
 }

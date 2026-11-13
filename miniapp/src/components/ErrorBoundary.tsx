@@ -30,16 +30,16 @@ export class ErrorBoundary extends Component<Props, State> {
     return (
       <div className="error-boundary" role="alert">
         <p className="error-boundary__title">
-          {label ? `Раздел «${label}» не открылся` : "Что-то пошло не так"}
+          {label ? `“${label}” didn't load` : "Something went wrong"}
         </p>
         <p className="error-boundary__text">
           {label
-            ? "Остальные разделы работают. Попробуйте открыть этот ещё раз."
-            : "Попробуйте ещё раз. Если не поможет — перезапустите мини-приложение."}
+            ? "Other tabs still work. Try opening this one again."
+            : "Try again. If it keeps happening, restart the mini app."}
         </p>
         <div className="error-boundary__actions">
           <button type="button" className="error-boundary__btn" onClick={() => this.setState({ error: null })}>
-            Попробовать снова
+            Try again
           </button>
           {!label ? (
             <button
@@ -47,7 +47,7 @@ export class ErrorBoundary extends Component<Props, State> {
               className="error-boundary__btn error-boundary__btn--ghost"
               onClick={() => window.location.reload()}
             >
-              Перезагрузить
+              Reload
             </button>
           ) : null}
         </div>

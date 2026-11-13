@@ -144,7 +144,7 @@ func (b *Bot) trackerDeployStatus() TrackerDeployState {
 		Configured: b.trackerRailwayReady(),
 	}
 	if !out.Configured {
-		out.Hint = "Нет доступа к Railway: задай сервису ms_leo переменные RAILWAY_API_TOKEN и RAILWAY_PROJECT_ID."
+		out.Hint = "Нет access к Railway: задай сервису ms_leo переменные RAILWAY_API_TOKEN и RAILWAY_PROJECT_ID."
 		return out
 	}
 	_, svcs, err := b.lookupMainStandServices()

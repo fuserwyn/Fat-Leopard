@@ -7,7 +7,7 @@ import (
 	"leo-bot/internal/moderation"
 )
 
-// AIQuestionUserPayload — структурированный user-message для AnswerUserQuestion.
+// AIQuestionUserPayload — structured user message for AnswerUserQuestion.
 type AIQuestionUserPayload struct {
 	InterlocutorName string
 	InterlocutorID   int64
@@ -19,18 +19,18 @@ type AIQuestionUserPayload struct {
 	Question         string
 }
 
-const emptyBlock = "— нет —"
+const emptyBlock = "— none —"
 
-// GameRulesBlock — краткие правила для секции «Правила / политики».
+// GameRulesBlock — short rules for the Rules / policies section.
 func GameRulesBlock() string {
-	return strings.TrimSpace(`Fat Leopard / стая:
-• Отчёт о тренировке — только через мини-апп (форма «+»), не хэштег в чате
-• #sick_leave — пауза таймера; #healthy — возврат с тем же остатком дедлайна
-• Таймер неактивности ~7 дней; предупреждения перед удалением из чата
-• Кубки за отчёты по формуле; стрик — дни подряд с тренировкой; ачивки на порогах стрика`)
+	return strings.TrimSpace(`Fat Leopard / pack:
+• Log workouts only via the mini app (“+” form), not hashtags in chat
+• #sick_leave — pauses inactivity timer; #healthy — resume with the same deadline left
+• Inactivity timer ~7 days; warnings before removal from chat
+• Cups for reports per formula; streak — consecutive days with a workout; achievements at streak thresholds`)
 }
 
-// FormatAIQuestionUserMessage — user-role prompt с секциями structured knowledge.
+// FormatAIQuestionUserMessage — user-role prompt with structured knowledge sections.
 func FormatAIQuestionUserMessage(p AIQuestionUserPayload) string {
 	name := strings.TrimSpace(p.InterlocutorName)
 	if name == "" {
@@ -54,32 +54,32 @@ func FormatAIQuestionUserMessage(p AIQuestionUserPayload) string {
 	}
 	thread := strings.TrimSpace(p.ChatThread)
 	if thread == "" {
-		thread = "— нет недавних сообщений —"
+		thread = "— no recent messages —"
 	}
 
 	var b strings.Builder
-	b.WriteString("Контекст для этого ответа — ТОЛЬКО секции ниже. Не выдумывай факты вне них.\n\n")
-	fmt.Fprintf(&b, "Текущий собеседник: %s (id=%d)\n\n", name, p.InterlocutorID)
-	b.WriteString("## Структурированные знания\n\n")
-	b.WriteString("### Пользователи / сущности\n")
+	b.WriteString("Context for this answer — ONLY the sections below. Do not invent facts outside them.\n\n")
+	fmt.Fprintf(&b, "Current interlocutor: %s (id=%d)\n\n", name, p.InterlocutorID)
+	b.WriteString("## Structured knowledge\n\n")
+	b.WriteString("### Users / entities\n")
 	b.WriteString(users)
-	b.WriteString("\n\n### Правила / политики\n")
+	b.WriteString("\n\n### Rules / policies\n")
 	b.WriteString(rules)
-	b.WriteString("\n\n### Факты / документы\n")
+	b.WriteString("\n\n### Facts / documents\n")
 	b.WriteString(facts)
-	b.WriteString("\n\n## Недавняя переписка (хронология, старые → новые)\n")
+	b.WriteString("\n\n## Recent chat (chronological, oldest → newest)\n")
 	b.WriteString(thread)
 	if h := strings.TrimSpace(p.RouterHint); h != "" {
-		b.WriteString("\n\n## Подсказка роутера (опционально)\n")
+		b.WriteString("\n\n## Router hint (optional)\n")
 		b.WriteString(h)
 	}
 	b.WriteString("\n\n")
-	fmt.Fprintf(&b, "%s (id=%d) спрашивает:\n", name, p.InterlocutorID)
+	fmt.Fprintf(&b, "%s (id=%d) asks:\n", name, p.InterlocutorID)
 	b.WriteString(WrapUserQuestion(p.Question))
 	return b.String()
 }
 
-// WrapUserQuestion — anti-injection обёртка вопроса пользователя.
+// WrapUserQuestion — anti-injection wrapper for the user's question.
 func WrapUserQuestion(question string) string {
 	wrapped := moderation.WrapUserContent("user_question", question)
 	if wrapped == "" {
@@ -88,7 +88,7 @@ func WrapUserQuestion(question string) string {
 	return wrapped
 }
 
-// FormatLegacyUserPrompt — обёртка для старых вызовов с плоским контекстом.
+// FormatLegacyUserPrompt — wrapper for older calls with a flat context string.
 func FormatLegacyUserPrompt(question, flatContext string) string {
 	facts := strings.TrimSpace(flatContext)
 	if facts == "" {
@@ -99,12 +99,12 @@ func FormatLegacyUserPrompt(question, flatContext string) string {
 		UsersBlock:       emptyBlock,
 		RulesBlock:       emptyBlock,
 		FactsBlock:       facts,
-		ChatThread:       "— нет недавних сообщений —",
+		ChatThread:       "— no recent messages —",
 		Question:         question,
 	})
 }
 
-// RouterHintForQuestion — лёгкая подсказка модели по типу вопроса.
+// RouterHintForQuestion — lightweight model hint by question type (RU keywords kept for bilingual users).
 func RouterHintForQuestion(question string) string {
 	q := strings.ToLower(strings.TrimSpace(question))
 	if q == "" {
@@ -114,14 +114,14 @@ func RouterHintForQuestion(question string) string {
 	case strings.Contains(q, "кубк"), strings.Contains(q, "стрик"), strings.Contains(q, "streak"),
 		strings.Contains(q, "статистик"), strings.Contains(q, "сколько"), strings.Contains(q, "таймер"),
 		strings.Contains(q, "больнич"), strings.Contains(q, "sick_leave"), strings.Contains(q, "healthy"):
-		return "Фактический вопрос — ответь по данным из structured knowledge, кратко и точно."
+		return "Factual question — answer from structured knowledge only; be brief and precise."
 	case strings.Contains(q, "привет"), strings.Contains(q, "здаров"), q == "hi", q == "hello":
-		return "Короткое приветствие — 1–2 фразы, без статистики и без морали про тренировки."
+		return "Short greeting — 1–2 sentences, no stats or lectures about workouts."
 	case strings.Contains(q, "придумай"), strings.Contains(q, "выдумай"), strings.Contains(q, "фантаз"):
-		return "Creative mode: можно выдумывать, лёгкий намёк на вымысел по желанию."
+		return "Creative mode: you may invent; a light fictional hint is fine if you want."
 	default:
 		if len([]rune(q)) < 36 && !strings.Contains(q, "?") {
-			return "Короткая реплика — ответь по сути, без лишнего контекста из БД."
+			return "Short remark — answer on point, without extra DB context."
 		}
 	}
 	return ""

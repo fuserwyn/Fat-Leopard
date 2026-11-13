@@ -30,9 +30,9 @@ describe("sendMiniappPrivateText", () => {
   it("reports network, server and moderation failures in words", async () => {
     const api = await load();
     mockFetch(() => ({ fail: true }));
-    expect(await api.sendMiniappPrivateText("init", REPORT)).toMatchObject({ ok: false, error: expect.stringContaining("Сеть недоступна") });
+    expect(await api.sendMiniappPrivateText("init", REPORT)).toMatchObject({ ok: false, error: expect.stringContaining("Network unavailable") });
     mockFetch(() => ({ status: 500, json: {} }));
-    expect(await api.sendMiniappPrivateText("init", REPORT)).toEqual({ ok: false, error: "Ошибка 500" });
+    expect(await api.sendMiniappPrivateText("init", REPORT)).toEqual({ ok: false, error: "Error 500" });
     mockFetch(() => ({ status: 409, json: { error: "chat_mismatch" } }));
     expect(await api.sendMiniappPrivateText("init", REPORT)).toEqual({ ok: false, error: "chat_mismatch" });
     mockFetch(() => ({ status: 422, json: { error: "moderation_blocked", message: "Текст нарушает правила" } }));
@@ -67,7 +67,7 @@ describe("sendMiniappPrivateText", () => {
     const api = await load();
     mockFetch(() => ({ json: { ok: true } }));
     const res = await api.sendMiniappPrivateText("init", "привет");
-    expect(res.ok && res.replyParts[0]).toContain("Сообщение ушло боту");
+    expect(res.ok && res.replyParts[0]).toContain("Message sent to the bot");
   });
 });
 
@@ -89,10 +89,10 @@ describe("sendMiniappTrainingWithPhoto", () => {
   });
 
   it.each([
-    ["media_not_configured", "на сервере не настроено"],
-    ["unsupported_image", "Не удалось прочитать фото"],
-    ["photo_too_large", "Максимум 6 МБ"],
-    ["invalid_multipart", "выбрать снимок заново"],
+    ["media_not_configured", "aren't configured on the server"],
+    ["unsupported_image", "Couldn't read the photo"],
+    ["photo_too_large", "Maximum 6 MB"],
+    ["invalid_multipart", "choosing the image again"],
   ])("explains %s to the user", async (code, text) => {
     const api = await load();
     mockFetch(() => ({ status: 400, json: { error: code } }));
@@ -108,9 +108,9 @@ describe("sendMiniappTrainingWithPhoto", () => {
       trainingPhotoUrl: "https://cdn.test/a.jpg",
     });
     mockFetch(() => ({ fail: true }));
-    expect(await api.sendMiniappTrainingWithPhoto("init", REPORT, photo)).toMatchObject({ ok: false, error: expect.stringContaining("Сеть недоступна") });
+    expect(await api.sendMiniappTrainingWithPhoto("init", REPORT, photo)).toMatchObject({ ok: false, error: expect.stringContaining("Network unavailable") });
     expect(await api.sendMiniappTrainingWithPhoto("", REPORT, photo)).toMatchObject({ ok: false });
     mockFetch(() => ({ status: 503, json: {} }));
-    expect(await api.sendMiniappTrainingWithPhoto("init", REPORT, photo)).toEqual({ ok: false, error: "Ошибка 503" });
+    expect(await api.sendMiniappTrainingWithPhoto("init", REPORT, photo)).toEqual({ ok: false, error: "Error 503" });
   });
 });

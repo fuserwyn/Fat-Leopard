@@ -11,8 +11,8 @@ import (
 const botSupportCallbackStart = "bot_support_start"
 const botSupportCallbackCancel = "bot_support_cancel"
 
-const botSupportReplyButtonText = "💬 Поддержка"
-const botAdminReplyButtonText = "⚙️ Админ-панель"
+const botSupportReplyButtonText = "💬 Support"
+const botAdminReplyButtonText = "⚙️ Admin panel"
 
 func (b *Bot) botSupportAvailable() bool {
 	return b != nil && b.config != nil && b.config.MonetizedChatID != 0 && b.db != nil
@@ -112,7 +112,7 @@ func (b *Bot) syncPrivateBottomKeyboard(chatID, userID int64) {
 	_, _ = b.api.Send(msg)
 }
 
-// openAdminPanelForUser — админ-панель + гарантированная кнопка «Админка» внизу.
+// openAdminPanelForUser — админ-панель + гарантированная кнопка «Admin» внизу.
 func (b *Bot) openAdminPanelForUser(chatID, userID int64) {
 	b.syncPrivateBottomKeyboard(chatID, userID)
 	b.showAdminMenuForUser(chatID)
@@ -122,18 +122,18 @@ func (b *Bot) botSupportPromptInlineKeyboard() *tgbotapi.InlineKeyboardMarkup {
 	return &tgbotapi.InlineKeyboardMarkup{
 		InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
 			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("❎ Выйти из поддержки", botSupportCallbackCancel),
+				tgbotapi.NewInlineKeyboardButtonData("❎ Exit support", botSupportCallbackCancel),
 			),
 		},
 	}
 }
 
 func botSupportPromptText() string {
-	return `💬 Поддержка
+	return `💬 Support
 
-Опиши вопрос об оплате, доступе после оплаты, возврате или ошибке в боте — одним или несколькими сообщениями.
+Describe a question about payment, access after payment, return, or a bot error — in one or more messages.
 
-Ответ придёт в этот же чат. Выйти — кнопка «Выйти из поддержки» ниже.`
+We'll reply in this chat. To exit — tap «Exit support» below.`
 }
 
 func (b *Bot) startUserSupportSession(userID int64) {
@@ -179,7 +179,7 @@ func (b *Bot) userInSupportSession(userID int64) bool {
 
 func (b *Bot) sendUserSupportPrompt(chatID int64) {
 	if !b.botSupportAvailable() {
-		_, _ = b.api.Send(tgbotapi.NewMessage(chatID, "⚠️ Поддержка временно недоступна. Попробуй позже."))
+		_, _ = b.api.Send(tgbotapi.NewMessage(chatID, "⚠️ Support is temporarily unavailable. Try later."))
 		return
 	}
 	msg := tgbotapi.NewMessage(chatID, botSupportPromptText())
@@ -196,7 +196,7 @@ func (b *Bot) handleBotSupportCallback(callback *tgbotapi.CallbackQuery) {
 	case botSupportCallbackStart:
 		b.startUserSupportSession(callback.From.ID)
 		b.sendUserSupportPrompt(callback.Message.Chat.ID)
-		answer.Text = "Напиши вопрос в чат"
+		answer.Text = "Type your question in the chat"
 		b.db.TrackEvent(database.AnalyticsEvent{
 			Name:       database.EventSupportButtonClicked,
 			TelegramID: callback.From.ID,
@@ -204,12 +204,12 @@ func (b *Bot) handleBotSupportCallback(callback *tgbotapi.CallbackQuery) {
 		})
 	case botSupportCallbackCancel:
 		if b.clearUserSupportSession(callback.From.ID) {
-			answer.Text = "Вышли из поддержки"
-			m := tgbotapi.NewMessage(callback.Message.Chat.ID, "❎ Режим поддержки выключен.")
+			answer.Text = "Left support"
+			m := tgbotapi.NewMessage(callback.Message.Chat.ID, "❎ Support mode off.")
 			b.syncPrivateBottomKeyboard(callback.Message.Chat.ID, callback.From.ID)
 			_, _ = b.api.Send(m)
 		} else {
-			answer.Text = "Режим поддержки не был активен"
+			answer.Text = "Support mode wasn't active"
 		}
 	default:
 		return
@@ -219,13 +219,13 @@ func (b *Bot) handleBotSupportCallback(callback *tgbotapi.CallbackQuery) {
 
 func isSupportReplyButtonText(text string) bool {
 	t := strings.TrimSpace(text)
-	return t == botSupportReplyButtonText || strings.EqualFold(t, "Поддержка")
+	return t == botSupportReplyButtonText || strings.EqualFold(t, "Support")
 }
 
 func isAdminReplyButtonText(text string) bool {
 	t := strings.TrimSpace(text)
 	switch t {
-	case botAdminReplyButtonText, "⚙️ Админка", "Админ-панель", "Админка":
+	case botAdminReplyButtonText, "⚙️ Admin", "Admin panel", "Admin":
 		return true
 	default:
 		return false
@@ -241,7 +241,7 @@ func (b *Bot) handleUserSupportFlowMessage(msg *tgbotapi.Message) bool {
 	text := strings.TrimSpace(msg.Text)
 	if msg.IsCommand() {
 		if b.userInSupportSession(msg.From.ID) {
-			_, _ = b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "⚠️ Сейчас активна поддержка. Напиши текст вопроса или нажми «Выйти из поддержки»."))
+			_, _ = b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "⚠️ Support mode is on. Type your question or tap «Exit support»."))
 			return true
 		}
 		return false
@@ -254,7 +254,7 @@ func (b *Bot) handleUserSupportFlowMessage(msg *tgbotapi.Message) bool {
 
 	if isSupportReplyButtonText(text) {
 		if !b.botSupportAvailable() {
-			_, _ = b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "⚠️ Поддержка временно недоступна. Попробуй позже."))
+			_, _ = b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "⚠️ Support is temporarily unavailable. Try later."))
 			return true
 		}
 		b.startUserSupportSession(msg.From.ID)
@@ -270,16 +270,16 @@ func (b *Bot) handleUserSupportFlowMessage(msg *tgbotapi.Message) bool {
 		text = strings.TrimSpace(msg.Caption)
 	}
 	if text == "" {
-		_, _ = b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "⚠️ Отправь вопрос текстом (оплата, доступ, ошибка)."))
+		_, _ = b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "⚠️ Send your question as text (billing, access, bug)."))
 		return true
 	}
 
 	if err := b.MiniappSupportSendFromUser(msg.From.ID, text, ""); err != nil {
 		b.logger.Warnf("bot support send user=%d: %v", msg.From.ID, err)
-		_, _ = b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "❌ Не удалось отправить. Попробуй ещё раз."))
+		_, _ = b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "❌ Couldn't send. Please try again."))
 		return true
 	}
 
-	_, _ = b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "✅ Отправлено в поддержку. Ответ придёт сюда. Можешь дописать уточнение."))
+	_, _ = b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "✅ Sent to support. The reply will appear here. You can add more details anytime."))
 	return true
 }

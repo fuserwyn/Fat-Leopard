@@ -241,21 +241,21 @@ func TestDaysWordForm(t *testing.T) {
 		n    int
 		want string
 	}{
-		{1, "день"},
-		{2, "дня"},
-		{3, "дня"},
-		{4, "дня"},
-		{5, "дней"},
-		{10, "дней"},
-		{11, "дней"}, // особый случай 11-14
-		{12, "дней"},
-		{14, "дней"},
-		{21, "день"},
-		{22, "дня"},
-		{25, "дней"},
-		{100, "дней"},
-		{101, "день"},
-		{111, "дней"},
+		{1, "day"},
+		{2, "days"},
+		{3, "days"},
+		{4, "days"},
+		{5, "days"},
+		{10, "days"},
+		{11, "days"},
+		{12, "days"},
+		{14, "days"},
+		{21, "days"},
+		{22, "days"},
+		{25, "days"},
+		{100, "days"},
+		{101, "days"},
+		{111, "days"},
 	}
 	for _, c := range cases {
 		if got := daysWordForm(c.n); got != c.want {
@@ -269,13 +269,13 @@ func TestCupsWordForm(t *testing.T) {
 		n    int
 		want string
 	}{
-		{1, "кубок"},
-		{2, "кубка"},
-		{5, "кубков"},
-		{11, "кубков"},
-		{21, "кубок"},
-		{42, "кубка"},
-		{420, "кубков"},
+		{1, "cup"},
+		{2, "cups"},
+		{5, "cups"},
+		{11, "cups"},
+		{21, "cups"},
+		{42, "cups"},
+		{420, "cups"},
 	}
 	for _, c := range cases {
 		if got := cupsWordForm(c.n); got != c.want {

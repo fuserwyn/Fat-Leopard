@@ -10,8 +10,8 @@ afterEach(() => {
 
 describe("WORKOUT_NOTE_PLACEHOLDER", () => {
   it("подсказывает отметить напарника на совместной тренировке через @ник", () => {
-    expect(WORKOUT_NOTE_PLACEHOLDER).toContain("@ник");
-    expect(WORKOUT_NOTE_PLACEHOLDER).toMatch(/вместе/);
+    expect(WORKOUT_NOTE_PLACEHOLDER).toContain("@username");
+    expect(WORKOUT_NOTE_PLACEHOLDER).toMatch(/together/i);
   });
 });
 

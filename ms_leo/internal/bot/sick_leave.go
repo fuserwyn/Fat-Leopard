@@ -26,7 +26,7 @@ func (b *Bot) handleSickLeave(msg *tgbotapi.Message) {
 
 	if messageLog.HasSickLeave {
 		_, remainingText, deadlineLocal := b.formatInactivityRemovalSummary(messageLog)
-		infoText := "✅ У тебя уже активен больничный. Отдыхай и возвращайся, когда восстановишься.\n\n⏸️ Таймер остановлен.\n\n" +
+		infoText := "✅ You already have active sick leave. Rest up and come back when you're recovered.\n\n⏸️ Timer is paused.\n\n" +
 			sickLeaveRemovalNotice(remainingText, deadlineLocal, true)
 		b.notifyUserText(msg, infoText, "", msg.MessageID)
 		return
@@ -95,7 +95,7 @@ func (b *Bot) activateSickLeave(msg *tgbotapi.Message, messageLog *domain.Messag
 	b.logger.Infof("Calculated remaining time at sick leave start (profile logic): %v", remainingTime)
 
 	messageText := fmt.Sprintf(
-		"🏥 Больничный принят! 🤒\n\n⏸️ Таймер приостановлен на время болезни.\n\n%s\n\n💪 Выздоравливай и возвращайся к тренировкам!\n\n📝 Когда поправишься — «Выйти с больничного» в профиле или #healthy в чате.",
+		"🏥 Sick leave accepted! 🤒\n\n⏸️ Inactivity timer paused while you're sick.\n\n%s\n\n💪 Get well and get back to training!\n\n📝 When you're better — use «Leave sick leave» in your profile or #healthy in chat.",
 		sickLeaveRemovalNotice(remainingTimeFormatted, deadlineLocal, false),
 	)
 
@@ -119,26 +119,26 @@ func (b *Bot) activateSickLeave(msg *tgbotapi.Message, messageLog *domain.Messag
 		}()
 
 		totalCups, _ := b.db.GetUserCups(msg.From.ID, messageLog.ChatID)
-		question := "Сделай ровно 5 предложений‑приписку после сообщения о взятии больничного: строго, дружелюбно, пожелай скорейшего восстановления и мягко мотивируй вернуться к режиму. Учитывай текущие кубки, упомяни, что я 'ем' только ленивых (без угроз активным). Не повторяй цифры из основного текста. Без Markdown."
+		question := "Write exactly 5 sentences as an addendum after the sick-leave message: warm but firm, wish a speedy recovery, and gently nudge them back to routine. Factor in current cups; mention that I only 'eat' the lazy ones (no threats to active members). Don't repeat numbers from the main text. No Markdown. Reply in English."
 		var ctxBuilder strings.Builder
-		ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", messageLog.Username))
+		ctxBuilder.WriteString(fmt.Sprintf("User: %s\n", messageLog.Username))
 		// Добавляем пол пользователя в контекст
 		userGender := strings.TrimSpace(strings.ToLower(messageLog.Gender))
 		if userGender != "" {
 			var genderText string
 			switch userGender {
 			case "f":
-				genderText = "женский"
+				genderText = "female"
 			case "m":
-				genderText = "мужской"
+				genderText = "male"
 			}
 			if genderText != "" {
-				ctxBuilder.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
+				ctxBuilder.WriteString(fmt.Sprintf("Gender: %s\n", genderText))
 			}
 		}
-		ctxBuilder.WriteString("Событие: взят больничный (таймер приостановлен).\n")
-		ctxBuilder.WriteString(fmt.Sprintf("После выздоровления останется: %s\n", remainingTimeFormatted))
-		ctxBuilder.WriteString(fmt.Sprintf("Всего кубков: %d\n", totalCups))
+		ctxBuilder.WriteString("Event: sick leave started (timer paused).\n")
+		ctxBuilder.WriteString(fmt.Sprintf("After recovery, time left until removal: %s\n", remainingTimeFormatted))
+		ctxBuilder.WriteString(fmt.Sprintf("Total cups: %d\n", totalCups))
 		if addendum, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
 			addendum = ai.SanitizeTextForUser(addendum)
 			if addendum != "" {
@@ -217,11 +217,11 @@ func (b *Bot) sickApprovalTimeLeft(messageLog *domain.MessageLog) string {
 
 func (b *Bot) sendSickApprovalWarning(chatID int64, replyTo int, messageLog *domain.MessageLog) {
 	remainingText := b.sickApprovalTimeLeft(messageLog)
-	warningText := "⚠️ Я всё ещё не вижу доказательств болезни. "
+	warningText := "⚠️ I still don't see proof you're sick. "
 	if remainingText != "" {
-		warningText += fmt.Sprintf("У тебя осталось %s, чтобы меня убедить. ", remainingText)
+		warningText += fmt.Sprintf("You have %s left to convince me. ", remainingText)
 	}
-	warningText += "Если проигнорируешь — отменю больничный и запущу таймер."
+	warningText += "If you ignore this — I'll cancel sick leave and restart the timer."
 
 	// В мини-апп-флоу пушим только в очередь приложения (TG-message не создаётся → SickApprovalMessageID не пишем).
 	// reply-логика на TG-MessageID в мини-аппе не работает (синтетические сообщения без reply_to).
@@ -239,19 +239,19 @@ func (b *Bot) sendSickApprovalWarning(chatID int64, replyTo int, messageLog *dom
 
 func (b *Bot) sendSickApprovalPendingInfo(chatID int64, replyTo int, messageLog *domain.MessageLog) {
 	remainingText := b.sickApprovalTimeLeft(messageLog)
-	replyText := "⚠️ Заявка на больничный уже рассматривается."
+	replyText := "⚠️ Your sick leave request is already under review."
 	if remainingText != "" {
-		replyText += fmt.Sprintf(" Осталось %s, чтобы меня убедить.", remainingText)
+		replyText += fmt.Sprintf(" You have %s left to convince me.", remainingText)
 	} else {
-		replyText += " Ответь быстрее, иначе отменю запрос."
+		replyText += " Reply soon or I'll cancel the request."
 	}
 
 	b.notifyUserTextByID(messageLog.UserID, chatID, replyText, "", replyTo)
 }
 
 func (b *Bot) sendSickLeaveRejection(msg *tgbotapi.Message, replyTo int) {
-	text := "❌ Больничный не принят.\n\nНе вижу признаков болезни. Если это работа или другие дела — тренируйся честно. " +
-		"Когда действительно заболеешь, дай знать, и я приостановлю таймер."
+	text := "❌ Sick leave not accepted.\n\nI don't see signs of illness. If it's work or other errands — train honestly. " +
+		"When you're actually sick, let me know and I'll pause the timer."
 	b.notifyUserText(msg, text, "", replyTo)
 }
 
@@ -334,8 +334,8 @@ func (b *Bot) forceCancelSickLeave(userID, chatID int64) {
 		b.logger.Errorf("Failed to clear sick approval flags on force cancel: %v", err)
 	}
 
-	text := "⛔️ Я не получил подтверждений болезни и отменил больничный. Таймер продолжает тикать. " +
-		"Если действительно болен — предоставь доказательства и попроси снова."
+	text := "⛔️ I didn't get proof of illness and cancelled sick leave. The timer keeps running. " +
+		"If you're actually sick — provide proof and ask again."
 	replyTo := 0
 	if replyMessageID != nil {
 		replyTo = int(*replyMessageID)
@@ -351,7 +351,7 @@ func (b *Bot) handleHealthy(msg *tgbotapi.Message) {
 		return
 	}
 	if !messageLog.HasSickLeave {
-		infoText := "ℹ️ Ты уже здоров(а) — активного больничного сейчас нет."
+		infoText := "ℹ️ You're already healthy — no active sick leave right now."
 		b.notifyUserText(msg, infoText, "", msg.MessageID)
 		return
 	}
@@ -442,7 +442,7 @@ func (b *Bot) handleHealthy(msg *tgbotapi.Message) {
 			username = fmt.Sprintf("User%d", msg.From.ID)
 		}
 
-		replyText := "⏰ Время истекло! 🚫\n\n💪 Выздоровление принято, но время таймера уже истекло.\n\n🦁 Ням-ням, вкусненько! Я питаюсь ленивыми леопардами и становлюсь жирнее!\n\n💪 Ты ведь не хочешь стать как я?\n\nТогда тренируйся и отправляй отчёты!"
+		replyText := "⏰ Time's up! 🚫\n\n💪 Recovery accepted, but your inactivity window already expired.\n\n🦁 Yum yum, tasty! I feed on lazy leopards and get fatter!\n\n💪 You don't want to end up like me, right?\n\nLog workouts and send your reports!"
 		b.notifyUserText(msg, replyText, "", 0)
 
 		// Удаляем пользователя — кик идёт по pack-row, чтобы корректно сработал ExpirePaywallAccessForUser.
@@ -460,7 +460,7 @@ func (b *Bot) handleHealthy(msg *tgbotapi.Message) {
 
 	// Отправляем подтверждение с информацией о времени до удаления
 	messageText := fmt.Sprintf(
-		"💪 Выздоровление принято! 🎉\n\n⏰ Таймер возобновлён с места остановки!\n\n%s",
+		"💪 Recovery accepted! 🎉\n\n⏰ Timer resumed from where it was paused!\n\n%s",
 		sickLeaveRemovalNotice(remainingTimeFormatted, deadlineLocal, true),
 	)
 
@@ -484,24 +484,24 @@ func (b *Bot) handleHealthy(msg *tgbotapi.Message) {
 		}()
 
 		totalCups, _ := b.db.GetUserCups(msg.From.ID, messageLog.ChatID)
-		question := "Сделай ровно 5 предложений‑приписку после сообщения о выздоровлении: поздравь, напомни о дисциплине, похвали за честность и предупреди о контроле таймера. Учитывай текущие кубки. Не повторяй цифры из основного текста. Без Markdown."
+		question := "Write exactly 5 sentences as an addendum after the recovery message: congratulate, remind about discipline, praise honesty, and warn that the timer is watching again. Factor in current cups. Don't repeat numbers from the main text. No Markdown. Reply in English."
 		var ctxBuilder strings.Builder
-		ctxBuilder.WriteString(fmt.Sprintf("Пользователь: %s\n", messageLog.Username))
+		ctxBuilder.WriteString(fmt.Sprintf("User: %s\n", messageLog.Username))
 		userGender := strings.TrimSpace(strings.ToLower(messageLog.Gender))
 		if userGender != "" {
 			var genderText string
 			switch userGender {
 			case "f":
-				genderText = "женский"
+				genderText = "female"
 			case "m":
-				genderText = "мужской"
+				genderText = "male"
 			}
 			if genderText != "" {
-				ctxBuilder.WriteString(fmt.Sprintf("Пол: %s\n", genderText))
+				ctxBuilder.WriteString(fmt.Sprintf("Gender: %s\n", genderText))
 			}
 		}
-		ctxBuilder.WriteString(fmt.Sprintf("После выздоровления осталось: %s\n", remainingTimeFormatted))
-		ctxBuilder.WriteString(fmt.Sprintf("Всего кубков: %d\n", totalCups))
+		ctxBuilder.WriteString(fmt.Sprintf("After recovery, time left until removal: %s\n", remainingTimeFormatted))
+		ctxBuilder.WriteString(fmt.Sprintf("Total cups: %d\n", totalCups))
 		if addendum, err := b.aiClient.AnswerUserQuestion(question, ctxBuilder.String()); err == nil {
 			addendum = ai.SanitizeTextForUser(addendum)
 			if addendum != "" {

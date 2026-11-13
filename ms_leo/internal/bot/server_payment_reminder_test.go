@@ -55,10 +55,10 @@ func TestServerPaymentReminderDue(t *testing.T) {
 
 func TestServerPaymentReminderText(t *testing.T) {
 	s := serverPaymentReminderText(time.Date(2026, 11, 20, 0, 0, 0, 0, time.UTC), "Анна")
-	if !strings.Contains(s, "ноябрь 2026") || !strings.Contains(s, "В следующем месяце — Анна.") {
+	if !strings.Contains(s, "November 2026") || !strings.Contains(s, "Next month — Анна.") {
 		t.Fatalf("текст: %q", s)
 	}
-	if strings.Contains(serverPaymentReminderText(time.Date(2027, 1, 20, 0, 0, 0, 0, time.UTC), ""), "следующем") {
+	if strings.Contains(serverPaymentReminderText(time.Date(2027, 1, 20, 0, 0, 0, 0, time.UTC), ""), "Next month") {
 		t.Fatal("без следующего админа строки быть не должно")
 	}
 	var nilBot *Bot
@@ -83,7 +83,7 @@ func TestServerPaymentReminderRotationIntegration(t *testing.T) {
 	if b.runServerPaymentReminder(time.Date(2026, 11, 20, 10, 10, 0, 0, loc)) {
 		t.Fatal("повтор в тот же месяц не шлём")
 	}
-	if got := tg.textsTo(stas); len(got) != 1 || !strings.Contains(got[0], "ноябрь 2026") || !strings.Contains(got[0], "К оплате: 385 ⭐") {
+	if got := tg.textsTo(stas); len(got) != 1 || !strings.Contains(got[0], "November 2026") || !strings.Contains(got[0], "Amount due: 385 ⭐") {
 		t.Fatalf("Стас: %v", got)
 	}
 	// Без Railway и SERVER_PAYMENT_STARS ссылка всё равно есть — на тариф Hobby.
@@ -126,7 +126,7 @@ func TestServerPaymentReminderMessageButton(t *testing.T) {
 	}
 	m := serverPaymentReminderMessage(1, "текст", "https://t.me/$inv", 500)
 	kb, ok := m.ReplyMarkup.(tgbotapi.InlineKeyboardMarkup)
-	if !ok || len(kb.InlineKeyboard) != 1 || kb.InlineKeyboard[0][0].Text != "Оплатить 500 ⭐" || *kb.InlineKeyboard[0][0].URL != "https://t.me/$inv" {
+	if !ok || len(kb.InlineKeyboard) != 1 || kb.InlineKeyboard[0][0].Text != "Pay 500 ⭐" || *kb.InlineKeyboard[0][0].URL != "https://t.me/$inv" {
 		t.Errorf("кнопка оплаты: %+v", m.ReplyMarkup)
 	}
 }
@@ -152,7 +152,7 @@ func TestServerPaymentAmountLine(t *testing.T) {
 	if got := serverPaymentAmountLine(0, 0); got != "" {
 		t.Errorf("без суммы: %q", got)
 	}
-	if got := serverPaymentAmountLine(500, 0); !strings.Contains(got, "К оплате: 500 ⭐") {
+	if got := serverPaymentAmountLine(500, 0); !strings.Contains(got, "Amount due: 500 ⭐") {
 		t.Errorf("запасная сумма: %q", got)
 	}
 	if got := serverPaymentAmountLine(1027, 13.34); !strings.Contains(got, "$13.34") || !strings.Contains(got, "1027 ⭐") {
@@ -181,8 +181,8 @@ func TestServerPaymentReminderRetriesInvoiceLink(t *testing.T) {
 		t.Fatal("счёт создался — напоминание уходит")
 	}
 	msgs := tg.sent("sendMessage")
-	if len(msgs) != 1 || !strings.Contains(msgs[0].Form.Get("text"), "К оплате: 700 ⭐") ||
-		!strings.Contains(msgs[0].Form.Get("reply_markup"), "Оплатить 700") {
+	if len(msgs) != 1 || !strings.Contains(msgs[0].Form.Get("text"), "Amount due: 700 ⭐") ||
+		!strings.Contains(msgs[0].Form.Get("reply_markup"), "Pay 700") {
 		t.Fatalf("напоминание с кнопкой: %+v", msgs)
 	}
 

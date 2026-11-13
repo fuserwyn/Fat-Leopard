@@ -8,7 +8,7 @@ afterEach(cleanup);
 let broken = true;
 function Flaky() {
   if (broken) throw new Error("boom");
-  return <p>лента на месте</p>;
+  return <p>feed ok</p>;
 }
 
 describe("ErrorBoundary", () => {
@@ -17,18 +17,19 @@ describe("ErrorBoundary", () => {
     broken = true;
     render(
       <>
-        <ErrorBoundary label="Лента">
+        <ErrorBoundary label="Feed">
           <Flaky />
         </ErrorBoundary>
-        <p>профиль жив</p>
+        <p>profile ok</p>
       </>,
     );
-    expect(screen.getByRole("alert").textContent).toContain("Раздел «Лента» не открылся");
-    expect(screen.getByText("профиль жив")).toBeTruthy();
+    expect(screen.getByRole("alert").textContent).toContain("Feed");
+    expect(screen.getByRole("alert").textContent).toContain("didn't load");
+    expect(screen.getByText("profile ok")).toBeTruthy();
 
     broken = false;
-    fireEvent.click(screen.getByRole("button", { name: "Попробовать снова" }));
-    expect(screen.getByText("лента на месте")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(screen.getByText("feed ok")).toBeTruthy();
     expect(screen.queryByRole("alert")).toBeNull();
     spy.mockRestore();
   });
@@ -41,8 +42,8 @@ describe("ErrorBoundary", () => {
         <Flaky />
       </ErrorBoundary>,
     );
-    expect(screen.getByText("Что-то пошло не так")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Перезагрузить" })).toBeTruthy();
+    expect(screen.getByText("Something went wrong")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Reload" })).toBeTruthy();
     spy.mockRestore();
   });
 });

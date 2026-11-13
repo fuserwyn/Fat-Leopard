@@ -34,25 +34,25 @@ const baseProps = {
 };
 
 describe("FeedScreen tab keep-alive", () => {
-  it("does not show Загрузка… when leaving and returning to the tab", async () => {
+  it("does not show Loading… when leaving and returning to the tab", async () => {
     const { rerender } = render(<FeedScreen {...baseProps} active refreshToken={0} />);
-    await waitFor(() => expect(screen.queryByText("Загрузка…")).toBeNull());
+    await waitFor(() => expect(screen.queryByText("Loading…")).toBeNull());
 
     rerender(<FeedScreen {...baseProps} active={false} refreshToken={0} />);
     rerender(<FeedScreen {...baseProps} active refreshToken={0} />);
-    expect(screen.queryByText("Загрузка…")).toBeNull();
+    expect(screen.queryByText("Loading…")).toBeNull();
   });
 
-  it("does not show Загрузка… when only onOptimisticConsumed identity changes", async () => {
+  it("does not show Loading… when only onOptimisticConsumed identity changes", async () => {
     const { rerender } = render(
       <FeedScreen {...baseProps} active refreshToken={0} onOptimisticConsumed={() => {}} />,
     );
-    await waitFor(() => expect(screen.queryByText("Загрузка…")).toBeNull());
+    await waitFor(() => expect(screen.queryByText("Loading…")).toBeNull());
 
     rerender(
       <FeedScreen {...baseProps} active refreshToken={0} onOptimisticConsumed={() => {}} />,
     );
-    expect(screen.queryByText("Загрузка…")).toBeNull();
+    expect(screen.queryByText("Loading…")).toBeNull();
   });
 });
 
@@ -67,10 +67,10 @@ describe("FeedScreen pack weekly progress", () => {
         packWorkoutsGoal={50}
       />,
     );
-    await waitFor(() => expect(screen.queryByText("Загрузка…")).toBeNull());
-    expect(screen.getByLabelText("Стая: 42/50 тренировок за неделю")).toBeTruthy();
+    await waitFor(() => expect(screen.queryByText("Loading…")).toBeNull());
+    expect(screen.getByLabelText("Pack: 42/50 workouts this week")).toBeTruthy();
     expect(screen.getByText("42/50")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Подсказка о недельной цели стаи" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Pack weekly goal hint" })).toBeTruthy();
   });
 
   it("shows weekly goal hint on help button click", async () => {
@@ -87,35 +87,35 @@ describe("FeedScreen pack weekly progress", () => {
         }}
       />,
     );
-    await waitFor(() => expect(screen.queryByText("Загрузка…")).toBeNull());
-    fireEvent.click(screen.getByRole("button", { name: "Подсказка о недельной цели стаи" }));
-    expect(alert).toMatch(/50 дополнительных кубков/i);
+    await waitFor(() => expect(screen.queryByText("Loading…")).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "Pack weekly goal hint" }));
+    expect(alert).toMatch(/bonus cups/i);
   });
 });
 
 describe("FeedScreen workout type dropdown", () => {
   async function openAllTypesList() {
     render(<FeedScreen {...baseProps} active refreshToken={0} />);
-    await waitFor(() => expect(screen.queryByText("Загрузка…")).toBeNull());
-    fireEvent.click(screen.getByRole("button", { name: /Все типы/ }));
-    expect(screen.getByRole("listbox", { name: "Все типы тренировок" })).toBeTruthy();
+    await waitFor(() => expect(screen.queryByText("Loading…")).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: /All types/ }));
+    expect(screen.getByRole("listbox", { name: "All workout types" })).toBeTruthy();
   }
 
-  it("closes the list and applies the filter on a second tap of Все типы", async () => {
+  it("closes the list and applies the filter on a second tap of All types", async () => {
     await openAllTypesList();
-    fireEvent.click(screen.getByRole("option", { name: /Все типы/ }));
-    expect(screen.queryByRole("listbox", { name: "Все типы тренировок" })).toBeNull();
+    fireEvent.click(screen.getByRole("option", { name: /All types/ }));
+    expect(screen.queryByRole("listbox", { name: "All workout types" })).toBeNull();
   });
 
   it("closes the list and applies the filter on tap outside", async () => {
     await openAllTypesList();
-    fireEvent.click(screen.getByRole("button", { name: "Применить фильтр типов" }));
-    expect(screen.queryByRole("listbox", { name: "Все типы тренировок" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Apply type filters" }));
+    expect(screen.queryByRole("listbox", { name: "All workout types" })).toBeNull();
   });
 
-  it("closes the list on a second tap of the Все типы chip", async () => {
+  it("closes the list on a second tap of the All types chip", async () => {
     await openAllTypesList();
-    fireEvent.click(screen.getByRole("button", { name: /Все типы/ }));
-    expect(screen.queryByRole("listbox", { name: "Все типы тренировок" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /All types/ }));
+    expect(screen.queryByRole("listbox", { name: "All workout types" })).toBeNull();
   });
 });

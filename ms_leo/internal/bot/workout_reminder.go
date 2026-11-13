@@ -82,7 +82,7 @@ func (b *Bot) startWorkoutReminderScheduler(ctx context.Context) {
 }
 
 // runWorkoutReminderSweep — одна итерация: всем, у кого сейчас «их» локальный час и кто
-// сегодня ещё не тренировался, шлём дружелюбный пинок. Идемпотентно по локальной дате юзера.
+// сегоdays ещё не тренировался, шлём дружелюбный пинок. Идемпотентно по локальной дате юзера.
 func (b *Bot) runWorkoutReminderSweep() {
 	if b == nil || b.db == nil || b.config == nil {
 		return
@@ -96,13 +96,13 @@ func (b *Bot) runWorkoutReminderSweep() {
 	now := utils.GetMoscowTime()
 	sent := 0
 	for _, c := range candidates {
-		// Час напоминания и «сегодня» — в локальном TZ юзера; уже отправленное сегодня
+		// Час напоминания и «сегоdays» — в локальном TZ юзера; уже отправленное сегоdays
 		// (по локальной дате) не дублируем.
 		due, todayLocal := localDailySendDue(now, c.TimezoneOffsetFromMoscow, c.RemindHour, 0, c.LastSentMskDate.String)
 		if !due {
 			continue
 		}
-		// Уже тренировался сегодня (локальная дата) — напоминать незачем.
+		// Уже тренировался сегоdays (локальная дата) — напоминать незачем.
 		if c.LastTrainingDate.Valid && strings.TrimSpace(c.LastTrainingDate.String) == todayLocal {
 			continue
 		}
@@ -123,7 +123,7 @@ func workoutReminderText(username string) string {
 	if strings.TrimSpace(who) != "" {
 		prefix = who + ", "
 	}
-	return "🐆 " + prefix + "не забудь внести сегодняшнюю тренировку в мини-аппе"
+	return "🐆 " + prefix + "don't forget to log today's workout in the mini app"
 }
 
 // sendWorkoutReminder — пуш в очередь мини-аппа + DM в Telegram (как предупреждения о неактивности).

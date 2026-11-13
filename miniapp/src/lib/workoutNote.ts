@@ -1,20 +1,13 @@
-// Подсказка в описании тренировки про совместную тренировку: @-отметка уведомляет
-// участника стаи, а тому, кого в стае нет, бот шлёт инвайт от отметившего.
+// Workout note placeholder: @ mention notifies a pack member; otherwise the bot sends an invite.
 export const WORKOUT_NOTE_PLACEHOLDER =
-  "Как прошла тренировка? Тренировались вместе — отметь напарника: @ник";
+  "How did it go? Trained together — tag your buddy: @username";
 
 const apiBase = (import.meta.env.VITE_MINIAPP_API_URL as string | undefined)?.replace(/\/$/, "") ?? "";
 
-/** Участник стаи в подсказке «@»: mention вставляется после «@» (ник или имя без пробелов). */
 export type MentionCandidate = { userId: number; name: string; mention: string };
 
-/** Символы, которые обрывают @-отметку — как rePackMemberMentions в ms_leo. */
 const MENTION_STOP = /[\s@,.!?;:()[\]{}«»"']/;
 
-/**
- * Набираемая у курсора отметка: «@» в начале текста или после пробела/знака и
- * дальше до курсора — без пробелов. null — подсказку не показываем.
- */
 export function activeMentionQuery(text: string, caret: number): { start: number; query: string } | null {
   const end = Math.max(0, Math.min(caret, text.length));
   for (let i = end - 1; i >= 0 && end - i <= 41; i--) {
@@ -28,7 +21,6 @@ export function activeMentionQuery(text: string, caret: number): { start: number
   return null;
 }
 
-/** Подставляет выбранного участника вместо набранного «@…»; курсор — после пробела. */
 export function applyMention(
   text: string,
   start: number,
@@ -57,7 +49,6 @@ export function parseMentionCandidates(raw: unknown): MentionCandidate[] {
   return out;
 }
 
-/** Участники стаи, чей ник или имя начинается с query. Ошибка сети — пустой список. */
 export async function searchMentionCandidates(initData: string, query: string): Promise<MentionCandidate[]> {
   if (!apiBase || !initData.trim()) return [];
   try {

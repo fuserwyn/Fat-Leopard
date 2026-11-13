@@ -9,7 +9,7 @@ import (
 	"leo-bot/internal/utils"
 )
 
-// Дашборды админки: KPI со сравнением с прошлым периодом, ряды по дням,
+// Дашборды adminки: KPI со сравнением с прошлым периодом, ряды по дням,
 // когорты, деньги, недельная цель стаи и каналы. Считается на сервере,
 // мини-апп только рисует.
 
@@ -103,7 +103,7 @@ func dashCountDelta(cur, prev int64) (delta, trend string) {
 	case prev <= 0 && cur <= 0:
 		return "", ""
 	case prev <= 0:
-		return "новое", "up"
+		return "new", "up"
 	}
 	pct := float64(cur-prev) / float64(prev) * 100
 	return dashSigned(pct, 0) + "%", dashTrend(pct)
@@ -115,7 +115,7 @@ func dashRateDelta(curNum, curDen, prevNum, prevDen int64) (delta, trend string)
 		return "", ""
 	}
 	pp := (float64(curNum)/float64(curDen) - float64(prevNum)/float64(prevDen)) * 100
-	return dashSigned(pp, 1) + " п.п.", dashTrend(pp)
+	return dashSigned(pp, 1) + " pp", dashTrend(pp)
 }
 
 func dashSigned(v float64, prec int) string {
@@ -239,10 +239,10 @@ func (b *Bot) dashKPIs(days int) []MiniappAdminDashKPI {
 		}
 		out = append(out, k)
 	}
-	count("active", "Тренировались", cur[database.EventWorkoutLogged].Unique, prev[database.EventWorkoutLogged].Unique)
-	count("workouts", "Тренировок", cur[database.EventWorkoutLogged].Total, prev[database.EventWorkoutLogged].Total)
-	count("starts", "Новых стартов", cur[database.EventBotStarted].Unique, prev[database.EventBotStarted].Unique)
-	count("payments", "Оплат", cur[database.EventPaymentCompleted].Total, prev[database.EventPaymentCompleted].Total)
+	count("active", "Worked out", cur[database.EventWorkoutLogged].Unique, prev[database.EventWorkoutLogged].Unique)
+	count("workouts", "Workouts", cur[database.EventWorkoutLogged].Total, prev[database.EventWorkoutLogged].Total)
+	count("starts", "New starts", cur[database.EventBotStarted].Unique, prev[database.EventBotStarted].Unique)
+	count("payments", "Payments", cur[database.EventPaymentCompleted].Total, prev[database.EventPaymentCompleted].Total)
 
 	rate := func(key, label, from, to string, firstEver bool, target string) {
 		c, err := b.db.SequentialFunnelCounts([]string{from, to}, days, 0, firstEver)
@@ -265,12 +265,12 @@ func (b *Bot) dashKPIs(days int) []MiniappAdminDashKPI {
 		}
 		out = append(out, k)
 	}
-	rate("activation", "Активация (трен/опл)", database.EventPaymentCompleted, database.EventWorkoutLogged, true, ">35%")
-	rate("paywall_paid", "Пэйвол→оплата", database.EventPaywallViewed, database.EventPaymentCompleted, true, "")
-	rate("start_paywall", "Старт→пэйвол", database.EventBotStarted, database.EventPaywallViewed, true, "")
-	rate("paid_miniapp", "Оплата→миниапп", database.EventPaymentCompleted, database.EventMiniappOpened, true, "")
+	rate("activation", "Activation (work/pay)", database.EventPaymentCompleted, database.EventWorkoutLogged, true, ">35%")
+	rate("paywall_paid", "Paywall→paid", database.EventPaywallViewed, database.EventPaymentCompleted, true, "")
+	rate("start_paywall", "Start→paywall", database.EventBotStarted, database.EventPaywallViewed, true, "")
+	rate("paid_miniapp", "Paid→mini app", database.EventPaymentCompleted, database.EventMiniappOpened, true, "")
 	rate("burn_recovery", "Burn recovery", database.EventBurnWarningSent, database.EventBurnRecovered, false, "")
-	rate("reactivation", "Реактивация", database.EventAccountDeletedInactivity, database.EventAccountReactivated, false, "")
+	rate("reactivation", "Reactivation", database.EventAccountDeletedInactivity, database.EventAccountReactivated, false, "")
 	return out
 }
 
@@ -293,10 +293,10 @@ func (b *Bot) dashSeries(now time.Time, days int) (string, []MiniappAdminDashSer
 		byBucket[r.Bucket] = r
 	}
 	series := []MiniappAdminDashSeries{
-		{Key: "active", Label: "Тренировались"},
-		{Key: "workouts", Label: "Тренировок"},
-		{Key: "starts", Label: "Новых стартов"},
-		{Key: "payments", Label: "Оплат"},
+		{Key: "active", Label: "Worked out"},
+		{Key: "workouts", Label: "Workouts"},
+		{Key: "starts", Label: "New starts"},
+		{Key: "payments", Label: "Payments"},
 	}
 	for _, bucket := range buckets {
 		r := byBucket[bucket]
@@ -305,7 +305,7 @@ func (b *Bot) dashSeries(now time.Time, days int) (string, []MiniappAdminDashSer
 			series[i].Total += v
 		}
 	}
-	// «Тренировались» по корзинам не складывается в уникальных за период.
+	// «Worked out» по корзинам не складывается в уникальных за период.
 	series[0].Total = 0
 	return unit, series
 }
@@ -386,7 +386,7 @@ func (b *Bot) dashFunnelTable(title string, days int, stages [][2]string, subtit
 	if err != nil {
 		return MiniappAdminTable{}, err
 	}
-	tbl := MiniappAdminTable{Kind: "funnel", Title: title, Subtitle: subtitle(counts), Columns: []string{"Стадия", "Юзеры", "Конв"}}
+	tbl := MiniappAdminTable{Kind: "funnel", Title: title, Subtitle: subtitle(counts), Columns: []string{"Stage", "Users", "Conv"}}
 	for i, s := range stages {
 		conv := "—"
 		if i > 0 {
@@ -398,5 +398,5 @@ func (b *Bot) dashFunnelTable(title string, days int, stages [][2]string, subtit
 }
 
 func dashFunnelNote(text string) string {
-	return fmt.Sprintf("%s · считаем тех, кто вошёл в воронку в этом периоде", text)
+	return fmt.Sprintf("%s · users who entered the funnel in this period", text)
 }

@@ -7,7 +7,7 @@ import (
 )
 
 func TestWorkoutReminderText_ShortSingleLine(t *testing.T) {
-	const wantBody = "не забудь внести сегодняшнюю тренировку в мини-аппе"
+	const wantBody = "don't forget to log today's workout in the mini app"
 
 	got := workoutReminderText("")
 	if got != "🐆 "+wantBody {
@@ -19,7 +19,7 @@ func TestWorkoutReminderText_ShortSingleLine(t *testing.T) {
 	if strings.HasSuffix(got, "!") {
 		t.Fatalf("expected no exclamation mark, got %q", got)
 	}
-	for _, banned := range []string{"стрик", "Открой мини-апп", "💪"} {
+	for _, banned := range []string{"streak", "Open the mini app", "💪"} {
 		if strings.Contains(got, banned) {
 			t.Fatalf("unexpected %q in %q", banned, got)
 		}
@@ -28,7 +28,7 @@ func TestWorkoutReminderText_ShortSingleLine(t *testing.T) {
 
 func TestWorkoutReminderText_WithUsername(t *testing.T) {
 	got := workoutReminderText("mike")
-	want := "🐆 @mike, не забудь внести сегодняшнюю тренировку в мини-аппе"
+	want := "🐆 @mike, don't forget to log today's workout in the mini app"
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
 	}

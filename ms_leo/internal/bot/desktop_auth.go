@@ -50,16 +50,16 @@ func (b *Bot) handleDesktopLoginStart(msg *tgbotapi.Message, nonce string) {
 	}
 	if err := b.db.DesktopLoginStart(nonce, desktopLoginTTL); err != nil {
 		b.logger.Warnf("desktop login start: %v", err)
-		b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "❌ Не получилось начать вход. Попробуй ещё раз из приложения."))
+		b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "❌ Couldn't start sign-in. Try again from the app."))
 		return
 	}
 	out := tgbotapi.NewMessage(msg.Chat.ID,
-		"💻 Вход в приложение Fat Leopard на компьютере.\n\n"+
-			"Если это ты открыл приложение — подтверди. Ссылка живёт 10 минут.")
+		"💻 Sign in to Fat Leopard on your computer.\n\n"+
+			"If you opened the app — confirm. This link is valid for 10 minutes.")
 	out.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("✅ Войти", "desk_login_"+nonce),
-			tgbotapi.NewInlineKeyboardButtonData("❌ Это не я", "desk_deny_"+nonce),
+			tgbotapi.NewInlineKeyboardButtonData("✅ Sign in", "desk_login_"+nonce),
+			tgbotapi.NewInlineKeyboardButtonData("❌ Not me", "desk_deny_"+nonce),
 		),
 	)
 	b.api.Send(out)
@@ -76,27 +76,27 @@ func (b *Bot) handleDesktopLoginCallback(callback *tgbotapi.CallbackQuery) bool 
 		nonce := strings.TrimPrefix(data, "desk_login_")
 		token, err := newDesktopToken()
 		if err != nil {
-			b.answerDesktopCallback(callback, "Не вышло, попробуй ещё раз")
+			b.answerDesktopCallback(callback, "Couldn't complete — try again")
 			return true
 		}
 		ok, err := b.db.DesktopLoginConfirm(nonce, callback.From.ID, token)
 		if err != nil {
 			b.logger.Warnf("desktop login confirm: %v", err)
-			b.answerDesktopCallback(callback, "Ошибка входа")
+			b.answerDesktopCallback(callback, "Sign-in error")
 			return true
 		}
 		if !ok {
 			// Чужая или протухшая попытка — отказ, а не молчаливая выдача.
-			b.answerDesktopCallback(callback, "Ссылка устарела — открой вход в приложении заново")
-			b.editDesktopMessage(callback, "⌛️ Попытка входа устарела. Нажми «Войти» в приложении ещё раз.")
+			b.answerDesktopCallback(callback, "Link expired — start sign-in in the app again")
+			b.editDesktopMessage(callback, "⌛️ Sign-in attempt expired. Tap «Sign in» in the app again.")
 			return true
 		}
-		b.answerDesktopCallback(callback, "Готово")
-		b.editDesktopMessage(callback, "✅ Вход подтверждён — возвращайся в приложение.")
+		b.answerDesktopCallback(callback, "Done")
+		b.editDesktopMessage(callback, "✅ Sign-in confirmed — return to the app.")
 		return true
 	case strings.HasPrefix(data, "desk_deny_"):
-		b.answerDesktopCallback(callback, "Отменил")
-		b.editDesktopMessage(callback, "❌ Вход отклонён. Если это был не ты — всё в порядке, доступ не выдан.")
+		b.answerDesktopCallback(callback, "Cancelled")
+		b.editDesktopMessage(callback, "❌ Sign-in declined. If it wasn't you — all good, no access was granted.")
 		return true
 	}
 	return false

@@ -9,13 +9,13 @@ import (
 	"leo-bot/internal/utils"
 )
 
-// Баг-сценарий: остаток 3 дня на старте больничного, болел месяц, вышел через #healthy
-// → должно остаться ~3 дня (а раньше из-за рассинхрона флагов кикало сразу).
+// Баг-сценарий: остаток 3 days на старте больничного, болел месяц, вышел через #healthy
+// → должно остаться ~3 days (а раньше из-за рассинхрона флагов кикало сразу).
 func TestInactivityKickDeadline_SickLeaveLeftoverPreserved(t *testing.T) {
 	moscow := time.FixedZone("MSK", 3*3600)
 	lastTraining := time.Date(2026, 6, 1, 12, 0, 0, 0, moscow)
 	d0 := removalDeadlineLocal(lastTraining, 0)        // 9 июня 00:00 MSK
-	sickStart := d0.Add(-3 * 24 * time.Hour)           // остаток = 3 дня
+	sickStart := d0.Add(-3 * 24 * time.Hour)           // остаток = 3 days
 	sickEnd := sickStart.Add(30 * 24 * time.Hour)      // болел месяц
 	now := sickEnd.Add(time.Minute)                    // только что #healthy
 
@@ -123,12 +123,12 @@ func TestRemovalDeadlineLocal(t *testing.T) {
 }
 
 // Активный больничный «замораживает» остаток: сколько бы ни шло время болезни,
-// до кика остаётся столько же, сколько было на старте больничного (здесь ~3 дня).
+// до кика остаётся столько же, сколько было на старте больничного (здесь ~3 days).
 func TestInactivityKickDeadline_ActiveSickLeaveFreezesRemaining(t *testing.T) {
 	moscow := time.FixedZone("MSK", 3*3600)
 	lastTraining := time.Date(2026, 6, 1, 12, 0, 0, 0, moscow)
 	d0 := removalDeadlineLocal(lastTraining, 0)
-	sickStart := d0.Add(-3 * 24 * time.Hour) // остаток 3 дня на старте больничного
+	sickStart := d0.Add(-3 * 24 * time.Hour) // остаток 3 days на старте больничного
 
 	ml := &domain.MessageLog{
 		TimerStartTime:     strPtr(utils.FormatMoscowTime(lastTraining)),
@@ -169,14 +169,14 @@ func TestInactivityKickDeadline_RestoredUserHasFreshWindow(t *testing.T) {
 	}
 }
 
-// Сценарий: тренировка 1 июля, 4 июля больничный (остаток заморожен), 7 июля выход —
+// Сценарий: workout 1 июля, 4 июля больничный (остаток заморожен), 7 июля выход —
 // после #healthy остаток такой же, как на момент взятия больничного; дедлайн сдвигается на дни болезни.
 func TestInactivityKickDeadline_SickLeaveFrozenThenRecover_JulyScenario(t *testing.T) {
 	moscow := time.FixedZone("MSK", 3*3600)
 	lastTraining := time.Date(2026, 7, 1, 12, 0, 0, 0, moscow)
 	d0 := removalDeadlineLocal(lastTraining, 0) // 9 июля 00:00 MSK
 	sickStart := time.Date(2026, 7, 4, 12, 0, 0, 0, moscow)
-	sickEnd := time.Date(2026, 7, 7, 12, 0, 0, 0, moscow) // 4 дня на больничном
+	sickEnd := time.Date(2026, 7, 7, 12, 0, 0, 0, moscow) // 4 days на больничном
 	now := sickEnd.Add(time.Minute)
 
 	frozenAtSickStart := d0.Sub(sickStart)
@@ -218,25 +218,25 @@ func TestInactivityKickDeadline_SickLeaveFrozenThenRecover_JulyScenario(t *testi
 }
 
 func TestSickLeaveRemovalNotice(t *testing.T) {
-	onSick := sickLeaveRemovalNotice("6 дней 22 ч.", "08.07.2026, 00:00", false)
-	if !strings.Contains(onSick, "⏳ До удаления: 6 дней 22 ч.") {
+	onSick := sickLeaveRemovalNotice("6 days 22 h.", "08.07.2026, 00:00", false)
+	if !strings.Contains(onSick, "⏳ Until removal: 6 days 22 h.") {
 		t.Fatalf("on sick prefix: %q", onSick)
 	}
-	if !strings.Contains(onSick, "столько останется после выздоровления") {
+	if !strings.Contains(onSick, "that much remains after recovery") {
 		t.Fatalf("on sick frozen note: %q", onSick)
 	}
-	if !strings.Contains(onSick, "📅 Крайний срок: 08.07.2026, 00:00 (твоё время)") {
+	if !strings.Contains(onSick, "📅 Deadline: 08.07.2026, 00:00 (your local time)") {
 		t.Fatalf("deadline line: %q", onSick)
 	}
 
-	after := sickLeaveRemovalNotice("22 ч.", "", true)
-	if !strings.Contains(after, "⏳ До удаления осталось: 22 ч.") {
+	after := sickLeaveRemovalNotice("22 h.", "", true)
+	if !strings.Contains(after, "⏳ Time until removal: 22 h.") {
 		t.Fatalf("after recovery: %q", after)
 	}
-	if strings.Contains(after, "после выздоровления") {
+	if strings.Contains(after, "that much remains after recovery") {
 		t.Fatalf("after recovery must not repeat frozen note: %q", after)
 	}
-	if strings.Contains(after, "Крайний срок") {
+	if strings.Contains(after, "Deadline") {
 		t.Fatalf("empty deadlineLocal should omit calendar line: %q", after)
 	}
 }

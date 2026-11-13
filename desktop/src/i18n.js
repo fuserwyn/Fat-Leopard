@@ -76,8 +76,8 @@ export function pickLang() {
     const saved = localStorage.getItem("mvl-lang");
     if (saved === "en" || saved === "ru") return saved;
   } catch (_) {}
-  const nav = (navigator.language || "ru").toLowerCase();
-  return nav.startsWith("en") ? "en" : "ru";
+  const nav = (navigator.language || "en").toLowerCase();
+  return nav.startsWith("ru") ? "ru" : "en";
 }
 
 export function strings(lang = pickLang()) {

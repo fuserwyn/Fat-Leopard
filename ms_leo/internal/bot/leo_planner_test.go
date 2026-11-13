@@ -25,7 +25,7 @@ func TestLeoPlannerPrompt(t *testing.T) {
 		{Role: "assistant", Content: "Какую именно?"},
 		{Role: "user", Content: "Про фото"},
 	})
-	if prompt != "Админ: Нужна задача про ленту\n\nЛео: Какую именно?\n\nАдмин: Про фото" {
+	if prompt != "Admin: Нужна задача про ленту\n\nLeo: Какую именно?\n\nAdmin: Про фото" {
 		t.Fatalf("переписка: %q", prompt)
 	}
 }

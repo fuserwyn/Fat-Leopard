@@ -166,7 +166,7 @@ export function PhotoLightbox({ src, onClose }: { src: string; onClose: () => vo
       <button
         type="button"
         className="photo-lightbox__close"
-        aria-label="Закрыть"
+        aria-label="Close"
         onClick={(e) => {
           e.stopPropagation();
           onClose();

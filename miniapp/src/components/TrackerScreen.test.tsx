@@ -48,7 +48,7 @@ const pending: TrackerTask = {
   repeat: "разово",
   kind: "task",
   status: "pending",
-  status_label: "Ожидает",
+  status_label: "Pending",
   status_icon: "⏳",
   done: false,
   active: true,
@@ -75,7 +75,7 @@ const pending: TrackerTask = {
 const running: TrackerTask = {
   ...pending,
   status: "running",
-  status_label: "В работе",
+  status_label: "In progress",
   status_icon: "🔧",
   phase: "doing",
   dev_column: "doing",
@@ -89,14 +89,14 @@ const reviewed: TrackerTask = {
   phase: "review",
   dev_column: "review",
   has_result: true,
-  result: "⏰ Задача #1 выполнена.\n\nГотово.\n- Подпись теперь только «сгорит через …».",
-  live_step: "Агент сдал результат",
+  result: "⏰ Task #1 done.\n\nDone.\n- Label now only shows burn timer.",
+  live_step: "Agent handed off result",
 };
 
 const doneTask: TrackerTask = {
   ...pending,
   status: "done",
-  status_label: "Выполнено",
+  status_label: "Done",
   status_icon: "✅",
   phase: "done",
   dev_column: "done",
@@ -112,7 +112,7 @@ describe("TrackerScreen prompt edit", () => {
     trackerTask.mockResolvedValue({ task: pending });
     trackerPrompt.mockResolvedValue({
       ok: true,
-      task: { ...pending, prompt: "новый текст задачи" },
+      task: { ...pending, prompt: "new task text" },
     });
     const alerts: string[] = [];
 
@@ -120,16 +120,16 @@ describe("TrackerScreen prompt edit", () => {
     await waitFor(() => expect(screen.getByText("#1")).toBeTruthy());
 
     fireEvent.click(screen.getByText("#1"));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Изменить текст" })).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Edit text" })).toBeTruthy());
 
-    fireEvent.click(screen.getByRole("button", { name: "Изменить текст" }));
-    fireEvent.change(screen.getByRole("textbox"), { target: { value: "новый текст задачи" } });
-    fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit text" }));
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "new task text" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() =>
-      expect(trackerPrompt).toHaveBeenCalledWith("admin", 11, "новый текст задачи"),
+      expect(trackerPrompt).toHaveBeenCalledWith("admin", 11, "new task text"),
     );
-    expect(alerts.some((a) => a.includes("Формулировку"))).toBe(true);
+    expect(alerts.some((a) => a.includes("Wording"))).toBe(true);
   });
 
   it("hides edit control for running task", async () => {
@@ -142,7 +142,7 @@ describe("TrackerScreen prompt edit", () => {
 
     fireEvent.click(screen.getByText("#1"));
     await waitFor(() => expect(screen.getByRole("dialog")).toBeTruthy());
-    expect(screen.queryByRole("button", { name: "Изменить текст" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit text" })).toBeNull();
   });
 });
 
@@ -156,9 +156,9 @@ describe("TrackerScreen restart", () => {
     render(<TrackerScreen initData="admin" showAlert={(t) => alerts.push(t)} />);
     await waitFor(() => expect(screen.getByText("#1")).toBeTruthy());
 
-    fireEvent.click(screen.getByRole("button", { name: "Перезапустить задачу" }));
+    fireEvent.click(screen.getByRole("button", { name: "Restart task" }));
     await waitFor(() => expect(trackerRestart).toHaveBeenCalledWith("admin", 11));
-    expect(alerts.some((a) => a.includes("перезапущена"))).toBe(true);
+    expect(alerts.some((a) => a.includes("restarted"))).toBe(true);
   });
 });
 
@@ -166,7 +166,7 @@ describe("TrackerScreen agent change", () => {
   const failed: TrackerTask = {
     ...running,
     status: "error",
-    error: "Агент не стартовал: cursor run error",
+    error: "Agent failed to start: cursor run error",
     agent: "cursor",
     can_edit_prompt: false,
     can_restart: true,
@@ -183,7 +183,7 @@ describe("TrackerScreen agent change", () => {
     fireEvent.click(screen.getByText("#1"));
     const dialog = await screen.findByRole("dialog");
 
-    const select = within(dialog).getByLabelText("Исполнитель") as HTMLSelectElement;
+    const select = within(dialog).getByLabelText("Assignee") as HTMLSelectElement;
     expect(select.value).toBe("cursor");
     fireEvent.change(select, { target: { value: "claude" } });
     await waitFor(() =>
@@ -201,7 +201,7 @@ describe("TrackerScreen agent change", () => {
     await waitFor(() => expect(screen.getByText("#1")).toBeTruthy());
     fireEvent.click(screen.getByText("#1"));
     const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).queryByLabelText("Исполнитель")).toBeNull();
+    expect(within(dialog).queryByLabelText("Assignee")).toBeNull();
   });
 });
 
@@ -214,26 +214,26 @@ const awaitingApproval: TrackerTask = {
   needs_approval: true,
   approvals_count: 0,
   approvals_needed: 2,
-  status_label: "Аппрув",
+  status_label: "Approve",
   status_icon: "👍",
   phase: "approve",
   dev_column: "approve",
 };
 
 describe("TrackerScreen todo column order", () => {
-  it("shows oldest created task first in Ожидает (FIFO)", async () => {
+  it("shows oldest created task first in Pending (FIFO)", async () => {
     const older: TrackerTask = {
       ...pending,
       id: 10,
       num: 1,
-      prompt: "старая задача",
+      prompt: "old task",
       created_at: "2026-01-01T10:00:00Z",
     };
     const newer: TrackerTask = {
       ...pending,
       id: 20,
       num: 2,
-      prompt: "новая задача",
+      prompt: "new task",
       created_at: "2026-02-01T10:00:00Z",
     };
     trackerList.mockResolvedValue({ tasks: [newer, older], started: 0 });
@@ -251,7 +251,7 @@ describe("TrackerScreen todo column order", () => {
 describe("TrackerScreen approval column", () => {
   it("shows unapproved task in approve column even when dev_column is todo", async () => {
     trackerList.mockResolvedValue({
-      tasks: [{ ...awaitingApproval, dev_column: "todo", status_label: "Ожидает", status_icon: "⏳", phase: "todo" }],
+      tasks: [{ ...awaitingApproval, dev_column: "todo", status_label: "Pending", status_icon: "⏳", phase: "todo" }],
       started: 0,
     });
     trackerAuthors.mockResolvedValue([]);
@@ -274,9 +274,9 @@ describe("TrackerScreen approval column", () => {
     render(<TrackerScreen initData="admin" showAlert={(t) => alerts.push(t)} />);
     await waitFor(() => expect(screen.getByText("#2")).toBeTruthy());
 
-    fireEvent.click(screen.getByRole("button", { name: "Аппрув" }));
+    fireEvent.click(screen.getByRole("button", { name: "Approve" }));
     await waitFor(() => expect(trackerApprove).toHaveBeenCalledWith("admin", 12, "approve"));
-    expect(alerts.some((a) => a.includes("Аппрув учтён"))).toBe(true);
+    expect(alerts.some((a) => a.includes("Approval recorded"))).toBe(true);
   });
 });
 
@@ -292,12 +292,12 @@ describe("TrackerScreen refresh button", () => {
     expect(document.querySelector('[data-col="todo"]')?.textContent).toContain("#1");
     expect(trackerList).toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Обновить" }));
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
     await waitFor(() => expect(trackerRefresh).toHaveBeenCalledWith("admin"));
     await waitFor(() => {
       expect(document.querySelector('[data-col="doing"]')?.textContent).toContain("#1");
     });
-    expect(alerts.some((a) => a.includes("Взяли 1"))).toBe(true);
+    expect(alerts.some((a) => a.includes("Picked up 1"))).toBe(true);
   });
 
   it("starts a waiting card after create by calling refresh", async () => {
@@ -309,7 +309,7 @@ describe("TrackerScreen refresh button", () => {
     await waitFor(() => expect(screen.getByText("#1")).toBeTruthy());
     expect(document.querySelector('[data-col="todo"]')?.textContent).toContain("#1");
 
-    fireEvent.click(screen.getByRole("button", { name: "Обновить" }));
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
     await waitFor(() => {
       expect(document.querySelector('[data-col="doing"]')?.textContent).toContain("#1");
     });
@@ -324,7 +324,7 @@ describe("TrackerScreen refresh button", () => {
     expect(document.querySelector('[data-col="doing"]')?.textContent).not.toContain("#1");
     expect(document.querySelector('[data-col="review"]')?.textContent).toContain("#1");
     expect(document.querySelector('[data-col="review"]')?.textContent).toContain("👀");
-    expect(document.querySelector(".tracker-card__live--result")?.textContent).toContain("выполнена");
+    expect(document.querySelector(".tracker-card__live--result")?.textContent).toContain("done");
   });
 
   it("shows the build column and the pipeline hint", async () => {
@@ -333,7 +333,7 @@ describe("TrackerScreen refresh button", () => {
 
     render(<TrackerScreen initData="admin" showAlert={() => undefined} />);
     await waitFor(() => expect(screen.getByText("#1")).toBeTruthy());
-    expect(document.querySelector('[data-col="deploy"]')?.textContent).toContain("Сборка");
-    expect(screen.getByText(/Review \(проверка ветки\)/)).toBeTruthy();
+    expect(document.querySelector('[data-col="deploy"]')?.textContent).toContain("Deploy");
+    expect(screen.getByText(/Review \(branch check\)/)).toBeTruthy();
   });
 });

@@ -9,10 +9,10 @@ import (
 
 func TestStory1RemovalDMContentAndButton(t *testing.T) {
 	text := removalDMText()
-	if !strings.Contains(text, "7 дней без движения") {
+	if !strings.Contains(text, "7 days without movement") {
 		t.Fatalf("expected removal DM to mention 7 days, got: %q", text)
 	}
-	if !strings.Contains(text, "Прогресс в стае сброшен") {
+	if !strings.Contains(text, "Pack progress reset") {
 		t.Fatalf("expected removal DM to mention progress reset, got: %q", text)
 	}
 
@@ -21,7 +21,7 @@ func TestStory1RemovalDMContentAndButton(t *testing.T) {
 		t.Fatal("expected inline keyboard with return button")
 	}
 	btn := markup.InlineKeyboard[0][0]
-	if btn.Text != "Вернуться в стаю" {
+	if btn.Text != "Rejoin the pack" {
 		t.Fatalf("button text mismatch: %q", btn.Text)
 	}
 	if btn.CallbackData == nil || *btn.CallbackData != paywallCallbackReturnToPack {
@@ -47,7 +47,7 @@ func TestStory2ReturnKeyboardVariants(t *testing.T) {
 				PaymentCurrency:         "RUB",
 				PaymentAmountMinorUnits: 21000,
 			},
-			wantButtonsByText: []string{"💳 Оплатить картой (Telegram) — 210 ₽", "⭐ Звёздами Telegram — 210 ⭐"},
+			wantButtonsByText: []string{"💳 Pay by card (Telegram) — 210 ₽", "⭐ Telegram Stars — 210 ⭐"},
 		},
 		{
 			name: "stars only",
@@ -55,7 +55,7 @@ func TestStory2ReturnKeyboardVariants(t *testing.T) {
 				PaymentCurrency:         "XTR",
 				PaymentAmountMinorUnits: 210,
 			},
-			wantButtonsByText: []string{"⭐ Звёздами Telegram — 210 ⭐"},
+			wantButtonsByText: []string{"⭐ Telegram Stars — 210 ⭐"},
 		},
 		{
 			name: "card only yookassa",
@@ -66,7 +66,7 @@ func TestStory2ReturnKeyboardVariants(t *testing.T) {
 				YookassaCurrency:    "RUB",
 				PaymentCurrency:     "RUB",
 			},
-			wantButtonsByText: []string{"💳 Банковской картой — для РФ — 210 ₽"},
+			wantButtonsByText: []string{"💳 Bank card — Russia — 210 ₽"},
 		},
 	}
 
@@ -108,7 +108,7 @@ func TestStory2ReturnPromptText(t *testing.T) {
 	if !strings.Contains(txt, "Fat Leopard MiniApp") {
 		t.Fatalf("prompt should reference Fat Leopard MiniApp: %q", txt)
 	}
-	if !strings.Contains(strings.ToLower(txt), "цена") {
+	if !strings.Contains(strings.ToLower(txt), "price") {
 		t.Fatalf("prompt should mention that price is on the button: %q", txt)
 	}
 }

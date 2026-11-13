@@ -129,7 +129,7 @@ async function call<T>(
   op: TrackerOp,
   extra: { task_id?: number; payload?: Record<string, unknown> } = {},
 ): Promise<T> {
-  if (!api) throw new Error("API не настроен");
+  if (!api) throw new Error("API not configured");
   const res = await fetch(`${api}/api/miniapp/admin/tracker`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -137,7 +137,7 @@ async function call<T>(
   });
   const j = (await res.json().catch(() => ({}))) as Envelope<T>;
   if (!res.ok || j.ok === false) {
-    throw new Error(j.message || trackerErrorLabel(j.error) || `Ошибка ${res.status}`);
+    throw new Error(j.message || trackerErrorLabel(j.error) || `Error ${res.status}`);
   }
   return unwrapTrackerData<T>(j.data);
 }
@@ -157,16 +157,16 @@ function unwrapTrackerData<T>(raw: T | string | undefined): T {
 function trackerErrorLabel(code?: string): string {
   switch (code) {
     case "forbidden":
-      return "Нет прав администратора";
+      return "No admin rights";
     case "chat_mismatch":
-      return "Открой мини-апп из чата стаи";
+      return "Open the miniapp from the pack chat";
     case "tracker not configured":
     case "tracker_not_configured":
-      return "Доска недоступна";
+      return "Board unavailable";
     case "invalid_action":
-      return "Такое действие доске недоступно";
+      return "This action isn't available on the board";
     case "admin_error":
-      return "Доска не приняла задачу";
+      return "Board rejected the task";
     default:
       return code ?? "";
   }
@@ -339,7 +339,7 @@ export async function trackerAttachImage(
   taskId: number,
   image: { data: string; filename: string; mime: string },
 ): Promise<void> {
-  if (!api) throw new Error("API не настроен");
+  if (!api) throw new Error("API not configured");
   const res = await fetch(`${api}/api/miniapp/admin/tracker/attach`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -347,7 +347,7 @@ export async function trackerAttachImage(
   });
   const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; message?: string };
   if (!res.ok || j.ok === false) {
-    throw new Error(j.message || trackerErrorLabel(j.error) || `Ошибка ${res.status}`);
+    throw new Error(j.message || trackerErrorLabel(j.error) || `Error ${res.status}`);
   }
 }
 
@@ -367,7 +367,7 @@ export async function leoProposeTask(
   busy: string[],
   opts?: { feedback?: string; previous?: LeoTaskVariant },
 ): Promise<LeoProposeResult> {
-  if (!api) throw new Error("API не настроен");
+  if (!api) throw new Error("API not configured");
   const res = await fetch(`${api}/api/miniapp/admin/tracker/leo-propose`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -389,7 +389,7 @@ export async function leoProposeTask(
     message?: string;
   };
   if (!res.ok || j.ok === false) {
-    throw new Error(j.message || trackerErrorLabel(j.error) || `Ошибка ${res.status}`);
+    throw new Error(j.message || trackerErrorLabel(j.error) || `Error ${res.status}`);
   }
   return {
     reply: j.reply ?? "",
@@ -405,7 +405,7 @@ export async function trackerAttachmentGet(
   taskId: number,
   attId: string,
 ): Promise<string> {
-  if (!api) throw new Error("API не настроен");
+  if (!api) throw new Error("API not configured");
   const res = await fetch(`${api}/api/miniapp/admin/tracker/attachment`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -419,7 +419,7 @@ export async function trackerAttachmentGet(
     message?: string;
   };
   if (!res.ok || j.ok === false || !j.data) {
-    throw new Error(j.message || trackerErrorLabel(j.error) || `Ошибка ${res.status}`);
+    throw new Error(j.message || trackerErrorLabel(j.error) || `Error ${res.status}`);
   }
   return `data:${j.mime || "image/jpeg"};base64,${j.data}`;
 }
@@ -430,7 +430,7 @@ export async function trackerAttachmentDelete(
   taskId: number,
   attId: string,
 ): Promise<void> {
-  if (!api) throw new Error("API не настроен");
+  if (!api) throw new Error("API not configured");
   const res = await fetch(`${api}/api/miniapp/admin/tracker/attachment`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -438,7 +438,7 @@ export async function trackerAttachmentDelete(
   });
   const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; message?: string };
   if (!res.ok || j.ok === false) {
-    throw new Error(j.message || trackerErrorLabel(j.error) || `Ошибка ${res.status}`);
+    throw new Error(j.message || trackerErrorLabel(j.error) || `Error ${res.status}`);
   }
 }
 
@@ -459,7 +459,7 @@ export async function leoAutonomy(
   initData: string,
   payload: { action: "status" | "start" | "stop"; days?: number; every_hours?: number; tasks_per_run?: number },
 ): Promise<LeoAutonomy> {
-  if (!api) throw new Error("API не настроен");
+  if (!api) throw new Error("API not configured");
   const res = await fetch(`${api}/api/miniapp/admin/tracker/leo-autonomy`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -472,7 +472,7 @@ export async function leoAutonomy(
     message?: string;
   };
   if (!res.ok || j.ok === false || !j.autonomy) {
-    throw new Error(j.message || trackerErrorLabel(j.error) || `Ошибка ${res.status}`);
+    throw new Error(j.message || trackerErrorLabel(j.error) || `Error ${res.status}`);
   }
   return j.autonomy;
 }
@@ -482,7 +482,7 @@ export async function leoSprint(
   initData: string,
   hint: string,
 ): Promise<{ reply: string; theme: string; tasks: string[] }> {
-  if (!api) throw new Error("API не настроен");
+  if (!api) throw new Error("API not configured");
   const res = await fetch(`${api}/api/miniapp/admin/tracker/leo-sprint`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -497,7 +497,7 @@ export async function leoSprint(
     message?: string;
   };
   if (!res.ok || j.ok === false) {
-    throw new Error(j.message || trackerErrorLabel(j.error) || `Ошибка ${res.status}`);
+    throw new Error(j.message || trackerErrorLabel(j.error) || `Error ${res.status}`);
   }
   return { reply: j.reply ?? "", theme: j.theme ?? "", tasks: j.tasks ?? [] };
 }

@@ -30,7 +30,7 @@ describe("guest feed parsing", () => {
     expect(f.joinUrl).toBe(raw.join_url);
     expect(f.items).toHaveLength(2);
     expect(f.items[0]).toMatchObject({ id: 7, user_id: 0, username: "Анна", streak_days: 4, is_you: false, source: "feed", training_photo_url: "https://cdn/p.jpg" });
-    expect(f.items[1]).toMatchObject({ username: "Участник стаи", streak_days: 0, training_photo_url: undefined });
+    expect(f.items[1]).toMatchObject({ username: "Pack member", streak_days: 0, training_photo_url: undefined });
   });
 
   it("drops a join link that is not t.me and garbage answers", () => {

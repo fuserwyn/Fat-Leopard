@@ -21,7 +21,7 @@ func TestApplyTrackerColumnApprove(t *testing.T) {
 
 func TestTrackerStatusMetaApprove(t *testing.T) {
 	label, icon, phase := trackerStatusMeta("pending", trackerColApprove)
-	if label != "Аппрув" || icon != "👍" || phase != "approve" {
+	if label != "Approval" || icon != "👍" || phase != "approve" {
 		t.Fatalf("meta: %s %s %s", label, icon, phase)
 	}
 }
@@ -82,14 +82,14 @@ func TestTrackerHasApproval(t *testing.T) {
 
 func TestTrackerTaskAuthorLabel(t *testing.T) {
 	var b Bot
-	if got := b.trackerTaskAuthorLabel(database.TrackerTask{}); got != "Из чата" {
+	if got := b.trackerTaskAuthorLabel(database.TrackerTask{}); got != "From chat" {
 		t.Fatalf("no author: got %q", got)
 	}
 	if got := b.trackerTaskAuthorLabel(database.TrackerTask{
 		HasAuthor: true,
 		AuthorID:  database.TrackerLeoAuthorID,
 		Kind:      "leo_task",
-	}); got != "Лео" {
+	}); got != "Leo" {
 		t.Fatalf("leo author: got %q", got)
 	}
 	if got := b.trackerTaskAuthorLabel(database.TrackerTask{
@@ -111,7 +111,7 @@ func TestTrackerApprovalNotifyTextShowsAuthor(t *testing.T) {
 		NeedsApproval: true,
 		DevColumn:     trackerColApprove,
 	}, false)
-	if !strings.Contains(text, "Поставил: Лео") {
+	if !strings.Contains(text, "Posted by: Leo") {
 		t.Fatalf("expected Leo author in notify: %q", text)
 	}
 }
@@ -123,7 +123,7 @@ func TestTrackerApprovalNotifyTextReminder(t *testing.T) {
 		NeedsApproval: true,
 		DevColumn:     trackerColApprove,
 	}, true)
-	if !strings.HasPrefix(text, "⏰ Напоминание:") {
+	if !strings.HasPrefix(text, "⏰ Reminder:") {
 		t.Fatalf("expected reminder prefix: %q", text)
 	}
 }

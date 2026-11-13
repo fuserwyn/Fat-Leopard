@@ -11,10 +11,10 @@ import (
 	initdata "github.com/telegram-mini-apps/init-data-golang"
 )
 
-// Разделы админки, которые раньше жили только в чате (/admin): аналитика,
-// посещения, оплаты, админы, отложенные посты, опросы и очистка ленты.
+// Разделы adminки, которые раньше жили только в чате (/admin): аналитика,
+// посещения, оплаты, adminы, отложенные посты, опросы и очистка ленты.
 // Цифры и подписи считаются здесь же теми же запросами, что и для чата, —
-// мини-апп только рисует, поэтому две админки не разъезжаются.
+// мини-апп только рисует, поэтому две adminки не разъезжаются.
 
 // MiniappAdminTable — таблица «как в чате»: заголовок, пояснение и строки.
 type MiniappAdminTable struct {
@@ -36,7 +36,7 @@ type MiniappAdminAnalytics struct {
 }
 
 // MiniappAdminAnalyticsData — воронки, KPI, каналы и события за период.
-// days<=0 — за всё время. withDashboard добавляет данные раздела «Дашборды».
+// days<=0 — all time. withDashboard добавляет данные раздела «Дашборды».
 func (b *Bot) MiniappAdminAnalyticsData(
 	viewerUserID int64, initD initdata.InitData, days int, withDashboard bool,
 ) (MiniappAdminAnalytics, error) {
@@ -66,28 +66,28 @@ func (b *Bot) MiniappAdminAnalyticsData(
 		return "—"
 	}
 
-	funnel1, err := b.dashFunnelTable("1️⃣ Воронка: бот → оплата", days, [][2]string{
-		{database.EventBotStarted, "Старт бота"},
-		{database.EventPaywallViewed, "Пэйвол"},
-		{database.EventPaymentMethodSelected, "Выбор способа"},
-		{database.EventPaymentInitiated, "К оплате"},
-		{database.EventPaymentCompleted, "Оплатил"},
-		{database.EventMiniappOpened, "Открыл миниапп"},
+	funnel1, err := b.dashFunnelTable("1️⃣ Funnel: bot → pay", days, [][2]string{
+		{database.EventBotStarted, "Bot start"},
+		{database.EventPaywallViewed, "Paywall"},
+		{database.EventPaymentMethodSelected, "Method pick"},
+		{database.EventPaymentInitiated, "To checkout"},
+		{database.EventPaymentCompleted, "Paid"},
+		{database.EventMiniappOpened, "Opened mini app"},
 	}, func(c []int64) string {
-		return dashFunnelNote(fmt.Sprintf("⭐ пэйвол→оплата: %s · старт→оплата: %s", analyticsPct(c[4], c[1]), analyticsPct(c[4], c[0])))
+		return dashFunnelNote(fmt.Sprintf("⭐ paywall→paid: %s · start→paid: %s", analyticsPct(c[4], c[1]), analyticsPct(c[4], c[0])))
 	})
 	if err != nil {
 		return out, err
 	}
 	out.Tables = append(out.Tables, funnel1)
 
-	funnel2, err := b.dashFunnelTable("2️⃣ Воронка: активация", days, [][2]string{
-		{database.EventMiniappOpened, "Открыл миниапп"},
-		{database.EventWorkoutLogStarted, "Открыл форму"},
-		{database.EventWorkoutLogged, "Залогал трен."},
-		{database.EventLeoCommentReceived, "Коммент Лео"},
+	funnel2, err := b.dashFunnelTable("2️⃣ Funnel: activation", days, [][2]string{
+		{database.EventMiniappOpened, "Opened mini app"},
+		{database.EventWorkoutLogStarted, "Opened form"},
+		{database.EventWorkoutLogged, "Logged workout"},
+		{database.EventLeoCommentReceived, "Leo comment"},
 	}, func([]int64) string {
-		return dashFunnelNote(fmt.Sprintf("⭐ kill-метрика (первая трен./оплата): %s · таргет ≥35%%, kill <20%%", kpiValue("activation")))
+		return dashFunnelNote(fmt.Sprintf("⭐ kill metric (first workout/payment): %s · target ≥35%%, kill <20%%", kpiValue("activation")))
 	})
 	if err != nil {
 		return out, err
@@ -96,28 +96,28 @@ func (b *Bot) MiniappAdminAnalyticsData(
 
 	retention := MiniappAdminTable{
 		Kind:  "retention",
-		Title: "3️⃣ Retention и серии",
-		Subtitle: fmt.Sprintf("Burn recovery: %s · Реактивация: %s",
+		Title: "3️⃣ Retention & streaks",
+		Subtitle: fmt.Sprintf("Burn recovery: %s · Reactivation: %s",
 			kpiValue("burn_recovery"), kpiValue("reactivation")),
-		Columns: []string{"Событие", "Юзеры"},
+		Columns: []string{"Event", "Users"},
 	}
 	for _, r := range [][2]string{
-		{database.EventStreakIncremented, "Стрик растёт"},
-		{database.EventStreakAttemptUsed, "Попытка спасла"},
-		{database.EventStreakBroken, "Стрик сгорел"},
-		{database.EventLevelUp, "Новый уровень"},
-		{database.EventMilestoneAchieved, "Ачивка стрика"},
-		{database.EventBurnWarningSent, "Burn-алерт"},
-		{database.EventBurnRecovered, "Спасся после"},
-		{database.EventSickLeaveStarted, "Больничный вкл"},
-		{database.EventSickLeaveEnded, "Больничный выкл"},
-		{database.EventAccountDeletedInactivity, "Удалён (8д)"},
-		{database.EventAccountReactivated, "Вернулся"},
-		{database.EventChallengeJoined, "Взял челлендж"},
-		{database.EventChallengeCompleted, "Прошёл челлендж"},
-		{database.EventChallengeFailed, "Провалил челлендж"},
-		{database.EventChallengeCreated, "Создал челлендж"},
-		{database.EventJointTrainingInvite, "Позвал на тренировку"},
+		{database.EventStreakIncremented, "Streak up"},
+		{database.EventStreakAttemptUsed, "Attempt saved"},
+		{database.EventStreakBroken, "Streak broke"},
+		{database.EventLevelUp, "Level up"},
+		{database.EventMilestoneAchieved, "Streak milestone"},
+		{database.EventBurnWarningSent, "Burn alert"},
+		{database.EventBurnRecovered, "Recovered after"},
+		{database.EventSickLeaveStarted, "Sick leave on"},
+		{database.EventSickLeaveEnded, "Sick leave off"},
+		{database.EventAccountDeletedInactivity, "Removed (8d)"},
+		{database.EventAccountReactivated, "Came back"},
+		{database.EventChallengeJoined, "Joined challenge"},
+		{database.EventChallengeCompleted, "Finished challenge"},
+		{database.EventChallengeFailed, "Failed challenge"},
+		{database.EventChallengeCreated, "Created challenge"},
+		{database.EventJointTrainingInvite, "Invited to workout"},
 	} {
 		retention.Rows = append(retention.Rows, []string{r[1], strconv.FormatInt(counts[r[0]], 10)})
 	}
@@ -125,22 +125,22 @@ func (b *Bot) MiniappAdminAnalyticsData(
 
 	kpi := MiniappAdminTable{
 		Kind:     "kpi",
-		Title:    "⭐ Сводка KPI",
-		Subtitle: "Доля тех, кто вошёл в шаг в этом периоде и дошёл до следующего. Удержание по когортам — в «Дашбордах».",
-		Columns:  []string{"Метрика", "Знач", "Цель", "Kill"},
+		Title:    "⭐ KPI summary",
+		Subtitle: "Share who hit this step in the period and reached the next. Cohort retention is under Dashboards.",
+		Columns:  []string{"Metric", "Val", "Target", "Kill"},
 		Rows: [][]string{
-			{"Активация (трен/опл)", kpiValue("activation"), ">35%", "<20%"},
-			{"Пэйвол→оплата", kpiValue("paywall_paid"), "—", "—"},
-			{"Старт→пэйвол", kpiValue("start_paywall"), "—", "—"},
-			{"Оплата→миниапп", kpiValue("paid_miniapp"), "—", "—"},
+			{"Activation (work/pay)", kpiValue("activation"), ">35%", "<20%"},
+			{"Paywall→paid", kpiValue("paywall_paid"), "—", "—"},
+			{"Start→paywall", kpiValue("start_paywall"), "—", "—"},
+			{"Paid→mini app", kpiValue("paid_miniapp"), "—", "—"},
 			{"Burn recovery", kpiValue("burn_recovery"), "—", "—"},
-			{"Реактивация", kpiValue("reactivation"), "—", "—"},
+			{"Reactivation", kpiValue("reactivation"), "—", "—"},
 		},
 	}
 	out.Tables = append(out.Tables, kpi)
 
 	if channels, err := b.db.GetChannelAttribution(days); err == nil && len(channels) > 0 {
-		tbl := MiniappAdminTable{Kind: "channels", Title: "📣 Каналы", Subtitle: "Откуда пришли и сколько оплатили", Columns: []string{"Канал", "Старты", "Оплат"}}
+		tbl := MiniappAdminTable{Kind: "channels", Title: "📣 Channels", Subtitle: "Where users came from and how many paid", Columns: []string{"Channel", "Starts", "Payments"}}
 		for _, c := range channels {
 			tbl.Rows = append(tbl.Rows, []string{c.Source, strconv.FormatInt(c.Started, 10), strconv.FormatInt(c.Paid, 10)})
 		}
@@ -148,7 +148,7 @@ func (b *Bot) MiniappAdminAnalyticsData(
 	}
 
 	if overview, err := b.db.GetEventOverview(days); err == nil && len(overview) > 0 {
-		tbl := MiniappAdminTable{Kind: "events", Title: "📋 События", Subtitle: "Все события периода", Columns: []string{"Событие", "Всего", "Юзеры"}}
+		tbl := MiniappAdminTable{Kind: "events", Title: "📋 Events", Subtitle: "All events in period", Columns: []string{"Event", "Total", "Users"}}
 		for _, e := range overview {
 			tbl.Rows = append(tbl.Rows, []string{e.Name, strconv.FormatInt(e.Total, 10), strconv.FormatInt(e.UniqueUsers, 10)})
 		}
@@ -173,17 +173,17 @@ func (b *Bot) MiniappAdminVisits(viewerUserID int64, initD initdata.InitData) ([
 	}
 	summary := MiniappAdminTable{
 		Kind:    "visits",
-		Title:   "📊 Посещения бота",
-		Columns: []string{"Метрика", "Значение"},
+		Title:   "📊 Bot visits",
+		Columns: []string{"Metric", "Value"},
 		Rows: [][]string{
-			{"Всего визитов", strconv.FormatInt(stats.TotalVisits, 10)},
-			{"Уникальных", strconv.FormatInt(stats.UniqueUsers, 10)},
-			{"Сегодня", strconv.FormatInt(stats.TodayVisits, 10)},
-			{"За неделю", strconv.FormatInt(stats.WeekVisits, 10)},
-			{"За месяц", strconv.FormatInt(stats.MonthVisits, 10)},
+			{"Total visits", strconv.FormatInt(stats.TotalVisits, 10)},
+			{"Unique", strconv.FormatInt(stats.UniqueUsers, 10)},
+			{"Today", strconv.FormatInt(stats.TodayVisits, 10)},
+			{"This week", strconv.FormatInt(stats.WeekVisits, 10)},
+			{"This month", strconv.FormatInt(stats.MonthVisits, 10)},
 		},
 	}
-	top := MiniappAdminTable{Title: "🏅 Кто заходит чаще", Columns: []string{"Юзер", "Визитов", "Последний"}}
+	top := MiniappAdminTable{Title: "🏅 Top visitors", Columns: []string{"User", "Visits", "Last"}}
 	for _, u := range stats.TopVisitors {
 		top.Rows = append(top.Rows, []string{
 			adminVisitDisplayName(u.Username, u.FirstName, u.UserID),
@@ -202,7 +202,7 @@ type MiniappAdminPayments struct {
 	Offset        int               `json:"offset"`
 	Limit         int               `json:"limit"`
 	Kind          string            `json:"kind"`           // "" | access | donation
-	CompletedOnly bool              `json:"completed_only"` // только завершённые
+	CompletedOnly bool              `json:"completed_only"` // completed only
 	Query         string            `json:"query"`          // поиск по нику / имени / id
 	From          string            `json:"from"`           // период с (ГГГГ-ММ-ДД, МСК), "" — без границы
 	To            string            `json:"to"`             // период по (включительно)
@@ -212,7 +212,7 @@ type MiniappAdminPayments struct {
 	Table         MiniappAdminTable `json:"table"`
 }
 
-// MiniappAdminPaymentsQuery — фильтры раздела «Оплаты».
+// MiniappAdminPaymentsQuery — фильтры раздела «Payments».
 type MiniappAdminPaymentsQuery struct {
 	Offset        int
 	Limit         int
@@ -237,7 +237,7 @@ func adminParseMoneyDay(s string) (time.Time, error) {
 	}
 	t, err := time.ParseInLocation("2006-01-02", s, adminMoneyMSK)
 	if err != nil {
-		return time.Time{}, fmt.Errorf("%w: неверная дата %q, нужен формат ГГГГ-ММ-ДД", ErrAdminActionInvalid, s)
+		return time.Time{}, fmt.Errorf("%w: invalid date %q, use YYYY-MM-DD", ErrAdminActionInvalid, s)
 	}
 	return t, nil
 }
@@ -266,7 +266,7 @@ func adminMoneyPeriod(fromS, toS string) (from, to time.Time, fromOut, toOut str
 	return
 }
 
-// adminMoneyPeriodLabel — «за 01.09.26–30.09.26», «с 01.09.26», «по 30.09.26» или «за всё время».
+// adminMoneyPeriodLabel — «за 01.09.26–30.09.26», «с 01.09.26», «по 30.09.26» или «all time».
 func adminMoneyPeriodLabel(from, to string) string {
 	f := func(s string) string {
 		t, err := time.Parse("2006-01-02", s)
@@ -277,20 +277,20 @@ func adminMoneyPeriodLabel(from, to string) string {
 	}
 	switch {
 	case from != "" && to != "" && from == to:
-		return "за " + f(from)
+		return "for " + f(from)
 	case from != "" && to != "":
-		return "за " + f(from) + "–" + f(to)
+		return "for " + f(from) + "–" + f(to)
 	case from != "":
-		return "с " + f(from)
+		return "from " + f(from)
 	case to != "":
-		return "по " + f(to)
+		return "through " + f(to)
 	default:
-		return "за всё время"
+		return "all time"
 	}
 }
 
-// MiniappAdminPaymentsPage — «Оплаты»: сводка, кто платил и список платежей за доступ + донатов.
-// Фильтры: вид (всё / доступ / донаты), только завершённые, человек (ник, имя, id),
+// MiniappAdminPaymentsPage — «Payments»: сводка, кто платил и список платежей за access + donations.
+// Фильтры: вид (всё / access / donations), completed only, человек (ник, имя, id),
 // период по дате оплаты и порядок (новые сверху или по хронологии).
 func (b *Bot) MiniappAdminPaymentsPage(
 	viewerUserID int64, initD initdata.InitData, q MiniappAdminPaymentsQuery,
@@ -301,7 +301,7 @@ func (b *Bot) MiniappAdminPaymentsPage(
 	}
 	packChatID := b.adminPackChatID()
 	if packChatID == 0 {
-		return out, fmt.Errorf("не настроен MonetizedChatID")
+		return out, fmt.Errorf("MonetizedChatID not configured")
 	}
 	offset, limit := q.Offset, q.Limit
 	if offset < 0 {
@@ -337,7 +337,7 @@ func (b *Bot) MiniappAdminPaymentsPage(
 	period := adminMoneyPeriodLabel(fromS, toS)
 	scope := period
 	if query != "" {
-		scope += " · по «" + query + "»"
+		scope += " · matching «" + query + "»"
 	}
 
 	sums, err := b.db.SumMoneyForAdminFiltered(packChatID, filter)
@@ -345,14 +345,14 @@ func (b *Bot) MiniappAdminPaymentsPage(
 		return out, err
 	}
 	out.Stats = adminBuildMoneyStatsTableForKind(kind, sums)
-	out.Stats.Subtitle = "Завершённые оплаты " + scope + " · звёзды и рубли"
+	out.Stats.Subtitle = "Completed payments " + scope + " · stars and rubles"
 
 	payers, err := b.db.ListMoneyPayersForAdmin(packChatID, filter, miniappAdminPayersLimit)
 	if err != nil {
 		return out, err
 	}
 	out.Payers = adminBuildMoneyPayersTable(kind, payers)
-	out.Payers.Subtitle = "Завершённые оплаты " + scope + ", свежие сверху"
+	out.Payers.Subtitle = "Completed payments " + scope + ", newest first"
 
 	total, err := b.db.CountMoneyPaymentsForAdminFiltered(packChatID, filter)
 	if err != nil {
@@ -365,18 +365,18 @@ func (b *Bot) MiniappAdminPaymentsPage(
 	out.Total, out.Offset, out.Limit = total, offset, limit
 	out.Table = MiniappAdminTable{
 		Title:   adminMoneyListTitle(kind),
-		Columns: []string{"№", "Тип", "Кто", "Статус", "Сумма", "Дата"},
+		Columns: []string{"No.", "Type", "Who", "Status", "Amount", "Date"},
 		Rows:    [][]string{},
 	}
 	r := []rune(scope)
 	sub := []string{strings.ToUpper(string(r[:1])) + string(r[1:])}
 	if q.CompletedOnly {
-		sub = append(sub, "только завершённые")
+		sub = append(sub, "completed only")
 	}
 	if oldestFirst {
-		sub = append(sub, "сначала старые")
+		sub = append(sub, "oldest first")
 	} else {
-		sub = append(sub, "сначала новые")
+		sub = append(sub, "newest first")
 	}
 	out.Table.Subtitle = strings.Join(sub, " · ")
 	for i, p := range rows {
@@ -399,11 +399,11 @@ func (b *Bot) MiniappAdminPaymentsPage(
 func adminMoneyListTitle(kind string) string {
 	switch kind {
 	case "access":
-		return "💳 Платежи за доступ"
+		return "💳 Access payments"
 	case "donation":
-		return "💛 Донаты"
+		return "💛 Donations"
 	default:
-		return "💳 Все платежи и донаты"
+		return "💳 All payments & donations"
 	}
 }
 
@@ -431,18 +431,18 @@ func adminMoneyPersonLabel(username, displayName string, userID int64) string {
 // adminBuildMoneyPayersTable — «Кто платил»: по человеку, сколько раз и на какую сумму.
 func adminBuildMoneyPayersTable(kind string, payers []database.AdminMoneyPayerRow) MiniappAdminTable {
 	tbl := MiniappAdminTable{
-		Title:    "👥 Кто платил",
-		Subtitle: "Завершённые оплаты за всё время, свежие сверху",
-		Columns:  []string{"Кто", "Доступ", "Донаты", "⭐", "₽", "Последний"},
+		Title:    "👥 Who paid",
+		Subtitle: "Completed payments all time, newest first",
+		Columns:  []string{"Who", "Access", "Donations", "⭐", "₽", "Last"},
 		Rows:     [][]string{},
 	}
 	switch kind {
 	case "access":
-		tbl.Title = "👥 Кто платил за доступ"
-		tbl.Columns = []string{"Кто", "Платежей", "⭐", "₽", "Последний"}
+		tbl.Title = "👥 Access payers"
+		tbl.Columns = []string{"Who", "Payments", "⭐", "₽", "Last"}
 	case "donation":
-		tbl.Title = "👥 Кто донатил"
-		tbl.Columns = []string{"Кто", "Донатов", "⭐", "₽", "Последний"}
+		tbl.Title = "👥 Donors"
+		tbl.Columns = []string{"Who", "Donations", "⭐", "₽", "Last"}
 	}
 	msk := time.FixedZone("MSK", 3*3600)
 	for _, p := range payers {
@@ -480,14 +480,14 @@ type MiniappAdminPerson struct {
 	AddedAt  string `json:"added_at"`
 }
 
-// MiniappAdminAdminsList — кто админ: из переменных окружения и из базы.
+// MiniappAdminAdminsList — кто admin: из переменных окружения и из базы.
 func (b *Bot) MiniappAdminAdminsList(viewerUserID int64, initD initdata.InitData) ([]MiniappAdminPerson, error) {
 	if _, err := b.requireMiniappAdmin(viewerUserID, initD); err != nil {
 		return nil, err
 	}
 	out := make([]MiniappAdminPerson, 0, 8)
 	if b.config.OwnerID != 0 {
-		out = append(out, MiniappAdminPerson{UserID: b.config.OwnerID, Username: "владелец", Static: true})
+		out = append(out, MiniappAdminPerson{UserID: b.config.OwnerID, Username: "owner", Static: true})
 	}
 	for _, id := range b.config.AdminIDs {
 		out = append(out, MiniappAdminPerson{UserID: id, Static: true})
@@ -520,7 +520,7 @@ func (b *Bot) MiniappAdminAddAdmin(viewerUserID int64, initD initdata.InitData, 
 	if err != nil {
 		targetID, err = b.db.FindUserIDByUsername(q)
 		if err != nil || targetID == 0 {
-			return 0, fmt.Errorf("не нашёл @%s среди участников", q)
+			return 0, fmt.Errorf("could not find @%s among members", q)
 		}
 		username = q
 	}
@@ -528,11 +528,11 @@ func (b *Bot) MiniappAdminAddAdmin(viewerUserID int64, initD initdata.InitData, 
 		return 0, err
 	}
 	// Права проверяются по кэшу в памяти, а не по базе: без перезагрузки
-	// добавленный из мини-аппа админ оставался обычным человеком до рестарта
+	// добавленный из мини-аппа admin оставался обычным человеком до рестарта
 	// сервиса — со стороны это выглядело как «добавление не работает».
 	b.reloadDynamicAdmins()
 	// Нижняя клавиатура в личке зависит от прав — как и при добавлении из чата,
-	// сбрасываем её кэш, иначе кнопки админ-панели не появятся.
+	// сбрасываем её кэш, иначе кнопки admin-панели не появятся.
 	b.privateBottomKeyboardKind.Delete(targetID)
 	return targetID, nil
 }
@@ -543,14 +543,14 @@ func (b *Bot) MiniappAdminRemoveAdmin(viewerUserID int64, initD initdata.InitDat
 		return err
 	}
 	if targetID == b.config.OwnerID {
-		return fmt.Errorf("владельца снять нельзя")
+		return fmt.Errorf("cannot remove owner")
 	}
 	isDynamic, err := b.db.IsDynamicAdmin(targetID)
 	if err != nil {
 		return err
 	}
 	if !isDynamic {
-		return fmt.Errorf("этот админ прописан в переменных окружения — снимается только там")
+		return fmt.Errorf("this admin is in environment variables — remove there only")
 	}
 	if _, err := b.db.RemoveDynamicAdmin(targetID); err != nil {
 		return err
@@ -603,10 +603,10 @@ func (b *Bot) MiniappAdminSchedulePost(
 	msk := time.FixedZone("MSK", 3*3600)
 	when, err := time.ParseInLocation("2006-01-02T15:04", strings.TrimSpace(at), msk)
 	if err != nil {
-		return 0, fmt.Errorf("не понял время: нужен формат 2026-08-20T09:00")
+		return 0, fmt.Errorf("could not parse time: use 2026-08-20T09:00")
 	}
 	if when.Before(time.Now()) {
-		return 0, fmt.Errorf("время уже прошло")
+		return 0, fmt.Errorf("time is in the past")
 	}
 	return b.db.InsertScheduledAdminPost(
 		b.config.MonetizedChatID, normalizeAdminPostAuthor(author), body, when, viewerUserID,
@@ -637,7 +637,7 @@ func (b *Bot) MiniappAdminPublishPoll(
 	}
 	q := strings.TrimSpace(question)
 	if q == "" {
-		return fmt.Errorf("напиши вопрос")
+		return fmt.Errorf("enter a question")
 	}
 	clean := make([]string, 0, len(options))
 	for _, opt := range options {
@@ -646,15 +646,15 @@ func (b *Bot) MiniappAdminPublishPoll(
 			continue
 		}
 		if len([]rune(v)) > 100 {
-			return fmt.Errorf("вариант «%s…» длиннее 100 символов", string([]rune(v)[:20]))
+			return fmt.Errorf("option %q is longer than 100 characters", string([]rune(v)[:20]))
 		}
 		clean = append(clean, v)
 	}
 	if len(clean) < 2 {
-		return fmt.Errorf("нужно минимум 2 варианта")
+		return fmt.Errorf("need at least 2 options")
 	}
 	if len(clean) > 10 {
-		return fmt.Errorf("максимум 10 вариантов")
+		return fmt.Errorf("maximum 10 options")
 	}
 	return b.saveAdminPollPackFeed(viewerUserID, q, clean)
 }
@@ -674,7 +674,7 @@ func (b *Bot) MiniappAdminWipeCounts(viewerUserID int64, initD initdata.InitData
 	}
 	packChatID := b.adminPackChatID()
 	if packChatID == 0 {
-		return out, fmt.Errorf("не настроен MonetizedChatID")
+		return out, fmt.Errorf("MonetizedChatID not configured")
 	}
 	counts, err := b.db.AdminCountPackFeedAndChat(packChatID)
 	if err != nil {
@@ -696,7 +696,7 @@ func (b *Bot) MiniappAdminWipeExecute(viewerUserID int64, initD initdata.InitDat
 	}
 	packChatID := b.adminPackChatID()
 	if packChatID == 0 {
-		return out, fmt.Errorf("не настроен MonetizedChatID")
+		return out, fmt.Errorf("MonetizedChatID not configured")
 	}
 	deleted, err := b.db.AdminClearPackFeedAndChat(packChatID)
 	if err != nil {

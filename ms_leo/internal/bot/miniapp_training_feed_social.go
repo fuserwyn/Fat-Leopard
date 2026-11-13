@@ -25,7 +25,7 @@ var healthyAllowedEmojis = []string{"🎉", "🥳", "😄", "💚", "❤️", "�
 var packJoinAllowedEmojis = []string{"👋", "🎉", "❤️", "👏", "🙌"}
 
 var (
-	// ErrTrainingFeedSocialForbidden — нет доступа к ленте.
+	// ErrTrainingFeedSocialForbidden — нет access к ленте.
 	ErrTrainingFeedSocialForbidden = errors.New("training feed social forbidden")
 	// ErrTrainingFeedInvalidEmoji — эмодзи не из списка.
 	ErrTrainingFeedInvalidEmoji = errors.New("invalid emoji")
@@ -67,7 +67,8 @@ func packFeedPostIsLeo(messageType, username string) bool {
 	case userMessageTypeDailyWisdom, userMessageTypePackRoar:
 		return true
 	case userMessageTypeAdminPost, userMessageTypeAdminPoll:
-		return strings.TrimSpace(username) == "Лео"
+		u := strings.TrimSpace(username)
+		return u == "Лео" || strings.EqualFold(u, "Leo")
 	default:
 		return false
 	}
@@ -95,17 +96,17 @@ func shouldLeoReplyInFeedThread(typ string, officialVoice, replyingToLeo, mentio
 func feedThreadLeoPromptKind(typ string) string {
 	switch typ {
 	case "sick_leave":
-		return "заявкой на больничный"
+		return "a sick-leave request"
 	case "healthy":
-		return "сообщением о возвращении с больничного"
+		return "a return-from-sick-leave message"
 	case userMessageTypeAdminPost, userMessageTypeAdminPoll:
-		return "объявлением стаи"
+		return "a pack announcement"
 	case userMessageTypeDailyWisdom:
-		return "мудростью дня"
+		return "wisdom of the day"
 	case userMessageTypePackRoar:
-		return "рыком стаи"
+		return "a pack roar"
 	default:
-		return "отчётом о тренировке"
+		return "a training report"
 	}
 }
 
@@ -196,7 +197,7 @@ func (b *Bot) ensureLeoDefaultTrainingFeedReaction(packChatID, userMessageID int
 		return
 	}
 	emoji := leoTrainingFeedReactionEmoji(userMessageID, reportText)
-	if _, err := b.db.SetTrainingFeedReaction(packChatID, userMessageID, 0, "Лео", emoji); err != nil {
+	if _, err := b.db.SetTrainingFeedReaction(packChatID, userMessageID, 0, "Leo", emoji); err != nil {
 		b.logger.Warnf("training feed leo default reaction: %v", err)
 	}
 }
@@ -355,8 +356,9 @@ func (b *Bot) afterPackTrainingThreadInserted(packChatID, userMessageID, comment
 	}
 	cn := strings.TrimSpace(commenterName)
 	if cn == "" {
-		cn = "Участник стаи"
+		cn = "Pack member"
 	}
+	const openPack = "Open the mini app → Pack tab."
 	var notifyUserID int64
 	defer func() {
 		skip := map[int64]struct{}{}
@@ -409,49 +411,26 @@ func (b *Bot) afterPackTrainingThreadInserted(packChatID, userMessageID, comment
 	}
 	preview := truncateForDM(commentText, 160)
 	if strings.TrimSpace(preview) == "" {
-		preview = "📷 Фото"
+		preview = "📷 Photo"
 	}
-	commenterGender, _, _ := b.GetMiniappUserProfileJSONForAPI(commenterUserID, packChatID)
-	commenterGender = strings.TrimSpace(strings.ToLower(commenterGender))
 	var body string
 	if replyToParentThreadID != 0 {
-		verb := ""
-		switch commenterGender {
-		case "m":
-			verb = "ответил"
-		case "f":
-			verb = "ответила"
-		}
-		if verb == "" {
-			body = "↩️ Ответ от " + cn + " на твой комментарий в стае.\n\n«" + preview + "»\n\nОткрой мини-апп → вкладка «Стая»."
-		} else {
-			body = "↩️ " + cn + " " + verb + " на твой комментарий в стае.\n\n«" + preview + "»\n\nОткрой мини-апп → вкладка «Стая»."
-		}
+		body = "↩️ " + cn + " replied to your comment in the pack.\n\n\"" + preview + "\"\n\n" + openPack
 	} else {
-		what := "твою тренировку"
-		if parentType == "sick_leave" || parentType == "healthy" {
-			what = "твой статус по больничному"
-		} else if parentType == userMessageTypeAdminPost {
-			what = "пост админа"
-		} else if parentType == userMessageTypeAdminPoll {
-			what = "опрос админа"
-		} else if parentType == userMessageTypeDailyWisdom {
-			what = "мудрость дня"
-		} else if parentType == userMessageTypePackRoar {
-			what = "рык стаи"
+		what := "your workout"
+		switch parentType {
+		case "sick_leave", "healthy":
+			what = "your sick-leave update"
+		case userMessageTypeAdminPost:
+			what = "the admin post"
+		case userMessageTypeAdminPoll:
+			what = "the admin poll"
+		case userMessageTypeDailyWisdom:
+			what = "wisdom of the day"
+		case userMessageTypePackRoar:
+			what = "the pack roar"
 		}
-		verb := ""
-		switch commenterGender {
-		case "m":
-			verb = "прокомментировал"
-		case "f":
-			verb = "прокомментировала"
-		}
-		if verb == "" {
-			body = "💬 Комментарий от " + cn + " к " + what + " в стае.\n\n«" + preview + "»\n\nОткрой мини-апп → вкладка «Стая»."
-		} else {
-			body = "💬 " + cn + " " + verb + " " + what + " в стае.\n\n«" + preview + "»\n\nОткрой мини-апп → вкладка «Стая»."
-		}
+		body = "💬 " + cn + " commented on " + what + " in the pack.\n\n\"" + preview + "\"\n\n" + openPack
 	}
 	b.sendTrainingThreadCommentDM(notifyUserID, body)
 }
@@ -798,13 +777,13 @@ func (b *Bot) threadRowsToPackReplies(rows []database.TrainingFeedThreadRow, vie
 				pr.ReplyToIsLeo = p.FromUserID == 0 || p.PostedAs == "leo"
 				pr.ReplyToIsAdmin = p.PostedAs == "admin"
 				if pr.ReplyToIsLeo {
-					pr.ReplyToUsername = "Лео"
+					pr.ReplyToUsername = "Leo"
 				} else if pr.ReplyToIsAdmin {
-					pr.ReplyToUsername = "Админ"
+					pr.ReplyToUsername = "Admin"
 				} else {
 					pr.ReplyToUsername = strings.TrimSpace(p.Username)
 					if pr.ReplyToUsername == "" {
-						pr.ReplyToUsername = fmt.Sprintf("Участник %d", p.FromUserID)
+						pr.ReplyToUsername = fmt.Sprintf("Pack member %d", p.FromUserID)
 					}
 				}
 				pr.ReplyToText = truncateForDM(p.MessageText, 100)
