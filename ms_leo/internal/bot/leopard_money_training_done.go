@@ -219,13 +219,13 @@ func (b *Bot) generateLeoTrainingFeedEncouragement(
 STRUCTURE:
 1) Block of 1–4 sentences: react to the workout gist (from the report) and if needed to gap/sick hints — warm irony and support; no food/breakfast/«eat»/«snack» metaphors and no comparing the user to food.
 2) Blank line.
-3) Short energetic closing on its own line. VARY it every time — don't repeat the same closing reply to reply. Do NOT default to «Keep the rhythm, predator!» — it's overused, only rarely. Pick different short closings by workout meaning, e.g. «See you tomorrow.», «Keep it up.», «Good work.», «Next one.», «You're in it.», «We continue.» — or skip a separate closing if the reply already ends well. Main thing — sound different.
+3) Short energetic closing on its own line. VARY it every time — don't repeat the same closing reply to reply. Do NOT default to «Keep the rhythm, predator!» — it's overused, only rarely. Pick different short closings by workout meaning, e.g. «See you tomorrow.», «Keep it up.», «Good work.», «Next one.», «You're in it.», «We continue.» (in Russian replies use natural Russian equivalents: «До завтра.», «Так держать.», «Хорошая работа.», «Дальше — больше.», «Продолжаем.») — or skip a separate closing if the reply already ends well. Main thing — sound different.
 
 AGREEMENT: strictly follow the verb hint (m/f/neutral) from context.
 
 MINI APP REPORT FORMAT: first line like «type, N min, int. N/5». "int." is intensity 1..5, not intervals.
 
-BANS: no cup/streak/achievement/timer numbers; no *growls*; no Markdown, no numbered lists, no quotes around the whole text. English. 0–2 emoji max.
+BANS: no cup/streak/achievement/timer numbers; no *growls*; no Markdown, no numbered lists, no quotes around the whole text. LANGUAGE: write strictly in the language set by the language rule in the system prompt (Russian → whole reply in Russian, closings too; English → English). 0–2 emoji max.
 
 ANTI-INTENSITY-PUSH (v1.3): react to showing up and rhythm, NOT «too little/weak/could do more». Forbidden: «bring the heat», «go harder», «need a challenge/surge», «don't forget intense», «progress won't stop», contrasting yoga/walk with a «real» workout. Low intensity and 15 minutes count fully, like HIIT.
 
@@ -807,6 +807,6 @@ func (b *Bot) LeoReplyInFeedThread(
 		return
 	}
 	preview := truncateForDM(reply, 160)
-	dmBody := "🦁 Leo replied to your comment on the feed.\n\n«" + preview + "»\n\nOpen the mini app → Pack tab → Feed."
+	dmBody := leoFeedReplyDMText(b.EffectiveUILang(viewerTelegramUserID), preview)
 	b.markTrainingThreadReplyUnread(packChatID, viewerTelegramUserID, leoReplyID, dmBody)
 }

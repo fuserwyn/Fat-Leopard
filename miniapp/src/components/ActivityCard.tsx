@@ -1225,7 +1225,7 @@ export function ActivityCard({
                                           }, 80);
                                         }}
                                       >
-                                        Reply
+                                        {t("card.reply")}
                                       </button>
                                     )}
                                   </div>

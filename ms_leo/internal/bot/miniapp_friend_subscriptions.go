@@ -1,7 +1,6 @@
 package bot
 
 import (
-	"fmt"
 	"strings"
 
 	initdata "github.com/telegram-mini-apps/init-data-golang"
@@ -162,16 +161,12 @@ func (b *Bot) notifyFriendWorkoutWatchers(authorUserID, packChatID int64, author
 	if len(subscriberIDs) == 0 {
 		return
 	}
-	name := strings.TrimSpace(authorName)
-	if name == "" {
-		name = "Pack member"
-	}
-	_ = authorGender
-	body := fmt.Sprintf("🦁 %s logged a workout! 🔥 Streak: %d.\n\nOpen the mini app → Pack tab.", name, streak)
 	for _, subID := range subscriberIDs {
 		if subID == authorUserID {
 			continue
 		}
+		lang := b.EffectiveUILang(subID)
+		body := friendWorkoutText(lang, socialNameOr(authorName, lang), authorGender, streak)
 		b.sendTrainingThreadCommentDM(subID, body)
 	}
 }

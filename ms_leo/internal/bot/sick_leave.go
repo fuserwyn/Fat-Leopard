@@ -119,7 +119,7 @@ func (b *Bot) activateSickLeave(msg *tgbotapi.Message, messageLog *domain.Messag
 		}()
 
 		totalCups, _ := b.db.GetUserCups(msg.From.ID, messageLog.ChatID)
-		question := "Write exactly 5 sentences as an addendum after the sick-leave message: warm but firm, wish a speedy recovery, and gently nudge them back to routine. Factor in current cups; mention that I only 'eat' the lazy ones (no threats to active members). Don't repeat numbers from the main text. No Markdown. Reply in English."
+		question := "Write exactly 5 sentences as an addendum after the sick-leave message: warm but firm, wish a speedy recovery, and gently nudge them back to routine. Factor in current cups; mention that I only 'eat' the lazy ones (no threats to active members). Don't repeat numbers from the main text. No Markdown. Reply in the language set by the language rule."
 		var ctxBuilder strings.Builder
 		ctxBuilder.WriteString(fmt.Sprintf("User: %s\n", messageLog.Username))
 		// Добавляем пол пользователя в контекст
@@ -484,7 +484,7 @@ func (b *Bot) handleHealthy(msg *tgbotapi.Message) {
 		}()
 
 		totalCups, _ := b.db.GetUserCups(msg.From.ID, messageLog.ChatID)
-		question := "Write exactly 5 sentences as an addendum after the recovery message: congratulate, remind about discipline, praise honesty, and warn that the timer is watching again. Factor in current cups. Don't repeat numbers from the main text. No Markdown. Reply in English."
+		question := "Write exactly 5 sentences as an addendum after the recovery message: congratulate, remind about discipline, praise honesty, and warn that the timer is watching again. Factor in current cups. Don't repeat numbers from the main text. No Markdown. Reply in the language set by the language rule."
 		var ctxBuilder strings.Builder
 		ctxBuilder.WriteString(fmt.Sprintf("User: %s\n", messageLog.Username))
 		userGender := strings.TrimSpace(strings.ToLower(messageLog.Gender))

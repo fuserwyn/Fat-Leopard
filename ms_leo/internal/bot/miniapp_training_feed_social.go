@@ -358,7 +358,6 @@ func (b *Bot) afterPackTrainingThreadInserted(packChatID, userMessageID, comment
 	if cn == "" {
 		cn = "Pack member"
 	}
-	const openPack = "Open the mini app → Pack tab."
 	var notifyUserID int64
 	defer func() {
 		skip := map[int64]struct{}{}
@@ -409,28 +408,15 @@ func (b *Bot) afterPackTrainingThreadInserted(packChatID, userMessageID, comment
 	if err := b.db.InsertTrainingThreadUnread(notifyUserID, packChatID, threadReplyID); err != nil {
 		b.logger.Warnf("training thread unread insert: %v", err)
 	}
-	preview := truncateForDM(commentText, 160)
-	if strings.TrimSpace(preview) == "" {
-		preview = "📷 Photo"
-	}
+	lang := b.EffectiveUILang(notifyUserID)
+	name := socialNameOr(cn, lang)
+	gender, _, _ := b.GetMiniappUserProfileJSONForAPI(commenterUserID, packChatID)
+	preview := socialPreviewOr(truncateForDM(commentText, 160), lang)
 	var body string
 	if replyToParentThreadID != 0 {
-		body = "↩️ " + cn + " replied to your comment in the pack.\n\n\"" + preview + "\"\n\n" + openPack
+		body = threadReplyText(lang, name, gender, preview)
 	} else {
-		what := "your workout"
-		switch parentType {
-		case "sick_leave", "healthy":
-			what = "your sick-leave update"
-		case userMessageTypeAdminPost:
-			what = "the admin post"
-		case userMessageTypeAdminPoll:
-			what = "the admin poll"
-		case userMessageTypeDailyWisdom:
-			what = "wisdom of the day"
-		case userMessageTypePackRoar:
-			what = "the pack roar"
-		}
-		body = "💬 " + cn + " commented on " + what + " in the pack.\n\n\"" + preview + "\"\n\n" + openPack
+		body = threadCommentText(lang, name, gender, parentType, preview)
 	}
 	b.sendTrainingThreadCommentDM(notifyUserID, body)
 }

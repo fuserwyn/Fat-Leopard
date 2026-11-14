@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"leo-bot/internal/i18n"
 	"regexp"
 	"strings"
 
@@ -27,30 +28,58 @@ func isTelegramUsernameToken(tok string) bool {
 	return reTelegramUsername.MatchString(tok)
 }
 
-func jointTrainingVerb(gender string) string {
-	_ = gender
+func jointTrainingVerb(lang i18n.Lang, gender string) string {
+	if socialRU(lang) {
+		return ruPastVerb(gender, "отметил")
+	}
 	return "tagged"
 }
 
-// jointTrainingMemberText — уведомление участнику стаи, которого taggedи.
-func jointTrainingMemberText(authorName, gender, reportText string) string {
+// jointTrainingMemberText — уведомление участнику стаи, которого отметили.
+func jointTrainingMemberText(lang i18n.Lang, authorName, gender, reportText string) string {
 	preview := truncateForDM(reportText, 160)
-	return "🤝 " + authorName + " " + jointTrainingVerb(gender) + " you on a joint workout.\n\n«" +
-		preview + "»\n\nOpen the mini app → Pack tab."
+	if socialRU(lang) {
+		return "🤝 " + authorName + " " + jointTrainingVerb(lang, gender) + " тебя на совместной тренировке.\n\n«" +
+			preview + "»\n\n" + openPackFooter(lang)
+	}
+	return "🤝 " + authorName + " " + jointTrainingVerb(lang, gender) + " you on a joint workout.\n\n«" +
+		preview + "»\n\n" + openPackFooter(lang)
 }
 
-// jointTrainingInviteText — инвайт тому, кого taggedи, но кого нет в стае.
-func jointTrainingInviteText(authorName, gender, reportText string) string {
+// jointTrainingInviteText — инвайт тому, кого отметили, но кого нет в стае.
+func jointTrainingInviteText(lang i18n.Lang, authorName, gender, reportText string) string {
 	preview := truncateForDM(reportText, 160)
-	return "🐆 " + authorName + " " + jointTrainingVerb(gender) + " you on a joint workout in the Fat Leopard pack.\n\n«" +
+	if socialRU(lang) {
+		return "🐆 " + authorName + " " + jointTrainingVerb(lang, gender) + " тебя на совместной тренировке в стае Fat Leopard.\n\n«" +
+			preview + "»\n\nВступай в стаю — тренироваться вместе веселее!"
+	}
+	return "🐆 " + authorName + " " + jointTrainingVerb(lang, gender) + " you on a joint workout in the Fat Leopard pack.\n\n«" +
 		preview + "»\n\nJoin the pack — training together is more fun!"
+}
+
+func jointTrainingJoinButton(lang i18n.Lang) string {
+	if socialRU(lang) {
+		return "Вступить в стаю"
+	}
+	return "Join the pack"
 }
 
 // jointTrainingForwardText — отметившему: бот не знает человека, ссылку нужно переслать самому.
 // username может быть уже с «@» (label) или без: в тексте всегда один @.
-func jointTrainingForwardText(username, link string) string {
+func jointTrainingForwardText(lang i18n.Lang, username, link string) string {
+	if socialRU(lang) {
+		return "🤝 " + jointTrainingMentionLabel(username) + " ещё нет в стае, и Лео не может написать первым. " +
+			"Перешли это приглашение на совместные тренировки:\n" + link
+	}
 	return "🤝 " + jointTrainingMentionLabel(username) + " isn't in the pack yet, and Leo can't message them first. " +
 		"Forward this invite for joint workouts:\n" + link
+}
+
+func jointTrainingSentText(lang i18n.Lang, label string) string {
+	if socialRU(lang) {
+		return "🤝 Отправил " + label + " приглашение в стаю на совместные тренировки."
+	}
+	return "🤝 Sent " + label + " a pack invite for joint workouts."
 }
 
 // notifyJointTrainingMentions разбирает @-отметки в отчёте о тренировке.
@@ -89,7 +118,8 @@ func (b *Bot) notifyJointTrainingMentions(packChatID, authorUserID int64, author
 			continue
 		}
 		notified[uid] = struct{}{}
-		b.sendTrainingThreadCommentDM(uid, jointTrainingMemberText(cn, gender, text))
+		lang := b.EffectiveUILang(uid)
+		b.sendTrainingThreadCommentDM(uid, jointTrainingMemberText(lang, socialNameOr(cn, lang), gender, text))
 	}
 
 	link := referralLink(botName, authorUserID)
@@ -136,24 +166,25 @@ func (b *Bot) inviteToJointTraining(packChatID, authorUserID int64, authorName, 
 		Payload: map[string]any{"invitee_user_id": inviteeID, "delivered": inviteeID != 0},
 	})
 	label := jointTrainingMentionLabel(mentionToken)
+	authorLang := b.EffectiveUILang(authorUserID)
 	if inviteeID == 0 {
-		b.notifyUserTextByID(authorUserID, authorUserID, jointTrainingForwardText(label, link), "", 0)
+		b.notifyUserTextByID(authorUserID, authorUserID, jointTrainingForwardText(authorLang, label, link), "", 0)
 		return
 	}
 	if b.api == nil {
 		return
 	}
-	m := tgbotapi.NewMessage(inviteeID, jointTrainingInviteText(authorName, gender, text))
+	inviteeLang := b.EffectiveUILang(inviteeID)
+	m := tgbotapi.NewMessage(inviteeID, jointTrainingInviteText(inviteeLang, socialNameOr(authorName, inviteeLang), gender, text))
 	m.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(tgbotapi.NewInlineKeyboardButtonURL("Join the pack", link)),
+		tgbotapi.NewInlineKeyboardRow(tgbotapi.NewInlineKeyboardButtonURL(jointTrainingJoinButton(inviteeLang), link)),
 	)
 	if _, err := b.api.Send(m); err != nil {
 		b.logger.Warnf("joint training invite DM user=%d: %v", inviteeID, err)
-		b.notifyUserTextByID(authorUserID, authorUserID, jointTrainingForwardText(label, link), "", 0)
+		b.notifyUserTextByID(authorUserID, authorUserID, jointTrainingForwardText(authorLang, label, link), "", 0)
 		return
 	}
-	b.notifyUserTextByID(authorUserID, authorUserID,
-		"🤝 Sent "+label+" a pack invite for joint workouts.", "", 0)
+	b.notifyUserTextByID(authorUserID, authorUserID, jointTrainingSentText(authorLang, label), "", 0)
 }
 
 func jointTrainingMentionLabel(token string) string {

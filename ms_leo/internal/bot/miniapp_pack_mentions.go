@@ -110,15 +110,8 @@ func (b *Bot) notifyPackMemberMentions(
 	if cn == "" {
 		cn = "Pack member"
 	}
-	preview := truncateForDM(text, 160)
-	if strings.TrimSpace(preview) == "" {
-		preview = "📷 Photo"
-	}
-	place := packMentionPlace(surface)
-	openFooter := "Open the mini app → Pack tab."
-	if surface == packMentionPackGroupMessage {
-		openFooter = "Open the mini app → Pack → Chat."
-	}
+	gender, _, _ := b.GetMiniappUserProfileJSONForAPI(authorUserID, packChatID)
+	rawPreview := truncateForDM(text, 160)
 
 	for _, uid := range mentioned {
 		if uid == 0 || uid == authorUserID {
@@ -143,7 +136,8 @@ func (b *Bot) notifyPackMemberMentions(
 				}
 			}
 		}
-		body := "📣 " + cn + " mentioned you " + place + " in the pack.\n\n\"" + preview + "\"\n\n" + openFooter
+		lang := b.EffectiveUILang(uid)
+		body := packMentionText(lang, socialNameOr(cn, lang), gender, surface, socialPreviewOr(rawPreview, lang))
 		b.sendTrainingThreadCommentDM(uid, body)
 	}
 }

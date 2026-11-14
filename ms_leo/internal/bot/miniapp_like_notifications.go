@@ -67,7 +67,7 @@ func (b *Bot) notifyFeedPostLiked(packChatID, likerUserID int64, likerName strin
 	if !ok || authorID == 0 || authorID == likerUserID {
 		return
 	}
-	b.deliverFeedLikeDM(packChatID, authorID, likerUserID, likerName, "post", userMessageID, emoji, "your workout report")
+	b.deliverFeedLikeDM(packChatID, authorID, likerUserID, likerName, "post", userMessageID, emoji)
 }
 
 // notifyFeedCommentLiked — DM автору комментария, когда его реплику в треде лайкнули.
@@ -79,11 +79,11 @@ func (b *Bot) notifyFeedCommentLiked(packChatID, likerUserID int64, likerName st
 	if authorID == 0 || authorID == likerUserID {
 		return
 	}
-	b.deliverFeedLikeDM(packChatID, authorID, likerUserID, likerName, "comment", threadReplyID, "❤️", "your comment")
+	b.deliverFeedLikeDM(packChatID, authorID, likerUserID, likerName, "comment", threadReplyID, "❤️")
 }
 
 // deliverFeedLikeDM — общая доставка: проверяет подписку получателя, дедуп и шлёт личку.
-func (b *Bot) deliverFeedLikeDM(packChatID, recipientID, likerUserID int64, likerName, targetKind string, targetID int64, emoji, what string) {
+func (b *Bot) deliverFeedLikeDM(packChatID, recipientID, likerUserID int64, likerName, targetKind string, targetID int64, emoji string) {
 	enabled, err := b.db.IsLikeNotificationEnabled(recipientID, packChatID)
 	if err != nil {
 		b.logger.Warnf("feed like notify: settings: %v", err)
@@ -100,17 +100,14 @@ func (b *Bot) deliverFeedLikeDM(packChatID, recipientID, likerUserID int64, like
 	if !firstTime {
 		return
 	}
-	name := strings.TrimSpace(likerName)
-	if name == "" {
-		name = "Pack member"
-	}
+	lang := b.EffectiveUILang(recipientID)
+	name := socialNameOr(likerName, lang)
 	gender, _, _ := b.GetMiniappUserProfileJSONForAPI(likerUserID, packChatID)
-	verb := likeVerbForGender(gender)
 	badge := strings.TrimSpace(emoji)
 	if badge == "" {
 		badge = "❤️"
 	}
-	body := badge + " " + name + " " + verb + " " + what + " in the pack.\n\nOpen the mini app → Pack tab."
+	body := feedLikeText(lang, badge, name, gender, targetKind)
 	// Пуш в inbox мини-аппа (доедет на новые устройства) + Telegram-личка, как «мудрость дня».
 	b.miniappPersonalPush(recipientID, body)
 	b.sendTrainingThreadCommentDM(recipientID, body)
