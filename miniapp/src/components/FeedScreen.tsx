@@ -24,6 +24,8 @@ import {
   isFeedMessage,
   packMessageCommentReplyToId,
   mapFeedThreadQuote,
+  isLeoName,
+  leoDisplayName,
   type PackFeedItemDTO,
   type PackFeedThreadReplyDTO,
 } from "../lib/packFeed";
@@ -2020,7 +2022,7 @@ export function FeedScreen({
                 // Объявление от Лео (и закреплённое — тоже голос Лео): полный текст без сворачивания.
                 const isLeoAnnouncementPost =
                   it.type === "admin_post" &&
-                  ((it.username || "").trim() === "Leo" || isPinnedAnnouncement);
+                  (isLeoName(it.username) || isPinnedAnnouncement);
                 // Мудрость дня читают целиком: это короткий текст дня, и «Показать
                 // полностью» на нём — лишний шаг ради двух строк.
                 const alwaysFullComment =
@@ -2028,7 +2030,7 @@ export function FeedScreen({
                 // Закреп — исключительно голос Лео: единый аватар/имя независимо от автора поста.
                 const pinnedLeoProps: Partial<ActivityCardProps> = isPinnedAnnouncement
                   ? {
-                      name: "Leo",
+                      name: leoDisplayName(lang),
                       avatar: LEO_AVATAR_URL,
                       activity: t("meta.announcement"),
                       emoji: "🐆",
@@ -2057,7 +2059,7 @@ export function FeedScreen({
                   it.type === "inactive_notice";
                 const slotClass = `feed__card-slot${it.is_you && !isLeoSystemFeed ? " feed__card-slot--mine" : " feed__card-slot--them"}`;
                 const threadReplies = (it.thread ?? []).map((tr) => {
-                  const rq = mapFeedThreadQuote(tr);
+                  const rq = mapFeedThreadQuote(tr, lang);
                   return {
                     id: tr.id,
                     author: (tr.username || "").trim() || `Member ${tr.user_id}`,

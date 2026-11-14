@@ -189,11 +189,11 @@ function ThreadLikeButton({
   voters?: VoterDTO[] | string[];
   onToggle: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const anchorRef = useRef<HTMLSpanElement>(null);
   const { open, setOpen, style, popRef } = useLikersPopover(anchorRef);
   const hasVoters = Array.isArray(voters) && voters.length > 0;
-  const groups: LikerGroup[] = hasVoters ? [{ emoji: "❤️", voters: votersToLikers(voters) }] : [];
+  const groups: LikerGroup[] = hasVoters ? [{ emoji: "❤️", voters: votersToLikers(voters, lang) }] : [];
   const press = useChipPress(onToggle, hasVoters ? () => setOpen(true) : undefined);
   return (
     <span className="act-card__thread-like-wrap" ref={anchorRef}>
@@ -212,7 +212,7 @@ export function TrainingReactionsBar({
   reactions: { emoji: string; count: number; me: boolean; voters?: VoterDTO[] | string[] }[];
   onReactionClick?: (emoji: string) => void;
 }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const rowRef = useRef<HTMLDivElement>(null);
   const moreRef = useRef<HTMLDivElement>(null);
   const [visibleCount, setVisibleCount] = useState(reactions.length);
@@ -223,7 +223,7 @@ export function TrainingReactionsBar({
   // Группы «кто отреагировал»: только эмодзи с реальными голосами.
   const likerGroups: LikerGroup[] = reactions
     .filter((r) => r.count > 0 && Array.isArray(r.voters) && r.voters.length > 0)
-    .map((r) => ({ emoji: r.emoji, voters: votersToLikers(r.voters) }));
+    .map((r) => ({ emoji: r.emoji, voters: votersToLikers(r.voters, lang) }));
   const hasLikers = likerGroups.length > 0;
 
   useLayoutEffect(() => {
@@ -1079,7 +1079,7 @@ export function ActivityCard({
                       {threadReplies.map((tr) => {
                         const leo = Boolean(tr.isLeo);
                         const adminVoice = Boolean(tr.isAdmin);
-                          const displayAuthor = leo ? "Leo" : adminVoice ? "Admin" : tr.isYou ? t("card.you") : tr.author;
+                          const displayAuthor = leo ? t("leo.name") : adminVoice ? "Admin" : tr.isYou ? t("card.you") : tr.author;
                         // Атрибуция «(имя · админ)» приходит ТОЛЬКО админам — юзеры её не видят.
                         const attribution = tr.adminName
                           ? leo
@@ -1167,7 +1167,7 @@ export function ActivityCard({
                                   ((tr.replyTo.text || "").trim() !== "" || (tr.replyTo.author || "").trim() !== "") && (
                                     <div className="act-card__thread-quote" aria-label={t("card.replyToMsg")}>
                                       <span className="act-card__thread-quote-author muted">
-                                        {tr.replyTo.isLeo ? "Leo" : tr.replyTo.isAdmin ? "Admin" : tr.replyTo.author}
+                                        {tr.replyTo.isLeo ? t("leo.name") : tr.replyTo.isAdmin ? "Admin" : tr.replyTo.author}
                                       </span>
                                       {(tr.replyTo.text || "").trim() !== "" && (
                                         <p className="act-card__thread-quote-text">{(tr.replyTo.text || "").trim()}</p>

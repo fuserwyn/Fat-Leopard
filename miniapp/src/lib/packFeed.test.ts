@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildFeedPostTextForSave,
   dtoToCard,
+  isLeoName,
+  leoDisplayName,
   extractEditableFeedPostText,
   extractTrainingDoneKinds,
   feedItemKey,
@@ -281,5 +283,41 @@ describe("pinned / sort", () => {
     ];
     const sorted = sortPackFeedItemsDesc(items);
     expect(sorted.map((x) => x.id)).toEqual([3, 1, 2]);
+  });
+});
+
+describe("Leo name localization", () => {
+  it("leoDisplayName: Лео in Russian, Leo in English", () => {
+    expect(leoDisplayName("ru")).toBe("Лео");
+    expect(leoDisplayName("en")).toBe("Leo");
+  });
+
+  it("isLeoName recognises both server spellings", () => {
+    expect(isLeoName("Leo")).toBe(true);
+    expect(isLeoName(" leo ")).toBe(true);
+    expect(isLeoName("Лео")).toBe(true);
+    expect(isLeoName("Leon")).toBe(false);
+    expect(isLeoName(undefined)).toBe(false);
+  });
+
+  it("dtoToCard shows Лео in Russian UI", () => {
+    const card = dtoToCard(item({ id: 10, type: "pack_roar", text: "Рык", username: "Leo", user_id: 0 }), "ru");
+    expect(card.name).toBe("Лео");
+    const post = dtoToCard(item({ id: 11, type: "admin_post", text: "Новость", username: "Leo", user_id: 0 }), "ru");
+    expect(post.name).toBe("Лео");
+    const postEn = dtoToCard(item({ id: 12, type: "admin_post", text: "News", username: "Лео", user_id: 0 }), "en");
+    expect(postEn.name).toBe("Leo");
+  });
+
+  it("mapFeedThreadQuote and votersToLikers localize Leo", () => {
+    expect(
+      mapFeedThreadQuote({ user_id: 3, reply_to_id: 77, reply_to_is_leo: true, reply_to_text: "" }, "ru")?.author,
+    ).toBe("Лео");
+    expect(votersToLikers(["Leo", "Аня"], "ru")).toEqual([
+      { name: "Лео", photoUrl: expect.stringMatching(/leo-avatar\.png$/) },
+      { name: "Аня", photoUrl: undefined },
+    ]);
+    expect(votersToLikers([{ name: "Leo" }], "ru")[0].name).toBe("Лео");
+    expect(votersToLikers([{ name: "Аня" }], "ru")[0].name).toBe("Аня");
   });
 });

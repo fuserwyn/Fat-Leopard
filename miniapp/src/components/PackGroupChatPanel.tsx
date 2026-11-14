@@ -14,6 +14,7 @@ import { createPortal } from "react-dom";
 import { formatChatTime } from "../lib/timeAgo";
 import { getStoredUILang } from "../lib/uiLang";
 import { useI18n } from "../lib/I18nContext";
+import type { UILang } from "../lib/i18n";
 import {
   createChatScrollScheduler,
   isChatLogNearBottom,
@@ -27,6 +28,8 @@ import {
   optimisticTogglePackFeedReaction,
   TRAINING_FEED_APPROVING_EMOJIS,
   votersToLikers,
+  isLeoName,
+  leoDisplayName,
   resolveFeedAvatarUrl,
   resolveTrainingPhotoUrl,
   type PackFeedReactionDTO,
@@ -67,11 +70,12 @@ function PackMessageReactions({
   reactions: ChatReaction[];
   onReact: (emoji: string) => void;
 }) {
+  const { lang } = useI18n();
   const anchorRef = useRef<HTMLDivElement>(null);
   const { open, setOpen, style, popRef } = useLikersPopover(anchorRef);
   const groups: LikerGroup[] = reactions
     .filter((r) => r.count > 0 && Array.isArray(r.voters) && r.voters.length > 0)
-    .map((r) => ({ emoji: r.emoji, voters: votersToLikers(r.voters) }));
+    .map((r) => ({ emoji: r.emoji, voters: votersToLikers(r.voters, lang) }));
   const hasLikers = groups.length > 0;
   const openLikers = () => {
     if (hasLikers) setOpen(true);
@@ -426,11 +430,12 @@ function highlightSearch(text: string, query: string): ReactNode {
 function resolveReplyQuote(
   m: PackGroupMessage,
   byId: Map<number, PackGroupMessage>,
+  lang: UILang = "en",
 ): { author: string; text: string; parentId: number } | null {
   const parentId = m.reply_to_id ?? 0;
   if (parentId <= 0) return null;
 
-  const serverAuthor = m.reply_to_is_leo ? "Leo" : (m.reply_to_username || "").trim();
+  const serverAuthor = m.reply_to_is_leo ? leoDisplayName(lang) : (m.reply_to_username || "").trim();
   const serverText = (m.reply_to_text || "").trim();
   if (serverAuthor !== "" || serverText !== "") {
     return { author: serverAuthor || "Message", text: serverText, parentId };
@@ -439,7 +444,7 @@ function resolveReplyQuote(
   const parent = byId.get(parentId);
   if (parent) {
     return {
-      author: parent.is_leo ? "Leo" : parent.username,
+      author: parent.is_leo ? leoDisplayName(lang) : parent.username,
       text: excerptText(parent.text),
       parentId,
     };
@@ -807,6 +812,7 @@ export function PackGroupChatPanel({
 
     const replyToId = replyIntent?.replyToMessageId ?? 0;
     const replyLabel = replyIntent?.authorLabel ?? "";
+    const replyIsLeo = isLeoName(replyLabel);
     const replyExcerpt = replyIntent?.excerpt ?? "";
     const sentPhoto = photo;
     const localPhotoUrl = photoPreview;
@@ -836,9 +842,9 @@ export function PackGroupChatPanel({
       };
       if (replyToId > 0) {
         optimistic.reply_to_id = replyToId;
-        optimistic.reply_to_username = replyLabel === "Leo" ? "" : replyLabel;
+        optimistic.reply_to_username = replyIsLeo ? "" : replyLabel;
         optimistic.reply_to_text = replyExcerpt;
-        optimistic.reply_to_is_leo = replyLabel === "Leo";
+        optimistic.reply_to_is_leo = replyIsLeo;
       }
       return [...prev, optimistic];
     });
@@ -937,12 +943,12 @@ export function PackGroupChatPanel({
   );
 
   const startReply = useCallback((m: PackGroupMessage) => {
-    const authorLabel = m.is_leo ? "Leo" : m.username;
+    const authorLabel = m.is_leo ? leoDisplayName(lang) : m.username;
     const excerpt = m.text.length > 100 ? `${m.text.slice(0, 99).trim()}…` : m.text.trim();
     setEditIntent(null);
     setReplyIntent({ replyToMessageId: m.id, authorLabel, excerpt });
     window.setTimeout(() => inputRef.current?.focus(), 80);
-  }, []);
+  }, [lang]);
 
   const startEdit = useCallback((m: PackGroupMessage) => {
     setReplyIntent(null);
@@ -1216,7 +1222,7 @@ export function PackGroupChatPanel({
                       >
                         <span className="packroom__search-result-head">
                           <span className="packroom__search-result-author">
-                            {m.is_leo ? "Leo" : m.username || "Member"}
+                            {m.is_leo ? leoDisplayName(lang) : m.username || "Member"}
                           </span>
                           <span className="packroom__search-result-time muted">{formatChatTime(m.created_at, lang)}</span>
                         </span>
@@ -1241,7 +1247,7 @@ export function PackGroupChatPanel({
         <div className="packroom__log-inner">
         {items.map((m) => {
           const mine = !m.is_leo && m.user_id === meId;
-          const replyQuote = resolveReplyQuote(m, itemsById);
+          const replyQuote = resolveReplyQuote(m, itemsById, lang);
           const isReply = replyQuote != null;
           const rowTone = m.is_leo ? "packroom__row--leo" : mine ? "packroom__row--me" : "packroom__row--oth";
           const isUnread = unreadMessageIds.has(m.id);
@@ -1282,7 +1288,7 @@ export function PackGroupChatPanel({
                 <div className="packroom__content">
                   <div className="packroom__meta-row">
                     <div className="packroom__meta">
-                      {m.is_leo ? "Leo" : m.username} · {formatChatTime(m.created_at, lang)}
+                      {m.is_leo ? leoDisplayName(lang) : m.username} · {formatChatTime(m.created_at, lang)}
                       {m.edited_at ? <span className="packroom__edited"> · edited</span> : null}
                     </div>
                   </div>

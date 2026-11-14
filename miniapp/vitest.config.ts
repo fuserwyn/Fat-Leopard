@@ -19,7 +19,7 @@ export default mergeConfig(
         include: ["src/**/*.{ts,tsx}"],
         exclude: ["src/**/*.test.{ts,tsx}", "src/main.tsx", "src/vite-env.d.ts", "src/lib/testApi.ts", "src/lib/backendContract.ts"],
         reporter: ["text-summary"],
-        thresholds: { lines: 34, functions: 63, statements: 34 },
+        thresholds: { lines: 38, functions: 64, statements: 38 },
       },
     },
   }),
