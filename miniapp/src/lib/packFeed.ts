@@ -123,27 +123,38 @@ export type VoterDTO = { name: string; photo_url?: string };
 /** Элемент списка «кто отреагировал» с отрезолвленным URL аватара. */
 export type VoterLiker = { name: string; photoUrl?: string };
 
+/** Имя Лео в интерфейсе: «Лео» по-русски, «Leo» по-английски. */
+export function leoDisplayName(lang: UILang): string {
+  return i18nT(lang, "leo.name");
+}
+
+/** Имя из данных сервера принадлежит Лео (сервер пишет «Leo», в старых записях — «Лео»). */
+export function isLeoName(name: string | null | undefined): boolean {
+  const n = (name || "").trim();
+  return n === "Лео" || n.toLowerCase() === "leo";
+}
+
 /** URL аватара голосующего: Лео всегда leo-avatar.png (статик мини-аппа, не API-прокси). */
 export function resolveVoterPhotoUrl(v: Pick<VoterDTO, "name" | "photo_url">): string | undefined {
   const name = (v.name || "").trim();
   const raw = (v.photo_url ?? "").trim();
-  if (name === "Leo" || raw.includes("leo-avatar")) {
+  if (isLeoName(name) || raw.includes("leo-avatar")) {
     return LEO_AVATAR_URL;
   }
   if (!raw) return undefined;
   return resolveFeedAvatarUrl(raw);
 }
 
-/** Голоса с бэкенда → список для LikersPopover (имя + photoUrl). */
-export function votersToLikers(voters?: VoterDTO[] | string[]): VoterLiker[] {
+/** Голоса с бэкенда → список для LikersPopover (имя + photoUrl). Имя Лео — на языке интерфейса. */
+export function votersToLikers(voters?: VoterDTO[] | string[], lang: UILang = "en"): VoterLiker[] {
   if (!voters) return [];
   return voters.map((v) => {
     if (typeof v === "string") {
-      const name = v.trim();
-      return { name: v, photoUrl: name === "Leo" || name === "Leo" ? LEO_AVATAR_URL : undefined };
+      const leo = isLeoName(v);
+      return { name: leo ? leoDisplayName(lang) : v, photoUrl: leo ? LEO_AVATAR_URL : undefined };
     }
     return {
-      name: v.name,
+      name: isLeoName(v.name) ? leoDisplayName(lang) : v.name,
       photoUrl: resolveVoterPhotoUrl(v),
     };
   });
@@ -378,6 +389,7 @@ export function mapFeedThreadQuote(
     | "reply_to_is_leo"
     | "reply_to_is_admin"
   >,
+  lang: UILang = "en",
 ): FeedThreadQuote | undefined {
   const replyToId = typeof tr.reply_to_id === "number" ? tr.reply_to_id : 0;
   if (replyToId <= 0) return undefined;
@@ -386,7 +398,7 @@ export function mapFeedThreadQuote(
   const username = (tr.reply_to_username || "").trim();
   const text = (tr.reply_to_text || "").trim();
   if (!isLeo && !isAdmin && text === "" && username === "") return undefined;
-  const author = isLeo ? "Leo" : isAdmin ? "Admin" : username || `Member ${tr.user_id}`;
+  const author = isLeo ? leoDisplayName(lang) : isAdmin ? "Admin" : username || `Member ${tr.user_id}`;
   return { author, text, isLeo, isAdmin };
 }
 
@@ -632,7 +644,7 @@ export function dtoToCard(d: PackFeedItemDTO, lang: UILang = "ru"): ActivityCard
     if (d.type === "pack_removed") leoDetails = newcomer;
     return {
       avatar: LEO_AVATAR_URL,
-      name: "Leo",
+      name: leoDisplayName(lang),
       streak: 0,
       hideStreak: true,
       timeAgo: formatLocalDateTime(d.created_at, lang),
@@ -644,10 +656,10 @@ export function dtoToCard(d: PackFeedItemDTO, lang: UILang = "ru"): ActivityCard
   }
   if (isAdminPost) {
     // Пост может публиковаться от имени Лео (username "Leo") или от имени Админа.
-    const fromLeo = (d.username || "").trim() === "Leo" || (d.username || "").trim() === "Leo";
+    const fromLeo = isLeoName(d.username);
     return {
       avatar: fromLeo ? LEO_AVATAR_URL : "📢",
-      name: fromLeo ? "Leo" : "Admin",
+      name: fromLeo ? leoDisplayName(lang) : "Admin",
       streak: 0,
       hideStreak: true,
       lightTone: true,
