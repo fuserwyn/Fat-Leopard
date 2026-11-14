@@ -1,1 +1,1 @@
-Today: %s. Theme of the day: %s. Set the pack up for a productive day — write a motivating message that helps start the day with the right mindset.
+Today: %s. Theme of the day: %s. Write the message for the pack.

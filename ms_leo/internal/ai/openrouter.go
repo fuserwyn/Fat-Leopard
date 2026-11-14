@@ -397,6 +397,7 @@ func (c *OpenRouterClient) GenerateDailyWisdomLang(lang i18n.Lang) (string, erro
 		systemPrompt += "\n\n" + live.DailyWisdomLangRule
 		systemPrompt += "\nWrite the wisdom in English."
 	}
+	systemPrompt += "\n\n" + dailyWisdomOutputRule
 
 	today := time.Now().Format("2006-01-02")
 	weekday := time.Now().Weekday()
@@ -409,7 +410,15 @@ func (c *OpenRouterClient) GenerateDailyWisdomLang(lang i18n.Lang) (string, erro
 		{Role: "user", Content: userPrompt},
 	}
 
-	return c.Chat(messages, "")
+	raw, err := c.Chat(messages, "")
+	if err != nil {
+		return "", err
+	}
+	clean := CleanDailyWisdom(raw)
+	if clean == "" {
+		return "", fmt.Errorf("daily wisdom: empty after cleanup")
+	}
+	return clean, nil
 }
 
 func wisdomTheme(lang i18n.Lang, weekday time.Weekday) string {
