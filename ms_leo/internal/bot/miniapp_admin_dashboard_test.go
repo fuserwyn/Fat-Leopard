@@ -11,7 +11,7 @@ func TestDashCountDelta(t *testing.T) {
 		delta, trend string
 	}{
 		{0, 0, "", ""},
-		{5, 0, "new", "up"},
+		{5, 0, "новое", "up"},
 		{15, 10, "+50%", "up"},
 		{5, 10, "−50%", "down"},
 		{10, 10, "0%", "flat"},
@@ -24,13 +24,13 @@ func TestDashCountDelta(t *testing.T) {
 }
 
 func TestDashRateDelta(t *testing.T) {
-	if d, tr := dashRateDelta(1, 2, 1, 4); d != "+25.0 pp" || tr != "up" {
+	if d, tr := dashRateDelta(1, 2, 1, 4); d != "+25.0 п.п." || tr != "up" {
 		t.Errorf("рост: %q %q", d, tr)
 	}
-	if d, tr := dashRateDelta(1, 4, 1, 2); d != "−25.0 pp" || tr != "down" {
+	if d, tr := dashRateDelta(1, 4, 1, 2); d != "−25.0 п.п." || tr != "down" {
 		t.Errorf("падение: %q %q", d, tr)
 	}
-	if d, tr := dashRateDelta(1, 2, 2, 4); d != "0.0 pp" || tr != "flat" {
+	if d, tr := dashRateDelta(1, 2, 2, 4); d != "0.0 п.п." || tr != "flat" {
 		t.Errorf("без изменений: %q %q", d, tr)
 	}
 	if d, _ := dashRateDelta(1, 2, 0, 0); d != "" {

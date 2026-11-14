@@ -176,26 +176,26 @@ func appendTrackerStep(t *database.TrackerTask, step string) {
 func trackerStatusMeta(status, col string) (label, icon, phase string) {
 	col = strings.ToLower(strings.TrimSpace(col))
 	if col == trackerColApprove {
-		return "Approval", "👍", "approve"
+		return "Аппрув", "👍", "approve"
 	}
 	switch strings.ToLower(strings.TrimSpace(status)) {
 	case "running":
-		return "In progress", "🔧", "doing"
+		return "В работе", "🔧", "doing"
 	case "reviewing":
 		return "Review", "👀", "review"
 	case "holding":
 		if col == trackerColTest {
-			return "Test", "🧪", "test"
+			return "Тест", "🧪", "test"
 		}
-		return "Deploy", "🚀", "deploy"
+		return "Сборка", "🚀", "deploy"
 	case "done", "completed":
-		return "Done", "✅", "done"
+		return "Выполнено", "✅", "done"
 	case "canceled", "cancelled":
-		return "Cancelled", "⛔", "canceled"
+		return "Отменено", "⛔", "canceled"
 	case "error":
-		return "Error", "⚠️", "todo"
+		return "Ошибка", "⚠️", "todo"
 	default:
-		return "Waiting", "⏳", "todo"
+		return "Ожидает", "⏳", "todo"
 	}
 }
 
@@ -264,13 +264,13 @@ func trackerQaMeta(status, col string, handed bool) (label, icon string) {
 	}
 	switch {
 	case status == "pass" || col == trackerColDone:
-		return "Accepted", "✅"
+		return "Принято", "✅"
 	case status == "fail":
-		return "Returned", "↩️"
+		return "Вернули", "↩️"
 	case col == trackerColDoing:
-		return "In QA", "🧪"
+		return "В тестировании", "🧪"
 	default:
-		return "Ready for QA", "🧪"
+		return "К тестированию", "🧪"
 	}
 }
 
@@ -498,15 +498,15 @@ func (b *Bot) localTrackerCreate(payload map[string]any, userID int64) (json.Raw
 		SkipTest:   !payloadBoolOr(payload, "test", true),
 		AutoPush:   payloadBoolOr(payload, "auto_push", true),
 		Agent:      normalizeTrackerAgent(payloadString(payload, "agent")),
-		Steps:      []string{"Added to pack board"},
+		Steps:      []string{"Поставлена на доску стаи"},
 	}
 	if needsApproval {
 		t.NeedsApproval = true
 		t.DevColumn = trackerColApprove
 		if isLeo {
-			t.Steps = []string{"Leo task — awaiting approval from all admins"}
+			t.Steps = []string{"Задача от Лео — ждёт аппрува всех админов"}
 			if userID != 0 {
-				t.Steps = append(t.Steps, fmt.Sprintf("Added to board by admin %d", userID))
+				t.Steps = append(t.Steps, fmt.Sprintf("На доску вынес админ %d", userID))
 			}
 		} else {
 			t.Steps = []string{"Ждёт аппрува других админов"}
@@ -556,7 +556,7 @@ func (b *Bot) localTrackerCancel(taskID int64, payload map[string]any) (json.Raw
 	if err := applyTrackerColumn(&t, trackerColCanceled); err != nil {
 		return nil, err
 	}
-	appendTrackerStep(&t, "Cancelled")
+	appendTrackerStep(&t, "Отменена")
 	if err := b.db.SaveTrackerTask(t); err != nil {
 		return nil, err
 	}
@@ -595,12 +595,12 @@ func (b *Bot) localTrackerRestart(taskID int64, payload map[string]any) (json.Ra
 		if err := applyTrackerColumn(&t, trackerColTodo); err != nil {
 			return nil, err
 		}
-		appendTrackerStep(&t, "Restart — waiting for queue")
+		appendTrackerStep(&t, "Перезапуск — ждёт очередь")
 	} else {
 		if err := applyTrackerColumn(&t, trackerColDoing); err != nil {
 			return nil, err
 		}
-		appendTrackerStep(&t, "Restarting task")
+		appendTrackerStep(&t, "Перезапускаем задачу")
 	}
 	if err := b.db.SaveTrackerTask(t); err != nil {
 		return nil, err
@@ -629,10 +629,10 @@ func (b *Bot) localTrackerReschedule(taskID int64, payload map[string]any) (json
 		t.Error = ""
 		if b.trackerPipelineBusy(t.ID) {
 			_ = applyTrackerColumn(&t, trackerColTodo)
-			appendTrackerStep(&t, "Restarting — waiting for queue")
+			appendTrackerStep(&t, "Снова запускаем — ждёт очередь")
 		} else {
 			_ = applyTrackerColumn(&t, trackerColDoing)
-			appendTrackerStep(&t, "Restarting agent")
+			appendTrackerStep(&t, "Снова запускаем агента")
 		}
 		if err := b.db.SaveTrackerTask(t); err != nil {
 			return nil, err
@@ -778,7 +778,7 @@ note — 2–5 предложений, без эмодзи, конкретно: 
 		t.QaColumn = trackerColTodo
 	}
 	t.Result = strings.TrimSpace(strings.TrimSpace(t.Result) + "\n\nAI-тест Лео:\n" + note)
-	appendTrackerStep(&t, "Leo wrote test checklist")
+	appendTrackerStep(&t, "Лео написал чек-лист теста")
 	if t.DevColumn != trackerColTest && t.DevColumn != trackerColDeploy && t.DevColumn != trackerColDone {
 		_ = applyTrackerColumn(&t, trackerColTest)
 	}
@@ -835,10 +835,10 @@ func (b *Bot) localTrackerPrompt(taskID int64, payload map[string]any) (json.Raw
 		}
 	}
 	if promptChanged {
-		appendTrackerStep(&t, "Prompt updated")
+		appendTrackerStep(&t, "Формулировку обновили")
 		if t.DevColumn == trackerColApprove {
 			t.Approvals = nil
-			appendTrackerStep(&t, "Approvals reset after edit")
+			appendTrackerStep(&t, "Аппрувы сброшены после правки")
 		}
 	}
 	if err := b.db.SaveTrackerTask(t); err != nil {
@@ -872,7 +872,7 @@ func (b *Bot) localTrackerShip(taskID int64, payload map[string]any) (json.RawMe
 		return trackerJSON(map[string]any{"ok": true, "skipped": true})
 	}
 	_ = applyTrackerColumn(&t, trackerColDeploy)
-	appendTrackerStep(&t, "To deploy: push after test")
+	appendTrackerStep(&t, "К сборке: пуш после теста")
 	if err := b.db.SaveTrackerTask(t); err != nil {
 		return nil, err
 	}

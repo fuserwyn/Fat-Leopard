@@ -88,19 +88,19 @@ describe("tracker board client", () => {
   it("explains board errors", async () => {
     const api = await load();
     mockFetch(() => ({ status: 403, json: { error: "forbidden" } }));
-    await expect(api.trackerList("i")).rejects.toThrow("No admin rights");
+    await expect(api.trackerList("i")).rejects.toThrow("Нет прав администратора");
     mockFetch(() => ({ status: 503, json: { error: "tracker_not_configured" } }));
-    await expect(api.trackerList("i")).rejects.toThrow("Board unavailable");
+    await expect(api.trackerList("i")).rejects.toThrow("Доска недоступна");
     mockFetch(() => ({ status: 400, json: { error: "admin_error", message: "нужно 2 аппрува, сейчас 1" } }));
     await expect(api.trackerMove("i", 7, "doing")).rejects.toThrow("нужно 2 аппрува, сейчас 1");
     mockFetch(() => ({ status: 400, json: { error: "invalid_action" } }));
-    await expect(api.trackerMove("i", 7, "куда-то")).rejects.toThrow("This action isn't available on the board");
+    await expect(api.trackerMove("i", 7, "куда-то")).rejects.toThrow("Такое действие доске недоступно");
     mockFetch(() => ({ json: { ok: false, error: "admin_error" } }));
-    await expect(api.trackerCreate("i", { when: "сейчас", prompt: "" })).rejects.toThrow("Board rejected the task");
+    await expect(api.trackerCreate("i", { when: "сейчас", prompt: "" })).rejects.toThrow("Доска не приняла задачу");
     mockFetch(() => ({ status: 500 }));
-    await expect(api.trackerList("i")).rejects.toThrow("Error 500");
+    await expect(api.trackerList("i")).rejects.toThrow("Ошибка 500");
     const noApi = await importWithApi(() => import("./trackerApi"), "");
-    await expect(noApi.trackerList("i")).rejects.toThrow("API not configured");
+    await expect(noApi.trackerList("i")).rejects.toThrow("API не настроен");
   });
 
   it("builds avatar links and loads author names", async () => {

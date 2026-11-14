@@ -12,7 +12,7 @@ const botSupportCallbackStart = "bot_support_start"
 const botSupportCallbackCancel = "bot_support_cancel"
 
 const botSupportReplyButtonText = "💬 Support"
-const botAdminReplyButtonText = "⚙️ Admin panel"
+const botAdminReplyButtonText = "⚙️ Админ-панель"
 
 func (b *Bot) botSupportAvailable() bool {
 	return b != nil && b.config != nil && b.config.MonetizedChatID != 0 && b.db != nil
@@ -225,7 +225,9 @@ func isSupportReplyButtonText(text string) bool {
 func isAdminReplyButtonText(text string) bool {
 	t := strings.TrimSpace(text)
 	switch t {
-	case botAdminReplyButtonText, "⚙️ Admin", "Admin panel", "Admin":
+	case botAdminReplyButtonText, "⚙️ Админка", "Админ-панель", "Админка",
+		// Кнопка, которую успели выдать пока админка была на английском.
+		"⚙️ Admin panel", "⚙️ Admin", "Admin panel", "Admin":
 		return true
 	default:
 		return false

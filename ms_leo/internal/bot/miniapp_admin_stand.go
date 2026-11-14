@@ -13,11 +13,11 @@ import (
 )
 
 // Тестовый стенд (окружение leo-lab), который держит эксперименты Лео, стоит
-// денег, пока крутится. Управлять им из Railway неудобно: admin и так сидит в
+// денег, пока крутится. Управлять им из Railway неудобно: админ и так сидит в
 // мини-аппе прода. Поэтому здесь — статус и две кнопки.
 //
 // Выключение — это остановка приложений стенда, а не удаление окружения: базы
-// и тома остаются на месте, поэтому включение restores стенд с теми же
+// и тома остаются на месте, поэтому включение возвращает стенд с теми же
 // данными. Базы не трогаем сознательно: остановленный Postgres — это риск
 // потерять данные ради пары центов.
 
@@ -43,7 +43,7 @@ type MiniappStandState struct {
 	Services   []MiniappStandService `json:"services"`
 	// Для прогресса: сколько сервисов уже в нужном состоянии. Переключение не
 	// мгновенное — контейнеры гаснут и поднимаются по одному, и без этих чисел
-	// admin видит зависшую кнопку и жмёт её повторно.
+	// админ видит зависшую кнопку и жмёт её повторно.
 	Total int  `json:"total"`
 	Up    int  `json:"up"`
 	Busy  bool `json:"busy"`
@@ -58,7 +58,7 @@ func (b *Bot) MiniappLabStand(
 	if _, err := b.requireMiniappAdmin(viewerUserID, initD); err != nil {
 		return out, err
 	}
-	// Стенд — это деньги и инфраструктура, поэтому только настоящие adminы.
+	// Стенд — это деньги и инфраструктура, поэтому только настоящие админы.
 	if b.config == nil || !b.config.IsAdminTelegramUser(viewerUserID) {
 		return out, ErrPackFeedForbidden
 	}
@@ -106,24 +106,24 @@ func (b *Bot) MiniappLabStand(
 	return out, nil
 }
 
-// announceStand — сказать adminам, что стенд включили или выключили.
+// announceStand — сказать админам, что стенд включили или выключили.
 //
 // Стенд общий на троих: тот, кто его не трогал, должен понимать, почему он вдруг
 // не отвечает или, наоборот, снова тратит ресурсы.
 func (b *Bot) announceStand(on bool, who string) {
 	who = strings.TrimSpace(who)
 	if who == "" {
-		who = "admin"
+		who = "админ"
 	}
-	text := fmt.Sprintf("🧪 Lab stand turned off (%s).\n\n"+
-		"Containers stopped, auto-deploy off — pushes to the stand branch no longer "+
-		"start it. Data is on volumes; turning back on restores the stand.", who)
+	text := fmt.Sprintf("🧪 Тестовый стенд выключен (%s).\n\n"+
+		"Контейнеры остановлены, автосборка снята — пуш в ветку стенда его больше "+
+		"не поднимет. Данные лежат на томах, включение вернёт стенд как был.", who)
 	if on {
-		text = fmt.Sprintf("🧪 Lab stand turned on (%s).\n\n"+
-			"Services are starting; this takes a couple of minutes.", who)
+		text = fmt.Sprintf("🧪 Тестовый стенд включён (%s).\n\n"+
+			"Сервисы поднимаются, это занимает пару минут.", who)
 	}
 	if err := b.NotifyTrackerResult(0, text); err != nil {
-		b.logger.Warnf("стенд: не сообщить adminам: %v", err)
+		b.logger.Warnf("стенд: не сообщить админам: %v", err)
 	}
 }
 
@@ -240,7 +240,7 @@ func (b *Bot) standServices() ([]MiniappStandService, error) {
 		}
 		// Берём свежий значимый выкат: SKIPPED — это пуш, который сервиса не
 		// касался, и о состоянии контейнера он ничего не говорит.
-		status := "no deployment"
+		status := "нет деплоя"
 		for _, e := range parsed.Deployments.Edges {
 			if e.Node.Status == "SKIPPED" {
 				continue
@@ -271,7 +271,7 @@ func (b *Bot) railwayCall(query string, variables map[string]any) (json.RawMessa
 	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(b.config.RailwayToken))
 	res, err := (&http.Client{Timeout: standTimeout}).Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("Railway unavailable: %w", err)
+		return nil, fmt.Errorf("Railway недоступен: %w", err)
 	}
 	defer res.Body.Close()
 	raw, err := io.ReadAll(io.LimitReader(res.Body, 1<<20))
@@ -279,7 +279,7 @@ func (b *Bot) railwayCall(query string, variables map[string]any) (json.RawMessa
 		return nil, err
 	}
 	if res.StatusCode >= 400 {
-		return nil, fmt.Errorf("Railway returned %d", res.StatusCode)
+		return nil, fmt.Errorf("Railway ответил %d", res.StatusCode)
 	}
 	var envelope struct {
 		Data   json.RawMessage `json:"data"`

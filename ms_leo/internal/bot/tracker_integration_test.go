@@ -129,7 +129,7 @@ func TestTrackerApprovalLifecycle(t *testing.T) {
 		}
 	}
 
-	if _, err := b.trackerRequest("approve", task.ID, map[string]any{"action": "approve"}, trAdminA, "a"); err == nil || !strings.Contains(err.Error(), "author cannot approve") {
+	if _, err := b.trackerRequest("approve", task.ID, map[string]any{"action": "approve"}, trAdminA, "a"); err == nil || !strings.Contains(err.Error(), "автор не может") {
 		t.Errorf("автор не одобряет свою задачу: %v", err)
 	}
 	view := boardCall(t, b, "approve", task.ID, map[string]any{"action": "approve"}, trAdminB)["task"].(map[string]any)
@@ -149,7 +149,7 @@ func TestTrackerApprovalLifecycle(t *testing.T) {
 	if len(got.Approvals) != 2 || got.DevColumn != trackerColDoing {
 		t.Fatalf("два голоса — в работу: колонка %s, голоса %v", got.DevColumn, got.Approvals)
 	}
-	if !trackerHasStep(got, "Two approvals — into doing") {
+	if !trackerHasStep(got, "Два аппрува — в работу") {
 		t.Errorf("шаги карточки: %v", got.Steps)
 	}
 	_ = tracker
@@ -169,7 +169,7 @@ func TestTrackerApprovalRejectCancelsCard(t *testing.T) {
 		t.Fatalf("после отказа карточка отменена: %s", got.DevColumn)
 	}
 	texts := tg.textsTo(trAdminA)
-	if len(texts) != 1 || !strings.Contains(texts[0], "cancelled after approval") || !strings.Contains(texts[0], "слишком дорого") {
+	if len(texts) != 1 || !strings.Contains(texts[0], "отменена") || !strings.Contains(texts[0], "слишком дорого") {
 		t.Errorf("автору — причина отказа: %q", texts)
 	}
 	if _, err := b.trackerRequest("approve", task.ID, map[string]any{"action": "approve"}, trAdminC, "c"); err == nil {
@@ -201,7 +201,7 @@ func TestTrackerLeoVotesAfterADay(t *testing.T) {
 	if len(got.Approvals) != 2 || got.Approvals[1] != database.TrackerLeoAuthorID || got.DevColumn != trackerColDoing {
 		t.Fatalf("голос «за»: голоса %v, колонка %s", got.Approvals, got.DevColumn)
 	}
-	if !strings.Contains(strings.Join(got.Steps, "\n"), "Approval from Leo: Понятная и полезная задача") {
+	if !strings.Contains(strings.Join(got.Steps, "\n"), "Аппрув от Лео: Понятная и полезная задача") {
 		t.Errorf("причина голоса в истории: %v", got.Steps)
 	}
 	if tracker.askCount() != 1 || !strings.Contains(tracker.asked[0], "Показывать стрик друга") {
@@ -222,7 +222,7 @@ func TestTrackerLeoVotesAfterADay(t *testing.T) {
 	if len(got.Approvals) != 1 || got.DevColumn != trackerColApprove {
 		t.Fatalf("голос «против» карточку не двигает: %v %s", got.Approvals, got.DevColumn)
 	}
-	if !trackerHasStep(got, "Leo voted no: Формулировка расплывчата") {
+	if !trackerHasStep(got, "Лео не поддержал: Формулировка расплывчата") {
 		t.Errorf("причина отказа в истории: %v", got.Steps)
 	}
 	if tracker.askCount() != 2 {
@@ -318,7 +318,7 @@ func TestTrackerApprovalExpiresAfterFiveDays(t *testing.T) {
 		t.Errorf("карточку с голосом не отменяем: %s", got.DevColumn)
 	}
 	texts := tg.textsTo(trAdminA)
-	if len(texts) != 1 || !strings.Contains(texts[0], "auto-cancelled") {
+	if len(texts) != 1 || !strings.Contains(texts[0], "отменена автоматически") {
 		t.Errorf("автору — одно уведомление об отмене: %q", texts)
 	}
 }
@@ -345,7 +345,7 @@ func TestTrackerApprovalReminder(t *testing.T) {
 		if len(texts) != want {
 			t.Errorf("напоминаний админу %d: %d, ждали %d", id, len(texts), want)
 		}
-		if want == 1 && !strings.Contains(texts[0], "Reminder") {
+		if want == 1 && !strings.Contains(texts[0], "Напоминание") {
 			t.Errorf("текст напоминания: %q", texts[0])
 		}
 	}
@@ -393,7 +393,7 @@ func TestTrackerFailedTestGoesBackToAgentAutomatically(t *testing.T) {
 		if strings.Count(got.Result, "undefined: initdata") != 1 || !strings.Contains(got.Result, trackerTestFailedMarker) {
 			t.Fatalf("попытка %d: причина отказа должна дойти до агента ровно один раз: %q", attempt, got.Result)
 		}
-		if prompt := trackerAgentPrompt(got, "doing"); !strings.Contains(prompt, "pre-ship checks rejected it") || !strings.Contains(prompt, "undefined: initdata") {
+		if prompt := trackerAgentPrompt(got, "doing"); !strings.Contains(prompt, "проверка перед выкатом его не приняла") || !strings.Contains(prompt, "undefined: initdata") {
 			t.Fatalf("попытка %d: задание агенту на доработку: %q", attempt, prompt)
 		}
 		eventually(t, "агент запущен заново", func() bool { return queued() > before })

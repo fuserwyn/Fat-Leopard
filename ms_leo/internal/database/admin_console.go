@@ -300,7 +300,7 @@ type AdminPaymentSum struct {
 	AmountMinor int64  `json:"amount_minor"`
 }
 
-// AdminMoneyKindSum — завершённые оплаты: покупка access или донат, по валюте.
+// AdminMoneyKindSum — завершённые оплаты: покупка доступа или донат, по валюте.
 type AdminMoneyKindSum struct {
 	Kind        string // access | donation
 	Currency    string
@@ -319,7 +319,7 @@ func adminNormalizeMoneyCurrency(cur string) string {
 	return c
 }
 
-// AdminSumCompletedPayments — оплаченные заявки access с момента since, по валютам.
+// AdminSumCompletedPayments — оплаченные заявки доступа с момента since, по валютам.
 func (d *Database) AdminSumCompletedPayments(packChatID int64, since time.Time) ([]AdminPaymentSum, error) {
 	rows, err := d.adminSumCompletedPaywall(packChatID, since, true)
 	if err != nil {
@@ -336,7 +336,7 @@ func (d *Database) AdminSumCompletedPayments(packChatID int64, since time.Time) 
 	return out, nil
 }
 
-// AdminSumCompletedMoney — завершённые покупки access и донаты, по виду и валюте.
+// AdminSumCompletedMoney — завершённые покупки доступа и донаты, по виду и валюте.
 // useSince=false — за всё время; иначе с completed_at/created_at >= since.
 func (d *Database) AdminSumCompletedMoney(packChatID int64, since time.Time, useSince bool) ([]AdminMoneyKindSum, error) {
 	if d == nil || d.db == nil {
@@ -486,7 +486,7 @@ func NormalizeAdminMoneyKind(kind string) string {
 	}
 }
 
-// adminMoneyUnionSQL — заявки access и донаты одним набором строк.
+// adminMoneyUnionSQL — заявки доступа и донаты одним набором строк.
 // $1 — чат стаи (monetized_chat_id); ник и имя подтягиваются по нему же.
 const adminMoneyUnionSQL = `
 			SELECT 'access' AS kind, par.id, par.user_id,
@@ -534,7 +534,7 @@ const adminMoneyFilterSQL = `
 		  AND ($5::timestamptz IS NULL OR u.created_at >= $5::timestamptz)
 		  AND ($6::timestamptz IS NULL OR u.created_at < $6::timestamptz)`
 
-// CountMoneyPaymentsForAdmin — все заявки access и донаты.
+// CountMoneyPaymentsForAdmin — все заявки доступа и донаты.
 func (d *Database) CountMoneyPaymentsForAdmin(packChatID int64) (int, error) {
 	return d.CountMoneyPaymentsForAdminFiltered(packChatID, AdminMoneyFilter{})
 }

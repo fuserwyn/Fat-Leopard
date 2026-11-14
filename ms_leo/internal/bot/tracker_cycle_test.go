@@ -52,7 +52,7 @@ func TestAdminRefreshClaimsDueTask(t *testing.T) {
 			false, false, false, true,
 			false, []byte("[]"),
 			nil, nil,
-			"", "", []byte(`["Started on schedule"]`), int64(42),
+			"", "", []byte(`["Взяли в работу по расписанию"]`), int64(42),
 			now, now, now, "auto", false, false, 0,
 		))
 

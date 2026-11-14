@@ -77,12 +77,12 @@ type AdminTabDef = {
 };
 
 const ADMIN_TABS: AdminTabDef[] = [
-  { key: "community", icon: "👥", label: "Community" },
-  { key: "leo", avatar: LEO_AVATAR_URL, label: "Leo" },
-  { key: "system", icon: "⚙️", label: "System" },
-  { key: "data", icon: "🗄", label: "Data" },
-  { key: "resources", icon: "💵", label: "Resources" },
-  { key: "tracker", icon: "🗂", label: "Tracker" },
+  { key: "community", icon: "👥", label: "Сообщество" },
+  { key: "leo", avatar: LEO_AVATAR_URL, label: "Лео" },
+  { key: "system", icon: "⚙️", label: "Система" },
+  { key: "data", icon: "🗄", label: "Данные" },
+  { key: "resources", icon: "💵", label: "Ресурсы" },
+  { key: "tracker", icon: "🗂", label: "Трекер" },
 ];
 
 type Props = {
@@ -118,28 +118,28 @@ function userLabel(name?: string, username?: string, id?: number) {
   if (dn) return dn;
   const un = username?.trim();
   if (un) return un.startsWith("@") ? un : `@${un}`;
-  return id ? `id ${id}` : "user";
+  return id ? `id ${id}` : "пользователь";
 }
 
 function reportKind(type: string) {
   switch (type) {
     case "thread_reply":
-      return "comment";
+      return "комментарий";
     case "pack_group_message":
-      return "pack chat";
+      return "чат стаи";
     default:
-      return "post";
+      return "пост";
   }
 }
 
 function hiddenKind(kind: string) {
   switch (kind) {
     case "thread_reply":
-      return "comment";
+      return "комментарий";
     case "pack_group_message":
-      return "pack chat";
+      return "чат стаи";
     default:
-      return "post";
+      return "пост";
   }
 }
 
@@ -215,7 +215,7 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
       const j = await fetchAdminOverview(initData);
       setOverview(j.overview);
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : "Couldn't load admin");
+      showAlert(e instanceof Error ? e.message : "Не удалось загрузить админку");
     } finally {
       setLoading(false);
     }
@@ -231,7 +231,7 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
       const j = await fetchAdminSupportInbox(initData);
       setConvs(j.conversations ?? []);
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : "Couldn't load support");
+      showAlert(e instanceof Error ? e.message : "Не удалось загрузить поддержку");
     }
   };
 
@@ -244,7 +244,7 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
       const j = await fetchAdminSupportThread(initData, c.user_id);
       setThread(j.messages ?? []);
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : "Couldn't open thread");
+      showAlert(e instanceof Error ? e.message : "Не удалось открыть диалог");
     }
   };
 
@@ -291,7 +291,7 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
       setThread(j.messages ?? []);
       void loadOverview();
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : "Couldn't reply");
+      showAlert(e instanceof Error ? e.message : "Не удалось ответить");
     } finally {
       setBusy(false);
     }
@@ -303,20 +303,20 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
       const j = await fetchAdminReports(initData);
       setReports(j.reports ?? []);
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : "Couldn't load reports");
+      showAlert(e instanceof Error ? e.message : "Не удалось загрузить жалобы");
     }
   };
 
   const actReport = async (id: number, action: "dismiss" | "hide") => {
     if (busy) return;
-    if (action === "hide" && !(await tgConfirm("Hide content for everyone and close the report?"))) return;
+    if (action === "hide" && !(await tgConfirm("Скрыть контент у всех и закрыть жалобу?"))) return;
     setBusy(true);
     try {
       await sendAdminReportAction(initData, id, action);
       setReports((prev) => prev.filter((r) => r.id !== id));
       void loadOverview();
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : "Couldn't handle report");
+      showAlert(e instanceof Error ? e.message : "Не удалось обработать жалобу");
     } finally {
       setBusy(false);
     }
@@ -328,20 +328,20 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
       const j = await fetchAdminHidden(initData);
       setHidden(j.items ?? []);
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : "Couldn't load hidden");
+      showAlert(e instanceof Error ? e.message : "Не удалось загрузить скрытое");
     }
   };
 
   const restoreHidden = async (item: AdminHiddenItem) => {
     if (busy) return;
-    if (!(await tgConfirm("Restore this content to feed / chat?"))) return;
+    if (!(await tgConfirm("Вернуть этот контент в ленту / чат?"))) return;
     setBusy(true);
     try {
       await restoreAdminHidden(initData, item.kind, item.id);
       setHidden((prev) => prev.filter((h) => !(h.kind === item.kind && h.id === item.id)));
       void loadOverview();
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : "Couldn't restore");
+      showAlert(e instanceof Error ? e.message : "Не удалось вернуть");
     } finally {
       setBusy(false);
     }
@@ -356,7 +356,7 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
       setUsersKicked(j.users_kicked ?? 0);
       setUserOffset(j.offset ?? offset);
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : "Couldn't load users");
+      showAlert(e instanceof Error ? e.message : "Не удалось загрузить пользователей");
     }
   };
 
@@ -392,7 +392,7 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
       const j = await fetchAdminUserCard(initData, userId);
       setCard(j.user);
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : "User not found");
+      showAlert(e instanceof Error ? e.message : "Пользователь не найден");
       setPage("users");
     }
   };
@@ -401,7 +401,7 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
     if (!card || busy) return;
     const raw = Number(statValue[field]);
     if (!Number.isFinite(raw)) {
-      showAlert("Enter a number.");
+      showAlert("Впиши число.");
       return;
     }
     setBusy(true);
@@ -410,7 +410,7 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
       setCard(j.user);
       void loadOverview();
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : "Couldn't update");
+      showAlert(e instanceof Error ? e.message : "Не удалось изменить");
     } finally {
       setBusy(false);
     }
@@ -448,9 +448,9 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
       }
       setCard(fresh);
       void loadOverview();
-      showAlert("Saved.");
+      showAlert("Сохранил.");
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : "Couldn't save");
+      showAlert(e instanceof Error ? e.message : "Не удалось сохранить");
     } finally {
       setBusy(false);
     }
@@ -468,7 +468,7 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
         void loadUsers();
       }
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : "Couldn't complete action");
+      showAlert(e instanceof Error ? e.message : "Не удалось выполнить действие");
     } finally {
       setBusy(false);
     }
@@ -485,7 +485,7 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
       void loadOverview();
       void loadUsers();
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : "Couldn't complete action");
+      showAlert(e instanceof Error ? e.message : "Не удалось выполнить действие");
     } finally {
       setBusy(false);
     }
@@ -503,7 +503,7 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
       const j = await fetchAdminPackGoal(initData);
       applyPackGoal(j.pack_goal);
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : "Couldn't load goal");
+      showAlert(e instanceof Error ? e.message : "Не удалось загрузить цель");
     }
   };
 
@@ -511,22 +511,22 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
     if (busy) return;
     const n = Number.parseInt(packGoalInput.trim(), 10);
     if (!Number.isFinite(n) || n < 1 || n > 10000) {
-      showAlert("Goal must be an integer from 1 to 10000 workouts");
+      showAlert("Цель — целое число от 1 до 10000 тренировок");
       return;
     }
     const done = packGoal?.workouts_week ?? 0;
     const warn =
       packGoal && !packGoal.goal_reached && n <= done
-        ? ` Pack already did ${done} — weekly bonus applies immediately.`
+        ? ` Стая уже сделала ${done} — бонус недели выдастся сразу.`
         : "";
-    if (!(await tgConfirm(`Set pack goal ${n} workouts per week? Takes effect immediately, from this week.${warn}`))) return;
+    if (!(await tgConfirm(`Выставить цель стаи ${n} тренировок в неделю? Действует сразу, с текущей недели.${warn}`))) return;
     setBusy(true);
     try {
       const j = await saveAdminPackGoal(initData, n);
       applyPackGoal(j.pack_goal);
-      showAlert(`Pack goal: ${j.pack_goal.goal} workouts per week`);
+      showAlert(`Цель стаи: ${j.pack_goal.goal} тренировок в неделю`);
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : "Couldn't save goal");
+      showAlert(e instanceof Error ? e.message : "Не удалось сохранить цель");
     } finally {
       setBusy(false);
     }
@@ -534,14 +534,14 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
 
   const resetPackGoal = async () => {
     if (busy || !packGoal) return;
-    if (!(await tgConfirm(`Reset goal to default (${packGoal.default_goal})?`))) return;
+    if (!(await tgConfirm(`Вернуть цель к значению по умолчанию (${packGoal.default_goal})?`))) return;
     setBusy(true);
     try {
       const j = await resetAdminPackGoal(initData);
       applyPackGoal(j.pack_goal);
-      showAlert(`Goal reset: ${j.pack_goal.goal} workouts per week`);
+      showAlert(`Цель сброшена: ${j.pack_goal.goal} тренировок в неделю`);
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : "Couldn't reset goal");
+      showAlert(e instanceof Error ? e.message : "Не удалось сбросить цель");
     } finally {
       setBusy(false);
     }
@@ -554,7 +554,7 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
       setPrice(j.price);
       setPriceInput(String(j.price.amount_rub));
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : "Couldn't load price");
+      showAlert(e instanceof Error ? e.message : "Не удалось загрузить цену");
     }
   };
 
@@ -562,19 +562,19 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
     if (busy) return;
     const n = Number.parseInt(priceInput.trim(), 10);
     if (!Number.isFinite(n) || n < 1 || n > 100000) {
-      showAlert("Price must be an integer from 1 to 100000 ₽");
+      showAlert("Цена — целое число от 1 до 100000 ₽");
       return;
     }
-    if (!(await tgConfirm(`Set access price ${n} ₽? New payments will use this amount.`))) return;
+    if (!(await tgConfirm(`Выставить цену доступа ${n} ₽? Новые оплаты пойдут по этой сумме.`))) return;
     setBusy(true);
     try {
       const j = await saveAdminPaywallPrice(initData, n);
       setPrice(j.price);
       setPriceInput(String(j.price.amount_rub));
       setOverview((prev) => ({ ...prev, access_price_rub: j.price.amount_rub }));
-      showAlert(`Access price: ${j.price.amount_rub} ₽`);
+      showAlert(`Цена доступа: ${j.price.amount_rub} ₽`);
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : "Couldn't save price");
+      showAlert(e instanceof Error ? e.message : "Не удалось сохранить цену");
     } finally {
       setBusy(false);
     }
@@ -582,16 +582,16 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
 
   const resetPrice = async () => {
     if (busy || !price) return;
-    if (!(await tgConfirm(`Reset price to server default (${price.default_amount_rub} ₽)?`))) return;
+    if (!(await tgConfirm(`Вернуть цену к значению сервера (${price.default_amount_rub} ₽)?`))) return;
     setBusy(true);
     try {
       const j = await resetAdminPaywallPrice(initData);
       setPrice(j.price);
       setPriceInput(String(j.price.amount_rub));
       setOverview((prev) => ({ ...prev, access_price_rub: j.price.amount_rub }));
-      showAlert(`Price reset: ${j.price.amount_rub} ₽`);
+      showAlert(`Цена сброшена: ${j.price.amount_rub} ₽`);
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : "Couldn't reset price");
+      showAlert(e instanceof Error ? e.message : "Не удалось сбросить цену");
     } finally {
       setBusy(false);
     }
@@ -600,14 +600,14 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
   const publish = async () => {
     const text = announce.trim();
     if (!text || busy) return;
-    if (!(await tgConfirm("Publish announcement to the pack feed?"))) return;
+    if (!(await tgConfirm("Опубликовать объявление в ленте стаи?"))) return;
     setBusy(true);
     try {
       await publishAdminPost(initData, text, announceAuthor);
       setAnnounce("");
-      showAlert("Published to feed");
+      showAlert("Опубликовано в ленте");
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : "Couldn't publish");
+      showAlert(e instanceof Error ? e.message : "Не удалось опубликовать");
     } finally {
       setBusy(false);
     }
@@ -736,56 +736,56 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
 
   const title =
     page === "home"
-      ? (ADMIN_TABS.find((t) => t.key === tab)?.label ?? "Admin")
+      ? (ADMIN_TABS.find((t) => t.key === tab)?.label ?? "Админка")
       : page === "support"
-        ? "Support"
+        ? "Поддержка"
         : page === "thread"
           ? userLabel(threadUser?.display_name, undefined, threadUser?.user_id)
           : page === "reports"
-            ? "Reports"
+            ? "Жалобы"
             : page === "hidden"
-              ? "Hidden"
+              ? "Скрытое"
               : page === "users"
-                ? "Members"
+                ? "Участники"
                 : page === "card"
                   ? userLabel(card?.display_name, card?.username, card?.user_id)
                   : page === "price"
-                    ? "Access price"
+                    ? "Цена доступа"
                     : page === "packgoal"
-                      ? "Pack goal"
+                      ? "Цель стаи"
                     : page === "dashboards"
-                      ? "Dashboards"
+                      ? "Дашборды"
                       : page === "analytics"
-                        ? "Analytics"
+                        ? "Аналитика"
                         : page === "visits"
-                          ? "Bot visits"
+                          ? "Посещения бота"
                           : page === "payments"
-                            ? "Payments & donations"
+                            ? "Платежи и донаты"
                             : page === "admins"
-                              ? "Admins"
+                              ? "Админы"
                               : page === "scheduled"
-                                ? "Scheduled posts"
+                                ? "Отложенные посты"
                                 : page === "poll"
-                                  ? "Feed poll"
+                                  ? "Опрос в ленту"
                                   : page === "leolab"
-                                    ? "Leo test"
+                                    ? "Тест Лео"
                                     : page === "prompts"
-                                    ? "Fat Leopard prompts"
+                                    ? "Промпты Леопарда"
                                     : page === "wipe"
-                                    ? "Clear feed and chat"
-                                    : "Announcement";
+                                    ? "Очистить ленту и чат"
+                                    : "Объявление";
 
   return (
     <>
       <div className="admin-backdrop" aria-hidden="true" onClick={closeSheet} />
-      <div ref={sheetRef} className="admin" role="dialog" aria-modal="true" aria-label="Admin">
+      <div ref={sheetRef} className="admin" role="dialog" aria-modal="true" aria-label="Админка">
       <div className="admin__grabber" aria-hidden="true" />
-      <button type="button" className="admin__close" onClick={closeSheet} aria-label="Close">
+      <button type="button" className="admin__close" onClick={closeSheet} aria-label="Закрыть">
         ✕
       </button>
       <header className="admin__head">
         {page !== "home" ? (
-          <button type="button" className="admin__back" onClick={back} aria-label="Back">
+          <button type="button" className="admin__back" onClick={back} aria-label="Назад">
             ←
           </button>
         ) : null}
@@ -795,112 +795,112 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
       {page === "home" && tab === "community" && (
         <div className="admin__body">
           {loading ? (
-            <p className="admin__muted">Loading…</p>
+            <p className="admin__muted">Загрузка…</p>
           ) : (
             <>
               <div className="admin__stats">
                 <div className="admin__stat">
                   <strong>{overview.users_active}</strong>
-                  <span>active</span>
+                  <span>активных</span>
                 </div>
                 <div className="admin__stat">
                   <strong>{overview.users_kicked}</strong>
-                  <span>kicked</span>
+                  <span>кикнутых</span>
                 </div>
                 <div className="admin__stat">
                   <strong>{overview.support_waiting}</strong>
-                  <span>awaiting reply</span>
+                  <span>ждут ответа</span>
                 </div>
                 <div className="admin__stat">
                   <strong>{overview.reports_open}</strong>
-                  <span>reports</span>
+                  <span>жалоб</span>
                 </div>
                 <div className="admin__stat">
                   <strong>{overview.hidden}</strong>
-                  <span>hidden</span>
+                  <span>скрыто</span>
                 </div>
               </div>
               <div className="admin__tiles">
                 <button type="button" className="admin__tile" onClick={() => void openSupport()}>
                   <span className="admin__tile-ico">💬</span>
                   <span className="admin__tile-text">
-                    <b>Support</b>
-                    <small>{overview.support_waiting > 0 ? `${overview.support_waiting} awaiting reply` : "all answered"}</small>
+                    <b>Поддержка</b>
+                    <small>{overview.support_waiting > 0 ? `${overview.support_waiting} без ответа` : "все отвечены"}</small>
                   </span>
                 </button>
                 <button type="button" className="admin__tile" onClick={() => void openReports()}>
                   <span className="admin__tile-ico">🚩</span>
                   <span className="admin__tile-text">
-                    <b>Reports</b>
-                    <small>{overview.reports_open > 0 ? `${overview.reports_open} open` : "empty"}</small>
+                    <b>Жалобы</b>
+                    <small>{overview.reports_open > 0 ? `${overview.reports_open} открытых` : "пусто"}</small>
                   </span>
                 </button>
                 <button type="button" className="admin__tile" onClick={() => void openHidden()}>
                   <span className="admin__tile-ico">🙈</span>
                   <span className="admin__tile-text">
-                    <b>Hidden</b>
-                    <small>restore posts and comments</small>
+                    <b>Скрытое</b>
+                    <small>вернуть посты и комментарии</small>
                   </span>
                 </button>
                 <button type="button" className="admin__tile" onClick={() => void openUsers()}>
                   <span className="admin__tile-ico">👥</span>
                   <span className="admin__tile-text">
-                    <b>Members</b>
+                    <b>Участники</b>
                     <small>
-                      {overview.users} all-time · {overview.users_active} active · {overview.users_kicked}{" "}
-                      kicked
+                      {overview.users} за всю историю · {overview.users_active} активных · {overview.users_kicked}{" "}
+                      кикнутых
                     </small>
                   </span>
                 </button>
                 <button type="button" className="admin__tile" onClick={() => setPage("announce")}>
                   <span className="admin__tile-ico">📣</span>
                   <span className="admin__tile-text">
-                    <b>Announcement</b>
-                    <small>feed post from admin or Leo</small>
+                    <b>Объявление</b>
+                    <small>пост в ленту от админа или Лео</small>
                   </span>
                 </button>
                 <button type="button" className="admin__tile" onClick={() => setPage("poll")}>
                   <span className="admin__tile-ico">🗳</span>
                   <span className="admin__tile-text">
-                    <b>Poll</b>
-                    <small>question and options to feed</small>
+                    <b>Опрос</b>
+                    <small>вопрос и варианты в ленту</small>
                   </span>
                 </button>
                 <button type="button" className="admin__tile" onClick={() => setPage("scheduled")}>
                   <span className="admin__tile-ico">📅</span>
                   <span className="admin__tile-text">
-                    <b>Scheduled</b>
-                    <small>scheduled posts</small>
+                    <b>Отложенные</b>
+                    <small>посты по расписанию</small>
                   </span>
                 </button>
                 <button type="button" className="admin__tile" onClick={() => setPage("payments")}>
                   <span className="admin__tile-ico">💳</span>
                   <span className="admin__tile-text">
-                    <b>Payments & donations</b>
-                    <small>who paid and donated · ⭐ and ₽</small>
+                    <b>Платежи и донаты</b>
+                    <small>кто платил и донатил · ⭐ и ₽</small>
                   </span>
                 </button>
                 <button type="button" className="admin__tile" onClick={() => void openPrice()}>
                   <span className="admin__tile-ico">💰</span>
                   <span className="admin__tile-text">
-                    <b>Access price</b>
+                    <b>Цена доступа</b>
                     <small>
                       {overview.access_price_rub > 0
-                        ? `${overview.access_price_rub} ₽ · join and return`
-                        : "what members pay to join and return"}
+                        ? `${overview.access_price_rub} ₽ · вход и возврат`
+                        : "сколько платят за вход и возврат"}
                     </small>
                   </span>
                 </button>
                 <button type="button" className="admin__tile" onClick={() => void openPackGoal()}>
                   <span className="admin__tile-ico">🎯</span>
                   <span className="admin__tile-text">
-                    <b>Pack goal</b>
-                    <small>{packGoal ? `${packGoal.goal} workouts per week` : "workouts per week until bonus"}</small>
+                    <b>Цель стаи</b>
+                    <small>{packGoal ? `${packGoal.goal} тренировок в неделю` : "тренировок в неделю до бонуса"}</small>
                   </span>
                 </button>
               </div>
               <p className="admin__muted admin__hint">
-                Same commands in bot: /admin. Cups and streaks for a member — in the member card.
+                Всё то же есть и в боте: /admin. Кубки и стрики конкретного человека — в карточке участника.
               </p>
             </>
           )}
@@ -913,21 +913,21 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
             <button type="button" className="admin__tile" onClick={() => setPage("prompts")}>
               <span className="admin__tile-ico">📜</span>
               <span className="admin__tile-text">
-                <b>Fat Leopard prompts</b>
-                <small>persona and copy: field or .txt/.md file</small>
+                <b>Промпты Леопарда</b>
+                <small>характер и тексты: поле или файл .txt/.md</small>
               </span>
             </button>
             <button type="button" className="admin__tile" onClick={() => setPage("leolab")}>
               <span className="admin__tile-ico">🧪</span>
               <span className="admin__tile-text">
-                <b>Leo test</b>
-                <small>ask, try a prompt, teach</small>
+                <b>Тест Лео</b>
+                <small>спросить, попробовать промпт, научить</small>
               </span>
             </button>
           </div>
           <p className="admin__muted admin__hint">
-            Production prompts live in <code>ms_leo/internal/prompts/data/*.txt</code>. Override them in Prompts
-            applies immediately, no rebuild; reset restores the built-in repo file.
+            Боевые промпты лежат в <code>ms_leo/internal/prompts/data/*.txt</code>. Замена в «Промптах»
+            применяется сразу, без пересборки; сброс возвращает встроенный файл из репозитория.
           </p>
         </div>
       )}
@@ -938,41 +938,41 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
                 <button type="button" className="admin__tile" onClick={() => setPage("dashboards")}>
                   <span className="admin__tile-ico">📊</span>
                   <span className="admin__tile-text">
-                    <b>Dashboards</b>
-                    <small>KPI, funnels, and visits</small>
+                    <b>Дашборды</b>
+                    <small>KPI, воронки и посещения</small>
                   </span>
                 </button>
                 <button type="button" className="admin__tile" onClick={() => setPage("analytics")}>
                   <span className="admin__tile-ico">📈</span>
                   <span className="admin__tile-text">
-                    <b>Analytics</b>
-                    <small>tables: funnels, channels, events</small>
+                    <b>Аналитика</b>
+                    <small>таблицы: воронки, каналы, события</small>
                   </span>
                 </button>
                 <button type="button" className="admin__tile" onClick={() => setPage("visits")}>
                   <span className="admin__tile-ico">👣</span>
                   <span className="admin__tile-text">
-                    <b>Bot visits</b>
-                    <small>who visits and how often</small>
+                    <b>Посещения бота</b>
+                    <small>кто и как часто заходит</small>
                   </span>
                 </button>
                 <button type="button" className="admin__tile" onClick={() => setPage("admins")}>
                   <span className="admin__tile-ico">🛡</span>
                   <span className="admin__tile-text">
-                    <b>Admins</b>
-                    <small>grant and revoke rights</small>
+                    <b>Админы</b>
+                    <small>выдать и снять права</small>
                   </span>
                 </button>
                 <button type="button" className="admin__tile" onClick={() => setPage("wipe")}>
                   <span className="admin__tile-ico">🗑</span>
                   <span className="admin__tile-text">
-                    <b>Clear feed and chat</b>
-                    <small>delete all pack content</small>
+                    <b>Очистить ленту и чат</b>
+                    <small>удалить всё содержимое стаи</small>
                   </span>
                 </button>
           </div>
           <p className="admin__muted admin__hint">
-            Technical sections: product metrics, access, and one-off pack content ops.
+            Технические разделы: метрики продукта, доступы и разовые операции над содержимым стаи.
           </p>
         </div>
       )}
@@ -1028,7 +1028,7 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
       {page === "support" && (
         <div className="admin__body">
           {convs.length === 0 ? (
-            <p className="admin__muted">No conversations yet</p>
+            <p className="admin__muted">Диалогов пока нет</p>
           ) : (
             <ul className="admin__list">
               {convs.map((c) => (
@@ -1036,10 +1036,10 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
                   <button type="button" className="admin__row" onClick={() => void openThread(c)}>
                     <div className="admin__row-top">
                       <b>{userLabel(c.display_name, undefined, c.user_id)}</b>
-                      {c.needs_reply ? <span className="admin__badge">waiting</span> : null}
+                      {c.needs_reply ? <span className="admin__badge">ждёт</span> : null}
                     </div>
                     <p className="admin__row-sub">{clip(c.last_text, 90)}</p>
-                    <span className="admin__row-meta">{timeAgoFromISO(c.last_created, Date.now(), "en")}</span>
+                    <span className="admin__row-meta">{timeAgoFromISO(c.last_created, Date.now(), "ru")}</span>
                   </button>
                 </li>
               ))}
@@ -1059,14 +1059,14 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
                     <button
                       type="button"
                       className="admin__bubble-photo-wrap"
-                      aria-label="Open photo"
+                      aria-label="Открыть фото"
                       onClick={() => setLightboxUrl(photoUrl)}
                     >
                       <img className="admin__bubble-photo" src={photoUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
                     </button>
                   )}
                   {m.text ? <p>{m.text}</p> : null}
-                  <time>{timeAgoFromISO(m.created_at, Date.now(), "en")}</time>
+                  <time>{timeAgoFromISO(m.created_at, Date.now(), "ru")}</time>
                 </div>
               );
             })}
@@ -1074,7 +1074,7 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
           {replyPhotoPreview != null && (
             <div className="admin__reply-photo-pending">
               <img className="admin__reply-photo-pending-img" src={replyPhotoPreview} alt="" />
-              <button type="button" className="admin__reply-photo-pending-remove" aria-label="Remove photo" onClick={clearReplyPhoto}>
+              <button type="button" className="admin__reply-photo-pending-remove" aria-label="Убрать фото" onClick={clearReplyPhoto}>
                 ✕
               </button>
             </div>
@@ -1098,17 +1098,22 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
             <button
               type="button"
               className="admin__reply-attach"
-              aria-label="Attach photo from gallery"
+              aria-label="Прикрепить фото из галереи"
               disabled={busy}
               onClick={() => replyPhotoInputRef.current?.click()}
             >
               📎
             </button>
-            <CameraButton className="admin__reply-attach" onChange={onPickReplyPhoto} disabled={busy} />
+            <CameraButton
+              className="admin__reply-attach"
+              onChange={onPickReplyPhoto}
+              disabled={busy}
+              ariaLabel="Прикрепить фото"
+            />
             <input
               value={reply}
               onChange={(e) => setReply(e.target.value)}
-              placeholder={replyPhoto ? "Photo caption (optional)…" : "Reply to user…"}
+              placeholder={replyPhoto ? "Подпись к фото (необязательно)…" : "Ответ пользователю…"}
               maxLength={4000}
             />
             <button type="submit" className="admin__reply-send" disabled={busy || (!reply.trim() && !replyPhoto)}>
@@ -1121,26 +1126,26 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
       {page === "reports" && (
         <div className="admin__body">
           {reports.length === 0 ? (
-            <p className="admin__muted">No open reports</p>
+            <p className="admin__muted">Открытых жалоб нет</p>
           ) : (
             <ul className="admin__list">
               {reports.map((r) => (
                 <li key={r.id} className="admin__card">
                   <div className="admin__row-top">
                     <b>{reportKind(r.target_type)}</b>
-                    <span className="admin__row-meta">{timeAgoFromISO(r.created_at, Date.now(), "en")}</span>
+                    <span className="admin__row-meta">{timeAgoFromISO(r.created_at, Date.now(), "ru")}</span>
                   </div>
                   <p className="admin__row-sub">{clip(r.target_text || "—", 160)}</p>
                   <p className="admin__row-meta">
-                    on {userLabel(r.target_name, undefined, r.target_user_id)} · from{" "}
+                    на {userLabel(r.target_name, undefined, r.target_user_id)} · от{" "}
                     {userLabel(r.reporter_name, undefined, r.reporter_user_id)}
                   </p>
                   <div className="admin__actions">
                     <button type="button" className="admin__btn admin__btn--ghost" onClick={() => void actReport(r.id, "dismiss")} disabled={busy}>
-                      Close
+                      Закрыть
                     </button>
                     <button type="button" className="admin__btn admin__btn--danger" onClick={() => void actReport(r.id, "hide")} disabled={busy}>
-                      Hide
+                      Скрыть
                     </button>
                   </div>
                 </li>
@@ -1153,20 +1158,20 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
       {page === "hidden" && (
         <div className="admin__body">
           {hidden.length === 0 ? (
-            <p className="admin__muted">No hidden content</p>
+            <p className="admin__muted">Скрытого контента нет</p>
           ) : (
             <ul className="admin__list">
               {hidden.map((h) => (
                 <li key={`${h.kind}-${h.id}`} className="admin__card">
                   <div className="admin__row-top">
                     <b>{hiddenKind(h.kind)}</b>
-                    <span className="admin__row-meta">{timeAgoFromISO(h.created_at, Date.now(), "en")}</span>
+                    <span className="admin__row-meta">{timeAgoFromISO(h.created_at, Date.now(), "ru")}</span>
                   </div>
                   <p className="admin__row-sub">{clip(h.text || "—", 160)}</p>
                   <p className="admin__row-meta">{userLabel(h.author_name, undefined, h.author_user_id)}</p>
                   <div className="admin__actions">
                     <button type="button" className="admin__btn" onClick={() => void restoreHidden(h)} disabled={busy}>
-                      Restore
+                      Вернуть
                     </button>
                   </div>
                 </li>
@@ -1179,10 +1184,10 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
       {page === "users" && (
         <div className="admin__body">
           <p className="admin__users-summary">
-            All-time: <strong>{usersActive + usersKicked}</strong> · active {usersActive} · kicked{" "}
+            За всю историю: <strong>{usersActive + usersKicked}</strong> · активных {usersActive} · кикнутых{" "}
             {usersKicked}
           </p>
-          <div className="admin__filters" role="tablist" aria-label="Member filter">
+          <div className="admin__filters" role="tablist" aria-label="Фильтр участников">
             <button
               type="button"
               role="tab"
@@ -1190,7 +1195,7 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
               className={userFilter === "all" ? "on" : ""}
               onClick={() => setUsersFilter("all")}
             >
-              All ({usersActive + usersKicked})
+              Все ({usersActive + usersKicked})
             </button>
             <button
               type="button"
@@ -1199,7 +1204,7 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
               className={userFilter === "active" ? "on" : ""}
               onClick={() => setUsersFilter("active")}
             >
-              Active ({usersActive})
+              Активные ({usersActive})
             </button>
             <button
               type="button"
@@ -1208,7 +1213,7 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
               className={userFilter === "kicked" ? "on" : ""}
               onClick={() => setUsersFilter("kicked")}
             >
-              Kicked ({usersKicked})
+              Кикнутые ({usersKicked})
             </button>
           </div>
           <form
@@ -1222,12 +1227,12 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
             <input
               value={userQuery}
               onChange={(e) => setUserQuery(e.target.value)}
-              placeholder="Name, @username, or id"
+              placeholder="Имя, @ник или id"
             />
-            <button type="submit">Find</button>
+            <button type="submit">Найти</button>
           </form>
           {users.length === 0 ? (
-            <p className="admin__muted">No one found</p>
+            <p className="admin__muted">Никого не нашли</p>
           ) : (
             <>
               <ul className="admin__list">
@@ -1236,11 +1241,11 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
                     <button type="button" className="admin__row" onClick={() => void openCard(u.user_id)}>
                       <div className="admin__row-top">
                         <b>{userLabel(u.display_name, u.username, u.user_id)}</b>
-                        {u.is_deleted ? <span className="admin__badge admin__badge--muted">kicked</span> : null}
+                        {u.is_deleted ? <span className="admin__badge admin__badge--muted">кикнут</span> : null}
                       </div>
                       <p className="admin__row-meta">
-                        {u.cups} cups · streak {u.streak_days}
-                        {u.has_active_paywall ? " · access active" : ""}
+                        {u.cups} кубков · стрик {u.streak_days}
+                        {u.has_active_paywall ? " · доступ есть" : ""}
                       </p>
                     </button>
                   </li>
@@ -1253,17 +1258,17 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
                     disabled={userOffset === 0}
                     onClick={() => void loadUsers(userQuery, Math.max(0, userOffset - USERS_PAGE_SIZE), userFilter)}
                   >
-                    ◀ Back
+                    ◀ Назад
                   </button>
                   <span className="admin__muted">
-                    {userOffset + 1}–{userOffset + users.length} of {usersTotal}
+                    {userOffset + 1}–{userOffset + users.length} из {usersTotal}
                   </span>
                   <button
                     type="button"
                     disabled={userOffset + users.length >= usersTotal}
                     onClick={() => void loadUsers(userQuery, userOffset + USERS_PAGE_SIZE, userFilter)}
                   >
-                    Next ▶
+                    Вперёд ▶
                   </button>
                 </div>
               ) : null}
@@ -1277,63 +1282,63 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
           <div className="admin__card">
             <p className="admin__id">
               id {card.user_id}
-              {card.username ? ` · @${card.username.replace(/^@/, "")}` : " · no username"}
+              {card.username ? ` · @${card.username.replace(/^@/, "")}` : " · ника нет"}
             </p>
             <dl className="admin__dl">
               <div>
-                <dt>Cups</dt>
+                <dt>Кубки</dt>
                 <dd>{card.cups}</dd>
               </div>
               <div>
-                <dt>Workouts</dt>
+                <dt>Тренировок</dt>
                 <dd>{card.workouts_total}</dd>
               </div>
               <div>
-                <dt>Level</dt>
+                <dt>Уровень</dt>
                 <dd>
                   {card.level} · {card.level_name}
                 </dd>
               </div>
               <div>
-                <dt>Streak</dt>
+                <dt>Стрик</dt>
                 <dd>
-                  {card.streak_days} (record {card.max_streak_days})
+                  {card.streak_days} (рекорд {card.max_streak_days})
                 </dd>
               </div>
               <div>
-                <dt>Days without workout</dt>
-                <dd>{card.days_since_last_training < 0 ? "—" : `${card.days_since_last_training} d`}</dd>
+                <dt>Без тренировки</dt>
+                <dd>{card.days_since_last_training < 0 ? "—" : `${card.days_since_last_training} дн.`}</dd>
               </div>
               <div>
-                <dt>Sick leave</dt>
+                <dt>Больничный</dt>
                 <dd>{formatAdminSickLeave(card.sick_leave)}</dd>
               </div>
               <div>
-                <dt>Streak saves</dt>
+                <dt>Спасти стрик</dt>
                 <dd>
                   {card.streak_save_attempts_avail}/{card.streak_save_attempts_max}
                 </dd>
               </div>
               <div>
-                <dt>Access</dt>
-                <dd>{card.has_active_paywall ? "paid" : "no"}</dd>
+                <dt>Доступ</dt>
+                <dd>{card.has_active_paywall ? "оплачен" : "нет"}</dd>
               </div>
               <div>
-                <dt>In pack</dt>
-                <dd>{card.is_deleted ? "kicked" : "yes"}</dd>
+                <dt>В стае</dt>
+                <dd>{card.is_deleted ? "кикнут" : "да"}</dd>
               </div>
             </dl>
-            {card.ugc_muted_until ? <p className="admin__warn">UGC mute until {formatChatTime(card.ugc_muted_until, "en")}</p> : null}
-            <p className="admin__row-meta">UGC violations: {card.ugc_violations}</p>
+            {card.ugc_muted_until ? <p className="admin__warn">UGC-мьют до {formatChatTime(card.ugc_muted_until, "ru")}</p> : null}
+            <p className="admin__row-meta">Нарушений UGC: {card.ugc_violations}</p>
           </div>
           <section className="admin__stats-edit">
-            <h3 className="admin__stats-edit-title">Stats</h3>
+            <h3 className="admin__stats-edit-title">Показатели</h3>
             <p className="admin__muted admin__hint">
-              Level and streak saves are derived from cups — you don&apos;t set them separately.
+              Уровень и попытки спасти стрик считаются от кубков — отдельно их задавать не нужно.
             </p>
 
             <div className="admin__stat-row">
-              <span>Cups</span>
+              <span>Кубки</span>
               <input
                 inputMode="numeric"
                 value={statValue.cups}
@@ -1342,7 +1347,7 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
             </div>
 
             <div className="admin__stat-row">
-              <span>Streak</span>
+              <span>Стрик</span>
               <input
                 inputMode="numeric"
                 value={statValue.streak}
@@ -1351,7 +1356,7 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
             </div>
 
             <div className="admin__stat-row">
-              <span>Record</span>
+              <span>Рекорд</span>
               <input
                 inputMode="numeric"
                 value={statValue.record}
@@ -1365,62 +1370,63 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
               disabled={busy || !statsDirty}
               onClick={() => void saveStats()}
             >
-              {statsDirty ? "Save stats" : "No changes"}
+              {statsDirty ? "Сохранить показатели" : "Изменений нет"}
             </button>
 
             <div className="admin__stat-row">
-              <span>Workouts</span>
+              <span>Тренировки</span>
               <input
                 inputMode="numeric"
                 value={statValue.workouts}
                 onChange={(e) => setStatValue((p) => ({ ...p, workouts: e.target.value }))}
               />
               <button type="button" disabled={busy} onClick={() => void changeStat("workouts", "add")}>
-                Credit
+                Зачесть
               </button>
               <button type="button" disabled={busy} onClick={() => void changeStat("workouts", "add", -1)}>
-                Remove
+                Снять
               </button>
             </div>
             <p className="admin__muted admin__hint">
-              Workouts are session records: Credit adds today&apos;s session; Remove drops the latest entries.
+              Тренировки — это записи о сессиях, поэтому «зачесть» добавляет их сегодняшним днём, а «снять» убирает
+              последние.
             </p>
           </section>
 
           <div className="admin__actions admin__actions--stack">
             {adminSickLeaveActive(card.sick_leave) ? (
-              <button type="button" className="admin__btn" disabled={busy} onClick={() => void actUser("sick_cancel", "End sick leave?")}>
-                End sick leave
+              <button type="button" className="admin__btn" disabled={busy} onClick={() => void actUser("sick_cancel", "Снять больничный?")}>
+                Снять больничный
               </button>
             ) : (
-              <button type="button" className="admin__btn" disabled={busy || card.is_deleted} onClick={() => void actUser("sick_set", "Set sick leave for this member?")}>
-                Set sick leave
+              <button type="button" className="admin__btn" disabled={busy || card.is_deleted} onClick={() => void actUser("sick_set", "Оформить больничный этому участнику?")}>
+                Выставить больничный
               </button>
             )}
-            <button type="button" className="admin__btn" disabled={busy} onClick={() => void actUser("grant_save", "Grant +1 streak save?")}>
-              +1 streak save
+            <button type="button" className="admin__btn" disabled={busy} onClick={() => void actUser("grant_save", "Выдать +1 попытку спасти стрик?")}>
+              +1 спасти стрик
             </button>
             {card.ugc_muted_until ? (
-              <button type="button" className="admin__btn" disabled={busy} onClick={() => void actUser("unmute", "Remove UGC mute?")}>
-                Unmute
+              <button type="button" className="admin__btn" disabled={busy} onClick={() => void actUser("unmute", "Снять UGC-мьют?")}>
+                Снять мьют
               </button>
             ) : (
-              <button type="button" className="admin__btn" disabled={busy} onClick={() => void actUser("mute", "Mute posts for 24 hours?")}>
-                Mute 24h
+              <button type="button" className="admin__btn" disabled={busy} onClick={() => void actUser("mute", "Замьютить публикации на 24 часа?")}>
+                Мьют 24ч
               </button>
             )}
             {card.is_deleted ? (
               <>
-                <button type="button" className="admin__btn" disabled={busy} onClick={() => void actUser("restore_full", "Return to pack with progress?")}>
-                  Restore with progress
+                <button type="button" className="admin__btn" disabled={busy} onClick={() => void actUser("restore_full", "Вернуть в стаю с достижениями?")}>
+                  Вернуть с прогрессом
                 </button>
-                <button type="button" className="admin__btn admin__btn--ghost" disabled={busy} onClick={() => void actUser("restore_scratch", "Return to pack from scratch?")}>
-                  Restore from scratch
+                <button type="button" className="admin__btn admin__btn--ghost" disabled={busy} onClick={() => void actUser("restore_scratch", "Вернуть в стаю с нуля?")}>
+                  Вернуть с нуля
                 </button>
               </>
             ) : (
               <button type="button" className="admin__btn admin__btn--danger" disabled={busy} onClick={() => setKickAsk(true)}>
-                Remove from pack
+                Удалить из стаи
               </button>
             )}
           </div>
@@ -1428,14 +1434,14 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
           {kickAsk ? (
             <div className="admin__modal" role="dialog" aria-modal="true">
               <div className="admin__modal-box">
-                <h3>Remove from pack?</h3>
+                <h3>Удалить из стаи?</h3>
                 <p>
-                  {userLabel(card.display_name, card.username, card.user_id)} will lose feed and chat access. Cups and
-                  streak stay — restore with Restore with progress.
+                  {userLabel(card.display_name, card.username, card.user_id)} потеряет доступ к ленте и чату. Кубки и
+                  стрик сохранятся — вернуть можно кнопкой «Вернуть с прогрессом».
                 </p>
                 <div className="admin__modal-actions">
                   <button type="button" onClick={() => setKickAsk(false)}>
-                    Cancel
+                    Отмена
                   </button>
                   <button
                     type="button"
@@ -1446,7 +1452,7 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
                       void runUserAction("kick");
                     }}
                   >
-                    Remove
+                    Удалить
                   </button>
                 </div>
               </div>
@@ -1457,24 +1463,24 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
 
       {page === "announce" && (
         <div className="admin__body">
-          <div className="admin__voice" role="group" aria-label="Post as">
+          <div className="admin__voice" role="group" aria-label="От чьего имени">
             <button type="button" className={announceAuthor === "admin" ? "is-on" : ""} onClick={() => setAnnounceAuthor("admin")}>
-              Admin
+              Админ
             </button>
             <button type="button" className={announceAuthor === "leo" ? "is-on" : ""} onClick={() => setAnnounceAuthor("leo")}>
-              Leo
+              Лео
             </button>
           </div>
           <textarea
             className="admin__textarea"
             value={announce}
             onChange={(e) => setAnnounce(e.target.value)}
-            placeholder="Announcement for the feed…"
+            placeholder="Текст объявления в ленту…"
             maxLength={4000}
             rows={7}
           />
           <button type="button" className="admin__btn admin__btn--wide" disabled={busy || !announce.trim()} onClick={() => void publish()}>
-            Publish
+            Опубликовать
           </button>
         </div>
       )}
@@ -1482,11 +1488,11 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
       {page === "price" && (
         <div className="admin__body">
           <p className="admin__muted admin__hint">
-            One payment for pack entry and for return after removal. Members who already paid don&apos;t pay again.
-            Telegram Stars are configured on the server.
+            Один платёж за вход в стаю и за возврат после удаления. Уже оплатившие не платят снова. Звёзды Telegram
+            задаются отдельно на сервере.
           </p>
           <label className="admin__price">
-            <span>Price, ₽</span>
+            <span>Цена, ₽</span>
             <input
               type="number"
               inputMode="numeric"
@@ -1499,19 +1505,19 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
           </label>
           {price ? (
             <p className="admin__row-meta">
-              Currently {price.amount_rub} ₽
-              {price.is_custom ? " · set by admin" : " · server default"}
-              {price.is_custom ? ` · reset restores ${price.default_amount_rub} ₽` : ""}
+              Сейчас {price.amount_rub} ₽
+              {price.is_custom ? " · задана админом" : " · значение сервера"}
+              {price.is_custom ? ` · сброс вернёт ${price.default_amount_rub} ₽` : ""}
             </p>
           ) : (
-            <p className="admin__muted">Loading…</p>
+            <p className="admin__muted">Загрузка…</p>
           )}
           <button type="button" className="admin__btn admin__btn--wide" disabled={busy || !priceInput.trim()} onClick={() => void savePrice()}>
-            Save
+            Сохранить
           </button>
           {price?.is_custom ? (
             <button type="button" className="admin__btn admin__btn--ghost admin__btn--wide" disabled={busy} onClick={() => void resetPrice()}>
-              Reset to {price.default_amount_rub} ₽
+              Сбросить к {price.default_amount_rub} ₽
             </button>
           ) : null}
         </div>
@@ -1519,11 +1525,11 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
       {page === "packgoal" && (
         <div className="admin__body">
           <p className="admin__muted admin__hint">
-            How many pack workouts per week (from Monday 00:00 MSK) so everyone gets bonus cups and the Pack theme for a
-            day. A new goal applies immediately for the current week.
+            Сколько тренировок стая должна сделать за неделю (с понедельника 00:00 МСК), чтобы каждый получил бонусные
+            кубки и тему «Стая» на сутки. Новая цель действует сразу, с текущей недели.
           </p>
           <label className="admin__price">
-            <span>Goal, workouts</span>
+            <span>Цель, тренировок</span>
             <input
               type="number"
               inputMode="numeric"
@@ -1536,27 +1542,27 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
           </label>
           {packGoal ? (
             <p className="admin__row-meta">
-              Currently {packGoal.goal}
-              {packGoal.is_custom ? " · set by admin" : " · default"}
-              {` · this week ${packGoal.workouts_week}/${packGoal.goal}`}
-              {packGoal.goal_reached ? " · goal reached" : ""}
+              Сейчас {packGoal.goal}
+              {packGoal.is_custom ? " · задана админом" : " · значение по умолчанию"}
+              {` · на этой неделе ${packGoal.workouts_week}/${packGoal.goal}`}
+              {packGoal.goal_reached ? " · цель достигнута" : ""}
             </p>
           ) : (
-            <p className="admin__muted">Loading…</p>
+            <p className="admin__muted">Загрузка…</p>
           )}
           <button type="button" className="admin__btn admin__btn--wide" disabled={busy || !packGoalInput.trim()} onClick={() => void savePackGoal()}>
-            Save
+            Сохранить
           </button>
           {packGoal?.is_custom ? (
             <button type="button" className="admin__btn admin__btn--ghost admin__btn--wide" disabled={busy} onClick={() => void resetPackGoal()}>
-              Reset to {packGoal.default_goal}
+              Сбросить к {packGoal.default_goal}
             </button>
           ) : null}
         </div>
       )}
       <nav
         className="admin__tabs"
-        aria-label="Admin sections"
+        aria-label="Разделы админки"
         style={{ gridTemplateColumns: `repeat(${ADMIN_TABS.length}, minmax(0, 1fr))` }}
       >
         {ADMIN_TABS.map((t) => (
@@ -1582,7 +1588,7 @@ export function AdminScreen({ initData, inTelegram, showAlert, onClose, onPackGo
         ))}
       </nav>
       </div>
-      {lightboxUrl && <PhotoLightbox src={lightboxUrl} onClose={() => setLightboxUrl(null)} />}
+      {lightboxUrl && <PhotoLightbox src={lightboxUrl} onClose={() => setLightboxUrl(null)} closeLabel="Закрыть" />}
     </>
   );
 }

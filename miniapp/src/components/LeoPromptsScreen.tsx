@@ -33,22 +33,22 @@ export function LeoPromptsScreen({ initData, showAlert }: Props) {
   }, [initData]);
 
   useEffect(() => {
-    void load().catch((e) => fail(e, "Couldn’t load prompts"));
+    void load().catch((e) => fail(e, "Не удалось загрузить промпты"));
   }, [load, fail]);
 
   const save = async (key: string, filename = "") => {
     const body = (drafts[key] ?? "").trim();
     if (!body) {
-      showAlert("Text is empty.");
+      showAlert("Текст пустой.");
       return;
     }
     setBusy(key);
     try {
       await saveLeoPrompt(initData, key, body, filename);
       await load();
-      showAlert("Saved. Leo is already learning from the new text.");
+      showAlert("Сохранили. Лео уже учится по новому тексту.");
     } catch (e) {
-      fail(e, "Couldn’t save");
+      fail(e, "Не удалось сохранить");
     } finally {
       setBusy("");
     }
@@ -59,9 +59,9 @@ export function LeoPromptsScreen({ initData, showAlert }: Props) {
     try {
       await resetLeoPrompt(initData, key);
       await load();
-      showAlert("Restored the built-in file.");
+      showAlert("Вернули встроенный файл.");
     } catch (e) {
-      fail(e, "Couldn’t reset");
+      fail(e, "Не удалось сбросить");
     } finally {
       setBusy("");
     }
@@ -81,15 +81,15 @@ export function LeoPromptsScreen({ initData, showAlert }: Props) {
     try {
       const text = await file.text();
       if (!text.trim()) {
-        showAlert("File is empty.");
+        showAlert("Файл пустой.");
         return;
       }
       setDrafts((d) => ({ ...d, [key]: text }));
       await saveLeoPrompt(initData, key, text, file.name);
       await load();
-      showAlert("File applied. Leo is already learning from it.");
+      showAlert("Файл поставили. Лео уже учится по нему.");
     } catch (err) {
-      fail(err, "Couldn’t read file");
+      fail(err, "Файл не прочитался");
     } finally {
       setBusy("");
     }
@@ -98,9 +98,9 @@ export function LeoPromptsScreen({ initData, showAlert }: Props) {
   return (
     <div className="ops">
       <p className="ops-muted">
-        Production Fat Leopard prompts live in <code>ms_leo/internal/prompts/data/*.txt</code>. Replace them here
-        with text or a file — Leo answers from the new version immediately, no rebuild. Reset brings back the
-        built-in file from the repo.
+        Боевые промпты Леопарда лежат в <code>ms_leo/internal/prompts/data/*.txt</code>. Здесь их можно
+        заменить текстом или файлом — Лео сразу отвечает по новой версии, пересборка не нужна. Сброс
+        возвращает встроенный файл из репозитория.
       </p>
       <input
         ref={fileInput}
@@ -112,11 +112,11 @@ export function LeoPromptsScreen({ initData, showAlert }: Props) {
       {slots.map((p) => (
         <div className="ops-card" key={p.key}>
           <b>
-            {p.title} {p.overridden ? "· overridden" : ""}
+            {p.title} {p.overridden ? "· заменён" : ""}
           </b>
           <p className="ops-muted">
-            {p.about}. File: {p.file}
-            {p.filename ? ` · uploaded ${p.filename}` : ""}
+            {p.about}. Файл: {p.file}
+            {p.filename ? ` · загружен ${p.filename}` : ""}
             {p.updated_at ? ` · ${p.updated_at}` : ""}
           </p>
           <textarea
@@ -132,13 +132,13 @@ export function LeoPromptsScreen({ initData, showAlert }: Props) {
               disabled={busy !== ""}
               onClick={() => void save(p.key)}
             >
-              {busy === p.key ? "Saving…" : "Save"}
+              {busy === p.key ? "Пишем…" : "Сохранить"}
             </button>
             <button type="button" disabled={busy !== ""} onClick={() => pickFile(p.key)}>
-              Attach file
+              Прикрепить файл
             </button>
             <button type="button" disabled={busy !== "" || !p.overridden} onClick={() => void reset(p.key)}>
-              Reset
+              Сбросить
             </button>
           </div>
         </div>

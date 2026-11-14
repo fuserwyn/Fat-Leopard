@@ -50,7 +50,7 @@ export function AdminDataScreen({ initData, showAlert }: Props) {
         const j = await fetchAdminDbTables(initData);
         setTables(j.tables ?? []);
       } catch (e) {
-        fail(e, "Couldn't list tables");
+        fail(e, "Не удалось получить список таблиц");
       }
     })();
   }, [initData, fail]);
@@ -74,7 +74,7 @@ export function AdminDataScreen({ initData, showAlert }: Props) {
         setView("rows");
         setSqlMode(false);
       } catch (e) {
-        fail(e, "Couldn't open table");
+        fail(e, "Не удалось открыть таблицу");
       } finally {
         setBusy(false);
       }
@@ -90,7 +90,7 @@ export function AdminDataScreen({ initData, showAlert }: Props) {
       setColumns(j.columns ?? []);
       setView("columns");
     } catch (e) {
-      fail(e, "Couldn't load schema");
+      fail(e, "Не удалось получить структуру");
     } finally {
       setBusy(false);
     }
@@ -105,7 +105,7 @@ export function AdminDataScreen({ initData, showAlert }: Props) {
   const runQuery = async () => {
     const q = sql.trim();
     if (!q) {
-      showAlert("Enter a query.");
+      showAlert("Напиши запрос.");
       return;
     }
     setBusy(true);
@@ -115,7 +115,7 @@ export function AdminDataScreen({ initData, showAlert }: Props) {
       setTable("");
       setView("rows");
     } catch (e) {
-      fail(e, "Query failed");
+      fail(e, "Запрос не выполнился");
     } finally {
       setBusy(false);
     }
@@ -127,7 +127,7 @@ export function AdminDataScreen({ initData, showAlert }: Props) {
     <div className="ops">
       <div className="ops-periods">
         <button type="button" className={!sqlMode ? "on" : ""} onClick={() => setSqlMode(false)}>
-          Tables
+          Таблицы
         </button>
         <button type="button" className={sqlMode ? "on" : ""} onClick={() => setSqlMode(true)}>
           SQL
@@ -144,20 +144,20 @@ export function AdminDataScreen({ initData, showAlert }: Props) {
           />
           <div className="ops-row">
             <button type="button" className="ops-primary" disabled={busy} onClick={() => void runQuery()}>
-              Run
+              Выполнить
             </button>
           </div>
           <p className="ops-muted">
-            Read-only: SELECT / WITH / EXPLAIN / SHOW / TABLE / VALUES, one statement without «;». Max 200 rows,
-            20s timeout.
+            Только чтение: SELECT / WITH / EXPLAIN / SHOW / TABLE / VALUES, один запрос без «;». Не больше 200 строк,
+            таймаут 20 секунд.
           </p>
         </div>
       ) : (
         <>
           <div className="ops-row">
-            <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Search tables" />
+            <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Поиск таблицы" />
             <button type="button" onClick={() => setShowEmpty((v) => !v)}>
-              {showEmpty ? "Hide empty" : `Empty (${emptyCount})`}
+              {showEmpty ? "Скрыть пустые" : `Пустые (${emptyCount})`}
             </button>
           </div>
           <div className="ops-chips">
@@ -173,7 +173,7 @@ export function AdminDataScreen({ initData, showAlert }: Props) {
                 <small>{t.rows}</small>
               </button>
             ))}
-            {visibleTables.length === 0 ? <p className="ops-muted">Nothing found</p> : null}
+            {visibleTables.length === 0 ? <p className="ops-muted">Ничего не нашлось</p> : null}
           </div>
         </>
       )}
@@ -181,10 +181,10 @@ export function AdminDataScreen({ initData, showAlert }: Props) {
       {table ? (
         <div className="ops-periods">
           <button type="button" className={view === "rows" ? "on" : ""} onClick={() => void openTable(table, offset, orderBy, desc)}>
-            Data
+            Данные
           </button>
           <button type="button" className={view === "columns" ? "on" : ""} onClick={() => void openColumns()}>
-            Schema
+            Структура
           </button>
         </div>
       ) : null}
@@ -192,15 +192,15 @@ export function AdminDataScreen({ initData, showAlert }: Props) {
       {view === "columns" && table ? (
         <section className="ops-table">
           <h3 className="ops-table__title">{table}</h3>
-          <p className="ops-table__subtitle">Columns: {columns.length}</p>
+          <p className="ops-table__subtitle">Колонок: {columns.length}</p>
           <div className="ops-table__scroll">
             <table>
               <thead>
                 <tr>
-                  <th>Column</th>
-                  <th>Type</th>
+                  <th>Колонка</th>
+                  <th>Тип</th>
                   <th>NULL</th>
-                  <th>Default</th>
+                  <th>По умолчанию</th>
                 </tr>
               </thead>
               <tbody>
@@ -211,7 +211,7 @@ export function AdminDataScreen({ initData, showAlert }: Props) {
                       {c.name}
                     </td>
                     <td>{c.type}</td>
-                    <td>{c.nullable ? "yes" : "no"}</td>
+                    <td>{c.nullable ? "да" : "нет"}</td>
                     <td title={c.default}>{c.default ? c.default.slice(0, 40) : "—"}</td>
                   </tr>
                 ))}
@@ -223,12 +223,12 @@ export function AdminDataScreen({ initData, showAlert }: Props) {
 
       {view === "rows" && result ? (
         <section className="ops-table">
-          <h3 className="ops-table__title">{table || "Result"}</h3>
+          <h3 className="ops-table__title">{table || "Результат"}</h3>
           <p className="ops-table__subtitle">
-            {table && currentTable ? `Total rows: ${currentTable.rows} · ` : ""}
-            Showing: {result.rows.length}
-            {result.truncated ? " (trimmed to 200)" : ""} · {result.took}
-            {orderBy ? ` · sort: ${orderBy} ${desc ? "↓" : "↑"}` : ""}
+            {table && currentTable ? `Всего строк: ${currentTable.rows} · ` : ""}
+            Показано: {result.rows.length}
+            {result.truncated ? " (обрезано до 200)" : ""} · {result.took}
+            {orderBy ? ` · сортировка: ${orderBy} ${desc ? "↓" : "↑"}` : ""}
           </p>
           <div className="ops-table__scroll">
             <table>
@@ -261,7 +261,7 @@ export function AdminDataScreen({ initData, showAlert }: Props) {
               </tbody>
             </table>
           </div>
-          {result.rows.length === 0 ? <p className="ops-muted">Empty</p> : null}
+          {result.rows.length === 0 ? <p className="ops-muted">Пусто</p> : null}
           {table ? (
             <div className="ops-row">
               <button
@@ -269,7 +269,7 @@ export function AdminDataScreen({ initData, showAlert }: Props) {
                 disabled={busy || offset === 0}
                 onClick={() => void openTable(table, Math.max(0, offset - PAGE), orderBy, desc)}
               >
-                ◀ Back
+                ◀ Назад
               </button>
               <span className="ops-muted">
                 {offset + 1}–{offset + result.rows.length}
@@ -279,7 +279,7 @@ export function AdminDataScreen({ initData, showAlert }: Props) {
                 disabled={busy || result.rows.length < PAGE}
                 onClick={() => void openTable(table, offset + PAGE, orderBy, desc)}
               >
-                Forward ▶
+                Вперёд ▶
               </button>
             </div>
           ) : null}

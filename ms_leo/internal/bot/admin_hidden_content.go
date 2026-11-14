@@ -13,13 +13,13 @@ import (
 func hiddenModerationKindLabel(kind string) string {
 	switch kind {
 	case "feed_post":
-		return "Post"
+		return "Пост"
 	case "thread_reply":
-		return "Comment"
+		return "Комментарий"
 	case "pack_group_message":
-		return "Chat message"
+		return "Сообщение в чате"
 	default:
-		return "Content"
+		return "Контент"
 	}
 }
 
@@ -43,10 +43,10 @@ func (b *Bot) showAdminHiddenContentInbox(chatID int64) {
 	packChatID := b.config.MonetizedChatID
 	items, err := b.db.ListHiddenModerationItems(packChatID, 20)
 	if err != nil {
-		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Could not load hidden content."))
+		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Не удалось загрузить скрытое."))
 		return
 	}
-	// Два бакета для постов: удалённые adminом (кнопкой «удалить») и скрытые по жалобе.
+	// Два бакета для постов: удалённые админом (кнопкой «удалить») и скрытые по жалобе.
 	// Комментарии/сообщения чата — отдельной группой «прочее».
 	var adminDeleted, reported, other []database.HiddenModerationItem
 	for _, item := range items {
@@ -61,10 +61,10 @@ func (b *Bot) showAdminHiddenContentInbox(chatID int64) {
 	}
 
 	var text strings.Builder
-	text.WriteString("🙈 Hidden and deleted\n\n")
-	text.WriteString("You can restore to the feed or chat. Permanent delete only via «Clear feed & chat» or the user card.\n\n")
+	text.WriteString("🙈 Скрытое и удалённое\n\n")
+	text.WriteString("Можно вернуть в ленту или чат. Жёсткое удаление — только через «Очистить ленту и чат» или карточку юзера.\n\n")
 	if len(items) == 0 {
-		text.WriteString("Empty — no hidden or deleted content.")
+		text.WriteString("Пусто — скрытого и удалённого контента нет.")
 	}
 
 	rows := make([][]tgbotapi.InlineKeyboardButton, 0, len(items)+1)
@@ -83,7 +83,7 @@ func (b *Bot) showAdminHiddenContentInbox(chatID int64) {
 				clipAdminSupportText(item.Text, 64),
 			))
 			if item.Kind == "thread_reply" && item.ParentID > 0 {
-				text.WriteString(fmt.Sprintf("   Report #%d\n", item.ParentID))
+				text.WriteString(fmt.Sprintf("   Отчёт #%d\n", item.ParentID))
 			}
 			cb := hiddenModerationRestoreCallback(item.Kind, item.ID)
 			if cb != "" {
@@ -97,11 +97,11 @@ func (b *Bot) showAdminHiddenContentInbox(chatID int64) {
 		}
 		text.WriteString("\n")
 	}
-	renderGroup("🗑 Deleted by admin:", "🗑", adminDeleted)
-	renderGroup("🚩 Hidden by report:", "🚩", reported)
-	renderGroup("💬 Comments & pack chat:", "💬", other)
+	renderGroup("🗑 Удалённые админом:", "🗑", adminDeleted)
+	renderGroup("🚩 Скрытые по жалобе:", "🚩", reported)
+	renderGroup("💬 Комментарии и чат стаи:", "💬", other)
 	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("⬅️ Support", "admin_support_back"),
+		tgbotapi.NewInlineKeyboardButtonData("⬅️ К поддержке", "admin_support_back"),
 	))
 	msg := tgbotapi.NewMessage(chatID, clipAdminSupportText(text.String(), 3500))
 	msg.ReplyMarkup = &tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
@@ -119,32 +119,32 @@ func (b *Bot) adminRestoreHiddenContent(chatID int64, kind string, id int64) {
 	switch kind {
 	case "feed_post":
 		ok, err = b.db.AdminUnhideFeedUserMessage(packChatID, id)
-		label = fmt.Sprintf("post #%d", id)
+		label = fmt.Sprintf("пост #%d", id)
 	case "thread_reply":
 		parentPostID := int64(0)
 		if row, found, rerr := b.db.GetTrainingFeedThreadRowInPack(id, packChatID); rerr == nil && found {
 			parentPostID = row.UserMessageID
 		}
 		ok, err = b.db.AdminUnhideTrainingFeedThreadReply(packChatID, id)
-		label = fmt.Sprintf("comment t%d", id)
+		label = fmt.Sprintf("комментарий t%d", id)
 		if ok && parentPostID > 0 {
-			label = fmt.Sprintf("comment t%d under post #%d", id, parentPostID)
+			label = fmt.Sprintf("комментарий t%d под отчётом #%d", id, parentPostID)
 		}
 	case "pack_group_message":
 		ok, err = b.db.AdminUnhidePackGroupMessage(packChatID, id)
-		label = fmt.Sprintf("pack chat message #%d", id)
+		label = fmt.Sprintf("сообщение чата #%d", id)
 	default:
-		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Unknown content type."))
+		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Неизвестный тип контента."))
 		return
 	}
 	if err != nil {
-		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Error: "+err.Error()))
+		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Ошибка: "+err.Error()))
 		return
 	}
 	if !ok {
-		b.api.Send(tgbotapi.NewMessage(chatID, "ℹ️ Already restored or not found."))
+		b.api.Send(tgbotapi.NewMessage(chatID, "ℹ️ Уже возвращено или не найдено."))
 	} else {
-		msg := "✅ Restored: " + label + ".\n\nPull to refresh the feed in the mini app and open Comments under this post."
+		msg := "✅ Возвращено: " + label + ".\n\nОбнови ленту в мини-аппе (потяни вниз) и открой «Комментарии» под этим отчётом."
 		b.api.Send(tgbotapi.NewMessage(chatID, msg))
 	}
 	b.showAdminHiddenContentInbox(chatID)

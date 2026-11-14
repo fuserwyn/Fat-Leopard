@@ -32,7 +32,7 @@ export function AdminResourcesScreen({ initData, showAlert }: Props) {
           : null,
       );
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : "Couldn't compute resources");
+      showAlert(e instanceof Error ? e.message : "Не удалось посчитать ресурсы");
     } finally {
       setLoading(false);
     }
@@ -69,36 +69,36 @@ export function AdminResourcesScreen({ initData, showAlert }: Props) {
         if (done) break;
       }
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : "Something went wrong");
+      showAlert(e instanceof Error ? e.message : "Не получилось");
     } finally {
       setStandBusy(false);
     }
   };
 
-  if (loading) return <p className="ops-muted">Calculating…</p>;
-  if (!data) return <p className="ops-muted">No data</p>;
+  if (loading) return <p className="ops-muted">Считаю…</p>;
+  if (!data) return <p className="ops-muted">Нет данных</p>;
 
   return (
     <div className="ops">
       <div className="ops-money">
         <div className="ops-money__cell">
-          <small>Spend</small>
+          <small>Расход</small>
           <b>{money(data.cost_usd)}</b>
         </div>
         <div className="ops-money__cell">
-          <small>Revenue</small>
+          <small>Доход</small>
           <b>{money(data.income_usd)}</b>
         </div>
         <div className={`ops-money__cell ops-money__cell--net${data.net_usd < 0 ? " is-minus" : ""}`}>
-          <small>Net</small>
+          <small>Разница</small>
           <b>{money(data.net_usd)}</b>
         </div>
       </div>
-      <p className="ops-muted">Month {data.month}. All in USD, month to date.</p>
+      <p className="ops-muted">Месяц {data.month}. Всё в долларах, по текущую дату.</p>
 
       {stand?.configured ? (
         <section className="ops-table">
-          <h3 className="ops-table__title">🧪 Test stand</h3>
+          <h3 className="ops-table__title">🧪 Тестовый стенд</h3>
           {/* Кнопка и прогресс рядом: пока сервисы гаснут или поднимаются,
               видно, сколько из них уже дошло. */}
           <div className="ops-stand">
@@ -108,7 +108,7 @@ export function AdminResourcesScreen({ initData, showAlert }: Props) {
               disabled={standBusy}
               onClick={() => void switchStand(stand.running ? "stop" : "start")}
             >
-              {standBusy ? "Switching…" : stand.running ? "Stop stand" : "Start stand"}
+              {standBusy ? "Переключаю…" : stand.running ? "Выключить стенд" : "Включить стенд"}
             </button>
             <div className="ops-stand__meter" aria-hidden>
               <div
@@ -124,16 +124,16 @@ export function AdminResourcesScreen({ initData, showAlert }: Props) {
       ) : null}
 
       <section className="ops-table">
-        <h3 className="ops-table__title">🖥 Railway resources</h3>
+        <h3 className="ops-table__title">🖥 Ресурсы Railway</h3>
         <p className="ops-table__subtitle">{data.cost_note}</p>
         {data.cost_parts.length > 0 ? (
           <div className="ops-table__scroll">
             <table>
               <thead>
                 <tr>
-                  <th>Resource</th>
-                  <th>Accrued</th>
-                  <th>Cost</th>
+                  <th>Ресурс</th>
+                  <th>Накоплено</th>
+                  <th>Стоимость</th>
                 </tr>
               </thead>
               <tbody>
@@ -151,17 +151,17 @@ export function AdminResourcesScreen({ initData, showAlert }: Props) {
       </section>
 
       <section className="ops-table">
-        <h3 className="ops-table__title">💰 Payments & donations this month</h3>
+        <h3 className="ops-table__title">💰 Оплаты и донаты за месяц</h3>
         <p className="ops-table__subtitle">{data.payments_note || data.rates_note}</p>
         {data.income.length > 0 ? (
           <div className="ops-table__scroll">
             <table>
               <thead>
                 <tr>
-                  <th>Type</th>
-                  <th>Payments</th>
-                  <th>Amount</th>
-                  <th>In USD</th>
+                  <th>Тип</th>
+                  <th>Оплат</th>
+                  <th>Сумма</th>
+                  <th>В долларах</th>
                 </tr>
               </thead>
               <tbody>
@@ -182,7 +182,7 @@ export function AdminResourcesScreen({ initData, showAlert }: Props) {
       </section>
 
       <button type="button" className="ops-primary" onClick={() => void load()}>
-        Refresh
+        Обновить
       </button>
     </div>
   );

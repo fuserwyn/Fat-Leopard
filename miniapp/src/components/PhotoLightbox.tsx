@@ -20,7 +20,16 @@ function touchDistance(a: React.Touch, b: React.Touch): number {
  * колесо мыши; панорама одним пальцем, когда увеличено. Клик по фону
  * (в масштабе 1:1, без перетаскивания) закрывает.
  */
-export function PhotoLightbox({ src, onClose }: { src: string; onClose: () => void }) {
+export function PhotoLightbox({
+  src,
+  onClose,
+  closeLabel = "Close",
+}: {
+  src: string;
+  onClose: () => void;
+  /** Подпись кнопки закрытия; админка передаёт русскую. */
+  closeLabel?: string;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const [tx, setTx] = useState(0);
@@ -166,7 +175,7 @@ export function PhotoLightbox({ src, onClose }: { src: string; onClose: () => vo
       <button
         type="button"
         className="photo-lightbox__close"
-        aria-label="Close"
+        aria-label={closeLabel}
         onClick={(e) => {
           e.stopPropagation();
           onClose();

@@ -56,26 +56,26 @@ func TestAdminUserPurgeSummarySkipsEmptyTables(t *testing.T) {
 	report := database.AdminUserPurgeReport{
 		UserID: 4242,
 		Rows: []database.AdminUserPurgeRow{
-			{Label: "feed posts and messages", Table: "user_messages", Rows: 3},
-			{Label: "donations", Table: "donations", Rows: 0},
-			{Label: "workouts", Table: "training_sessions", Rows: 7},
+			{Label: "посты в ленте и сообщения", Table: "user_messages", Rows: 3},
+			{Label: "донаты", Table: "donations", Rows: 0},
+			{Label: "тренировки", Table: "training_sessions", Rows: 7},
 		},
 		Total: 10,
 	}
 
 	summary := adminUserPurgeSummary(report)
-	if !strings.Contains(summary, "feed posts and messages: 3") {
+	if !strings.Contains(summary, "посты в ленте и сообщения: 3") {
 		t.Fatalf("non-empty table must be listed: %q", summary)
 	}
-	if strings.Contains(summary, "donations") {
+	if strings.Contains(summary, "донаты") {
 		t.Fatalf("empty table must be skipped: %q", summary)
 	}
-	if !strings.Contains(summary, "Total rows: 10") {
+	if !strings.Contains(summary, "Всего строк: 10") {
 		t.Fatalf("total must be reported: %q", summary)
 	}
 
 	empty := adminUserPurgeSummary(database.AdminUserPurgeReport{UserID: 4242})
-	if !strings.Contains(empty, "Nothing to delete") {
+	if !strings.Contains(empty, "нечего") {
 		t.Fatalf("empty report must say so plainly: %q", empty)
 	}
 }

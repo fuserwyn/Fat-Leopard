@@ -124,7 +124,7 @@ func (b *Bot) MiniappAdminSetStat(
 					UserID:         targetUserID,
 					ChatID:         packChatID,
 					SessionDate:    today,
-					MessageText:    "credited by admin",
+					MessageText:    "зачтено админом",
 					TrainingsCount: 1,
 				}); err != nil {
 					return err

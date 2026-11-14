@@ -39,20 +39,20 @@ func (b *Bot) MiniappAskLeoTask(
 	}
 	q := strings.TrimSpace(question)
 	if q == "" {
-		return "", "", fmt.Errorf("ask something")
+		return "", "", fmt.Errorf("спроси что-нибудь")
 	}
 	if len([]rune(q)) > 500 {
 		q = string([]rune(q)[:500])
 	}
 	if b.aiClient == nil {
-		return "", "", fmt.Errorf("Leo is unavailable: OpenRouter is not configured")
+		return "", "", fmt.Errorf("Лео сейчас недоступен: не настроен OpenRouter")
 	}
 	raw, err := b.leoPlannerChat([]ai.ChatMessage{
 		{Role: "system", Content: leoTaskSystemPrompt},
 		{Role: "user", Content: q},
 	})
 	if err != nil {
-		return "", "", fmt.Errorf("Leo did not respond: %w", err)
+		return "", "", fmt.Errorf("Лео не ответил: %w", err)
 	}
 
 	// Модель любит обернуть JSON в ```json … ``` или добавить преамбулу —
@@ -79,7 +79,7 @@ func (b *Bot) MiniappAskLeoTask(
 
 const leoSprintSystemPrompt = `Ты — Лео, суровый и остроумный леопард, тренер стаи Fat Leopard.
 Тебя просят придумать спринт для приложения стаи (мини-апп: лента тренировок,
-комментарии, стрики, ачивки, чат, админка, оплата access).
+комментарии, стрики, ачивки, чат, админка, оплата доступа).
 
 Ответь JSON без обрамления и пояснений:
 {"reply": "...", "theme": "...", "tasks": ["...", "..."]}
@@ -97,7 +97,7 @@ func (b *Bot) MiniappLeoSprint(
 		return "", "", nil, err
 	}
 	if b.aiClient == nil {
-		return "", "", nil, fmt.Errorf("Leo is unavailable: OpenRouter is not configured")
+		return "", "", nil, fmt.Errorf("Лео сейчас недоступен: не настроен OpenRouter")
 	}
 	q := strings.TrimSpace(hint)
 	if q == "" {
@@ -111,7 +111,7 @@ func (b *Bot) MiniappLeoSprint(
 		{Role: "user", Content: q},
 	})
 	if err != nil {
-		return "", "", nil, fmt.Errorf("Leo did not respond: %w", err)
+		return "", "", nil, fmt.Errorf("Лео не ответил: %w", err)
 	}
 	var parsed struct {
 		Reply string   `json:"reply"`
@@ -142,7 +142,7 @@ func (b *Bot) MiniappLeoSprint(
 	return reply, theme, tasks, nil
 }
 
-// LeoTaskVariant — один из вариантов задачи после обсуждения с adminом.
+// LeoTaskVariant — один из вариантов задачи после обсуждения с админом.
 type LeoTaskVariant struct {
 	Title string `json:"title"`
 	Task  string `json:"task"`
@@ -150,8 +150,8 @@ type LeoTaskVariant struct {
 
 const leoProposeSystemPrompt = `Ты — Лео, суровый и остроумный леопард, тренер стаи Fat Leopard.
 Ты сам решаешь, что улучшить в приложении стаи (мини-апп: лента тренировок,
-комментарии, стрики, ачивки, чат, админка, оплата access), и приносишь идею
-adminам на утверждение.
+комментарии, стрики, ачивки, чат, админка, оплата доступа), и приносишь идею
+админам на утверждение.
 
 Ответь JSON без обрамления и пояснений:
 {"reply": "...", "title": "...", "task": "..."}
@@ -177,8 +177,8 @@ title — короткое название до 60 символов, без э�
 task — формулировка разработчику одним абзацем до 400 символов: что сделать и
 зачем, без эмодзи и без обращения к человеку.`
 
-// MiniappLeoProposeTask — Лео сам придумывает задачу; admin решает, брать ли.
-// busy — что уже на доске и что admin только что отклонил: чтобы он не
+// MiniappLeoProposeTask — Лео сам придумывает задачу; админ решает, брать ли.
+// busy — что уже на доске и что админ только что отклонил: чтобы он не
 // предлагал по кругу одно и то же.
 // feedback + previous — обсуждение черновика: Лео уточняет и может вернуть
 // несколько вариантов формулировки.
@@ -190,7 +190,7 @@ func (b *Bot) MiniappLeoProposeTask(
 		return "", "", "", nil, err
 	}
 	if b.aiClient == nil {
-		return "", "", "", nil, fmt.Errorf("Leo is unavailable: OpenRouter is not configured")
+		return "", "", "", nil, fmt.Errorf("Лео сейчас недоступен: не настроен OpenRouter")
 	}
 	feedback = strings.TrimSpace(feedback)
 	if feedback != "" {
@@ -227,7 +227,7 @@ func (b *Bot) MiniappLeoProposeTask(
 		{Role: "user", Content: sb.String()},
 	})
 	if err != nil {
-		return "", "", "", nil, fmt.Errorf("Leo did not respond: %w", err)
+		return "", "", "", nil, fmt.Errorf("Лео не ответил: %w", err)
 	}
 	var parsed struct {
 		Reply string `json:"reply"`
@@ -258,7 +258,7 @@ func (b *Bot) miniappLeoProposeDiscuss(
 	previousTitle = strings.TrimSpace(previousTitle)
 	previousTask = strings.TrimSpace(previousTask)
 	if previousTitle == "" && previousTask == "" {
-		return "", "", "", nil, fmt.Errorf("no task to discuss")
+		return "", "", "", nil, fmt.Errorf("нет задачи для обсуждения")
 	}
 	var sb strings.Builder
 	sb.WriteString("Обсуждаем задачу, которую ты предложил.\n\n")
@@ -274,13 +274,13 @@ func (b *Bot) miniappLeoProposeDiscuss(
 		}
 		sb.WriteString("\nИсходная тема: " + topic + "\n")
 	}
-	sb.WriteString("\nКомментарий adminа: " + feedback)
+	sb.WriteString("\nКомментарий админа: " + feedback)
 	raw, err := b.leoPlannerChat([]ai.ChatMessage{
 		{Role: "system", Content: leoProposeDiscussSystemPrompt},
 		{Role: "user", Content: sb.String()},
 	})
 	if err != nil {
-		return "", "", "", nil, fmt.Errorf("Leo did not respond: %w", err)
+		return "", "", "", nil, fmt.Errorf("Лео не ответил: %w", err)
 	}
 	var parsed struct {
 		Reply    string           `json:"reply"`

@@ -115,30 +115,24 @@ export type AdminUserAction =
   | "grant_save"
   | "kick";
 
-/** Display sick leave for admins (API returns active/pending/none; legacy RU values still possible). */
+/** Больничный для админки по-русски (API отдаёт active/pending/none, старые записи — по-русски). */
 export function formatAdminSickLeave(status: string): string {
   const s = status.trim().toLowerCase();
-  if (s === "active" || s === "активен") return "Active";
-  if (s === "pending" || s === "ожидает" || s === "awaiting approval") return "Pending";
-  if (s === "none" || s === "нет" || s === "no") return "None";
+  if (s === "active" || s === "активен") return "активен";
+  if (s === "pending" || s === "ожидает" || s === "awaiting approval") return "ожидает";
+  if (s === "none" || s === "нет" || s === "no" || s === "") return "нет";
   return status;
 }
 
 export function adminSickLeaveActive(status: string): boolean {
   const s = status.trim().toLowerCase();
-  return (
-    s === "active" ||
-    s === "pending" ||
-    s === "активен" ||
-    s === "ожидает" ||
-    s === "awaiting approval"
-  );
+  return s === "active" || s === "pending" || s === "awaiting approval" || s === "активен" || s === "ожидает";
 }
 
 type ErrBody = { error?: string; message?: string };
 
 async function post<T>(path: string, initData: string, extra: Record<string, unknown> = {}): Promise<T> {
-  if (!api) throw new Error("API not configured");
+  if (!api) throw new Error("API не настроен");
   const res = await fetch(`${api}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -146,7 +140,7 @@ async function post<T>(path: string, initData: string, extra: Record<string, unk
   });
   const j = (await res.json().catch(() => ({}))) as T & ErrBody & { ok?: boolean };
   if (!res.ok || j.ok === false) {
-    throw new Error(j.message || adminErrorLabel(j.error) || `Error ${res.status}`);
+    throw new Error(j.message || adminErrorLabel(j.error) || `Ошибка ${res.status}`);
   }
   return j;
 }
@@ -154,23 +148,23 @@ async function post<T>(path: string, initData: string, extra: Record<string, unk
 export function adminErrorLabel(code?: string): string {
   switch (code) {
     case "forbidden":
-      return "No admin rights";
+      return "Нет прав администратора";
     case "chat_mismatch":
-      return "Open the miniapp from the pack chat";
+      return "Открой мини-апп из чата стаи";
     case "not_found":
-      return "Not found or already handled";
+      return "Не найдено или уже обработано";
     case "invalid_action":
-      return "Invalid action";
+      return "Некорректное действие";
     case "empty_text":
-      return "Enter text";
+      return "Напиши текст";
     case "text_too_long":
-      return "Text too long";
+      return "Слишком длинный текст";
     case "moderation_blocked":
-      return "Text failed moderation";
+      return "Текст не прошёл модерацию";
     case "invalid_price":
-      return "Price must be 1–100000 ₽";
+      return "Цена должна быть от 1 до 100000 ₽";
     case "tracker_not_configured":
-      return "Board unavailable";
+      return "Доска недоступна";
     default:
       return code ?? "";
   }
@@ -200,7 +194,7 @@ export function sendAdminSupportReplyPhoto(
   text: string,
   photo: File,
 ) {
-  if (!api) throw new Error("API not configured");
+  if (!api) throw new Error("API не настроен");
   const fd = new FormData();
   fd.append("init_data", initData);
   fd.append("target_user_id", String(targetUserId));
@@ -209,7 +203,7 @@ export function sendAdminSupportReplyPhoto(
   return fetch(`${api}/api/miniapp/admin/support/reply/photo`, { method: "POST", body: fd }).then(async (res) => {
     const j = (await res.json().catch(() => ({}))) as ErrBody & { ok?: boolean };
     if (!res.ok || j.ok === false) {
-      throw new Error(j.message || adminErrorLabel(j.error) || `Error ${res.status}`);
+      throw new Error(j.message || adminErrorLabel(j.error) || `Ошибка ${res.status}`);
     }
     return j;
   });
@@ -497,7 +491,7 @@ export type AdminResources = {
 };
 
 export function moneyKindLabel(kind: string, currency: string): string {
-  const k = kind === "donation" ? "Donation" : "Access";
+  const k = kind === "donation" ? "Донат" : "Доступ";
   const c = currency.toUpperCase() === "XTR" ? "⭐" : "₽";
   return `${k} · ${c}`;
 }

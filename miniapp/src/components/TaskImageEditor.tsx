@@ -211,8 +211,8 @@ export function TaskImageEditor({ onDone, onCancel, initialFile, allowMultiple, 
     >
       <div className="imged__box">
         <div className="imged__head">
-          <b>Task image</b>
-          <button type="button" className="imged__close" onClick={onCancel} aria-label="Close">
+          <b>Картинка к задаче</b>
+          <button type="button" className="imged__close" onClick={onCancel} aria-label="Закрыть">
             ✕
           </button>
         </div>
@@ -238,8 +238,8 @@ export function TaskImageEditor({ onDone, onCancel, initialFile, allowMultiple, 
             />
             <span>
               {allowMultiple
-                ? "📷 Pick photo or screenshot (multiple allowed)"
-                : "📷 Pick photo or screenshot"}
+                ? "📷 Выбрать фото или скриншот (можно несколько)"
+                : "📷 Выбрать фото или скриншот"}
             </span>
           </label>
         ) : null}
@@ -259,18 +259,18 @@ export function TaskImageEditor({ onDone, onCancel, initialFile, allowMultiple, 
           <>
             <div className="imged__row">
               <button type="button" className={mode === "move" ? "on" : ""} onClick={() => setMode("move")}>
-                ✋ Move
+                ✋ Двигать
               </button>
               <button type="button" className={mode === "draw" ? "on" : ""} onClick={() => setMode("draw")}>
-                ✏️ Draw
+                ✏️ Рисовать
               </button>
               <button type="button" onClick={() => setStrokes((prev) => prev.slice(0, -1))} disabled={strokes.length === 0}>
-                ↶ Undo
+                ↶ Отменить
               </button>
             </div>
 
             <label className="imged__zoom">
-              Zoom
+              Масштаб
               <input
                 type="range"
                 min={0.2}
@@ -289,7 +289,7 @@ export function TaskImageEditor({ onDone, onCancel, initialFile, allowMultiple, 
                     type="button"
                     className={`imged__color${color === c ? " on" : ""}`}
                     style={{ background: c }}
-                    aria-label={`Color ${c}`}
+                    aria-label={`Цвет ${c}`}
                     onClick={() => setColor(c)}
                   />
                 ))}
@@ -300,23 +300,23 @@ export function TaskImageEditor({ onDone, onCancel, initialFile, allowMultiple, 
                   step={1}
                   value={width}
                   onChange={(e) => setWidth(Number(e.target.value))}
-                  aria-label="Stroke width"
+                  aria-label="Толщина"
                 />
               </div>
             ) : null}
 
             <p className="imged__hint">
-              The crop is what’s inside the frame: drag and zoom. Draw on top of the crop.
+              В кадр попадёт то, что видно в рамке: двигай пальцем и меняй масштаб. Рисовать — поверх кадра.
             </p>
           </>
         ) : null}
 
         <div className="imged__actions">
           <button type="button" onClick={onCancel}>
-            Cancel
+            Отмена
           </button>
           <button type="button" className="imged__primary" disabled={!ready} onClick={attach}>
-            Attach
+            Приложить
           </button>
         </div>
       </div>

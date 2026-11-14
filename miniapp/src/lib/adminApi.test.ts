@@ -3,10 +3,10 @@ import { adminErrorLabel, adminSickLeaveActive, formatAdminSickLeave } from "./a
 
 describe("adminErrorLabel", () => {
   it("maps known codes", () => {
-    expect(adminErrorLabel("forbidden")).toBe("No admin rights");
-    expect(adminErrorLabel("not_found")).toBe("Not found or already handled");
-    expect(adminErrorLabel("empty_text")).toBe("Enter text");
-    expect(adminErrorLabel("invalid_price")).toBe("Price must be 1–100000 ₽");
+    expect(adminErrorLabel("forbidden")).toBe("Нет прав администратора");
+    expect(adminErrorLabel("not_found")).toBe("Не найдено или уже обработано");
+    expect(adminErrorLabel("empty_text")).toBe("Напиши текст");
+    expect(adminErrorLabel("invalid_price")).toBe("Цена должна быть от 1 до 100000 ₽");
   });
 
   it("falls back to the raw code", () => {
@@ -15,18 +15,21 @@ describe("adminErrorLabel", () => {
   });
 });
 
-describe("sick leave labels", () => {
-  it("formats EN and legacy RU statuses", () => {
-    expect(formatAdminSickLeave("active")).toBe("Active");
-    expect(formatAdminSickLeave("активен")).toBe("Active");
-    expect(formatAdminSickLeave("pending")).toBe("Pending");
-    expect(formatAdminSickLeave("ожидает")).toBe("Pending");
-    expect(formatAdminSickLeave("none")).toBe("None");
-    expect(formatAdminSickLeave("нет")).toBe("None");
+describe("formatAdminSickLeave", () => {
+  it("shows sick leave in Russian for both API and legacy values", () => {
+    expect(formatAdminSickLeave("active")).toBe("активен");
+    expect(formatAdminSickLeave("активен")).toBe("активен");
+    expect(formatAdminSickLeave("pending")).toBe("ожидает");
+    expect(formatAdminSickLeave("awaiting approval")).toBe("ожидает");
+    expect(formatAdminSickLeave("none")).toBe("нет");
+    expect(formatAdminSickLeave("No")).toBe("нет");
+    expect(formatAdminSickLeave("")).toBe("нет");
+    expect(formatAdminSickLeave("странно")).toBe("странно");
   });
 
-  it("detects active sick leave (EN or legacy)", () => {
+  it("detects active or pending leave", () => {
     expect(adminSickLeaveActive("active")).toBe(true);
+    expect(adminSickLeaveActive("Pending")).toBe(true);
     expect(adminSickLeaveActive("ожидает")).toBe(true);
     expect(adminSickLeaveActive("none")).toBe(false);
     expect(adminSickLeaveActive("нет")).toBe(false);

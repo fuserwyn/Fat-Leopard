@@ -132,7 +132,7 @@ func TestFailedTestAlwaysReturnsCardToWork(t *testing.T) {
 	}
 
 	prompt := trackerAgentPrompt(task, "doing")
-	if !strings.Contains(prompt, "pre-ship checks rejected it") || !strings.Contains(prompt, "ошибка №8") || !strings.Contains(prompt, "Добавить челленджи") {
+	if !strings.Contains(prompt, "проверка перед выкатом его не приняла") || !strings.Contains(prompt, "ошибка №8") || !strings.Contains(prompt, "Добавить челленджи") {
 		t.Errorf("задание на доработку: %q", prompt)
 	}
 

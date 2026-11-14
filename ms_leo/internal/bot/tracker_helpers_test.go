@@ -8,7 +8,7 @@ import (
 )
 
 func TestTrackerAgentChoiceLabel(t *testing.T) {
-	cases := map[string]string{"claude": "Claude", "Cursor": "Cursor", "": "Auto", "auto": "Auto", "gpt": "Auto"}
+	cases := map[string]string{"claude": "Claude", "Cursor": "Cursor", "": "Авто", "auto": "Авто", "gpt": "Авто"}
 	for in, want := range cases {
 		if got := trackerAgentChoiceLabel(in); got != want {
 			t.Errorf("%q: %q, want %q", in, got, want)
@@ -82,7 +82,7 @@ func TestTrackerNotifyAuthor(t *testing.T) {
 		t.Errorf("без автора: %d", got)
 	}
 	err := &trackerShipDeployError{Base: "main", Msg: "Not Authorized"}
-	if !strings.Contains(err.Error(), "merged into main") || !strings.Contains(err.Error(), "Not Authorized") {
+	if !strings.Contains(err.Error(), "влили в main") || !strings.Contains(err.Error(), "Not Authorized") {
 		t.Errorf("текст ошибки: %s", err.Error())
 	}
 }

@@ -20,7 +20,7 @@ const (
 func (b *Bot) showAdminUsersListPage(chatID int64, offset int) {
 	packChatID := b.adminPackChatID()
 	if packChatID == 0 {
-		b.api.Send(tgbotapi.NewMessage(chatID, "❌ MonetizedChatID not configured."))
+		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Не настроен MonetizedChatID."))
 		return
 	}
 	if offset < 0 {
@@ -28,26 +28,26 @@ func (b *Bot) showAdminUsersListPage(chatID int64, offset int) {
 	}
 	counts, err := b.db.CountPackUsersBreakdownForAdmin(packChatID)
 	if err != nil {
-		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Could not load list."))
+		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Не удалось загрузить список."))
 		return
 	}
 	total := counts.Total
 	users, err := b.db.ListPackUsersForAdmin(packChatID, offset, adminUsersListPageSize, database.PackUserAdminFilterAll)
 	if err != nil {
-		b.api.Send(tgbotapi.NewMessage(chatID, "❌ List error: "+err.Error()))
+		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Ошибка списка: "+err.Error()))
 		return
 	}
 
-	subtitle := "Nobody yet."
+	subtitle := "Пока никого нет."
 	tableText := ""
 	if total > 0 {
 		from := offset + 1
 		to := offset + len(users)
-		subtitle = fmt.Sprintf("Active %d · kicked %d · rows %d–%d of %d · tap # below",
+		subtitle = fmt.Sprintf("Активных %d · кикнутых %d · строки %d–%d из %d · нажми № под таблицей",
 			counts.Active, counts.Kicked, from, to, total)
 
 		tbl := newAdminTable(
-			[]string{"No.", "ID", "Username", "Cups", "Str"},
+			[]string{"№", "ID", "Ник", "Куб", "Стр"},
 			[]int{2, 10, 12, 4, 3},
 		)
 		for i, u := range users {
@@ -72,27 +72,27 @@ func (b *Bot) showAdminUsersListPage(chatID int64, offset int) {
 		if prev < 0 {
 			prev = 0
 		}
-		nav = append(nav, tgbotapi.NewInlineKeyboardButtonData("◀️ Back", "admin_users_list_"+strconv.Itoa(prev)))
+		nav = append(nav, tgbotapi.NewInlineKeyboardButtonData("◀️ Назад", "admin_users_list_"+strconv.Itoa(prev)))
 	}
 	if offset+len(users) < total {
-		nav = append(nav, tgbotapi.NewInlineKeyboardButtonData("▶️ Next", "admin_users_list_"+strconv.Itoa(offset+adminUsersListPageSize)))
+		nav = append(nav, tgbotapi.NewInlineKeyboardButtonData("▶️ Далее", "admin_users_list_"+strconv.Itoa(offset+adminUsersListPageSize)))
 	}
 	if len(nav) > 0 {
 		keyboardRows = append(keyboardRows, nav)
 	}
 	keyboardRows = append(keyboardRows, tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("🔍 Find", "admin_users"),
-		tgbotapi.NewInlineKeyboardButtonData("⬅️ Admin", "admin_open"),
+		tgbotapi.NewInlineKeyboardButtonData("🔍 Найти", "admin_users"),
+		tgbotapi.NewInlineKeyboardButtonData("⬅️ Админка", "admin_open"),
 	))
 
 	kb := &tgbotapi.InlineKeyboardMarkup{InlineKeyboard: keyboardRows}
-	b.sendAdminHTMLPreTable(chatID, "📋 Pack members", subtitle, tableText, kb)
+	b.sendAdminHTMLPreTable(chatID, "📋 Пользователи стаи", subtitle, tableText, kb)
 }
 
 func (b *Bot) showAdminPaymentsPage(chatID int64, offset int) {
 	packChatID := b.adminPackChatID()
 	if packChatID == 0 {
-		b.api.Send(tgbotapi.NewMessage(chatID, "❌ MonetizedChatID not configured."))
+		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Не настроен MonetizedChatID."))
 		return
 	}
 	if offset < 0 {
@@ -100,31 +100,31 @@ func (b *Bot) showAdminPaymentsPage(chatID int64, offset int) {
 	}
 	sums, err := b.db.AdminSumCompletedMoney(packChatID, time.Time{}, false)
 	if err != nil {
-		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Could not load payment summary."))
+		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Не удалось загрузить сводку оплат."))
 		return
 	}
 	statsTbl := adminBuildMoneyStatsTable(sums)
 
 	total, err := b.db.CountMoneyPaymentsForAdmin(packChatID)
 	if err != nil {
-		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Could not load payments."))
+		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Не удалось загрузить оплаты."))
 		return
 	}
 	payments, err := b.db.ListMoneyPaymentsForAdmin(packChatID, offset, adminPaymentsListPageSize)
 	if err != nil {
-		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Error: "+err.Error()))
+		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Ошибка: "+err.Error()))
 		return
 	}
 
-	subtitle := "No requests yet."
+	subtitle := "Заявок пока нет."
 	tableText := ""
 	if total > 0 {
 		from := offset + 1
 		to := offset + len(payments)
-		subtitle = fmt.Sprintf("Rows %d–%d of %d · tap # below", from, to, total)
+		subtitle = fmt.Sprintf("Строки %d–%d из %d · нажми № под таблицей", from, to, total)
 
 		tbl := newAdminTable(
-			[]string{"No.", "Type", "Username", "Status", "Amount", "Date"},
+			[]string{"№", "Тип", "Ник", "Статус", "Сумма", "Дата"},
 			[]int{2, 7, 13, 6, 7, 8},
 		)
 		for i, p := range payments {
@@ -168,17 +168,17 @@ func (b *Bot) showAdminPaymentsPage(chatID int64, offset int) {
 		if prev < 0 {
 			prev = 0
 		}
-		nav = append(nav, tgbotapi.NewInlineKeyboardButtonData("◀️ Back", "admin_payments_"+strconv.Itoa(prev)))
+		nav = append(nav, tgbotapi.NewInlineKeyboardButtonData("◀️ Назад", "admin_payments_"+strconv.Itoa(prev)))
 	}
 	if offset+len(payments) < total {
-		nav = append(nav, tgbotapi.NewInlineKeyboardButtonData("▶️ Next", "admin_payments_"+strconv.Itoa(offset+adminPaymentsListPageSize)))
+		nav = append(nav, tgbotapi.NewInlineKeyboardButtonData("▶️ Далее", "admin_payments_"+strconv.Itoa(offset+adminPaymentsListPageSize)))
 	}
 	if len(nav) > 0 {
 		keyboardRows = append(keyboardRows, nav)
 	}
 	keyboardRows = append(keyboardRows, tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("📋 Users", "admin_users_list_0"),
-		tgbotapi.NewInlineKeyboardButtonData("⬅️ Admin", "admin_open"),
+		tgbotapi.NewInlineKeyboardButtonData("📋 Юзеры", "admin_users_list_0"),
+		tgbotapi.NewInlineKeyboardButtonData("⬅️ Админка", "admin_open"),
 	))
 
 	kb := &tgbotapi.InlineKeyboardMarkup{InlineKeyboard: keyboardRows}
@@ -186,7 +186,7 @@ func (b *Bot) showAdminPaymentsPage(chatID int64, offset int) {
 	if subtitle != "" {
 		pageSubtitle += "\n" + subtitle
 	}
-	b.sendAdminHTMLPreTable(chatID, "💳 Payments", pageSubtitle, combinedTable, kb)
+	b.sendAdminHTMLPreTable(chatID, "💳 Оплаты", pageSubtitle, combinedTable, kb)
 }
 
 func appendAdminPickButtonRows(rows [][]tgbotapi.InlineKeyboardButton, users []database.AdminPackUserListRow, offset int) [][]tgbotapi.InlineKeyboardButton {
@@ -208,7 +208,7 @@ func appendAdminPickButtonRows(rows [][]tgbotapi.InlineKeyboardButton, users []d
 	return rows
 }
 
-// adminPaywallPersonLabel — только Telegram-ник (@username) для таблиц adminки.
+// adminPaywallPersonLabel — только Telegram-ник (@username) для таблиц админки.
 func adminPaywallPersonLabel(username, displayName string, userID int64) string {
 	_ = displayName
 	u := strings.TrimSpace(username)
@@ -249,11 +249,11 @@ func adminPaymentStatusShort(status string, accessActive bool) string {
 		}
 		return "ok-"
 	case "pending":
-		return "pending"
+		return "ждёт"
 	case "cancelled":
-		return "cancel"
+		return "отмн"
 	case "refunded":
-		return "return"
+		return "возвр"
 	default:
 		return status
 	}
@@ -277,9 +277,9 @@ func adminFormatPaymentAmount(amountMinor sql.NullInt64, currency sql.NullString
 func adminMoneyKindShort(kind string) string {
 	switch strings.TrimSpace(kind) {
 	case "donation":
-		return "Donation"
+		return "донат"
 	default:
-		return "Access"
+		return "доступ"
 	}
 }
 
@@ -300,7 +300,7 @@ func adminPaymentStatusForKind(kind, status string, accessActive bool) string {
 		case "completed":
 			return "ok"
 		case "pending":
-			return "pending"
+			return "ждёт"
 		default:
 			return status
 		}
@@ -315,11 +315,11 @@ func adminBuildMoneyStatsTable(sums []database.AdminMoneyKindSum) MiniappAdminTa
 // adminBuildMoneyStatsTableForKind — сводка только по одному виду оплат ("" — по обоим).
 func adminBuildMoneyStatsTableForKind(kind string, sums []database.AdminMoneyKindSum) MiniappAdminTable {
 	tbl := MiniappAdminTable{
-		Title:    "📊 Summary",
-		Subtitle: "Completed payments all time · access & donations · stars & rubles",
-		Columns:  []string{"Type", "Payments", "Amount"},
+		Title:    "📊 Сводка",
+		Subtitle: "Завершённые оплаты за всё время · доступ и донаты · звёзды и рубли",
+		Columns:  []string{"Тип", "Оплат", "Сумма"},
 	}
-	// Фиксированный порядок: сначала access, потом donations; внутри — звёзды, потом рубли.
+	// Фиксированный порядок: сначала доступ, потом донаты; внутри — звёзды, потом рубли.
 	order := [][2]string{
 		{"access", "XTR"},
 		{"access", "RUB"},
@@ -356,10 +356,10 @@ func adminBuildMoneyStatsTableForKind(kind string, sums []database.AdminMoneyKin
 func (b *Bot) formatAdminUserPaymentsBlock(userID, packChatID int64) string {
 	payments, err := b.db.ListPaywallPaymentsForUserAdmin(userID, packChatID, 5)
 	if err != nil || len(payments) == 0 {
-		return "\n\n💳 Payments: no requests"
+		return "\n\n💳 Оплаты: нет заявок"
 	}
 	tbl := newAdminTable(
-		[]string{"Status", "Amount", "Date"},
+		[]string{"Статус", "Сумма", "Дата"},
 		[]int{6, 7, 8},
 	)
 	for _, p := range payments {
@@ -370,7 +370,7 @@ func (b *Bot) formatAdminUserPaymentsBlock(userID, packChatID int64) string {
 			when,
 		)
 	}
-	return "\n\n💳 Payments (latest):\n<pre>" + adminEscapeHTML(tbl.render()) + "</pre>"
+	return "\n\n💳 Оплаты (последние):\n<pre>" + adminEscapeHTML(tbl.render()) + "</pre>"
 }
 
 func (b *Bot) handleAdminDirectoryCallback(callback *tgbotapi.CallbackQuery) bool {
