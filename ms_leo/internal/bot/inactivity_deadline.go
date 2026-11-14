@@ -1,10 +1,12 @@
 package bot
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
 	"leo-bot/internal/domain"
+	"leo-bot/internal/i18n"
 	"leo-bot/internal/utils"
 )
 
@@ -123,12 +125,12 @@ func inactivityKickDeadline(ml *domain.MessageLog, now time.Time) (time.Time, bo
 }
 
 // formatInactivityRemovalSummary — остаток до кика и локальный дедлайн (как в профиле мини-аппа).
-func (b *Bot) formatInactivityRemovalSummary(ml *domain.MessageLog) (remaining time.Duration, remainingText, deadlineLocal string) {
+func (b *Bot) formatInactivityRemovalSummary(lang i18n.Lang, ml *domain.MessageLog) (remaining time.Duration, remainingText, deadlineLocal string) {
 	if b == nil || ml == nil {
 		return 0, "", ""
 	}
 	remaining = b.calculateRemainingTime(ml)
-	remainingText = b.formatDurationToDays(remaining)
+	remainingText = b.formatDurationLang(lang, remaining)
 	now := utils.GetMoscowTime()
 	if dl, ok := inactivityKickDeadline(ml, now); ok && remaining > 0 {
 		loc := userLocalLoc(ml.TimezoneOffsetFromMoscow)
@@ -137,21 +139,43 @@ func (b *Bot) formatInactivityRemovalSummary(ml *domain.MessageLog) (remaining t
 	return remaining, remainingText, deadlineLocal
 }
 
-func sickLeaveRemovalNotice(remainingText, deadlineLocal string, afterRecovery bool) string {
+// formatDurationLang — «N дней M ч.» / «N days M h.» на языке получателя.
+func (b *Bot) formatDurationLang(lang i18n.Lang, duration time.Duration) string {
+	if !socialRU(lang) {
+		return b.formatDurationToDays(duration)
+	}
+	days := int(duration.Hours() / 24)
+	hours := int(duration.Hours()) % 24
+	minutes := int(duration.Minutes()) % 60
+	switch {
+	case days > 0 && hours > 0:
+		return fmt.Sprintf("%d %s %d ч.", days, daysWordFormLang(lang, days), hours)
+	case days > 0:
+		return fmt.Sprintf("%d %s", days, daysWordFormLang(lang, days))
+	case hours > 0 && minutes > 0:
+		return fmt.Sprintf("%d ч. %d мин.", hours, minutes)
+	case hours > 0:
+		return fmt.Sprintf("%d ч.", hours)
+	default:
+		return fmt.Sprintf("%d мин.", minutes)
+	}
+}
+
+func sickLeaveRemovalNotice(lang i18n.Lang, remainingText, deadlineLocal string, afterRecovery bool) string {
 	var b strings.Builder
 	if afterRecovery {
-		b.WriteString("⏳ Time until removal: ")
+		b.WriteString(pickLang(lang, "⏳ До удаления осталось: ", "⏳ Time until removal: "))
 	} else {
-		b.WriteString("⏳ Until removal: ")
+		b.WriteString(pickLang(lang, "⏳ До удаления: ", "⏳ Until removal: "))
 	}
 	b.WriteString(remainingText)
 	if !afterRecovery {
-		b.WriteString(" — that much remains after recovery")
+		b.WriteString(pickLang(lang, " — столько останется после выздоровления", " — that much remains after recovery"))
 	}
 	if deadlineLocal != "" {
-		b.WriteString("\n📅 Deadline: ")
+		b.WriteString(pickLang(lang, "\n📅 Крайний срок: ", "\n📅 Deadline: "))
 		b.WriteString(deadlineLocal)
-		b.WriteString(" (your local time)")
+		b.WriteString(pickLang(lang, " (твоё время)", " (your local time)"))
 	}
 	return b.String()
 }

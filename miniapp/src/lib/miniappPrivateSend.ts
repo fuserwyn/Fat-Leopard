@@ -2,6 +2,10 @@
 
 import { isModerationError, moderationUserMessage } from "./moderationMessages";
 import { getStoredUILang } from "./uiLang";
+import { pick } from "./i18n";
+
+/** Строка на языке пользователя (ru|en). */
+const L = (ru: string, en: string): string => pick(getStoredUILang(), ru, en);
 
 const apiBase = (import.meta.env.VITE_MINIAPP_API_URL as string | undefined)?.replace(/\/$/, "") ?? "";
 
@@ -32,7 +36,7 @@ async function pollPendingReplies(initData: string): Promise<string[]> {
     });
     const pj = (await pr.json().catch(() => ({}))) as { reply_text?: string; error?: string; ok?: boolean };
     if (!pr.ok) {
-      throw new Error(pj.error ?? `Poll error ${pr.status}`);
+      throw new Error(pj.error ?? L(`Ошибка poll ${pr.status}`, `Poll error ${pr.status}`));
     }
     const chunk = pj.reply_text?.trim();
     if (chunk) {
@@ -45,7 +49,7 @@ async function pollPendingReplies(initData: string): Promise<string[]> {
     if (gotAny && idleEmpty >= 2) break;
   }
   if (!gotAny) {
-    parts.push("Reply is taking a while. Check your DM with the bot in Telegram.");
+    parts.push(L("Ответ задерживается. Загляни в личку с ботом в Telegram.", "Reply is taking a while. Check your DM with the bot in Telegram."));
   }
   return parts;
 }
@@ -60,10 +64,10 @@ export async function sendMiniappPrivateText(
 ): Promise<MiniappSendResult> {
   const awaitReply = opts?.awaitReply !== false;
   if (!apiBase) {
-    return { ok: false, error: "VITE_MINIAPP_API_URL is not set in the build." };
+    return { ok: false, error: L("Нет VITE_MINIAPP_API_URL в сборке.", "VITE_MINIAPP_API_URL is not set in the build.") };
   }
   if (!initData.trim()) {
-    return { ok: false, error: "initData required (open the app from Telegram)." };
+    return { ok: false, error: L("Нужен initData (открой апп из Telegram).", "initData required (open the app from Telegram).") };
   }
   let res: Response;
   try {
@@ -75,7 +79,7 @@ export async function sendMiniappPrivateText(
   } catch (e) {
     return {
       ok: false,
-      error: `Network unavailable: ${e instanceof Error ? e.message : String(e)}`,
+      error: L(`Сеть недоступна: ${e instanceof Error ? e.message : String(e)}`, `Network unavailable: ${e instanceof Error ? e.message : String(e)}`),
     };
   }
   const j = (await res.json().catch(() => ({}))) as {
@@ -89,7 +93,7 @@ export async function sendMiniappPrivateText(
     if (isModerationError(j.error)) {
       return { ok: false, error: moderationUserMessage(j.error, j.message, getStoredUILang()) };
     }
-    return { ok: false, error: j.error ?? `Error ${res.status}` };
+    return { ok: false, error: j.error ?? L(`Ошибка ${res.status}`, `Error ${res.status}`) };
   }
   const replyNow = j.reply_text?.trim();
   if (replyNow) {
@@ -106,7 +110,7 @@ export async function sendMiniappPrivateText(
       return { ok: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
-  return { ok: true, replyParts: ["Message sent to the bot. Open the bot chat in Telegram if you're waiting for a reply there."] };
+  return { ok: true, replyParts: [L("Сообщение ушло боту. Открой чат с ботом в Telegram, если ждёшь ответ там.", "Message sent to the bot. Open the bot chat in Telegram if you're waiting for a reply there.")] };
 }
 
 /** То же для отчёта с фото: POST multipart /api/miniapp/workout. */
@@ -118,10 +122,10 @@ export async function sendMiniappTrainingWithPhoto(
 ): Promise<MiniappSendResult> {
   const awaitReply = opts?.awaitReply !== false;
   if (!apiBase) {
-    return { ok: false, error: "VITE_MINIAPP_API_URL is not set in the build." };
+    return { ok: false, error: L("Нет VITE_MINIAPP_API_URL в сборке.", "VITE_MINIAPP_API_URL is not set in the build.") };
   }
   if (!initData.trim()) {
-    return { ok: false, error: "initData required (open the app from Telegram)." };
+    return { ok: false, error: L("Нужен initData (открой апп из Telegram).", "initData required (open the app from Telegram).") };
   }
   const fd = new FormData();
   fd.append("init_data", initData);
@@ -136,7 +140,7 @@ export async function sendMiniappTrainingWithPhoto(
   } catch (e) {
     return {
       ok: false,
-      error: `Network unavailable: ${e instanceof Error ? e.message : String(e)}`,
+      error: L(`Сеть недоступна: ${e instanceof Error ? e.message : String(e)}`, `Network unavailable: ${e instanceof Error ? e.message : String(e)}`),
     };
   }
   const j = (await res.json().catch(() => ({}))) as {
@@ -151,22 +155,22 @@ export async function sendMiniappTrainingWithPhoto(
     if (res.status === 400 && j.error === "media_not_configured") {
       return {
         ok: false,
-        error: "Workout photos aren't configured on the server (MINIAPP_PUBLIC_BASE_URL / media directory).",
+        error: L("Фото тренировки на сервере не настроено (MINIAPP_PUBLIC_BASE_URL / каталог media).", "Workout photos aren't configured on the server (MINIAPP_PUBLIC_BASE_URL / media directory)."),
       };
     }
     if (res.status === 400 && j.error === "unsupported_image") {
-      return { ok: false, error: "Couldn't read the photo. Try JPG, PNG, WEBP, or GIF." };
+      return { ok: false, error: L("Не удалось прочитать фото. Попробуй JPG, PNG, WEBP или GIF.", "Couldn't read the photo. Try JPG, PNG, WEBP, or GIF.") };
     }
     if (res.status === 400 && j.error === "photo_too_large") {
-      return { ok: false, error: "Photo is too large. Maximum 6 MB." };
+      return { ok: false, error: L("Фото слишком большое. Максимум 6 МБ.", "Photo is too large. Maximum 6 MB.") };
     }
     if (res.status === 400 && j.error === "invalid_multipart") {
-      return { ok: false, error: "Couldn't upload the photo. Try choosing the image again." };
+      return { ok: false, error: L("Не удалось отправить фото. Попробуй выбрать снимок заново.", "Couldn't upload the photo. Try choosing the image again.") };
     }
     if (isModerationError(j.error)) {
       return { ok: false, error: moderationUserMessage(j.error, j.message, getStoredUILang()) };
     }
-    return { ok: false, error: j.error ?? `Error ${res.status}` };
+    return { ok: false, error: j.error ?? L(`Ошибка ${res.status}`, `Error ${res.status}`) };
   }
   const photoURL = j.photo_url?.trim();
   const replyNow = j.reply_text?.trim();
@@ -186,7 +190,7 @@ export async function sendMiniappTrainingWithPhoto(
   }
   return {
     ok: true,
-    replyParts: ["Message sent to the bot. Open the bot chat in Telegram if you're waiting for a reply there."],
+    replyParts: [L("Сообщение ушло боту. Открой чат с ботом в Telegram, если ждёшь ответ там.", "Message sent to the bot. Open the bot chat in Telegram if you're waiting for a reply there.")],
     trainingPhotoUrl: photoURL || undefined,
   };
 }

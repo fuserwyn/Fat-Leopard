@@ -11,6 +11,7 @@ import { clipboardImageFile } from "../lib/clipboardImage";
 import { streakStreakAriaLabel } from "../lib/streakLabel";
 import { hapticImpact } from "../lib/haptics";
 import { useI18n } from "../lib/I18nContext";
+import { pick } from "../lib/i18n";
 import { LeoTranslatableText } from "./LeoTranslatableText";
 import "./ActivityCard.css";
 
@@ -668,7 +669,7 @@ export function ActivityCard({
         <TrainingReactionsBar reactions={activeReactions} onReactionClick={onReactionClick} />
       </div>
     ) : null;
-  const showStreak = !hideStreak && name.trim() !== "Admin";
+  const showStreak = !hideStreak && name.trim() !== "Admin" && name.trim() !== "Админ";
   const cardHeadMenuItems = useMemo(() => {
     const items: { label: string; onClick: () => void; danger?: boolean }[] = [];
     if (onToggleFollow) {
@@ -845,7 +846,7 @@ export function ActivityCard({
           <div className="act-card__post-edit">
             {postEdit.kinds && postEdit.onKindsChange && (
               <div className="act-card__post-edit-kinds" role="group" aria-label={t("card.sportType")}>
-                <div className="act-card__post-edit-kinds-title">Sport type</div>
+                <div className="act-card__post-edit-kinds-title">{t("card.sportType")}</div>
                 <div className="act-card__post-edit-kinds-list">
                   {workoutCategoryOptions(lang).map((o) => {
                     const selected = postEdit.kinds?.includes(o.id) ?? false;
@@ -1079,11 +1080,11 @@ export function ActivityCard({
                       {threadReplies.map((tr) => {
                         const leo = Boolean(tr.isLeo);
                         const adminVoice = Boolean(tr.isAdmin);
-                          const displayAuthor = leo ? t("leo.name") : adminVoice ? "Admin" : tr.isYou ? t("card.you") : tr.author;
+                          const displayAuthor = leo ? t("leo.name") : adminVoice ? pick(lang, "Админ", "Admin") : tr.isYou ? t("card.you") : tr.author;
                         // Атрибуция «(имя · админ)» приходит ТОЛЬКО админам — юзеры её не видят.
                         const attribution = tr.adminName
                           ? leo
-                            ? `${tr.adminName} · admin`
+                            ? pick(lang, `${tr.adminName} · админ`, `${tr.adminName} · admin`)
                             : tr.adminName
                           : "";
                         return (
@@ -1167,7 +1168,7 @@ export function ActivityCard({
                                   ((tr.replyTo.text || "").trim() !== "" || (tr.replyTo.author || "").trim() !== "") && (
                                     <div className="act-card__thread-quote" aria-label={t("card.replyToMsg")}>
                                       <span className="act-card__thread-quote-author muted">
-                                        {tr.replyTo.isLeo ? t("leo.name") : tr.replyTo.isAdmin ? "Admin" : tr.replyTo.author}
+                                        {tr.replyTo.isLeo ? t("leo.name") : tr.replyTo.isAdmin ? pick(lang, "Админ", "Admin") : tr.replyTo.author}
                                       </span>
                                       {(tr.replyTo.text || "").trim() !== "" && (
                                         <p className="act-card__thread-quote-text">{(tr.replyTo.text || "").trim()}</p>
@@ -1378,8 +1379,8 @@ export function ActivityCard({
                           {(
                             [
                               { v: "self", label: t("card.you") },
-                              { v: "leo", label: "🐆 Leo" },
-                              { v: "admin", label: "Admin" },
+                              { v: "leo", label: `🐆 ${t("leo.name")}` },
+                              { v: "admin", label: pick(lang, "Админ", "Admin") },
                             ] as { v: ThreadPostAs; label: string }[]
                           ).map((opt) => (
                             <button

@@ -240,7 +240,7 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message, personalReplyCh chan<- string
 		if isPrivateLeo {
 			if _, err := b.enforceLeoChat(text, msg.From.ID); err != nil {
 				var mod *ModerationBlockedError
-				reply := "⚠️ Message not sent."
+				reply := b.userText(msg.From.ID, "⚠️ Сообщение не отправлено.", "⚠️ Message not sent.")
 				if errors.As(err, &mod) && mod != nil && strings.TrimSpace(mod.Message) != "" {
 					reply = "⚠️ " + mod.Message
 				}
@@ -401,7 +401,9 @@ func (b *Bot) evaluateSickLeaveJustification(text string, messageLog *domain.Mes
 func (b *Bot) handleStartTimer(msg *tgbotapi.Message) {
 	// Проверяем права администратора
 	if !b.isAdmin(msg.Chat.ID, msg.From.ID) {
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Only administrators or the owner can use this command!")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, b.userText(msg.From.ID,
+			"❌ Только администраторы или владелец могут использовать эту команду!",
+			"❌ Only administrators or the owner can use this command!"))
 		b.api.Send(reply)
 		return
 	}
@@ -412,7 +414,7 @@ func (b *Bot) handleStartTimer(msg *tgbotapi.Message) {
 	users, err := b.db.GetUsersByChatID(packScope)
 	if err != nil {
 		b.logger.Errorf("Failed to get users: %v", err)
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Failed to load users")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Ошибка при получении пользователей")
 		b.api.Send(reply)
 		return
 	}
@@ -427,7 +429,7 @@ func (b *Bot) handleStartTimer(msg *tgbotapi.Message) {
 	}
 
 	// Отправляем отчет
-	reply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("🐆 Fat Leopard activated!\n\n⏱️ Timers started: %d\n⏰ Window: 7 days\n💪 Action: log a workout in the mini app", startedCount))
+	reply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("🐆 Fat Leopard активирован!\n\n⏱️ Запущено таймеров: %d\n⏰ Время: 7 дней\n💪 Действие: отметь тренировку в мини-аппе", startedCount))
 
 	b.logger.Infof("Sending start timer message to chat %d", msg.Chat.ID)
 	_, err = b.api.Send(reply)

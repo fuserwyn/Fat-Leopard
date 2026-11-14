@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"leo-bot/internal/domain"
+	"leo-bot/internal/i18n"
 	"leo-bot/internal/utils"
 )
 
@@ -218,7 +219,7 @@ func TestInactivityKickDeadline_SickLeaveFrozenThenRecover_JulyScenario(t *testi
 }
 
 func TestSickLeaveRemovalNotice(t *testing.T) {
-	onSick := sickLeaveRemovalNotice("6 days 22 h.", "08.07.2026, 00:00", false)
+	onSick := sickLeaveRemovalNotice(i18n.EN, "6 days 22 h.", "08.07.2026, 00:00", false)
 	if !strings.Contains(onSick, "⏳ Until removal: 6 days 22 h.") {
 		t.Fatalf("on sick prefix: %q", onSick)
 	}
@@ -229,7 +230,7 @@ func TestSickLeaveRemovalNotice(t *testing.T) {
 		t.Fatalf("deadline line: %q", onSick)
 	}
 
-	after := sickLeaveRemovalNotice("22 h.", "", true)
+	after := sickLeaveRemovalNotice(i18n.EN, "22 h.", "", true)
 	if !strings.Contains(after, "⏳ Time until removal: 22 h.") {
 		t.Fatalf("after recovery: %q", after)
 	}

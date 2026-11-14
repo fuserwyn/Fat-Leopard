@@ -1,4 +1,5 @@
 import type { UILang } from "./i18n";
+import { daysWord } from "./streakLabel";
 
 // Single source of truth for achievement thresholds: profile showcase and App toasts.
 export const STREAK_ACHIEVEMENTS = [
@@ -77,8 +78,14 @@ export function freshAchievementKeys(earned: AchievementKey[], seen: Achievement
 }
 
 /** Human-readable label for toasts: “7-day streak”, “10 workouts”. */
-export function achievementLabel(key: AchievementKey): string {
+export function achievementLabel(key: AchievementKey, lang: UILang = "en"): string {
   const parsed = parseAchievementKey(key);
+  if (lang === "ru") {
+    if (!parsed) return "Новая ачивка";
+    return parsed.kind === "streak"
+      ? `Стрик ${parsed.threshold} ${daysWord(parsed.threshold, "ru")}`
+      : `${parsed.threshold} ${workoutsWordRu(parsed.threshold, "ru")}`;
+  }
   if (!parsed) return "New achievement";
   return parsed.kind === "streak"
     ? `${parsed.threshold}-day streak`

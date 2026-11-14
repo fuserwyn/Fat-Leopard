@@ -9,6 +9,8 @@ import {
   type TouchEvent as ReactTouchEvent,
 } from "react";
 import { createPortal } from "react-dom";
+import { useI18n } from "../lib/I18nContext";
+import { pick } from "../lib/i18n";
 
 /** Один отреагировавший: имя + (опц.) уже отрезолвленный URL аватара. */
 export type Liker = { name: string; photoUrl?: string };
@@ -148,8 +150,9 @@ export function ReactionPickerPopover({
   popRef: RefObject<HTMLDivElement>;
   style: CSSProperties;
 }) {
+  const { lang } = useI18n();
   return createPortal(
-    <div className="act-card__react-picker" role="menu" aria-label="Pick a reaction" ref={popRef} style={style}>
+    <div className="act-card__react-picker" role="menu" aria-label={pick(lang, "Выбор реакции", "Pick a reaction")} ref={popRef} style={style}>
       {reactions.map((r) => (
         <button
           key={r.emoji}
@@ -171,13 +174,15 @@ export function LikersPopover({
   groups,
   popRef,
   style,
-  label = "Who reacted",
+  label,
 }: {
   groups: LikerGroup[];
   popRef: RefObject<HTMLDivElement>;
   style: CSSProperties;
   label?: string;
 }) {
+  const { lang } = useI18n();
+  label = label ?? pick(lang, "Кто отреагировал", "Who reacted");
   return createPortal(
     <div className="act-card__likers" role="dialog" aria-label={label} ref={popRef} style={style}>
       <div className="act-card__likers-head">{label}</div>
@@ -193,7 +198,7 @@ export function LikersPopover({
               return (
                 <div key={`${name}-${i}`} className="act-card__likers-item">
                   <LikerAvatar photoUrl={v.photoUrl} name={name} />
-                  <span className="act-card__likers-name">{name || "Member"}</span>
+                  <span className="act-card__likers-name">{name || pick(lang, "Участник", "Member")}</span>
                 </div>
               );
             })}

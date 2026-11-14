@@ -1,5 +1,12 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { importWithApi, mockFetch } from "./testApi";
+
+const uiLang = vi.hoisted(() => ({ current: "en" as "en" | "ru" }));
+vi.mock("./uiLang", () => ({ getStoredUILang: () => uiLang.current }));
+
+beforeEach(() => {
+  uiLang.current = "en";
+});
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -112,5 +119,19 @@ describe("sendMiniappTrainingWithPhoto", () => {
     expect(await api.sendMiniappTrainingWithPhoto("", REPORT, photo)).toMatchObject({ ok: false });
     mockFetch(() => ({ status: 503, json: {} }));
     expect(await api.sendMiniappTrainingWithPhoto("init", REPORT, photo)).toEqual({ ok: false, error: "Error 503" });
+  });
+});
+
+describe("miniappPrivateSend in Russian", () => {
+  it("explains failures in Russian when the user picked ru", async () => {
+    uiLang.current = "ru";
+    const api = await load();
+    mockFetch(() => ({ fail: true }));
+    expect(await api.sendMiniappPrivateText("init", REPORT)).toMatchObject({ ok: false, error: expect.stringContaining("Сеть недоступна") });
+    mockFetch(() => ({ status: 500, json: {} }));
+    expect(await api.sendMiniappPrivateText("init", REPORT)).toEqual({ ok: false, error: "Ошибка 500" });
+    mockFetch(() => ({ json: { ok: true } }));
+    const sent = await api.sendMiniappPrivateText("init", REPORT);
+    expect(sent.ok && sent.replyParts[0]).toContain("Сообщение ушло боту");
   });
 });

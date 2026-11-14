@@ -354,7 +354,7 @@ export function ProfileScreen({
       }
       if (!j.ok) return;
       const g: ProfileData["gender"] = j.gender === "m" ? "m" : j.gender === "f" ? "f" : "";
-      const dn = (j.display_name ?? "").trim() || (name && name !== "friend" ? name : "");
+      const dn = (j.display_name ?? "").trim() || (name && name !== "friend" && name !== "друг" ? name : "");
       const tz =
         typeof j.timezone_offset === "number" && Number.isFinite(j.timezone_offset)
           ? Math.max(-12, Math.min(12, Math.trunc(j.timezone_offset)))

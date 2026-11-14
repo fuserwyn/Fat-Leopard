@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"leo-bot/internal/domain"
+	"leo-bot/internal/i18n"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -123,27 +124,17 @@ func (b *Bot) sendStreakReward(
 	title string,
 	subtitle string,
 ) {
+	lang := i18n.EN
+	if msg != nil && msg.From != nil {
+		lang = b.EffectiveUILang(msg.From.ID)
+	}
 	totalCups, err := b.db.GetUserCups(msg.From.ID, b.packTrainingStateChatID(msg))
 	if err != nil {
 		b.logger.Errorf("Failed to get total cups for %s reward: %v", title, err)
 		totalCups = 0
 	}
 
-	messageText := fmt.Sprintf(`%s!
-
-%s, streak: %d %s in a row.
-%s
-
-🏆 +%d %s (total: %d)`,
-		title,
-		username,
-		streakDays,
-		daysWordForm(streakDays),
-		subtitle,
-		rewardCups,
-		cupsWordForm(rewardCups),
-		totalCups,
-	)
+	messageText := streakRewardText(lang, username, streakDays, rewardCups, totalCups, title, subtitle)
 
 	reply := tgbotapi.NewMessage(msg.Chat.ID, messageText)
 	if _, err := b.api.Send(reply); err != nil {
@@ -230,6 +221,53 @@ func russianPlural(count int, one, few, many string) string {
 	}
 }
 
+// streakRewardText — поздравление с рубежом стрика на языке получателя.
+func streakRewardText(lang i18n.Lang, username string, streakDays, rewardCups, totalCups int, title, subtitle string) string {
+	format := pickLang(lang, `%s!
+
+%s, стрик: %d %s подряд.
+%s
+
+🏆 +%d %s (всего: %d)`, `%s!
+
+%s, streak: %d %s in a row.
+%s
+
+🏆 +%d %s (total: %d)`)
+	return fmt.Sprintf(format,
+		title,
+		username,
+		streakDays,
+		daysWordFormLang(lang, streakDays),
+		subtitle,
+		rewardCups,
+		cupsWordFormLang(lang, rewardCups),
+		totalCups,
+	)
+}
+
+// trainingsWordFormLang / cupsWordFormLang / daysWordFormLang — словоформы на языке получателя.
+func trainingsWordFormLang(lang i18n.Lang, count int) string {
+	if socialRU(lang) {
+		return russianPlural(count, "тренировка", "тренировки", "тренировок")
+	}
+	return trainingsWordForm(count)
+}
+
+func cupsWordFormLang(lang i18n.Lang, count int) string {
+	if socialRU(lang) {
+		return russianPlural(count, "кубок", "кубка", "кубков")
+	}
+	return cupsWordForm(count)
+}
+
+func daysWordFormLang(lang i18n.Lang, count int) string {
+	if socialRU(lang) {
+		return russianPlural(count, "день", "дня", "дней")
+	}
+	return daysWordForm(count)
+}
+
 func trainingsWordForm(count int) string {
 	if count == 1 {
 		return "workout"
@@ -253,27 +291,41 @@ func daysWordForm(count int) string {
 
 // streakMilestone описывает один milestone стрика: количество дней, бонусные кубки и текст для отправки.
 type streakMilestone struct {
-	Days     int
-	Cups     int
-	Title    string
-	Subtitle string
+	Days       int
+	Cups       int
+	Title      string
+	Subtitle   string
+	TitleRU    string
+	SubtitleRU string
 }
 
 // streakMilestones — единственное место где задаются пороги стрика и бонусы за них.
 // Добавить новый milestone = одна строка в этом списке.
 var streakMilestones = []streakMilestone{
-	{7, 42, "🏆🏆🏆 INCREDIBLE! 🏆🏆🏆", "7 days — first milestone. You get stronger every day!"},
-	{14, 42, "🏆🏆🏆🏆 IMPRESSIVE! 🏆🏆🏆🏆", "Two weeks without a miss — huge push!"},
-	{21, 42, "🏆🏆🏆🏆🏆 SPLENDID! 🏆🏆🏆🏆🏆", "Three weeks — the habit is part of you!"},
-	{30, 420, "🏆🏆🏆🏆🏆🏆 VICTORY MONTH! 🏆🏆🏆🏆🏆🏆", "A month of dedication — champion level!"},
-	{42, 42, "🏆🏆🏆🏆🏆🏆 LEGENDARY! 🏆🏆🏆🏆🏆🏆", "42 days — legendary mark. You're on your way!"},
-	{50, 42, "🏆🏆🏆🏆🏆🏆🏆 ELITE! 🏆🏆🏆🏆🏆🏆🏆", "50 days — proof you can do anything!"},
-	{60, 420, "🏆 60 days!", "🔥 Two months without a slip — legend grows."},
-	{90, 420, "🏆 90 days!", "🏁 A quarter of discipline — how elites train."},
-	{100, 4200, "🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆 IMMORTAL LEGEND! 🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆", "100 days — rare air. You're making history!"},
-	{180, 420, "🏆 180 days!", fmt.Sprintf("🔥 Half a year of streak — +420 %s!", cupsWordForm(420))},
-	{200, 4200, "🌸 BUCKET OF CUPS! 🌸", "200 days in a row — you're a pack legend!"},
-	{240, 4200, "🏆 240 days!", "🔥 240-day streak — titan level!"},
+	{7, 42, "🏆🏆🏆 INCREDIBLE! 🏆🏆🏆", "7 days — first milestone. You get stronger every day!",
+		"🏆🏆🏆 НЕВЕРОЯТНО! 🏆🏆🏆", "7 дней — первый рубеж. Каждый день ты становишься сильнее!"},
+	{14, 42, "🏆🏆🏆🏆 IMPRESSIVE! 🏆🏆🏆🏆", "Two weeks without a miss — huge push!",
+		"🏆🏆🏆🏆 ВПЕЧАТЛЯЮЩЕ! 🏆🏆🏆🏆", "Две недели без пропусков — мощный рывок!"},
+	{21, 42, "🏆🏆🏆🏆🏆 SPLENDID! 🏆🏆🏆🏆🏆", "Three weeks — the habit is part of you!",
+		"🏆🏆🏆🏆🏆 ВЕЛИКОЛЕПНО! 🏆🏆🏆🏆🏆", "Три недели — привычка стала частью тебя!"},
+	{30, 420, "🏆🏆🏆🏆🏆🏆 VICTORY MONTH! 🏆🏆🏆🏆🏆🏆", "A month of dedication — champion level!",
+		"🏆🏆🏆🏆🏆🏆 МЕСЯЦ ПОБЕДЫ! 🏆🏆🏆🏆🏆🏆", "Месяц абсолютной преданности — уровень чемпионов!"},
+	{42, 42, "🏆🏆🏆🏆🏆🏆 LEGENDARY! 🏆🏆🏆🏆🏆🏆", "42 days — legendary mark. You're on your way!",
+		"🏆🏆🏆🏆🏆🏆 ЛЕГЕНДАРНО! 🏆🏆🏆🏆🏆🏆", "42 дня — легендарная отметка. Ты на пути к легенде!"},
+	{50, 42, "🏆🏆🏆🏆🏆🏆🏆 ELITE! 🏆🏆🏆🏆🏆🏆🏆", "50 days — proof you can do anything!",
+		"🏆🏆🏆🏆🏆🏆🏆 ЭЛИТА! 🏆🏆🏆🏆🏆🏆🏆", "50 дней — доказательство того, что ты можешь всё!"},
+	{60, 420, "🏆 60 days!", "🔥 Two months without a slip — legend grows.",
+		"🏆 60 дней!", "🔥 Два месяца без провала — легенда растёт."},
+	{90, 420, "🏆 90 days!", "🏁 A quarter of discipline — how elites train.",
+		"🏆 90 дней!", "🏁 Квартал дисциплины — элита так и тренируется."},
+	{100, 4200, "🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆 IMMORTAL LEGEND! 🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆", "100 days — rare air. You're making history!",
+		"🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆 БЕССМЕРТНАЯ ЛЕГЕНДА! 🏆🏆🏆🏆🏆🏆🏆🏆🏆🏆", "100 дней — это уровень единиц. Ты создаёшь историю!"},
+	{180, 420, "🏆 180 days!", fmt.Sprintf("🔥 Half a year of streak — +420 %s!", cupsWordForm(420)),
+		"🏆 180 дней!", fmt.Sprintf("🔥 Полгода стрика — +420 %s!", cupsWordFormLang(i18n.RU, 420))},
+	{200, 4200, "🌸 BUCKET OF CUPS! 🌸", "200 days in a row — you're a pack legend!",
+		"🌸 БУКЕТ ИЗ КУБКОВ! 🌸", "200 дней подряд — ты легенда стаи!"},
+	{240, 4200, "🏆 240 days!", "🔥 240-day streak — titan level!",
+		"🏆 240 дней!", "🔥 240 дней стрика — уровень титана!"},
 }
 
 // MilestoneCups возвращает бонусные кубки за milestone текущего стрика (0 если milestone не достигнут).
@@ -293,7 +345,11 @@ func (o TrainingOutcome) MilestoneCups() int {
 func (b *Bot) sendMilestoneReward(msg *tgbotapi.Message, username string, streakDays int) {
 	for _, m := range streakMilestones {
 		if m.Days == streakDays {
-			b.sendStreakReward(msg, username, streakDays, m.Cups, m.Title, m.Subtitle)
+			title, subtitle := m.Title, m.Subtitle
+			if msg != nil && msg.From != nil && socialRU(b.EffectiveUILang(msg.From.ID)) {
+				title, subtitle = m.TitleRU, m.SubtitleRU
+			}
+			b.sendStreakReward(msg, username, streakDays, m.Cups, title, subtitle)
 			return
 		}
 	}

@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"leo-bot/internal/i18n"
+
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
@@ -31,11 +33,17 @@ func TestSanitizeContactJoinedPackText(t *testing.T) {
 }
 
 func TestContactJoinedPackFallbackText(t *testing.T) {
-	if got := contactJoinedPackFallbackText("Аня"); !strings.HasPrefix(got, "Аня joined the pack") {
+	if got := contactJoinedPackFallbackText(i18n.EN, "Аня"); !strings.HasPrefix(got, "Аня joined the pack") {
 		t.Fatalf("named: %q", got)
 	}
-	if got := contactJoinedPackFallbackText(" "); !strings.HasPrefix(got, "Your contact") {
+	if got := contactJoinedPackFallbackText(i18n.EN, " "); !strings.HasPrefix(got, "Your contact") {
 		t.Fatalf("empty: %q", got)
+	}
+	if got := contactJoinedPackFallbackText(i18n.RU, "Аня"); !strings.HasPrefix(got, "Аня теперь в стае") {
+		t.Fatalf("ru named: %q", got)
+	}
+	if got := contactJoinedPackFallbackText(i18n.RU, ""); !strings.HasPrefix(got, "Твой контакт теперь в стае") {
+		t.Fatalf("ru empty: %q", got)
 	}
 }
 

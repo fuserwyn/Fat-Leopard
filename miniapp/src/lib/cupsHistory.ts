@@ -1,5 +1,6 @@
 import { trainingDoneCategoryDisplayLabel } from "./workoutCategories";
 import { cupsWord } from "./streakLabel";
+import type { UILang } from "./i18n";
 
 /** Сколько последних тренировок показываем в истории кубков. */
 export const CUPS_HISTORY_LIMIT = 42;
@@ -7,8 +8,16 @@ export const CUPS_HISTORY_LIMIT = 42;
 /** Подпись списка в шторке профиля. */
 export const CUPS_HISTORY_CAPTION = "Last 42 workouts";
 
+export function cupsHistoryCaption(lang: UILang = "en"): string {
+  return lang === "ru" ? "42 последние тренировки" : CUPS_HISTORY_CAPTION;
+}
+
 /** Вид строки для кубков за недельное достижение стаи. */
 export const PACK_WEEKLY_CUPS_LABEL = "Pack weekly achievement";
+
+export function packWeeklyCupsLabel(lang: UILang = "en"): string {
+  return lang === "ru" ? "Недельное достижение стаи" : PACK_WEEKLY_CUPS_LABEL;
+}
 
 export type CupsHistoryWorkoutInput = {
   date: string;
@@ -47,6 +56,13 @@ export const CUPS_HISTORY_SORT_OPTIONS: ReadonlyArray<{ key: CupsHistorySortKey;
   { key: "cups", label: "Cups" },
 ];
 
+const CUPS_HISTORY_SORT_LABELS_RU: Record<CupsHistorySortKey, string> = { date: "Дата", type: "Вид спорта", cups: "Кубки" };
+
+export function cupsHistorySortOptions(lang: UILang = "en"): ReadonlyArray<{ key: CupsHistorySortKey; label: string }> {
+  if (lang !== "ru") return CUPS_HISTORY_SORT_OPTIONS;
+  return CUPS_HISTORY_SORT_OPTIONS.map((o) => ({ key: o.key, label: CUPS_HISTORY_SORT_LABELS_RU[o.key] }));
+}
+
 /** Направление по умолчанию при выборе ключа: дата и кубки — по убыванию, вид спорта — по алфавиту. */
 export function defaultCupsHistorySortDir(key: CupsHistorySortKey): CupsHistorySortDir {
   return key === "type" ? "asc" : "desc";
@@ -80,9 +96,9 @@ function parseIntensity(text: string): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-function cupsLabel(n: number): string {
+function cupsLabel(n: number, lang: UILang): string {
   const cups = Math.max(0, Math.trunc(n));
-  return `+${cups} ${cupsWord(cups, "en")}`;
+  return `+${cups} ${cupsWord(cups, lang)}`;
 }
 
 function historyLine(dateLabel: string, workoutType: string, intensity: string, duration: string, awarded: string): string {
@@ -94,14 +110,14 @@ function dateKeyOf(ymd: string): string {
   return m ? m[1] : "";
 }
 
-function workoutRow(input: CupsHistoryWorkoutInput): CupsHistoryRow {
+function workoutRow(input: CupsHistoryWorkoutInput, lang: UILang): CupsHistoryRow {
   const dateLabel = formatCupsHistoryDate(input.date);
-  const workoutType = trainingDoneCategoryDisplayLabel(input.messageText, "en");
+  const workoutType = trainingDoneCategoryDisplayLabel(input.messageText, lang);
   const intensityN = parseIntensity(input.messageText);
   const durationN = parseDurationMin(input.messageText);
   const intensity = intensityN == null ? "" : `${intensityN}/5`;
-  const duration = durationN == null ? "" : `${durationN} min`;
-  const awarded = cupsLabel(input.cups);
+  const duration = durationN == null ? "" : lang === "ru" ? `${durationN} мин` : `${durationN} min`;
+  const awarded = cupsLabel(input.cups, lang);
   return {
     kind: "workout",
     dateLabel,
@@ -116,19 +132,20 @@ function workoutRow(input: CupsHistoryWorkoutInput): CupsHistoryRow {
   };
 }
 
-function weeklyRow(input: CupsHistoryWeeklyInput): CupsHistoryRow {
+function weeklyRow(input: CupsHistoryWeeklyInput, lang: UILang): CupsHistoryRow {
   const dateLabel = formatCupsHistoryDate(input.date);
-  const awarded = cupsLabel(input.cups);
+  const awarded = cupsLabel(input.cups, lang);
+  const label = packWeeklyCupsLabel(lang);
   return {
     kind: "pack_weekly",
     dateLabel,
-    workoutType: PACK_WEEKLY_CUPS_LABEL,
+    workoutType: label,
     intensity: "",
     duration: "",
     cupsLabel: awarded,
     cups: Math.max(0, Math.trunc(input.cups)),
     dateKey: dateKeyOf(input.date),
-    line: historyLine(dateLabel, PACK_WEEKLY_CUPS_LABEL, "", "", awarded),
+    line: historyLine(dateLabel, label, "", "", awarded),
     sortAt: timeOf(input.createdAt),
   };
 }
@@ -143,6 +160,7 @@ export function buildCupsHistoryRows(
   workouts: readonly CupsHistoryWorkoutInput[],
   weekly: readonly CupsHistoryWeeklyInput[],
   limit = CUPS_HISTORY_LIMIT,
+  lang: UILang = "en",
 ): CupsHistoryRow[] {
   const safeLimit = limit > 0 ? limit : CUPS_HISTORY_LIMIT;
   const ordered = [...workouts].sort((a, b) => timeOf(b.createdAt) - timeOf(a.createdAt));
@@ -152,8 +170,8 @@ export function buildCupsHistoryRows(
   const weeklyRows = weekly
     .filter((row) => row.cups > 0)
     .filter((row) => !clipped || timeOf(row.createdAt) >= oldest)
-    .map(weeklyRow);
-  const rows = [...selected.map(workoutRow), ...weeklyRows];
+    .map((row) => weeklyRow(row, lang));
+  const rows = [...selected.map((row) => workoutRow(row, lang)), ...weeklyRows];
   rows.sort((a, b) => {
     if (b.sortAt !== a.sortAt) return b.sortAt - a.sortAt;
     if (a.kind === b.kind) return 0;

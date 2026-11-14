@@ -16,6 +16,8 @@ import {
 } from "../lib/shareCard";
 import { ShareBrandIcon } from "./ShareBrandIcon";
 import "./ShareCardSheet.css";
+import { pick, type UILang } from "../lib/i18n";
+import { useI18n } from "../lib/I18nContext";
 
 type Props = {
   card: ShareCard;
@@ -26,15 +28,20 @@ type Props = {
 
 export type ShareTarget = "tg-story" | "tg-chat" | "vk" | "instagram" | "tiktok";
 
-const TARGETS: { id: ShareTarget; label: string }[] = [
-  { id: "tg-story", label: "Telegram Story" },
-  { id: "tg-chat", label: "Telegram chat" },
+function shareTargets(lang: UILang): { id: ShareTarget; label: string }[] {
+  return [
+
+  { id: "tg-story", label: pick(lang, "Сторис Telegram", "Telegram Story") },
+  { id: "tg-chat", label: pick(lang, "В чат Telegram", "Telegram chat") },
   { id: "instagram", label: "Instagram" },
   { id: "tiktok", label: "TikTok" },
-  { id: "vk", label: "VK" },
-];
+  { id: "vk", label: pick(lang, "ВКонтакте", "VK") },
+  ];
+}
 
-const UPLOAD_FAILED = "Couldn't prepare the image. Check your connection and try again.";
+function uploadFailedText(lang: UILang): string {
+  return pick(lang, "Не получилось подготовить картинку. Проверь интернет и попробуй ещё раз.", "Couldn't prepare the image. Check your connection and try again.");
+}
 
 /**
  * Шторка «Поделиться»: превью карточки (ачивка, уровень, тренировка) и кнопки —
@@ -42,6 +49,7 @@ const UPLOAD_FAILED = "Couldn't prepare the image. Check your connection and try
  * открытии, на сервер грузится только когда выбран способ, которому нужна ссылка.
  */
 export function ShareCardSheet({ card, initData, showAlert, onClose }: Props) {
+  const { lang } = useI18n();
   const [link, setLink] = useState("");
   const [image, setImage] = useState<Blob | null>(null);
   const [preview, setPreview] = useState("");
@@ -104,16 +112,16 @@ export function ShareCardSheet({ card, initData, showAlert, onClose }: Props) {
     try {
       const up = await ensureUploaded();
       if (up) {
-        if (!saveShareImage(up.url)) showAlert("Image opened — save it with a long press.");
+        if (!saveShareImage(up.url)) showAlert(pick(lang, "Картинка открыта — сохрани её долгим нажатием.", "Image opened — save it with a long press."));
         return;
       }
       // Без ссылки на картинку сохранить её через Telegram нечем — системное «Поделиться».
       const res = image ? await shareImageViaSystem(image, shareCardCaption(card, link)) : "unsupported";
-      if (res === "unsupported") showAlert(UPLOAD_FAILED);
+      if (res === "unsupported") showAlert(uploadFailedText(lang));
     } finally {
       setBusy(null);
     }
-  }, [busy, card, ensureUploaded, image, link, showAlert]);
+  }, [busy, card, ensureUploaded, image, link, showAlert, lang]);
 
   const share = useCallback(
     async (target: ShareTarget) => {
@@ -134,13 +142,13 @@ export function ShareCardSheet({ card, initData, showAlert, onClose }: Props) {
             openShareLink(telegramChatShareUrl(link, caption));
             return;
           }
-          showAlert(UPLOAD_FAILED);
+          showAlert(uploadFailedText(lang));
           return;
         }
         if (target === "tg-story") {
           if (!shareToTelegramStory(up.url, caption)) {
             saveShareImage(up.url);
-            showAlert("Stories from the miniapp need a recent Telegram mobile app. Save the image and post it manually.");
+            showAlert(pick(lang, "Сторис из мини-аппа доступны в свежей версии Telegram на телефоне. Сохрани картинку и выложи её вручную.", "Stories from the miniapp need a recent Telegram mobile app. Save the image and post it manually."));
           }
           return;
         }
@@ -153,7 +161,7 @@ export function ShareCardSheet({ card, initData, showAlert, onClose }: Props) {
         setBusy(null);
       }
     },
-    [busy, card, ensureUploaded, link, showAlert],
+    [busy, card, ensureUploaded, link, showAlert, lang],
   );
 
   return (
@@ -162,10 +170,10 @@ export function ShareCardSheet({ card, initData, showAlert, onClose }: Props) {
         className="share-card-sheet"
         role="dialog"
         aria-modal="true"
-        aria-label="Share"
+        aria-label={pick(lang, "Поделиться", "Share")}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="share-card-sheet__title">Share</div>
+        <div className="share-card-sheet__title">{pick(lang, "Поделиться", "Share")}</div>
         <div className="share-card-sheet__preview">
           {preview ? (
             <img src={preview} alt={`${card.headline}: ${card.big} ${card.bigCaption}`} />
@@ -181,7 +189,7 @@ export function ShareCardSheet({ card, initData, showAlert, onClose }: Props) {
           )}
         </div>
         <div className="share-card-sheet__targets">
-          {TARGETS.map((t) => (
+          {shareTargets(lang).map((t) => (
             <button
               key={t.id}
               type="button"
@@ -202,11 +210,11 @@ export function ShareCardSheet({ card, initData, showAlert, onClose }: Props) {
           aria-busy={busy === "save"}
           onClick={() => void save()}
         >
-          Save image
+          {pick(lang, "Сохранить картинку", "Save image")}
         </button>
-        <div className="share-card-sheet__hint">For Instagram and TikTok, save the image and pick it from gallery in Stories.</div>
+        <div className="share-card-sheet__hint">{pick(lang, "Для Instagram и TikTok сохрани картинку и выбери её из галереи в сторис.", "For Instagram and TikTok, save the image and pick it from gallery in Stories.")}</div>
         <button type="button" className="share-card-sheet__close" onClick={onClose}>
-          Close
+          {pick(lang, "Закрыть", "Close")}
         </button>
       </div>
     </div>

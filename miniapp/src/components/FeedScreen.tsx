@@ -36,6 +36,7 @@ import { reportLeoCommentDisplayed } from "../lib/leoCommentDiag";
 import { formatLocalDateTime } from "../lib/timeAgo";
 import { streakStreakAriaLabel } from "../lib/streakLabel";
 import { useI18n } from "../lib/I18nContext";
+import { pick, type UILang } from "../lib/i18n";
 import {
   PACK_WEEKLY_GOAL_DEFAULT,
   packWeeklyGoalHint,
@@ -127,12 +128,12 @@ type FeedViewportStyle = CSSProperties & {
 /** Почему лента не грузится — у каждой причины свой текст, чтобы не путать API URL с клиентом. */
 type MockFeedReason = "no-api" | "no-telegram" | "no-initdata";
 
-function mockFallback(streak: number, reason: MockFeedReason): ActivityCardProps[] {
+function mockFallback(streak: number, reason: MockFeedReason, lang: UILang): ActivityCardProps[] {
   const card = (emoji: string, activity: string, details: string, comment: string): ActivityCardProps => ({
     avatar: "💬",
-    name: "Pack",
+    name: pick(lang, "Стая", "Pack"),
     streak: Math.max(streak, 0),
-    timeAgo: "now",
+    timeAgo: pick(lang, "сейчас", "now"),
     emoji,
     activity,
     details,
@@ -144,14 +145,14 @@ function mockFallback(streak: number, reason: MockFeedReason): ActivityCardProps
       return [
         {
           avatar: "🌸",
-          name: "Anna",
+          name: pick(lang, "Анна", "Anna"),
           streak: 12,
-          timeAgo: "5 min",
+          timeAgo: pick(lang, "5 мин", "5 min"),
           emoji: "🚴",
-          activity: "Cycling",
-          details: "90 min · intensity 3/5 · 20 km",
-          comment: "Rode to the fountain and back — legs are on fire 🔥",
-          aiText: "Anna, 20 km is a serious ride. You’ve found your pace.",
+          activity: pick(lang, "Велосипед", "Cycling"),
+          details: pick(lang, "90 мин · интенсивность 3/5 · 20 км", "90 min · intensity 3/5 · 20 km"),
+          comment: pick(lang, "Доехала до фонтана и обратно, ноги горят 🔥", "Rode to the fountain and back — legs are on fire 🔥"),
+          aiText: pick(lang, "Анна, 20 км — серьёзный заезд. Ритм у тебя уже свой.", "Anna, 20 km is a serious ride. You’ve found your pace."),
           trainingPhotoUrl: "https://picsum.photos/seed/leobike/640/420",
           reactions: [
             { emoji: "🔥", count: 4, me: false },
@@ -160,25 +161,25 @@ function mockFallback(streak: number, reason: MockFeedReason): ActivityCardProps
         },
         {
           avatar: "🐯",
-          name: "Oleg",
+          name: pick(lang, "Олег", "Oleg"),
           streak: 5,
-          timeAgo: "1 hr",
+          timeAgo: pick(lang, "1 ч", "1 hr"),
           emoji: "🏃",
-          activity: "Run",
-          details: "30 min · intensity 4/5 · 5 km",
-          comment: "Morning run before work.",
+          activity: pick(lang, "Бег", "Run"),
+          details: pick(lang, "30 мин · интенсивность 4/5 · 5 км", "30 min · intensity 4/5 · 5 km"),
+          comment: pick(lang, "Утренняя пробежка перед работой.", "Morning run before work."),
           reactions: [{ emoji: "❤️", count: 7, me: false }],
         },
         {
           avatar: "🧘‍♀️",
-          name: "Lena",
+          name: pick(lang, "Лена", "Lena"),
           streak: 30,
-          timeAgo: "3 hr",
+          timeAgo: pick(lang, "3 ч", "3 hr"),
           emoji: "🧘",
-          activity: "Yoga",
-          details: "45 min · intensity 2/5",
-          comment: "Stretched — my back said thanks.",
-          aiText: "Lena, 30 days in a row — that’s character. Steady and right.",
+          activity: pick(lang, "Йога", "Yoga"),
+          details: pick(lang, "45 мин · интенсивность 2/5", "45 min · intensity 2/5"),
+          comment: pick(lang, "Растянулась, спина сказала спасибо.", "Stretched — my back said thanks."),
+          aiText: pick(lang, "Лена, 30 дней подряд — это характер. Спокойно и верно.", "Lena, 30 days in a row — that’s character. Steady and right."),
           reactions: [
             { emoji: "🧘", count: 3, me: false },
             { emoji: "❤️", count: 5, me: true },
@@ -186,24 +187,24 @@ function mockFallback(streak: number, reason: MockFeedReason): ActivityCardProps
         },
         {
           avatar: "🏀",
-          name: "Max",
+          name: pick(lang, "Макс", "Max"),
           streak: 8,
-          timeAgo: "yesterday",
+          timeAgo: pick(lang, "вчера", "yesterday"),
           emoji: "🏀",
-          activity: "Basketball",
-          details: "60 min · intensity 4/5",
-          comment: "Pickup 3-on-3 — went all in.",
+          activity: pick(lang, "Баскетбол", "Basketball"),
+          details: pick(lang, "60 мин · интенсивность 4/5", "60 min · intensity 4/5"),
+          comment: pick(lang, "Дворовый матч 3х3, выложились полностью.", "Pickup 3-on-3 — went all in."),
           reactions: [{ emoji: "🔥", count: 6, me: false }],
         },
         {
           avatar: "🛼",
-          name: "Kate",
+          name: pick(lang, "Катя", "Kate"),
           streak: 3,
-          timeAgo: "yesterday",
+          timeAgo: pick(lang, "вчера", "yesterday"),
           emoji: "🛼",
-          activity: "Rollerblading",
-          details: "40 min · intensity 3/5",
-          comment: "Rolled along the waterfront at sunset.",
+          activity: pick(lang, "Ролики", "Rollerblading"),
+          details: pick(lang, "40 мин · интенсивность 3/5", "40 min · intensity 3/5"),
+          comment: pick(lang, "Накаталась по набережной на закате.", "Rolled along the waterfront at sunset."),
           reactions: [
             { emoji: "🛼", count: 9, me: true },
             { emoji: "🔥", count: 2, me: false },
@@ -214,9 +215,9 @@ function mockFallback(streak: number, reason: MockFeedReason): ActivityCardProps
       return [
         card(
           "📲",
-          "Open via Telegram",
-          "Miniapp outside Telegram",
-          "Launch the miniapp from the bot menu. Feed isn't available in a browser or old client.",
+          pick(lang, "Открой через Telegram", "Open via Telegram"),
+          pick(lang, "Мини-апп вне Telegram", "Miniapp outside Telegram"),
+          pick(lang, "Запусти мини-апп кнопкой меню бота. В браузере или старом клиенте лента недоступна.", "Launch the miniapp from the bot menu. Feed isn't available in a browser or old client."),
         ),
       ];
     case "no-initdata":
@@ -224,9 +225,9 @@ function mockFallback(streak: number, reason: MockFeedReason): ActivityCardProps
       return [
         card(
           "🔄",
-          "Telegram sign-in data missing",
-          "Update the app",
-          "Telegram didn't pass sign-in data. Update Telegram and reopen the miniapp.",
+          pick(lang, "Не получили данные Telegram", "Telegram sign-in data missing"),
+          pick(lang, "Обнови приложение", "Update the app"),
+          pick(lang, "Telegram не передал данные входа. Обнови Telegram до последней версии и переоткрой мини-апп.", "Telegram didn't pass sign-in data. Update Telegram and reopen the miniapp."),
         ),
       ];
   }
@@ -538,12 +539,12 @@ export function FeedScreen({
         };
         if (!res.ok) {
           if (res.status === 403) {
-            setErr("No access to the pack feed: you need pack membership, same as in the bot.");
+            setErr(pick(lang, "Нет доступа к ленте стаи: нужна подписка/участие в группе, как в боте.", "No access to the pack feed: you need pack membership, same as in the bot."));
             if (!opts?.silent) setFeedItems([]);
             return;
           }
           if (!opts?.silent) {
-            setErr(j.error ?? `Error ${res.status}`);
+            setErr(j.error ?? pick(lang, `Ошибка ${res.status}`, `Error ${res.status}`));
             setFeedItems([]);
           }
           return;
@@ -610,7 +611,7 @@ export function FeedScreen({
         loadedOnceRef.current = true;
       } catch (e) {
         if (!opts?.silent) {
-          setErr(e instanceof Error ? e.message : "Network error");
+          setErr(e instanceof Error ? e.message : pick(lang, "Сеть", "Network error"));
           setFeedItems([]);
         }
       } finally {
@@ -618,7 +619,7 @@ export function FeedScreen({
         if (!opts?.silent) setLoading(false);
       }
     },
-    [inTelegram, initData, optimisticFeedItem, onOptimisticConsumed],
+    [inTelegram, initData, optimisticFeedItem, onOptimisticConsumed, lang],
   );
 
   /** Подгрузка более старых записей (скролл вниз): before_ts = самое старое видимое created_at. */
@@ -720,18 +721,18 @@ export function FeedScreen({
         const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !j.ok) {
           setFriendOnAuthor(currentlyFriend);
-          showAlert(j.error ?? `Error ${res.status}`);
+          showAlert(j.error ?? pick(lang, `Ошибка ${res.status}`, `Error ${res.status}`));
         } else {
           hapticLight();
         }
       } catch (e) {
         setFriendOnAuthor(currentlyFriend);
-        showAlert(e instanceof Error ? e.message : "Network error");
+        showAlert(e instanceof Error ? e.message : pick(lang, "Сеть", "Network error"));
       } finally {
         setFollowPosting((p) => ({ ...p, [authorId]: false }));
       }
     },
-    [apiBase, initData, showAlert, hapticLight],
+    [apiBase, initData, showAlert, hapticLight, lang],
   );
 
   const postTrainingReact = useCallback(
@@ -763,17 +764,17 @@ export function FeedScreen({
           const j = (await res.json().catch(() => ({}))) as { error?: string };
           if (!res.ok) {
             applyToggle();
-            showAlert(j.error === "invalid_emoji" ? "That reaction isn't allowed" : j.error ?? `Error ${res.status}`);
+            showAlert(j.error === "invalid_emoji" ? pick(lang, "Такую реакцию нельзя", "That reaction isn't allowed") : j.error ?? pick(lang, `Ошибка ${res.status}`, `Error ${res.status}`));
             return;
           }
           void syncFeed({ full: true, silent: true });
         } catch (e) {
           applyToggle();
-          showAlert(e instanceof Error ? e.message : "Network error");
+          showAlert(e instanceof Error ? e.message : pick(lang, "Сеть", "Network error"));
         }
       })();
     },
-    [apiBase, initData, syncFeed, showAlert, hapticLight],
+    [apiBase, initData, syncFeed, showAlert, hapticLight, lang],
   );
 
   // Реакция на сообщение общего чата в единой ленте (эндпоинт pack-group).
@@ -803,17 +804,17 @@ export function FeedScreen({
           const j = (await res.json().catch(() => ({}))) as { error?: string };
           if (!res.ok) {
             applyToggle();
-            showAlert(j.error === "invalid_emoji" ? "That reaction isn't allowed" : j.error ?? `Error ${res.status}`);
+            showAlert(j.error === "invalid_emoji" ? pick(lang, "Такую реакцию нельзя", "That reaction isn't allowed") : j.error ?? pick(lang, `Ошибка ${res.status}`, `Error ${res.status}`));
             return;
           }
           void syncFeed({ full: true, silent: true });
         } catch (e) {
           applyToggle();
-          showAlert(e instanceof Error ? e.message : "Network error");
+          showAlert(e instanceof Error ? e.message : pick(lang, "Сеть", "Network error"));
         }
       })();
     },
-    [apiBase, initData, syncFeed, showAlert, hapticLight],
+    [apiBase, initData, syncFeed, showAlert, hapticLight, lang],
   );
 
   // --- Комменты (треды) к сообщениям pack_message: коммент = сообщение чата с reply_to ---
@@ -824,7 +825,7 @@ export function FeedScreen({
     async (cardId: number, text: string, photo?: File | null, replyToCommentId?: number) => {
       const t = text.trim();
       if (!t && !photo) {
-        showAlert("Enter comment text or attach a photo.");
+        showAlert(pick(lang, "Введи текст комментария или прикрепи фото.", "Enter comment text or attach a photo."));
         return;
       }
       if (!apiBase || !initData) return;
@@ -852,14 +853,14 @@ export function FeedScreen({
             showAlert(moderationUserMessage(j.error, j.message, lang));
             return;
           }
-          showAlert(j.error ?? `Error ${res.status}`);
+          showAlert(j.error ?? pick(lang, `Ошибка ${res.status}`, `Error ${res.status}`));
           return;
         }
         setMsgThreadDrafts((d) => ({ ...d, [cardId]: "" }));
         setMsgThreadReplyTargets((r) => ({ ...r, [cardId]: undefined }));
         await syncFeed({ full: true, silent: true });
       } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Network error");
+        showAlert(e instanceof Error ? e.message : pick(lang, "Сеть", "Network error"));
       } finally {
         setMsgThreadPosting((p) => ({ ...p, [cardId]: false }));
       }
@@ -872,7 +873,7 @@ export function FeedScreen({
     async (cardId: number, replyId: number, text: string) => {
       const t = text.trim();
       if (!t) {
-        showAlert("Comment can't be empty.");
+        showAlert(pick(lang, "Комментарий не может быть пустым.", "Comment can't be empty."));
         return;
       }
       if (!apiBase || !initData) return;
@@ -889,14 +890,14 @@ export function FeedScreen({
             showAlert(moderationUserMessage(j.error, j.message, lang));
             return;
           }
-          showAlert(j.error ?? `Error ${res.status}`);
+          showAlert(j.error ?? pick(lang, `Ошибка ${res.status}`, `Error ${res.status}`));
           return;
         }
         setMsgThreadEdit((r) => ({ ...r, [cardId]: undefined }));
         setMsgThreadDrafts((d) => ({ ...d, [cardId]: "" }));
         await syncFeed({ full: true, silent: true });
       } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Network error");
+        showAlert(e instanceof Error ? e.message : pick(lang, "Сеть", "Network error"));
       } finally {
         setMsgThreadPosting((p) => ({ ...p, [cardId]: false }));
       }
@@ -917,17 +918,17 @@ export function FeedScreen({
         });
         const j = (await res.json().catch(() => ({}))) as { error?: string };
         if (!res.ok) {
-          showAlert(j.error ?? `Error ${res.status}`);
+          showAlert(j.error ?? pick(lang, `Ошибка ${res.status}`, `Error ${res.status}`));
           return;
         }
         await syncFeed({ full: true, silent: true });
       } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Network error");
+        showAlert(e instanceof Error ? e.message : pick(lang, "Сеть", "Network error"));
       } finally {
         setThreadReplyDeleting((p) => ({ ...p, [replyId]: false }));
       }
     },
-    [apiBase, initData, syncFeed, showAlert],
+    [apiBase, initData, syncFeed, showAlert, lang],
   );
 
   // Жалоба на сообщение или коммент (оба — сообщения чата).
@@ -945,37 +946,37 @@ export function FeedScreen({
         const j = (await res.json().catch(() => ({}))) as { error?: string };
         if (!res.ok) {
           const errMap: Record<string, string> = {
-            cannot_report_self: "You can't report your own message",
-            cannot_report_leo: "You can't report this message",
-            already_reported: "You already reported this",
+            cannot_report_self: pick(lang, "Нельзя пожаловаться на своё сообщение", "You can't report your own message"),
+            cannot_report_leo: pick(lang, "На это сообщение пожаловаться нельзя", "You can't report this message"),
+            already_reported: pick(lang, "Ты уже отправлял жалобу на это", "You already reported this"),
           };
-          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Error ${res.status}`);
+          showAlert(errMap[j.error ?? ""] ?? j.error ?? pick(lang, `Ошибка ${res.status}`, `Error ${res.status}`));
           return;
         }
-        showAlert("Report sent. Admins will see it in support.");
+        showAlert(pick(lang, "Жалоба отправлена. Админы увидят её в поддержке.", "Report sent. Admins will see it in support."));
       } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Network error");
+        showAlert(e instanceof Error ? e.message : pick(lang, "Сеть", "Network error"));
       } finally {
         setThreadReplyReporting((p) => ({ ...p, [messageId]: false }));
         setFeedReportPosting((p) => ({ ...p, [messageId]: false }));
       }
     },
-    [apiBase, initData, showAlert],
+    [apiBase, initData, showAlert, lang],
   );
 
   const confirmReportMessage = useCallback(
     async (messageId: number) => {
-      if (!(await tgConfirm("Send a report?\n\nAdmins will review it in support."))) return;
+      if (!(await tgConfirm(pick(lang, "Отправить жалобу?\n\nАдмины проверят её в разделе поддержки.", "Send a report?\n\nAdmins will review it in support.")))) return;
       void reportMessageContent(messageId);
     },
-    [reportMessageContent],
+    [reportMessageContent, lang],
   );
 
   // Удаление/скрытие сообщения-карточки (своё — удалить, админ — скрыть).
   const deleteMessageCard = useCallback(
     async (cardId: number) => {
       if (!apiBase || !initData) return;
-      if (!(await tgConfirm("Remove this message from the feed?"))) return;
+      if (!(await tgConfirm(pick(lang, "Удалить сообщение из ленты?", "Remove this message from the feed?")))) return;
       setFeedDeletePosting((p) => ({ ...p, [cardId]: true }));
       try {
         const res = await fetch(`${apiBase}/api/miniapp/pack-group/messages/delete`, {
@@ -985,18 +986,18 @@ export function FeedScreen({
         });
         const j = (await res.json().catch(() => ({}))) as { error?: string };
         if (!res.ok) {
-          showAlert(j.error ?? `Error ${res.status}`);
+          showAlert(j.error ?? pick(lang, `Ошибка ${res.status}`, `Error ${res.status}`));
           return;
         }
         setFeedItems((prev) => prev.filter((it) => !(it.id === cardId && isFeedMessage(it))));
         await syncFeed({ full: true, silent: true });
       } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Network error");
+        showAlert(e instanceof Error ? e.message : pick(lang, "Сеть", "Network error"));
       } finally {
         setFeedDeletePosting((p) => ({ ...p, [cardId]: false }));
       }
     },
-    [apiBase, initData, syncFeed, showAlert],
+    [apiBase, initData, syncFeed, showAlert, lang],
   );
 
   const voteFeedPoll = useCallback(
@@ -1011,28 +1012,28 @@ export function FeedScreen({
         const j = (await res.json().catch(() => ({}))) as { error?: string };
         if (!res.ok) {
           const errMap: Record<string, string> = {
-            not_found: "Poll not found",
-            invalid_option: "Invalid option",
-            forbidden: "No access",
-            chat_mismatch: "Open the miniapp from the pack chat",
-            poll_vote_error: "Couldn't save vote",
+            not_found: pick(lang, "Опрос не найден", "Poll not found"),
+            invalid_option: pick(lang, "Неверный вариант", "Invalid option"),
+            forbidden: pick(lang, "Нет доступа", "No access"),
+            chat_mismatch: pick(lang, "Открой miniapp из чата стаи", "Open the miniapp from the pack chat"),
+            poll_vote_error: pick(lang, "Не удалось сохранить голос", "Couldn't save vote"),
           };
-          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Error ${res.status}`);
+          showAlert(errMap[j.error ?? ""] ?? j.error ?? pick(lang, `Ошибка ${res.status}`, `Error ${res.status}`));
           return;
         }
         await syncFeed({ full: true, silent: true });
       } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Network error");
+        showAlert(e instanceof Error ? e.message : pick(lang, "Сеть", "Network error"));
       }
     },
-    [apiBase, initData, syncFeed, showAlert],
+    [apiBase, initData, syncFeed, showAlert, lang],
   );
 
   const postTrainingThread = useCallback(
     async (userMessageId: number, text: string, replyToThreadId?: number, photo?: File | null, postAs?: "self" | "leo" | "admin") => {
       const t = text.trim();
       if (!t && !photo) {
-        showAlert("Enter comment text or attach a photo.");
+        showAlert(pick(lang, "Введи текст комментария или прикрепи фото.", "Enter comment text or attach a photo."));
         return;
       }
       if (!apiBase || !initData) return;
@@ -1076,21 +1077,21 @@ export function FeedScreen({
             return;
           }
           const errMap: Record<string, string> = {
-            empty_text: "Empty comment",
-            text_too_long: "Too long (max 500 characters)",
-            not_found: "Post not found (refresh feed)",
-            forbidden: "No access",
-            chat_mismatch: "Open the miniapp from the pack chat",
-            thread_error: "Server didn't save comment (migration or DB)",
-            invalid_reply: "Couldn't reply to this message (refresh feed)",
-            invalid_multipart: "Couldn't read photo — try again",
-            photo_open_error: "Couldn't open photo",
-            photo_too_large: "Photo too large",
-            unsupported_type: "Unsupported photo format",
-            media_write_error: "Couldn't upload photo — try again",
-            media_not_configured: "Photo upload unavailable",
+            empty_text: pick(lang, "Пустой комментарий", "Empty comment"),
+            text_too_long: pick(lang, "Слишком длинно (максимум 500 символов)", "Too long (max 500 characters)"),
+            not_found: pick(lang, "Запись не найдена (обнови ленту)", "Post not found (refresh feed)"),
+            forbidden: pick(lang, "Нет доступа", "No access"),
+            chat_mismatch: pick(lang, "Открой мини-апп из чата стаи", "Open the miniapp from the pack chat"),
+            thread_error: pick(lang, "Сервер не сохранил комментарий (таблица миграции или БД)", "Server didn't save comment (migration or DB)"),
+            invalid_reply: pick(lang, "Не удалось ответить на это сообщение (обнови ленту)", "Couldn't reply to this message (refresh feed)"),
+            invalid_multipart: pick(lang, "Не удалось прочитать фото — попробуй ещё раз", "Couldn't read photo — try again"),
+            photo_open_error: pick(lang, "Не удалось открыть фото", "Couldn't open photo"),
+            photo_too_large: pick(lang, "Фото слишком большое", "Photo too large"),
+            unsupported_type: pick(lang, "Неподдерживаемый формат фото", "Unsupported photo format"),
+            media_write_error: pick(lang, "Не удалось загрузить фото — попробуй ещё раз", "Couldn't upload photo — try again"),
+            media_not_configured: pick(lang, "Загрузка фото недоступна", "Photo upload unavailable"),
           };
-          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Error ${res.status}`);
+          showAlert(errMap[j.error ?? ""] ?? j.error ?? pick(lang, `Ошибка ${res.status}`, `Error ${res.status}`));
           return;
         }
         const postedThread = j.thread;
@@ -1107,7 +1108,7 @@ export function FeedScreen({
           window.setTimeout(() => void syncFeed({ full: true, silent: true }), 5000);
         }
       } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Network error");
+        showAlert(e instanceof Error ? e.message : pick(lang, "Сеть", "Network error"));
       } finally {
         setThreadPosting((p) => ({ ...p, [userMessageId]: false }));
       }
@@ -1119,7 +1120,7 @@ export function FeedScreen({
     async (item: PackFeedItemDTO) => {
       const draft = (postEditDrafts[item.id] ?? "").trim();
       if (!draft) {
-        showAlert("Text can't be empty.");
+        showAlert(pick(lang, "Текст не может быть пустым.", "Text can't be empty."));
         return;
       }
       if (!apiBase || !initData) return;
@@ -1142,14 +1143,14 @@ export function FeedScreen({
             return;
           }
           const errMap: Record<string, string> = {
-            empty_text: "Text can't be empty",
-            text_too_long: "Text too long",
-            not_found: "Post not found (refresh feed)",
-            forbidden: "No access",
-            chat_mismatch: "Open the miniapp from the pack chat",
-            feed_edit_error: "Couldn't save",
+            empty_text: pick(lang, "Текст не может быть пустым", "Text can't be empty"),
+            text_too_long: pick(lang, "Слишком длинный текст", "Text too long"),
+            not_found: pick(lang, "Пост не найден (обнови ленту)", "Post not found (refresh feed)"),
+            forbidden: pick(lang, "Нет доступа", "No access"),
+            chat_mismatch: pick(lang, "Открой мини-апп из чата стаи", "Open the miniapp from the pack chat"),
+            feed_edit_error: pick(lang, "Не удалось сохранить", "Couldn't save"),
           };
-          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Error ${res.status}`);
+          showAlert(errMap[j.error ?? ""] ?? j.error ?? pick(lang, `Ошибка ${res.status}`, `Error ${res.status}`));
           return;
         }
         setPostEditId(null);
@@ -1172,7 +1173,7 @@ export function FeedScreen({
         );
         await syncFeed({ full: true, silent: true });
       } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Network error");
+        showAlert(e instanceof Error ? e.message : pick(lang, "Сеть", "Network error"));
       } finally {
         setPostEditPosting((p) => ({ ...p, [item.id]: false }));
       }
@@ -1197,16 +1198,16 @@ export function FeedScreen({
             return;
           }
           const errMap: Record<string, string> = {
-            photo_too_large: "Photo too large (max 6 MB)",
-            unsupported_image: "Photo format not supported",
-            missing_photo: "Choose a photo",
-            invalid_multipart: "Couldn't read photo — try again",
-            not_found: "Post not found (refresh feed)",
-            forbidden: "No access",
-            chat_mismatch: "Open the miniapp from the pack chat",
-            feed_photo_error: "Couldn't save photo",
+            photo_too_large: pick(lang, "Фото слишком большое (до 6 МБ)", "Photo too large (max 6 MB)"),
+            unsupported_image: pick(lang, "Формат фото не поддерживается", "Photo format not supported"),
+            missing_photo: pick(lang, "Выбери фото", "Choose a photo"),
+            invalid_multipart: pick(lang, "Не удалось прочитать фото — попробуй ещё раз", "Couldn't read photo — try again"),
+            not_found: pick(lang, "Пост не найден (обнови ленту)", "Post not found (refresh feed)"),
+            forbidden: pick(lang, "Нет доступа", "No access"),
+            chat_mismatch: pick(lang, "Открой мини-апп из чата стаи", "Open the miniapp from the pack chat"),
+            feed_photo_error: pick(lang, "Не удалось сохранить фото", "Couldn't save photo"),
           };
-          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Error ${res.status}`);
+          showAlert(errMap[j.error ?? ""] ?? j.error ?? pick(lang, `Ошибка ${res.status}`, `Error ${res.status}`));
           return;
         }
         setFeedItems((prev) =>
@@ -1214,7 +1215,7 @@ export function FeedScreen({
         );
         await syncFeed({ full: true, silent: true });
       } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Network error");
+        showAlert(e instanceof Error ? e.message : pick(lang, "Сеть", "Network error"));
       } finally {
         setPostPhotoBusy((p) => ({ ...p, [item.id]: false }));
       }
@@ -1225,7 +1226,7 @@ export function FeedScreen({
   const removeFeedPostPhoto = useCallback(
     async (item: PackFeedItemDTO) => {
       if (!apiBase || !initData) return;
-      if (!(await tgConfirm("Remove photo from post?"))) return;
+      if (!(await tgConfirm(pick(lang, "Удалить фото из поста?", "Remove photo from post?")))) return;
       setPostPhotoBusy((p) => ({ ...p, [item.id]: true }));
       try {
         const res = await fetch(`${apiBase}/api/miniapp/feed/photo/delete`, {
@@ -1236,12 +1237,12 @@ export function FeedScreen({
         const j = (await res.json().catch(() => ({}))) as { error?: string };
         if (!res.ok) {
           const errMap: Record<string, string> = {
-            not_found: "Post not found (refresh feed)",
-            forbidden: "No access",
-            chat_mismatch: "Open the miniapp from the pack chat",
-            feed_photo_error: "Couldn't remove photo",
+            not_found: pick(lang, "Пост не найден (обнови ленту)", "Post not found (refresh feed)"),
+            forbidden: pick(lang, "Нет доступа", "No access"),
+            chat_mismatch: pick(lang, "Открой мини-апп из чата стаи", "Open the miniapp from the pack chat"),
+            feed_photo_error: pick(lang, "Не удалось удалить фото", "Couldn't remove photo"),
           };
-          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Error ${res.status}`);
+          showAlert(errMap[j.error ?? ""] ?? j.error ?? pick(lang, `Ошибка ${res.status}`, `Error ${res.status}`));
           return;
         }
         setFeedItems((prev) =>
@@ -1249,12 +1250,12 @@ export function FeedScreen({
         );
         await syncFeed({ full: true, silent: true });
       } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Network error");
+        showAlert(e instanceof Error ? e.message : pick(lang, "Сеть", "Network error"));
       } finally {
         setPostPhotoBusy((p) => ({ ...p, [item.id]: false }));
       }
     },
-    [apiBase, initData, showAlert, syncFeed],
+    [apiBase, initData, showAlert, syncFeed, lang],
   );
 
   const editTrainingThreadReply = useCallback(
@@ -1266,7 +1267,7 @@ export function FeedScreen({
     ) => {
       const t = text.trim();
       if (!t) {
-        showAlert("Comment can't be empty.");
+        showAlert(pick(lang, "Комментарий не может быть пустым.", "Comment can't be empty."));
         return;
       }
       if (!apiBase || !initData) return;
@@ -1292,14 +1293,14 @@ export function FeedScreen({
             return;
           }
           const errMap: Record<string, string> = {
-            empty_text: "Empty comment",
-            text_too_long: "Too long (max 500 characters)",
-            not_found: "Comment not found (refresh feed)",
-            forbidden: "No access",
-            chat_mismatch: "Open the miniapp from the pack chat",
-            thread_edit_error: "Couldn't save",
+            empty_text: pick(lang, "Пустой комментарий", "Empty comment"),
+            text_too_long: pick(lang, "Слишком длинно (максимум 500 символов)", "Too long (max 500 characters)"),
+            not_found: pick(lang, "Комментарий не найден (обнови ленту)", "Comment not found (refresh feed)"),
+            forbidden: pick(lang, "Нет доступа", "No access"),
+            chat_mismatch: pick(lang, "Открой мини-апп из чата стаи", "Open the miniapp from the pack chat"),
+            thread_edit_error: pick(lang, "Не удалось сохранить", "Couldn't save"),
           };
-          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Error ${res.status}`);
+          showAlert(errMap[j.error ?? ""] ?? j.error ?? pick(lang, `Ошибка ${res.status}`, `Error ${res.status}`));
           return;
         }
         setThreadEditTargets((r) => ({ ...r, [trainingUserMessageId]: undefined }));
@@ -1314,7 +1315,7 @@ export function FeedScreen({
         }
       } catch (e) {
         setThreadDrafts((d) => ({ ...d, [trainingUserMessageId]: originalText }));
-        showAlert(e instanceof Error ? e.message : "Network error");
+        showAlert(e instanceof Error ? e.message : pick(lang, "Сеть", "Network error"));
       } finally {
         setThreadPosting((p) => ({ ...p, [trainingUserMessageId]: false }));
       }
@@ -1338,12 +1339,12 @@ export function FeedScreen({
         };
         if (!res.ok) {
           const errMap: Record<string, string> = {
-            not_found: "Comment not found or already deleted",
-            forbidden: "No access",
-            chat_mismatch: "Open the miniapp from the pack chat",
-            thread_delete_error: "Couldn't delete",
+            not_found: pick(lang, "Комментарий не найден или уже удалён", "Comment not found or already deleted"),
+            forbidden: pick(lang, "Нет доступа", "No access"),
+            chat_mismatch: pick(lang, "Открой мини-апп из чата стаи", "Open the miniapp from the pack chat"),
+            thread_delete_error: pick(lang, "Не удалось удалить", "Couldn't delete"),
           };
-          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Error ${res.status}`);
+          showAlert(errMap[j.error ?? ""] ?? j.error ?? pick(lang, `Ошибка ${res.status}`, `Error ${res.status}`));
           return;
         }
         const updated = j.thread;
@@ -1355,12 +1356,12 @@ export function FeedScreen({
           await syncFeed({ full: true, silent: true });
         }
       } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Network error");
+        showAlert(e instanceof Error ? e.message : pick(lang, "Сеть", "Network error"));
       } finally {
         setThreadReplyDeleting((p) => ({ ...p, [threadReplyId]: false }));
       }
     },
-    [apiBase, initData, syncFeed, showAlert],
+    [apiBase, initData, syncFeed, showAlert, lang],
   );
 
   const hideFeedPost = useCallback(
@@ -1368,7 +1369,7 @@ export function FeedScreen({
       if (!apiBase || !initData || !isAdmin) return;
       if (
         !(await tgConfirm(
-          "Remove this post from the feed?\n\nIt disappears for everyone but stays in admin (Hidden) — you can restore it there.",
+          pick(lang, "Удалить публикацию из ленты?\n\nОна исчезнет у всех, но останется в админке (раздел «Скрытое») — оттуда её можно восстановить.", "Remove this post from the feed?\n\nIt disappears for everyone but stays in admin (Hidden) — you can restore it there."),
         ))
       ) {
         return;
@@ -1383,12 +1384,12 @@ export function FeedScreen({
         const j = (await res.json().catch(() => ({}))) as { error?: string };
         if (!res.ok) {
           const errMap: Record<string, string> = {
-            not_found: "Post not found or already hidden",
-            forbidden: "No permission",
-            chat_mismatch: "Open the miniapp from the pack chat",
-            feed_delete_error: "Couldn't hide",
+            not_found: pick(lang, "Пост не найден или уже скрыт", "Post not found or already hidden"),
+            forbidden: pick(lang, "Нет прав", "No permission"),
+            chat_mismatch: pick(lang, "Открой мини-апп из чата стаи", "Open the miniapp from the pack chat"),
+            feed_delete_error: pick(lang, "Не удалось скрыть", "Couldn't hide"),
           };
-          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Error ${res.status}`);
+          showAlert(errMap[j.error ?? ""] ?? j.error ?? pick(lang, `Ошибка ${res.status}`, `Error ${res.status}`));
           return;
         }
         setFeedItems((prev) => prev.filter((it) => it.id !== userMessageId));
@@ -1399,12 +1400,12 @@ export function FeedScreen({
           return next;
         });
       } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Network error");
+        showAlert(e instanceof Error ? e.message : pick(lang, "Сеть", "Network error"));
       } finally {
         setFeedDeletePosting((p) => ({ ...p, [userMessageId]: false }));
       }
     },
-    [apiBase, initData, isAdmin, showAlert],
+    [apiBase, initData, isAdmin, showAlert, lang],
   );
 
   const setFeedPostPinned = useCallback(
@@ -1430,12 +1431,12 @@ export function FeedScreen({
         const j = (await res.json().catch(() => ({}))) as { error?: string };
         if (!res.ok) {
           const errMap: Record<string, string> = {
-            not_found: "Announcement not found or already removed",
-            forbidden: "Only admins can pin",
-            chat_mismatch: "Open the miniapp from the pack chat",
-            feed_pin_error: "Couldn't change pin",
+            not_found: pick(lang, "Объявление не найдено или уже удалено", "Announcement not found or already removed"),
+            forbidden: pick(lang, "Закреплять может только админ", "Only admins can pin"),
+            chat_mismatch: pick(lang, "Открой мини-апп из чата стаи", "Open the miniapp from the pack chat"),
+            feed_pin_error: pick(lang, "Не удалось изменить закреп", "Couldn't change pin"),
           };
-          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Error ${res.status}`);
+          showAlert(errMap[j.error ?? ""] ?? j.error ?? pick(lang, `Ошибка ${res.status}`, `Error ${res.status}`));
           // Откат — следующий синк восстановит истину с сервера.
           void syncFeed({ silent: true });
           return;
@@ -1443,13 +1444,13 @@ export function FeedScreen({
         // Подтягиваем авторитетный набор закреплённых.
         void syncFeed({ silent: true });
       } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Network error");
+        showAlert(e instanceof Error ? e.message : pick(lang, "Сеть", "Network error"));
         void syncFeed({ silent: true });
       } finally {
         setFeedPinPosting((p) => ({ ...p, [userMessageId]: false }));
       }
     },
-    [initData, isAdmin, showAlert, syncFeed],
+    [initData, isAdmin, showAlert, syncFeed, lang],
   );
 
   const reportFeedContent = useCallback(
@@ -1472,57 +1473,57 @@ export function FeedScreen({
         const j = (await res.json().catch(() => ({}))) as { error?: string };
         if (!res.ok) {
           const errMap: Record<string, string> = {
-            not_found: "Post not found (refresh feed)",
-            forbidden: "No access",
-            chat_mismatch: "Open the miniapp from the pack chat",
-            cannot_report_self: "You can't report your own message",
-            cannot_report_leo: "You can't report this message",
-            already_reported: "You already reported this",
-            report_error: "Couldn't send report",
+            not_found: pick(lang, "Запись не найдена (обнови ленту)", "Post not found (refresh feed)"),
+            forbidden: pick(lang, "Нет доступа", "No access"),
+            chat_mismatch: pick(lang, "Открой мини-апп из чата стаи", "Open the miniapp from the pack chat"),
+            cannot_report_self: pick(lang, "Нельзя пожаловаться на своё сообщение", "You can't report your own message"),
+            cannot_report_leo: pick(lang, "На это сообщение пожаловаться нельзя", "You can't report this message"),
+            already_reported: pick(lang, "Ты уже отправлял жалобу на это", "You already reported this"),
+            report_error: pick(lang, "Не удалось отправить жалобу", "Couldn't send report"),
           };
-          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Error ${res.status}`);
+          showAlert(errMap[j.error ?? ""] ?? j.error ?? pick(lang, `Ошибка ${res.status}`, `Error ${res.status}`));
           return;
         }
         showAlert(
           threadReplyId > 0
-            ? "Comment report sent. Admins will see it in support."
-            : "Report sent. Admins will see it in support.",
+            ? pick(lang, "Жалоба на комментарий отправлена. Админы увидят её в поддержке.", "Comment report sent. Admins will see it in support.")
+            : pick(lang, "Жалоба отправлена. Админы увидят её в поддержке.", "Report sent. Admins will see it in support."),
         );
       } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Network error");
+        showAlert(e instanceof Error ? e.message : pick(lang, "Сеть", "Network error"));
       } finally {
         setPosting((p) => ({ ...p, [postingKey]: false }));
       }
     },
-    [apiBase, initData, showAlert],
+    [apiBase, initData, showAlert, lang],
   );
 
   const confirmReportPublication = useCallback(
     async (userMessageId: number) => {
       if (
         !(await tgConfirm(
-          "Report this post?\n\nAdmins will review it in support.",
+          pick(lang, "Отправить жалобу на эту публикацию?\n\nАдмины проверят её в разделе поддержки.", "Report this post?\n\nAdmins will review it in support."),
         ))
       ) {
         return;
       }
       void reportFeedContent(userMessageId);
     },
-    [reportFeedContent],
+    [reportFeedContent, lang],
   );
 
   const confirmReportComment = useCallback(
     async (userMessageId: number, threadReplyId: number) => {
       if (
         !(await tgConfirm(
-          "Report this comment?\n\nAdmins will review it in support.",
+          pick(lang, "Отправить жалобу на этот комментарий?\n\nАдмины проверят его в разделе поддержки.", "Report this comment?\n\nAdmins will review it in support."),
         ))
       ) {
         return;
       }
       void reportFeedContent(userMessageId, threadReplyId);
     },
-    [reportFeedContent],
+    [reportFeedContent, lang],
   );
 
   const toggleTrainingThreadLike = useCallback(
@@ -1553,7 +1554,7 @@ export function FeedScreen({
           const j = (await res.json().catch(() => ({}))) as { error?: string; thread?: PackFeedThreadReplyDTO[] };
           if (!res.ok) {
             applyToggle();
-            showAlert(j.error ?? `Error ${res.status}`);
+            showAlert(j.error ?? pick(lang, `Ошибка ${res.status}`, `Error ${res.status}`));
             return;
           }
           const updated = j.thread;
@@ -1566,11 +1567,11 @@ export function FeedScreen({
           }
         } catch (e) {
           applyToggle();
-          showAlert(e instanceof Error ? e.message : "Network error");
+          showAlert(e instanceof Error ? e.message : pick(lang, "Сеть", "Network error"));
         }
       })();
     },
-    [apiBase, initData, syncFeed, showAlert, hapticLight],
+    [apiBase, initData, syncFeed, showAlert, hapticLight, lang],
   );
 
   const activeRef = useRef(active);
@@ -1737,7 +1738,7 @@ export function FeedScreen({
         <button
           type="button"
           className="feed__cat-list-dismiss"
-          aria-label="Apply type filters"
+          aria-label={pick(lang, "Применить фильтр типов", "Apply type filters")}
           onClick={applyCatListAndClose}
         />
       )}
@@ -1755,12 +1756,12 @@ export function FeedScreen({
           </div>
         </header>
         {sub === "activity" && (
-          <div className="feed__filters" aria-label="Feed filters" data-no-ptr>
+          <div className="feed__filters" aria-label={pick(lang, "Фильтры ленты", "Feed filters")} data-no-ptr>
             {/* Единый ряд фильтров: тип контента (Тренировки/Сообщения) и «чьи»
                 (Друзья/Мои) — независимые измерения, работают как пересечение (И).
                 Напр. «Друзья» + «Сообщения» → сообщения только друзей. «Все» —
                 сброс обоих измерений; активна, когда ни один фильтр не выбран. */}
-            <div className="feed__filter-scope" role="group" aria-label="Feed filters">
+            <div className="feed__filter-scope" role="group" aria-label={pick(lang, "Фильтры ленты", "Feed filters")}>
               <button
                 type="button"
                 className={`feed__filter-pill${
@@ -1828,7 +1829,7 @@ export function FeedScreen({
               {...(feedTypeFilter === "message" ? { inert: true as const } : {})}
             >
               <div className="feed__filter-cats-clip">
-              <div className="feed__filter-cats" role="group" aria-label="Workout type">
+              <div className="feed__filter-cats" role="group" aria-label={pick(lang, "Тип тренировки", "Workout type")}>
                 <div
                   role="button"
                   tabIndex={0}
@@ -2007,7 +2008,7 @@ export function FeedScreen({
                 </p>
               )}
             {useMockFeed &&
-              mockFallback(streak, !apiBase ? "no-api" : !inTelegram ? "no-telegram" : "no-initdata").map((c, i) => (
+              mockFallback(streak, !apiBase ? "no-api" : !inTelegram ? "no-telegram" : "no-initdata", lang).map((c, i) => (
                 <div key={`mock-${i}`} className="feed__card-slot feed__card-slot--them">
                   <ActivityCard {...c} />
                 </div>
@@ -2062,7 +2063,7 @@ export function FeedScreen({
                   const rq = mapFeedThreadQuote(tr, lang);
                   return {
                     id: tr.id,
-                    author: (tr.username || "").trim() || `Member ${tr.user_id}`,
+                    author: (tr.username || "").trim() || pick(lang, `Участник ${tr.user_id}`, `Member ${tr.user_id}`),
                     text: tr.text,
                     timeAgo: formatLocalDateTime(tr.created_at, lang),
                     isYou: tr.is_you || (userId > 0 && tr.user_id === userId),

@@ -1,3 +1,4 @@
+import type { UILang } from "./i18n";
 /** Итоги недели стаи: модалка, которую Лео показывает участникам общего зачёта в понедельник. */
 
 const apiBase = (import.meta.env.VITE_MINIAPP_API_URL as string | undefined)?.replace(/\/$/, "") ?? "";
@@ -37,42 +38,57 @@ export function parsePackWeekSummary(raw: unknown): PackWeekSummary | null {
   };
 }
 
+const MONTHS_RU = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
-function dayMonth(date: string): { day: number; month: string } | null {
+function dayMonth(date: string, lang: UILang): { day: number; month: string } | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
   if (!m) return null;
-  const month = MONTHS[Number(m[2]) - 1];
+  const month = (lang === "ru" ? MONTHS_RU : MONTHS)[Number(m[2]) - 1];
   if (!month) return null;
   return { day: Number(m[3]), month };
 }
 
 /** «5–11 октября» или «28 сентября – 4 октября». */
-export function packWeekRangeLabel(weekStart: string, weekEnd: string): string {
-  const a = dayMonth(weekStart);
-  const b = dayMonth(weekEnd);
+export function packWeekRangeLabel(weekStart: string, weekEnd: string, lang: UILang = "en"): string {
+  const a = dayMonth(weekStart, lang);
+  const b = dayMonth(weekEnd, lang);
   if (!a) return "";
-  if (!b) return `from ${a.day} ${a.month}`;
+  if (!b) return lang === "ru" ? `с ${a.day} ${a.month}` : `from ${a.day} ${a.month}`;
   if (a.month === b.month) return `${a.day}–${b.day} ${b.month}`;
   return `${a.day} ${a.month} – ${b.day} ${b.month}`;
 }
 
 /** Склонение «тренировка» по числу. */
-export function workoutsWord(n: number): string {
+export function workoutsWord(n: number, lang: UILang = "en"): string {
   const n10 = n % 10;
   const n100 = n % 100;
+  if (lang === "ru") {
+    if (n10 === 1 && n100 !== 11) return "тренировка";
+    if (n10 >= 2 && n10 <= 4 && (n100 < 12 || n100 > 14)) return "тренировки";
+    return "тренировок";
+  }
   if (n10 === 1 && n100 !== 11) return "workout";
   if (n10 >= 2 && n10 <= 4 && (n100 < 12 || n100 > 14)) return "workouts";
   return "workouts";
 }
 
 /** Главная фраза модалки. */
-export function packWeekSummaryHeadline(s: PackWeekSummary): string {
+export function packWeekSummaryHeadline(s: PackWeekSummary, lang: UILang = "en"): string {
+  if (lang === "ru") return s.goalReached ? "Цель недели закрыта!" : "Цель недели не закрыта";
   return s.goalReached ? "Weekly goal reached!" : "Weekly goal not reached";
 }
 
 /** Что дальше: новая цель или та же. */
-export function packWeekSummaryNextLine(s: PackWeekSummary): string {
+export function packWeekSummaryNextLine(s: PackWeekSummary, lang: UILang = "en"): string {
+  if (lang === "ru") {
+    if (s.goalReached && s.nextGoal > s.goal) {
+      return `Планка растёт: цель новой недели — ${s.nextGoal} ${workoutsWord(s.nextGoal, "ru")} (+${s.nextGoal - s.goal}).`;
+    }
+    if (s.goalReached) return `Цель новой недели — ${s.nextGoal} ${workoutsWord(s.nextGoal, "ru")}.`;
+    const leftRu = Math.max(0, s.goal - s.workouts);
+    return `Не хватило ${leftRu} ${workoutsWord(leftRu, "ru")}. Цель новой недели та же — ${s.nextGoal}. Закроем её вместе!`;
+  }
   if (s.goalReached && s.nextGoal > s.goal) {
     return `Bar rises: next week's goal is ${s.nextGoal} ${workoutsWord(s.nextGoal)} (+${s.nextGoal - s.goal}).`;
   }

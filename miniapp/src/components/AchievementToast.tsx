@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { achievementLabel, parseAchievementKey, type AchievementKey } from "../lib/achievements";
 import { LEO_AVATAR_URL } from "../lib/leoAvatar";
+import { useI18n } from "../lib/I18nContext";
+import { pick, type UILang } from "../lib/i18n";
 import "./AchievementToast.css";
 import "./ShareCardSheet.css";
 
@@ -19,13 +21,13 @@ const VISIBLE_WITH_SHARE_MS = 8000;
 const EXIT_MS = 320;
 
 /** Тёплая фраза от Лео — добавляет эмоций поздравлению. */
-export function leoCheer(achievementKey: AchievementKey): string {
+export function leoCheer(achievementKey: AchievementKey, lang: UILang = "en"): string {
   const parsed = parseAchievementKey(achievementKey);
   // Первая в жизни тренировка — самый важный момент новичка, он заслуживает отдельных слов.
   if (parsed?.kind === "workout" && parsed.threshold === 1) {
-    return "First workout — you’re on your way! Leo’s with you 🐾";
+    return pick(lang, "Первая тренировка — начало пути! Лео с тобой 🐾", "First workout — you’re on your way! Leo’s with you 🐾");
   }
-  return parsed?.kind === "streak" ? "Keep it up — Leo’s proud of you!" : "You’re a beast! Leo gives you a paw 🐾";
+  return parsed?.kind === "streak" ? pick(lang, "Так держать — Лео тобой гордится!", "Keep it up — Leo’s proud of you!") : pick(lang, "Ты просто зверь! Лео даёт лапу 🐾", "You’re a beast! Leo gives you a paw 🐾");
 }
 
 /**
@@ -34,6 +36,7 @@ export function leoCheer(achievementKey: AchievementKey): string {
  * раньше. Очередь и дедуп — на стороне App (по ключам ачивок).
  */
 export function AchievementToast({ achievementKey, onDone, onShare }: Props) {
+  const { lang } = useI18n();
   const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
@@ -71,9 +74,9 @@ export function AchievementToast({ achievementKey, onDone, onShare }: Props) {
           </span>
         </div>
 
-        <div className="achievement-toast__title">Achievement unlocked!</div>
-        <div className="achievement-toast__label">{achievementLabel(achievementKey)}</div>
-        <div className="achievement-toast__cheer">{leoCheer(achievementKey)}</div>
+        <div className="achievement-toast__title">{pick(lang, "Ачивка получена!", "Achievement unlocked!")}</div>
+        <div className="achievement-toast__label">{achievementLabel(achievementKey, lang)}</div>
+        <div className="achievement-toast__cheer">{leoCheer(achievementKey, lang)}</div>
         {onShare ? (
           <button
             type="button"
@@ -83,7 +86,7 @@ export function AchievementToast({ achievementKey, onDone, onShare }: Props) {
               onShare();
             }}
           >
-            Share
+            {pick(lang, "Поделиться", "Share")}
           </button>
         ) : null}
       </div>

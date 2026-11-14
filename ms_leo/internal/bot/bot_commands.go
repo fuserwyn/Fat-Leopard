@@ -7,6 +7,7 @@ import (
 
 	"leo-bot/internal/database"
 	"leo-bot/internal/domain"
+	"leo-bot/internal/i18n"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -23,6 +24,21 @@ func welcomeStartText() string {
 	return leopardOnboardingBody()
 }
 
+// welcomeStartTextLang — онбординг на языке пользователя.
+func welcomeStartTextLang(lang i18n.Lang) string {
+	return pickLang(lang, leopardOnboardingBodyTextRU, leopardOnboardingBody())
+}
+
+// noRightsText — отказ обычному участнику на его языке.
+func (b *Bot) noRightsText(userID int64) string {
+	return b.userText(userID, "❌ У вас нет прав для использования этой команды", "❌ You don't have permission to use this command")
+}
+
+// adminOnlyText — отказ в админской команде на языке пользователя.
+func (b *Bot) adminOnlyText(userID int64) string {
+	return b.userText(userID, "❌ Только администраторы или владелец могут использовать эту команду!", "❌ Only administrators or the owner can use this command!")
+}
+
 func (b *Bot) handleHelp(msg *tgbotapi.Message) {
 	if msg.From != nil && msg.Chat.IsPrivate() && b.paywallActive() && b.paywallPrivateNeedsPayFirst(msg.From.ID) {
 		b.ensurePaywallInvoiceSent(msg.From.ID)
@@ -35,6 +51,24 @@ func (b *Bot) handleHelp(msg *tgbotapi.Message) {
 		return
 	}
 
+	helpTextRU := `🦁 Fat Leopard — Справка
+
+🐆 Вход:
+• Нажми /start — доступ к мини-приложению открывается сразу и бесплатно
+• Отмечай любое движение каждый день: 8 дней без активности — и ты выбываешь из стаи
+• Вернуться после выбывания можно только за оплату (картой РФ или звёздами Telegram)
+
+❤️ Поддержать проект:
+• Кнопка «Задонатить» в профиле мини-приложения
+• Звёздами Telegram — из любой страны, картой — для РФ
+• Донат добровольный: он не влияет на доступ и не отменяет выбывание
+
+💬 Поддержка:
+• Нажми кнопку «💬 Поддержка» внизу экрана
+• Или напиши нам — твоё сообщение придёт команде напрямую
+• Отвечаем в личном чате с ботом
+
+Оставайся активным! 🦁`
 	helpText := `🦁 Fat Leopard — Help
 
 🐆 Getting in:
@@ -53,6 +87,9 @@ func (b *Bot) handleHelp(msg *tgbotapi.Message) {
 • We reply in your DM with the bot
 
 Stay active! 🦁`
+	if msg.From != nil {
+		helpText = b.userText(msg.From.ID, helpTextRU, helpText)
+	}
 
 	reply := tgbotapi.NewMessage(msg.Chat.ID, helpText)
 
@@ -138,7 +175,11 @@ func (b *Bot) handleStart(msg *tgbotapi.Message) {
 		b.EnsureFreeEntryFromStart(msg.From.ID, displayNameFromTelegramUser(msg.From))
 	}
 
-	welcomeText := welcomeStartText()
+	lang := i18n.EN
+	if msg.From != nil {
+		lang = b.EffectiveUILang(msg.From.ID)
+	}
+	welcomeText := welcomeStartTextLang(lang)
 	// Короткий текст «ты в стае» — всем, у кого доступ есть: оплатившим и вошедшим бесплатно.
 	if msg.Chat.IsPrivate() && b.paywallActive() && msg.From != nil && !b.paywallPrivateNeedsPayFirst(msg.From.ID) {
 		b.logger.Infof("/start access granted user=%d free_entry=%t snapshot=%s",
@@ -147,8 +188,10 @@ func (b *Bot) handleStart(msg *tgbotapi.Message) {
 	}
 
 	if challengeInvite != nil {
-		welcomeText += fmt.Sprintf("\n\n🔥 You're invited to challenge «%s» — %d %s in a row with a workout. Open the mini app to accept.",
-			challengeInvite.Title, challengeInvite.LengthDays, daysWordForm(challengeInvite.LengthDays))
+		welcomeText += fmt.Sprintf(pickLang(lang,
+			"\n\n🔥 Тебя позвали в челлендж «%s» — %d %s подряд с тренировкой. Открой мини-апп, чтобы принять.",
+			"\n\n🔥 You're invited to challenge «%s» — %d %s in a row with a workout. Open the mini app to accept."),
+			challengeInvite.Title, challengeInvite.LengthDays, daysWordFormLang(lang, challengeInvite.LengthDays))
 	}
 
 	reply := tgbotapi.NewMessage(msg.Chat.ID, welcomeText)
@@ -164,7 +207,7 @@ func (b *Bot) handleStart(msg *tgbotapi.Message) {
 		// отдельным сообщением, чтобы не конфликтовать с reply-клавиатурой выше.
 		if b.paywallActive() && !b.paywallPrivateNeedsPayFirst(msg.From.ID) {
 			if ikb := b.miniappOpenInlineKeyboard(msg.From.ID); ikb != nil {
-				open := tgbotapi.NewMessage(msg.Chat.ID, "Open workouts — tap the button below 👇")
+				open := tgbotapi.NewMessage(msg.Chat.ID, pickLang(lang, "Открыть тренировки — тапни кнопку ниже 👇", "Open workouts — tap the button below 👇"))
 				open.ReplyMarkup = *ikb
 				if _, err := b.api.Send(open); err != nil {
 					b.logger.Warnf("send miniapp open button user=%d: %v", msg.From.ID, err)
@@ -184,16 +227,20 @@ func (b *Bot) handleStart(msg *tgbotapi.Message) {
 
 // handleRejoin — после миграции на мини-апп TG-группа выпилена; /rejoin turned intoи в напоминание открыть мини-апп.
 func (b *Bot) handleRejoin(msg *tgbotapi.Message) {
+	lang := i18n.EN
+	if msg.From != nil {
+		lang = b.EffectiveUILang(msg.From.ID)
+	}
 	if !msg.Chat.IsPrivate() {
-		_, _ = b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "ℹ️ /rejoin works in DM with the bot."))
+		_, _ = b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, pickLang(lang, "ℹ️ Команда /rejoin работает в личке с ботом.", "ℹ️ /rejoin works in DM with the bot.")))
 		return
 	}
 	if !b.paywallActive() || msg.From == nil {
-		_, _ = b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "ℹ️ Paid entry isn't used right now."))
+		_, _ = b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, pickLang(lang, "ℹ️ Платный вход сейчас не используется.", "ℹ️ Paid entry isn't used right now.")))
 		return
 	}
 	if b.paywallPrivateNeedsPayFirst(msg.From.ID) {
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "⚠️ Pay for access first. Tap /start to get an invoice.")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, pickLang(lang, "⚠️ Сначала оплати доступ. Нажми /start, чтобы получить счёт.", "⚠️ Pay for access first. Tap /start to get an invoice."))
 		if kb := b.privateBottomReplyKeyboard(msg.From.ID); kb != nil {
 			reply.ReplyMarkup = kb
 		}
@@ -206,13 +253,15 @@ func (b *Bot) handleRejoin(msg *tgbotapi.Message) {
 		}
 		return
 	}
-	_, _ = b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "✅ Access is active. Open the bot mini app — at the bottom of this chat (or via the ⋮ menu)."))
+	_, _ = b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, pickLang(lang,
+		"✅ Доступ активен. Открой мини-приложение бота — внизу экрана в этом чате (или через меню ⋮).",
+		"✅ Access is active. Open the bot mini app — at the bottom of this chat (or via the ⋮ menu).")))
 }
 
 func (b *Bot) handleDB(msg *tgbotapi.Message) {
 	// Проверяем права администратора
 	if !b.isAdmin(msg.Chat.ID, msg.From.ID) {
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Only administrators or the owner can use this command!")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, b.adminOnlyText(msg.From.ID))
 		b.api.Send(reply)
 		return
 	}
@@ -243,24 +292,28 @@ func (b *Bot) handleDB(msg *tgbotapi.Message) {
 
 func (b *Bot) handleTop(msg *tgbotapi.Message) {
 	rowChat := b.packTrainingStateChatID(msg)
+	lang := i18n.EN
+	if msg.From != nil {
+		lang = b.EffectiveUILang(msg.From.ID)
+	}
 	// Получаем топ пользователей
 	topUsers, err := b.db.GetTopUsers(rowChat, 10)
 	if err != nil {
 		b.logger.Errorf("Failed to get top users: %v", err)
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Failed to load data")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, pickLang(lang, "❌ Ошибка при получении данных", "❌ Failed to load data"))
 		b.api.Send(reply)
 		return
 	}
 
 	if len(topUsers) == 0 {
-		emptyText := "🏆 **Leaderboard:**\n\n📊 No workout data yet"
+		emptyText := pickLang(lang, "🏆 **Топ пользователей:**\n\n📊 Пока нет данных о тренировках", "🏆 **Leaderboard:**\n\n📊 No workout data yet")
 		reply := tgbotapi.NewMessage(msg.Chat.ID, emptyText)
 		reply.ParseMode = "Markdown"
 		b.api.Send(reply)
 		return
 	}
 
-	topText := "🏆 Leaderboard by cups:\n\n"
+	topText := pickLang(lang, "🏆 Топ пользователей по кубкам:\n\n", "🏆 Leaderboard by cups:\n\n")
 	for i, user := range topUsers {
 		emoji := "🥇"
 		if i == 1 {
@@ -270,7 +323,7 @@ func (b *Bot) handleTop(msg *tgbotapi.Message) {
 		} else {
 			emoji = fmt.Sprintf("%d️⃣", i+1)
 		}
-		topText += fmt.Sprintf("%s %s — %d %s\n", emoji, user.Username, user.CupsEarned, cupsWordForm(user.CupsEarned))
+		topText += fmt.Sprintf("%s %s — %d %s\n", emoji, user.Username, user.CupsEarned, cupsWordFormLang(lang, user.CupsEarned))
 	}
 
 	reply := tgbotapi.NewMessage(msg.Chat.ID, topText)
@@ -286,11 +339,12 @@ func (b *Bot) handleTop(msg *tgbotapi.Message) {
 
 func (b *Bot) handleCups(msg *tgbotapi.Message) {
 	rowChat := b.packTrainingStateChatID(msg)
+	lang := b.EffectiveUILang(msg.From.ID)
 	// Получаем кубки пользователя
 	cups, err := b.db.GetUserCups(msg.From.ID, rowChat)
 	if err != nil {
 		b.logger.Errorf("Failed to get user cups: %v", err)
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Failed to load data")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, pickLang(lang, "❌ Ошибка при получении данных", "❌ Failed to load data"))
 		b.api.Send(reply)
 		return
 	}
@@ -319,15 +373,8 @@ func (b *Bot) handleCups(msg *tgbotapi.Message) {
 		username = fmt.Sprintf("User%d", msg.From.ID)
 	}
 
-	// Формируем сообщение в зависимости от количества cups
-	var cupsText string
-	if cups > 420 {
-		cupsText = fmt.Sprintf("🌟⚡ SUPER LEVEL! ⚡🌟\n\n👤 %s\n🎯 Total cups earned: %d\n\n🎊 BEYOND ALL EXPECTATIONS! 🎊\n\n🦁 Fat Leopard is thrilled!\n💪 You're not just a champion — you're a SUPER-CHAMPION!\n🔥 Your power knows no bounds!\n⭐️ You inspire the whole pack!\n👑 Motivation can't believe it!\n🌟 You shine brightest!\n\n🎯 Keep it up, super leopard!", username, cups)
-	} else if cups >= 420 {
-		cupsText = fmt.Sprintf("🎊 CONGRATS! 🎊\n\n👤 %s\n🎯 Total cups earned: %d\n\n🏆 YOU %s THE RAFFLE GOAL!\n🎁 You're in the Fat Leopard tee raffle!\n💪 You're a true %s!\n🔥 Keep logging workouts!", username, cups, strings.ToUpper(forms.Reached), forms.Champion)
-	} else {
-		cupsText = fmt.Sprintf("🏆 Your cups:\n\n👤 %s\n🎯 Total cups earned: %d\n\n💡 Log workouts in the mini app to earn cups!\n\n🎊 Fat Leopard tee raffle at 420 cups!", username, cups)
-	}
+	// Формируем сообщение в зависимости от количества кубков
+	cupsText := cupsCommandText(lang, username, cups, userGender, forms)
 
 	reply := tgbotapi.NewMessage(msg.Chat.ID, cupsText)
 
@@ -343,7 +390,7 @@ func (b *Bot) handleCups(msg *tgbotapi.Message) {
 func (b *Bot) handleSetExempt(msg *tgbotapi.Message) {
 	// Проверяем права администратора
 	if !b.isAdmin(msg.Chat.ID, msg.From.ID) {
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Only administrators or the owner can use this command!")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, b.adminOnlyText(msg.From.ID))
 		b.api.Send(reply)
 		return
 	}
@@ -402,7 +449,7 @@ func (b *Bot) handleSetExempt(msg *tgbotapi.Message) {
 func (b *Bot) handleRemoveExempt(msg *tgbotapi.Message) {
 	// Проверяем права администратора
 	if !b.isAdmin(msg.Chat.ID, msg.From.ID) {
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Only administrators or the owner can use this command!")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, b.adminOnlyText(msg.From.ID))
 		b.api.Send(reply)
 		return
 	}
@@ -461,7 +508,7 @@ func (b *Bot) handleRemoveExempt(msg *tgbotapi.Message) {
 func (b *Bot) handleListUsers(msg *tgbotapi.Message) {
 	// Проверяем права администратора
 	if !b.isAdmin(msg.Chat.ID, msg.From.ID) {
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Only administrators or the owner can use this command!")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, b.adminOnlyText(msg.From.ID))
 		b.api.Send(reply)
 		return
 	}
@@ -506,7 +553,7 @@ func (b *Bot) handleListUsers(msg *tgbotapi.Message) {
 func (b *Bot) handleSendToChat(msg *tgbotapi.Message) {
 	// Проверяем права access - только админ из env может отправлять сообщения в другие чаты.
 	if !b.config.IsAdminTelegramUser(msg.From.ID) {
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ You don't have permission to use this command")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, b.noRightsText(msg.From.ID))
 		b.api.Send(reply)
 		return
 	}
@@ -593,7 +640,7 @@ func (b *Bot) handleSendToChat(msg *tgbotapi.Message) {
 func (b *Bot) handleAnnounceAI(msg *tgbotapi.Message) {
 	// Проверяем права access - только админ из env может отправлять объявления.
 	if !b.config.IsAdminTelegramUser(msg.From.ID) {
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ You don't have permission to use this command")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, b.noRightsText(msg.From.ID))
 		b.api.Send(reply)
 		return
 	}
@@ -614,23 +661,24 @@ func (b *Bot) handleAnnounceAI(msg *tgbotapi.Message) {
 	}
 
 	// Формируем объявление о ИИ
-	announcement := `🦁 The leopard is alive! 🎉
+	// Объявление уходит во все чаты стаи — язык стаи русский.
+	announcement := `🦁 Леопард ожил! 🎉
 
-You can chat with me now — I'm smarter thanks to AI:
+Теперь со мной можно общаться! Я стал умнее благодаря ИИ:
 
-💬 What I can do:
-• Give workout advice
-• Share your stats
-• Analyze your progress
-• Motivate and cheer you on
+💬 Что я умею:
+• Давать советы по тренировкам
+• Рассказывать твою статистику
+• Анализировать твой прогресс
+• Мотивировать и поддерживать
 
-🤖 How to talk to me:
-• Mention @LeoPoacherBot in a message
-• Or reply to any of my messages
+🤖 Как со мной общаться:
+• Отметь меня @LeoPoacherBot в сообщении
+• Или ответь на любое мое сообщение (reply)
 
-Ask me anything: workouts, stats, motivation!
+Спрашивай меня о чем угодно: тренировки, статистика, мотивация!
 
-💪 Let's get better together!`
+💪 Давай вместе становиться лучше!`
 
 	// Отправляем объявление во все чаты
 	successCount := 0
@@ -650,7 +698,33 @@ Ask me anything: workouts, stats, motivation!
 	}
 
 	// Отправляем отчет владельцу
-	resultMsg := fmt.Sprintf("✅ Announcement sent!\n\nSuccess: %d chats\nErrors: %d chats", successCount, errorCount)
+	resultMsg := fmt.Sprintf("✅ Объявление отправлено!\n\nУспешно: %d чатов\nОшибок: %d чатов", successCount, errorCount)
 	reply := tgbotapi.NewMessage(msg.Chat.ID, resultMsg)
 	b.api.Send(reply)
+}
+
+// cupsCommandText — ответ на /cups на языке пользователя.
+func cupsCommandText(lang i18n.Lang, username string, cups int, gender string, forms GenderForms) string {
+	if socialRU(lang) {
+		reached, champion := "достиг", "чемпион"
+		if gender == "f" {
+			reached, champion = "достигла", "чемпионка"
+		}
+		switch {
+		case cups > 420:
+			return fmt.Sprintf("🌟⚡ СУПЕР-УРОВЕНЬ! ⚡🌟\n\n👤 %s\n🎯 Всего заработано кубков: %d\n\n🎊 ВСЕ ОЖИДАНИЯ ПРЕВЗОЙДЕНЫ! 🎊\n\n🦁 Fat Leopard в полном восторге!\n💪 Ты не просто чемпион - ты СУПЕР-ЧЕМПИОН!\n🔥 Твоя сила и мощь безграничны!\n⭐️ Ты вдохновляешь всю стаю!\n👑 Мотивация не верит, что такое бывает!\n🌟 Ты сияешь ярче всех!\n\n🎯 Продолжай в том же духе, супер-леопард!", username, cups)
+		case cups >= 420:
+			return fmt.Sprintf("🎊 ПОЗДРАВЛЯЕМ! 🎊\n\n👤 %s\n🎯 Всего заработано кубков: %d\n\n🏆 ТЫ %s ЦЕЛИ РОЗЫГРЫША!\n🎁 Участвуешь в розыгрыше футболки Fat Leopard!\n💪 Ты настоящий %s!\n🔥 Продолжай тренироваться!", username, cups, strings.ToUpper(reached), champion)
+		default:
+			return fmt.Sprintf("🏆 Ваши кубки:\n\n👤 %s\n🎯 Всего заработано кубков: %d\n\n💡 Отмечайте тренировки в мини-аппе для получения кубков!\n\n🎊 Розыгрыш футболки Fat Leopard при достижении 420 кубков!", username, cups)
+		}
+	}
+	switch {
+	case cups > 420:
+		return fmt.Sprintf("🌟⚡ SUPER LEVEL! ⚡🌟\n\n👤 %s\n🎯 Total cups earned: %d\n\n🎊 BEYOND ALL EXPECTATIONS! 🎊\n\n🦁 Fat Leopard is thrilled!\n💪 You're not just a champion — you're a SUPER-CHAMPION!\n🔥 Your power knows no bounds!\n⭐️ You inspire the whole pack!\n👑 Motivation can't believe it!\n🌟 You shine brightest!\n\n🎯 Keep it up, super leopard!", username, cups)
+	case cups >= 420:
+		return fmt.Sprintf("🎊 CONGRATS! 🎊\n\n👤 %s\n🎯 Total cups earned: %d\n\n🏆 YOU %s THE RAFFLE GOAL!\n🎁 You're in the Fat Leopard tee raffle!\n💪 You're a true %s!\n🔥 Keep logging workouts!", username, cups, strings.ToUpper(forms.Reached), forms.Champion)
+	default:
+		return fmt.Sprintf("🏆 Your cups:\n\n👤 %s\n🎯 Total cups earned: %d\n\n💡 Log workouts in the mini app to earn cups!\n\n🎊 Fat Leopard tee raffle at 420 cups!", username, cups)
+	}
 }

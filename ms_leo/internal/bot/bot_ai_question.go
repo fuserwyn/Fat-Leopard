@@ -22,6 +22,7 @@ import (
 // compactContext — меньше истории/без RAG-примеров: быстрее и меньше токенов (мини-апп HTTP и pack-чат).
 func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, personalReplyCh chan<- string, skipTelegram bool, compactContext bool) {
 	b.logger.Infof("handleAIQuestion called for user %d with text: %s", msg.From.ID, questionText)
+	lang := b.EffectiveUILang(msg.From.ID)
 	miniReply := func(s string) {
 		if personalReplyCh == nil || s == "" {
 			return
@@ -35,7 +36,7 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 
 	if b.aiClient == nil {
 		b.logger.Warn("AI client is nil, cannot process question")
-		help := "❌ AI features are unavailable. Check your OpenRouter API settings."
+		help := pickLang(lang, "❌ ИИ функции недоступны. Проверьте настройки OpenRouter API.", "❌ AI features are unavailable. Check your OpenRouter API settings.")
 		miniReply(help)
 		if !skipTelegram {
 			b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, help))
@@ -55,7 +56,7 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 
 	if questionText == "" {
 		b.logger.Infof("Question text is empty after cleaning")
-		hint := "💬 Hi! 👋 Ask me anything!\n\nFor example:\n• What did I do yesterday?\n• How's my progress?\n• What should I improve in training?\n• Recovery tips?"
+		hint := pickLang(lang, "💬 Привет! 👋 Задай мне вопрос!\n\nНапример:\n• Что я делал вчера?\n• Как мой прогресс?\n• Что улучшить в тренировках?\n• Как лечиться?", "💬 Hi! 👋 Ask me anything!\n\nFor example:\n• What did I do yesterday?\n• How's my progress?\n• What should I improve in training?\n• Recovery tips?")
 		miniReply(hint)
 		if !skipTelegram {
 			b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, hint))
@@ -78,7 +79,7 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 	history, err := b.db.GetUserTrainingHistory(msg.From.ID, stateChat, histLimit)
 	if err != nil {
 		b.logger.Errorf("Failed to get user training history: %v", err)
-		t := "❌ Failed to load workout history"
+		t := pickLang(lang, "❌ Ошибка при получении истории тренировок", "❌ Failed to load workout history")
 		miniReply(t)
 		if !skipTelegram {
 			b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, t))
@@ -87,7 +88,7 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 	}
 
 	var aiSec aiQuestionSections
-	aiSec.initRules(string(b.EffectiveUILang(msg.From.ID)))
+	aiSec.initRules(string(lang))
 
 	interlocutorName := strings.TrimSpace(msg.From.UserName)
 	if interlocutorName == "" {
@@ -436,7 +437,7 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 		// Проверяем, является ли это ошибкой настройки политики данных
 		errorMsg := err.Error()
 		if strings.Contains(errorMsg, "data policy") || strings.Contains(errorMsg, "Model Training") {
-			help := "❌ AI features need OpenRouter API setup.\n\nFor free models:\n1. Go to https://openrouter.ai/settings/privacy\n2. Enable 'Model Training'\n\nThen AI will work!"
+			help := pickLang(lang, "❌ ИИ функции требуют настройки OpenRouter API.\n\nДля бесплатных моделей нужно:\n1. Перейди на https://openrouter.ai/settings/privacy\n2. Включи опцию 'Model Training'\n\nПосле этого ИИ заработает!", "❌ AI features need OpenRouter API setup.\n\nFor free models:\n1. Go to https://openrouter.ai/settings/privacy\n2. Enable 'Model Training'\n\nThen AI will work!")
 			miniReply(help)
 			if !skipTelegram {
 				b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, help))
@@ -450,11 +451,11 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 		// Пользователю — коротко; сырой JSON/401 в UI не тащим (детали только в лог выше).
 		var et string
 		if strings.Contains(err.Error(), "context deadline exceeded") || strings.Contains(err.Error(), "Client.Timeout") {
-			et = "❌ Лео не успел ответить. Попробуй ещё раз или сформулируй короче."
+			et = pickLang(lang, "❌ Лео не успел ответить. Попробуй ещё раз или сформулируй короче.", "❌ Leo didn't answer in time. Try again or make it shorter.")
 		} else if strings.Contains(err.Error(), "401") || strings.Contains(err.Error(), "User not found") {
-			et = "❌ Лео сейчас без доступа к ИИ (ключ OpenRouter). Тренировка уже записана — комментарий появится, когда ключ починят."
+			et = pickLang(lang, "❌ Лео сейчас без доступа к ИИ (ключ OpenRouter). Тренировка уже записана — комментарий появится, когда ключ починят.", "❌ Leo has no AI access right now (OpenRouter key). Your workout is saved — the comment will appear once the key is fixed.")
 		} else {
-			et = "❌ Лео сейчас не смог ответить. Тренировка записана — попробуй спросить ещё раз чуть позже."
+			et = pickLang(lang, "❌ Лео сейчас не смог ответить. Тренировка записана — попробуй спросить ещё раз чуть позже.", "❌ Leo couldn't answer right now. Your workout is saved — try asking again a bit later.")
 		}
 		miniReply(et)
 		if !skipTelegram {
@@ -468,7 +469,7 @@ func (b *Bot) handleAIQuestion(msg *tgbotapi.Message, questionText string, perso
 
 	answer = ai.SanitizeTextForUser(answer)
 	if answer == "" {
-		answer = "Сформулируй, пожалуйста, вопрос короче — отвечу по сути."
+		answer = pickLang(lang, "Сформулируй, пожалуйста, вопрос короче — отвечу по сути.", "Please make the question shorter — I'll answer to the point.")
 	}
 
 	miniReply(answer)

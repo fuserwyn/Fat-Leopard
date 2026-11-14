@@ -1,10 +1,11 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { getStoredUILang } from "../lib/uiLang";
 import "./ErrorBoundary.css";
 
 type Props = {
   /** Что сломалось — в подписи: «Лента», «Профиль». Без него — всё приложение. */
   label?: string;
-  /** Язык подписей заглушки; админка всегда передаёт «ru». */
+  /** Язык подписей заглушки; без него — сохранённый ui_lang. Админка всегда передаёт «ru». */
   lang?: "en" | "ru";
   children: ReactNode;
 };
@@ -47,7 +48,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (!this.state.error) return this.props.children;
-    const { label, lang = "en" } = this.props;
+    const { label, lang = getStoredUILang() } = this.props;
     const tx = COPY[lang];
     return (
       <div className="error-boundary" role="alert">

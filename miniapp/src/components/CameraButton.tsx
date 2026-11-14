@@ -1,4 +1,6 @@
-import { useRef, type ChangeEvent, type ReactNode } from "react";
+
+import { useI18n } from "../lib/I18nContext";
+import { pick } from "../lib/i18n";import { useRef, type ChangeEvent, type ReactNode } from "react";
 
 /** Кнопка «Сделать фото»: открывает камеру устройства напрямую (input capture) рядом с
  *  обычным выбором из галереи. Переиспользует тот же обработчик, что и галерейный input —
@@ -60,10 +62,12 @@ export function CameraButton({
   onChange,
   disabled,
   className,
-  ariaLabel = "Take photo",
+  ariaLabel,
   title,
   children,
 }: CameraButtonProps) {
+  const { lang } = useI18n();
+  ariaLabel = ariaLabel ?? pick(lang, "Сделать фото", "Take photo");
   const inputRef = useRef<HTMLInputElement>(null);
   return (
     <>

@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"leo-bot/internal/ai"
+	"leo-bot/internal/i18n"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	initdata "github.com/telegram-mini-apps/init-data-golang"
@@ -72,23 +73,30 @@ func (b *Bot) handleSharedContact(msg *tgbotapi.Message) bool {
 	}
 	ownerID := msg.From.ID
 	c := msg.Contact
+	lang := b.EffectiveUILang(ownerID)
 	name := contactCardDisplayName(c)
 	if name == "" {
-		name = "this contact"
+		name = pickLang(lang, "этот контакт", "this contact")
 	}
 	var reply string
 	switch {
 	case c.UserID == 0:
-		reply = name + " isn't on Telegram — nothing to watch. Share a contact that has a Telegram account."
+		reply = pickLang(lang,
+			"Не вижу у "+name+" аккаунта в Telegram — следить не за кем. Пришли контакт, который есть в Telegram.",
+			name+" isn't on Telegram — nothing to watch. Share a contact that has a Telegram account.")
 	case c.UserID == ownerID:
-		reply = "That's you. Share a friend's contact — I'll tell you when they join the pack."
+		reply = pickLang(lang,
+			"Это же ты сам. Пришли контакт друга — скажу, когда он появится в стае.",
+			"That's you. Share a friend's contact — I'll tell you when they join the pack.")
 	default:
 		if b.db == nil {
 			return true
 		}
 		if err := b.db.SaveUserContact(ownerID, c.UserID, contactCardDisplayName(c)); err != nil {
 			b.logger.Warnf("shared contact save owner=%d: %v", ownerID, err)
-			reply = "Couldn't save the contact — try again in a bit."
+			reply = pickLang(lang,
+				"Не смог запомнить контакт, попробуй ещё раз чуть позже.",
+				"Couldn't save the contact — try again in a bit.")
 			break
 		}
 		inPack := false
@@ -98,9 +106,13 @@ func (b *Bot) handleSharedContact(msg *tgbotapi.Message) bool {
 			}
 		}
 		if inPack {
-			reply = name + " is already in the pack. Open the mini app and say hi. 🐆"
+			reply = pickLang(lang,
+				name+" уже в стае. Загляни в мини-апп и поддержи. 🐆",
+				name+" is already in the pack. Open the mini app and say hi. 🐆")
 		} else {
-			reply = "Got it: " + name + ". I'll message you when they join the pack. Turn these off in Profile → Notifications in the mini app."
+			reply = pickLang(lang,
+				"Запомнил: "+name+". Как только вступит в стаю — сообщу. Выключить такие сообщения можно в профиле мини-аппа, в разделе «Уведомления».",
+				"Got it: "+name+". I'll message you when they join the pack. Turn these off in Profile → Notifications in the mini app.")
 		}
 	}
 	b.sendPackWelcomeDM(ownerID, reply)
@@ -144,7 +156,7 @@ func (b *Bot) notifyContactsAboutPackJoin(packChatID, joinedUserID int64, joined
 			name = fallbackName
 		}
 		if name == "" {
-			name = "Your contact"
+			name = b.userText(o.OwnerUserID, "Твой контакт", "Your contact")
 		}
 		text := b.contactJoinedPackText(o.OwnerUserID, packChatID, name)
 		b.sendTrainingThreadCommentDM(o.OwnerUserID, text)
@@ -158,14 +170,14 @@ func (b *Bot) contactJoinedPackText(ownerUserID, packChatID int64, contactName s
 		if ml, err := b.db.GetMessageLog(ownerUserID, packChatID); err == nil && ml != nil {
 			recipient = strings.TrimSpace(normalizeUserDisplayName(ml.Username))
 		}
-		raw, err := b.aiClient.GenerateContactJoinedPack(recipient, contactName)
+		raw, err := b.aiClient.GenerateContactJoinedPackLang(recipient, contactName, b.EffectiveUILang(ownerUserID))
 		if err != nil {
 			b.logger.Warnf("contact join notify: generate owner=%d: %v", ownerUserID, err)
 		} else if t := sanitizeContactJoinedPackText(ai.SanitizeTextForUser(raw)); t != "" {
 			return t
 		}
 	}
-	return contactJoinedPackFallbackText(contactName)
+	return contactJoinedPackFallbackText(b.EffectiveUILang(ownerUserID), contactName)
 }
 
 func sanitizeContactJoinedPackText(s string) string {
@@ -178,9 +190,15 @@ func sanitizeContactJoinedPackText(s string) string {
 	return t
 }
 
-func contactJoinedPackFallbackText(contactName string) string {
+func contactJoinedPackFallbackText(lang i18n.Lang, contactName string) string {
 	n := strings.TrimSpace(contactName)
-	if n == "" {
+	if socialRU(lang) {
+		if n == "" || n == "Your contact" {
+			n = "Твой контакт"
+		}
+		return n + " теперь в стае. Загляни в мини-апп и поприветствуй — вдвоём держать ритм проще. 🐆"
+	}
+	if n == "" || n == "Твой контакт" {
 		n = "Your contact"
 	}
 	return n + " joined the pack. Open the mini app and say hi — keeping rhythm together is easier. 🐆"

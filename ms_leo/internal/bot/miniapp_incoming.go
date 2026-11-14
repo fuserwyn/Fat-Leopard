@@ -171,7 +171,9 @@ func (b *Bot) processMiniAppPrivateCore(d initdata.InitData, text string, traini
 			return out
 		}
 		b.logger.Warnf("miniapp training_done: empty reply after dispatch user=%d", d.User.ID)
-		out.ReplyText = "✅ Workout logged. If you don't see cups and streak summary — check your Telegram DM with the bot."
+		out.ReplyText = b.userText(d.User.ID,
+			"✅ Отчёт принят. Если не видишь сводку с кубками и стриком — загляни в личку с ботом в Telegram.",
+			"✅ Workout logged. If you don't see cups and streak summary — check your Telegram DM with the bot.")
 		return out
 	}
 

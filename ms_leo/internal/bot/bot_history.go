@@ -9,6 +9,7 @@ import (
 
 	"leo-bot/internal/domain"
 	"leo-bot/internal/game/leopardmoney"
+	"leo-bot/internal/i18n"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -174,7 +175,7 @@ func (b *Bot) scanChatHistory(ctx context.Context, daysBack int) {
 func (b *Bot) handleScanHistory(msg *tgbotapi.Message) {
 	// Проверяем, что команда от одного из админов из env.
 	if !b.config.IsAdminTelegramUser(msg.From.ID) {
-		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ This command is for bot admins only")
+		reply := tgbotapi.NewMessage(msg.Chat.ID, "❌ Эта команда доступна только админам бота")
 		b.api.Send(reply)
 		return
 	}
@@ -188,7 +189,7 @@ func (b *Bot) handleScanHistory(msg *tgbotapi.Message) {
 		}
 	}
 
-	reply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("🔄 Scanning chat history for the last %d days...\n\n⚠️ IMPORTANT: Telegram Bot API can only fetch the last ~100 available updates, not full history.\n\nFor ~2 months of history:\n1. Export data from Telegram (Settings → Privacy → Export Telegram data)\n2. Or use Telegram Client API (MTProto) — a heavier integration\n\nThe bot will try available updates, but that won't cover all history.", daysBack))
+	reply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("🔄 Начинаю сканирование истории за последние %d дней...\n\n⚠️ ВАЖНО: Telegram Bot API имеет ограничение - можно получить только последние ~100 доступных обновлений, а не всю историю.\n\nДля полной истории за 2 месяца нужно:\n1. Экспортировать данные из Telegram (Settings → Privacy → Export Telegram data)\n2. Или использовать Telegram Client API (MTProto) - более сложная интеграция\n\nБот будет пытаться получить доступные обновления, но это не покроет всю историю.", daysBack))
 	b.api.Send(reply)
 
 	// Запускаем сканирование в отдельной горутине
@@ -199,13 +200,33 @@ func (b *Bot) handleScanHistory(msg *tgbotapi.Message) {
 		b.scanChatHistory(ctx, daysBack)
 
 		// Отправляем отчет
-		finalReply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("✅ History scan finished (last %d days)", daysBack))
+		finalReply := tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("✅ Сканирование истории завершено (последние %d дней)", daysBack))
 		b.api.Send(finalReply)
 	}()
 }
 
 // handleAIMemory обрабатывает команду /ai_memory или /memory для показа информации о долгосрочной памяти AI
 func (b *Bot) handleAIMemory(msg *tgbotapi.Message) {
+	lang := i18n.EN
+	if msg.From != nil {
+		lang = b.EffectiveUILang(msg.From.ID)
+	}
+	textRU := `🧠 Долгосрочная память AI
+
+❌ AI пока ничего не знает о вас.
+
+💡 Как это работает:
+1️⃣ Откройте диалог с AI: 🤖 Нейросети → 🧠 Текстовые LLM
+2️⃣ Расскажите о себе в диалоге с любой моделью
+3️⃣ AI автоматически запоминает важные факты
+4️⃣ Память используется во всех будущих диалогах
+
+📝 Пример диалога с AI:
+"Привет! Меня зовут Иван, я Python разработчик. Работаю над проектом интернет-магазина на FastAPI."
+
+✅ AI запомнит: имя, профессию, проект, технологии
+
+⚠️ Важно: Факты запоминаются только во время диалога с AI, а не в этом разделе`
 	text := `🧠 AI long-term memory
 
 ❌ AI doesn't know anything about you yet.
@@ -222,11 +243,12 @@ func (b *Bot) handleAIMemory(msg *tgbotapi.Message) {
 ✅ AI may remember: name, role, project, tech stack
 
 ⚠️ Facts are saved during AI chats, not in this screen`
+	text = pickLang(lang, textRU, text)
 
 	// Создаем inline клавиатуру с кнопкой "Назад"
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("⬅️ Back", "back_to_menu"),
+			tgbotapi.NewInlineKeyboardButtonData(pickLang(lang, "⬅️ Назад", "⬅️ Back"), "back_to_menu"),
 		),
 	)
 
@@ -278,6 +300,14 @@ func (b *Bot) handleCallbackQuery(callback *tgbotapi.CallbackQuery) {
 		b.api.Send(deleteMsg)
 
 		// Отправляем главное меню (можно настроить по своему усмотрению)
+		menuTextRU := `🦁 Главное меню
+
+Доступные команды:
+/help - Помощь
+/top - Топ пользователей по кубкам
+/cups - Статистика по кубкам
+
+💪 Тренировку отмечайте в мини-аппе Fat Leopard (кнопка «+»)`
 		menuText := `🦁 Main menu
 
 Commands:
@@ -286,6 +316,9 @@ Commands:
 /cups - Your cup stats
 
 💪 Log workouts in the Fat Leopard mini app (the «+» button)`
+		if callback.From != nil {
+			menuText = b.userText(callback.From.ID, menuTextRU, menuText)
+		}
 
 		reply := tgbotapi.NewMessage(msg.Chat.ID, menuText)
 		b.api.Send(reply)

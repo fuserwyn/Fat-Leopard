@@ -12,6 +12,7 @@ import (
 
 	"leo-bot/internal/database"
 	"leo-bot/internal/domain"
+	"leo-bot/internal/i18n"
 	"leo-bot/internal/moderation"
 
 	initdata "github.com/telegram-mini-apps/init-data-golang"
@@ -197,10 +198,7 @@ func (b *Bot) applyChallengeStep(p *database.ChallengeParticipant, step challeng
 		p.DaysDone, p.LastCountedDate, p.Status = days, today, status
 		if status == database.ChallengeStatusCompleted {
 			b.trackChallenge(database.EventChallengeCompleted, p, nil)
-			text := fmt.Sprintf("🏆 Challenge \"%s\" completed: %d %s in a row!", p.Challenge.Title, days, daysWordForm(days))
-			if p.Challenge.LengthDays >= challengeCreatorDays {
-				text += "\n\nYou can create your own challenges in the mini app now."
-			}
+			text := challengeCompletedText(b.EffectiveUILang(p.UserID), p.Challenge.Title, days, p.Challenge.LengthDays >= challengeCreatorDays)
 			b.notifyUserTextByID(p.UserID, p.UserID, text, "", 0)
 		}
 	case challengeStepFail:
@@ -214,10 +212,30 @@ func (b *Bot) applyChallengeStep(p *database.ChallengeParticipant, step challeng
 		}
 		p.Status = database.ChallengeStatusFailed
 		b.trackChallenge(database.EventChallengeFailed, p, map[string]any{"reason": "missed_day"})
-		b.notifyUserTextByID(p.UserID, p.UserID, fmt.Sprintf(
-			"Challenge \"%s\" ended: a day was missed. Progress: %d of %d. Start a new one anytime in the mini app.",
-			p.Challenge.Title, p.DaysDone, p.Challenge.LengthDays), "", 0)
+		b.notifyUserTextByID(p.UserID, p.UserID,
+			challengeFailedText(b.EffectiveUILang(p.UserID), p.Challenge.Title, p.DaysDone, p.Challenge.LengthDays), "", 0)
 	}
+}
+
+// challengeCompletedText — DM о пройденном челлендже на языке участника.
+func challengeCompletedText(lang i18n.Lang, title string, days int, canCreate bool) string {
+	text := fmt.Sprintf(pickLang(lang,
+		"🏆 Челлендж «%s» пройден: %d %s подряд!",
+		"🏆 Challenge \"%s\" completed: %d %s in a row!"), title, days, daysWordFormLang(lang, days))
+	if canCreate {
+		text += pickLang(lang,
+			"\n\nТеперь ты можешь создавать свои челленджи в мини-аппе.",
+			"\n\nYou can create your own challenges in the mini app now.")
+	}
+	return text
+}
+
+// challengeFailedText — DM о прерванном челлендже на языке участника.
+func challengeFailedText(lang i18n.Lang, title string, done, length int) string {
+	return fmt.Sprintf(pickLang(lang,
+		"Челлендж «%s» прерван: пропущен день. Засчитано %d из %d. Новый можно взять сразу — в мини-аппе.",
+		"Challenge \"%s\" ended: a day was missed. Progress: %d of %d. Start a new one anytime in the mini app."),
+		title, done, length)
 }
 
 func (b *Bot) trackChallenge(name string, p *database.ChallengeParticipant, extra map[string]any) {

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"leo-bot/internal/i18n"
 	"leo-bot/internal/moderation"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -146,7 +147,9 @@ func (b *Bot) recordUGCViolation(userID, packChatID int64, autoMute bool) int {
 			b.logger.Warnf("ugc auto mute user=%d: %v", userID, err)
 		} else {
 			b.notifyUserTextByID(userID, packChatID,
-				"🔇 Pack posts are limited for 24 hours due to rule violations. If this is a mistake — contact support in Profile.",
+				b.userText(userID,
+					"🔇 Публикации в Стае временно ограничены на 24 часа из‑за нарушений правил. Если это ошибка — поддержка в профиле.",
+					"🔇 Pack posts are limited for 24 hours due to rule violations. If this is a mistake — contact support in Profile."),
 				"", 0)
 		}
 	}
@@ -200,7 +203,7 @@ func (b *Bot) deliverModerationWarning(userID int64, surface moderation.Surface,
 	}
 	// Системный текст в личку Telegram (не LLM).
 	if b.api != nil {
-		text := b.Msg(userID, "mod_warn_header") + "\n\n" + res.UserMessage
+		text := b.Msg(userID, "mod_warn_header") + "\n\n" + moderationWarningLang(b.EffectiveUILang(userID), res)
 		m := tgbotapi.NewMessage(userID, text)
 		if _, err := b.api.Send(m); err != nil {
 			b.logger.Warnf("moderation warning DM user=%d: %v", userID, err)
@@ -253,4 +256,38 @@ func ModerationHTTPStatus(code string) int {
 	default:
 		return 400
 	}
+}
+
+// moderationWarningRU — тексты PRE-блока для ui_lang=ru (moderation.UserWarnings — английские).
+var moderationWarningRU = map[moderation.Reason]string{
+	moderation.ReasonProfanity:   "Не опубликовал — в тексте есть недопустимые слова. Перепиши без оскорблений и мата.",
+	moderation.ReasonLink:        "Не опубликовал — ссылки в Стае пока запрещены.",
+	moderation.ReasonCriticalRU:  "Не опубликовал — такой текст нельзя публиковать.",
+	moderation.ReasonRateLimited: "Подожди немного перед следующим сообщением.",
+	moderation.ReasonMuted:       "Публикация в Стае временно ограничена. Если это ошибка — напиши в поддержку.",
+	moderation.ReasonLeoDaily:    "Достигнут лимит — 20 сообщений Лео в день. Завтра можно продолжить.",
+	moderation.ReasonSpam:        "Не опубликовал — слишком много повторяющихся слов. Перепиши понятнее.",
+}
+
+// moderationWarningLang — предупреждение модерации на языке получателя.
+func moderationWarningLang(lang i18n.Lang, res moderation.Result) string {
+	if !socialRU(lang) {
+		return res.UserMessage
+	}
+	if res.Reason == moderation.ReasonTooLong {
+		digits := strings.Map(func(r rune) rune {
+			if r >= '0' && r <= '9' {
+				return r
+			}
+			return -1
+		}, res.UserMessage)
+		if digits != "" {
+			return "Слишком длинно — сократи до " + digits + " символов."
+		}
+		return "Слишком длинно — сократи текст."
+	}
+	if ru, ok := moderationWarningRU[res.Reason]; ok {
+		return ru
+	}
+	return "Не опубликовал — текст не прошёл проверку."
 }

@@ -813,3 +813,8 @@ export function pluralCategory(lang: UILang, n: number): "one" | "few" | "many" 
   if (mod10 >= 2 && mod10 <= 4) return "few";
   return "many";
 }
+
+/** Inline RU/EN pick for one-off member-facing strings (alerts, confirms, error maps). */
+export function pick(lang: UILang, ru: string, en: string): string {
+  return lang === "ru" ? ru : en;
+}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"leo-bot/internal/i18n"
 	"leo-bot/internal/utils"
 )
 
@@ -143,10 +144,13 @@ func (b *Bot) MaybeGrantPackWeeklyGoalBonus(packChatID int64) {
 }
 
 func packWeeklyGoalAchievedFeedMessage(goal int) string {
+	// Пост в общей ленте стаи — на языке стаи (русский), как до EN-миграции.
 	return fmt.Sprintf(
-		"Pack weekly goal reached — %d workouts this week! Everyone earned %d cups. Keep it up, leopards!",
+		"Цель недели стаи достигнута — %d %s за неделю! Каждому участнику начислено по %d %s. Так держать, леопарды!",
 		goal,
+		trainingsWordFormLang(i18n.RU, goal),
 		PackWeeklyGoalCupsBonus,
+		cupsWordFormLang(i18n.RU, PackWeeklyGoalCupsBonus),
 	)
 }
 

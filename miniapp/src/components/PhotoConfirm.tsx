@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { prepareWorkoutPhoto } from "../lib/prepareWorkoutPhoto";
 import "./PhotoConfirm.css";
+import { pick } from "../lib/i18n";
+import { useI18n } from "../lib/I18nContext";
 
 type Props = {
   file: File;
@@ -13,6 +15,7 @@ type Props = {
 };
 
 export function PhotoConfirm({ file, onCancel, onConfirm, onCrop, onReplace }: Props) {
+  const { lang } = useI18n();
   const [imgUrl, setImgUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const replaceRef = useRef<HTMLInputElement>(null);
@@ -52,12 +55,12 @@ export function PhotoConfirm({ file, onCancel, onConfirm, onCrop, onReplace }: P
   };
 
   return (
-    <div className="ph-confirm" role="dialog" aria-modal="true" aria-label="Workout photo">
+    <div className="ph-confirm" role="dialog" aria-modal="true" aria-label={pick(lang, "Фото тренировки", "Workout photo")}>
       <header className="ph-confirm__head">
         <button type="button" className="ph-confirm__btn ph-confirm__btn--ghost" onClick={onCancel} disabled={busy}>
-          Cancel
+          {pick(lang, "Отмена", "Cancel")}
         </button>
-        <span className="ph-confirm__title">Workout photo</span>
+        <span className="ph-confirm__title">{pick(lang, "Фото тренировки", "Workout photo")}</span>
         <span className="ph-confirm__head-spacer" aria-hidden="true" />
       </header>
       <div className="ph-confirm__stage">
@@ -72,10 +75,10 @@ export function PhotoConfirm({ file, onCancel, onConfirm, onCrop, onReplace }: P
           onClick={() => void confirm()}
           disabled={busy}
         >
-          {busy ? "…" : "Done"}
+          {busy ? "…" : pick(lang, "Готово", "Done")}
         </button>
         <button type="button" className="ph-confirm__btn" onClick={onCrop} disabled={busy}>
-          Crop photo
+          {pick(lang, "Обрезать фото", "Crop photo")}
         </button>
         <button
           type="button"
@@ -83,7 +86,7 @@ export function PhotoConfirm({ file, onCancel, onConfirm, onCrop, onReplace }: P
           onClick={() => replaceRef.current?.click()}
           disabled={busy}
         >
-          Choose another photo
+          {pick(lang, "Загрузить другое фото", "Choose another photo")}
         </button>
       </div>
       <input

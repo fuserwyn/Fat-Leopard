@@ -202,3 +202,31 @@ func TestUpdateRouting(t *testing.T) {
 		t.Fatal("оплата возврата через общий вход обновлений должна вернуть в стаю")
 	}
 }
+
+// Участнику с ui_lang=ru команды отвечают по-русски (задача #175).
+func TestInfoCommandsRussianUser(t *testing.T) {
+	b, tg, db := newIntegrationBot(t, starsConfig)
+	seedMember(t, db, itUser, "first", false)
+	if _, err := db.Exec(`UPDATE miniapp_user_profile SET ui_lang = 'ru' WHERE user_id = $1`, itUser); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`UPDATE training_state SET cups_earned = 300 WHERE user_id = $1 AND chat_id = $2`, itUser, itPack); err != nil {
+		t.Fatal(err)
+	}
+
+	cases := []struct{ cmd, want, notWant string }{
+		{"/help", "Справка", "Help"},
+		{"/top", "Топ пользователей", "Leaderboard"},
+		{"/cups", "Ваши кубки", "Your cups"},
+		{"/rejoin", "Доступ активен", "Access is active"},
+		{"/db", "Только администраторы", "Only administrators"},
+	}
+	for _, c := range cases {
+		tg.reset()
+		b.handleUpdate(commandUpdate(itUser, "first", c.cmd))
+		texts := strings.Join(tg.textsTo(itUser), "\n")
+		if !strings.Contains(texts, c.want) || strings.Contains(texts, c.notWant) {
+			t.Errorf("%s для ru: %s", c.cmd, texts)
+		}
+	}
+}
