@@ -4,6 +4,7 @@
  * (POST /api/miniapp/feed/guest, ms_leo/internal/bot/miniapp_guest_feed.go).
  */
 import type { PackFeedItemDTO } from "./packFeed";
+import { getStoredUILang } from "./uiLang";
 
 const apiBase = (import.meta.env.VITE_MINIAPP_API_URL as string | undefined)?.replace(/\/$/, "") ?? "";
 
@@ -32,7 +33,7 @@ export function parseGuestFeed(raw: unknown): GuestFeed | null {
     items.push({
       id: num(it.id),
       user_id: 0,
-      username: str(it.username).trim() || "Pack member",
+      username: str(it.username).trim() || (getStoredUILang() === "ru" ? "Участник стаи" : "Pack member"),
       type: str(it.type) || "training_done",
       source: "feed",
       text,

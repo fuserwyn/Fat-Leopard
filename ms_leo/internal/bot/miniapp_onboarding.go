@@ -132,7 +132,7 @@ func (b *Bot) EnsureMiniAppOnboarding(d initdata.InitData) (MiniAppOnboardingRes
 			username,
 			userMessageTypePackRejoin,
 			packRejoinMiniappFeedPublicText(),
-			packRejoinMiniappWelcomeText(username),
+			packRejoinMiniappWelcomeText(b.EffectiveUILang(userID), username),
 		)
 	} else {
 		b.savePackJoinMiniappFeed(
@@ -141,7 +141,7 @@ func (b *Bot) EnsureMiniAppOnboarding(d initdata.InitData) (MiniAppOnboardingRes
 			username,
 			userMessageTypePackJoin,
 			packJoinMiniappFeedPublicText(username),
-			packJoinMiniappWelcomeText(username),
+			packJoinMiniappWelcomeText(b.EffectiveUILang(userID), username),
 		)
 	}
 	b.logger.Infof("miniapp onboarding: started timer + feed card user=%d rejoin=%t", userID, out.IsRejoin)

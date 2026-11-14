@@ -11,6 +11,7 @@ import { CameraButton } from "./CameraButton";
 import { PhotoLightbox } from "./PhotoLightbox";
 import "./ChatScreen.css";
 import "./SupportScreen.css";
+import { pick } from "../lib/i18n";
 
 const envApi = (import.meta.env.VITE_MINIAPP_API_URL as string | undefined)?.replace(/\/$/, "") ?? "";
 
@@ -314,11 +315,11 @@ export function SupportScreen({ initData, inTelegram, showAlert, onClose }: Prop
     const sentPhoto = photo;
     if ((!t && !sentPhoto) || sending) return;
     if (!envApi) {
-      showAlert("Support API not configured.");
+      showAlert(pick(lang, "Не настроен API для поддержки.", "Support API not configured."));
       return;
     }
     if (!inTelegram || !initData) {
-      showAlert("Open the miniapp from Telegram (initData required).");
+      showAlert(pick(lang, "Открой мини-апп из Telegram (нужен initData).", "Open the miniapp from Telegram (initData required)."));
       return;
     }
 
@@ -351,21 +352,21 @@ export function SupportScreen({ initData, inTelegram, showAlert, onClose }: Prop
       const j = (await res.json().catch(() => ({}))) as { error?: string; message?: string; ok?: boolean };
       if (!res.ok || !j.ok) {
         const errMap: Record<string, string> = {
-          media_not_configured: "Photo upload isn’t configured on the server.",
-          unsupported_image: "Couldn’t read the photo. Try JPG, PNG, WEBP, or GIF.",
-          photo_too_large: "Photo too large. Max 6 MB.",
-          invalid_multipart: "Couldn’t send the photo. Pick the image again.",
-          missing_photo: "No photo attached.",
-          chat_mismatch: "Open the miniapp from the pack chat",
+          media_not_configured: pick(lang, "Загрузка фото на сервере не настроена.", "Photo upload isn’t configured on the server."),
+          unsupported_image: pick(lang, "Не удалось прочитать фото. Попробуй JPG, PNG, WEBP или GIF.", "Couldn’t read the photo. Try JPG, PNG, WEBP, or GIF."),
+          photo_too_large: pick(lang, "Фото слишком большое. Максимум 6 МБ.", "Photo too large. Max 6 MB."),
+          invalid_multipart: pick(lang, "Не удалось отправить фото. Выбери снимок заново.", "Couldn’t send the photo. Pick the image again."),
+          missing_photo: pick(lang, "Фото не приложено.", "No photo attached."),
+          chat_mismatch: pick(lang, "Открой мини-апп из чата стаи", "Open the miniapp from the pack chat"),
         };
-        showAlert(j.message ?? errMap[j.error ?? ""] ?? j.error ?? `Error ${res.status}`);
+        showAlert(j.message ?? errMap[j.error ?? ""] ?? j.error ?? pick(lang, `Ошибка ${res.status}`, `Error ${res.status}`));
       }
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : "Network error");
+      showAlert(e instanceof Error ? e.message : pick(lang, "Сеть", "Network error"));
     } finally {
       setSending(false);
     }
-  }, [text, photo, sending, inTelegram, initData, showAlert, clearPhoto]);
+  }, [text, photo, sending, inTelegram, initData, showAlert, clearPhoto, lang]);
 
   useEffect(() => {
     const sheet = sheetRef.current;
@@ -442,7 +443,7 @@ export function SupportScreen({ initData, inTelegram, showAlert, onClose }: Prop
         <button
           type="button"
           className="chat__photo-wrap"
-          aria-label="Open photo"
+          aria-label={pick(lang, "Открыть фото", "Open photo")}
           onClick={() => setLightboxUrl(m.photoUrl ?? null)}
         >
           <img className="chat__photo" src={m.photoUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
@@ -461,7 +462,7 @@ export function SupportScreen({ initData, inTelegram, showAlert, onClose }: Prop
           if (!sending) closeSheet();
         }}
       />
-      <div ref={sheetRef} className="sup" role="dialog" aria-modal="true" aria-label="Support">
+      <div ref={sheetRef} className="sup" role="dialog" aria-modal="true" aria-label={pick(lang, "Поддержка", "Support")}>
         <div className="sup__grabber" aria-hidden="true" />
         <div className="chat support-chat">
           <header className="chat__head">
@@ -469,21 +470,21 @@ export function SupportScreen({ initData, inTelegram, showAlert, onClose }: Prop
               ?
             </div>
             <div className="chat__head-text">
-              <h1 className="chat__title">Support</h1>
-              <p className="chat__sub">A human replies here, not Leo</p>
+              <h1 className="chat__title">{pick(lang, "Поддержка", "Support")}</h1>
+              <p className="chat__sub">{pick(lang, "Здесь отвечает человек, не Лео", "A human replies here, not Leo")}</p>
             </div>
-            <button type="button" className="sup__close" onClick={closeSheet} aria-label="Close">
+            <button type="button" className="sup__close" onClick={closeSheet} aria-label={pick(lang, "Закрыть", "Close")}>
               ✕
             </button>
           </header>
-          <div className="chat__log" role="log" aria-label="Support messages" ref={logRef}>
+          <div className="chat__log" role="log" aria-label={pick(lang, "Сообщения поддержки", "Support messages")} ref={logRef}>
             {loaded && items.length === 0 && (
               <div className="chat__row chat__row--sys">
                 <div className="support-chat__bubble-avatar" aria-hidden>
                   ?
                 </div>
                 <div className="chat__bubble chat__bubble--sys">
-                  Message support if something broke, you need billing help, or the question isn’t for Leo.
+                  {pick(lang, "Напиши в поддержку, если что-то сломалось, нужна помощь с оплатой или вопрос не для Лео.", "Message support if something broke, you need billing help, or the question isn’t for Leo.")}
                 </div>
               </div>
             )}
@@ -511,8 +512,8 @@ export function SupportScreen({ initData, inTelegram, showAlert, onClose }: Prop
           {photoPreview != null && (
             <div className="chat__photo-pending">
               <img className="chat__photo-pending-img" src={photoPreview} alt="" />
-              <span className="chat__photo-pending-name">{photo?.name ?? "Photo"}</span>
-              <button type="button" className="chat__photo-pending-remove" aria-label="Remove photo" onClick={clearPhoto}>
+              <span className="chat__photo-pending-name">{photo?.name ?? pick(lang, "Фото", "Photo")}</span>
+              <button type="button" className="chat__photo-pending-remove" aria-label={pick(lang, "Убрать фото", "Remove photo")} onClick={clearPhoto}>
                 ✕
               </button>
             </div>
@@ -536,7 +537,7 @@ export function SupportScreen({ initData, inTelegram, showAlert, onClose }: Prop
             <button
               type="button"
               className="chat__attach"
-              aria-label="Attach photo from gallery"
+              aria-label={pick(lang, "Прикрепить фото из галереи", "Attach photo from gallery")}
               disabled={sending}
               onClick={() => photoInputRef.current?.click()}
             >
@@ -547,7 +548,7 @@ export function SupportScreen({ initData, inTelegram, showAlert, onClose }: Prop
               className="chat__input"
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder={photo ? "Photo caption (optional)…" : "Message to support…"}
+              placeholder={photo ? pick(lang, "Подпись к фото (необязательно)…", "Photo caption (optional)…") : pick(lang, "Сообщение в поддержку…", "Message to support…")}
               maxLength={4000}
               autoComplete="off"
               enterKeyHint="send"

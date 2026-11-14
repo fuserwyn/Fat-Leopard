@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"leo-bot/internal/domain"
+	"leo-bot/internal/i18n"
 	"leo-bot/internal/utils"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -51,15 +52,17 @@ func recentlyReported(b *Bot, userID, chatID int64) bool {
 	return false
 }
 
-func removalDMText() string {
-	return "Good thing you didn't move.\nLeo removed you from the pack: 7 days without movement, and the pack no longer sees you.\nPack progress reset; mini app access closed.\nTo return — tap the button below and pay to rejoin."
+func removalDMText(lang i18n.Lang) string {
+	return pickLang(lang,
+		"Как хорошо, что ты не занимался.\nЛео удалил тебя из стаи: 7 дней без движения, и стая тебя больше не видит.\nПрогресс в стае сброшен, доступ к мини-аппу закрыт.\nЕсли захочешь вернуться — нажми кнопку ниже и пройди повторный вход.",
+		"Good thing you didn't move.\nLeo removed you from the pack: 7 days without movement, and the pack no longer sees you.\nPack progress reset; mini app access closed.\nTo return — tap the button below and pay to rejoin.")
 }
 
-func removalDMReplyMarkup() *tgbotapi.InlineKeyboardMarkup {
+func removalDMReplyMarkup(lang i18n.Lang) *tgbotapi.InlineKeyboardMarkup {
 	return &tgbotapi.InlineKeyboardMarkup{
 		InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
 			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("Rejoin the pack", paywallCallbackReturnToPack),
+				tgbotapi.NewInlineKeyboardButtonData(pickLang(lang, "Вернуться в стаю", "Rejoin the pack"), paywallCallbackReturnToPack),
 			),
 		},
 	}
@@ -133,8 +136,9 @@ func (b *Bot) removeUserNow(userID, chatID int64, username string) {
 	dmStatus := "dm_skipped"
 	dmErrorText := ""
 	if chatID != userID {
-		dmMsg := tgbotapi.NewMessage(userID, removalDMText())
-		dmMsg.ReplyMarkup = removalDMReplyMarkup()
+		lang := b.EffectiveUILang(userID)
+		dmMsg := tgbotapi.NewMessage(userID, removalDMText(lang))
+		dmMsg.ReplyMarkup = removalDMReplyMarkup(lang)
 		if _, err := b.api.Send(dmMsg); err != nil {
 			b.logger.Warnf("send removal DM user=%d: %v", userID, err)
 			dmErrorText = err.Error()

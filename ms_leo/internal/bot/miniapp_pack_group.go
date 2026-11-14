@@ -9,6 +9,7 @@ import (
 
 	"leo-bot/internal/database"
 	"leo-bot/internal/domain"
+	"leo-bot/internal/i18n"
 	"leo-bot/internal/moderation"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -425,8 +426,7 @@ func (b *Bot) afterLeoPackGroupReplyInserted(packChatID, recipientUserID int64, 
 		b.logger.Warnf("pack group leo unread insert: %v", err)
 	}
 	preview := truncateForDM(replyText, 160)
-	body := "🦁 Leo replied in the pack chat.\n\n\"" + preview + "\"\n\nOpen the mini app → Pack → Chat."
-	b.sendTrainingThreadCommentDM(recipientUserID, body)
+	b.sendTrainingThreadCommentDM(recipientUserID, leoPackChatReplyDMText(b.EffectiveUILang(recipientUserID), preview))
 }
 
 func (b *Bot) afterPackGroupReplyInserted(packChatID, commenterUserID int64, commenterName, commentText string, messageID, replyToID int64) {
@@ -467,8 +467,29 @@ func (b *Bot) afterPackGroupReplyInserted(packChatID, commenterUserID int64, com
 		b.logger.Warnf("pack group unread insert: %v", err)
 	}
 	preview := truncateForDM(commentText, 160)
-	body := "↩️ " + cn + " replied to your message in the pack chat.\n\n\"" + preview + "\"\n\nOpen the mini app → Pack → Chat."
-	b.sendTrainingThreadCommentDM(notifyUserID, body)
+	lang := b.EffectiveUILang(notifyUserID)
+	commenterGender, _, _ := b.GetMiniappUserProfileJSONForAPI(commenterUserID, packChatID)
+	b.sendTrainingThreadCommentDM(notifyUserID, packChatReplyDMText(lang, socialNameOr(cn, lang), commenterGender, preview))
+}
+
+// leoPackChatReplyDMText — DM «Лео ответил в чате стаи» на языке получателя.
+func leoPackChatReplyDMText(lang i18n.Lang, preview string) string {
+	if socialRU(lang) {
+		return "🦁 Лео ответил в чате стаи.\n\n«" + preview + "»\n\n" + openPackChatFooter(lang)
+	}
+	return "🦁 Leo replied in the pack chat.\n\n\"" + preview + "\"\n\n" + openPackChatFooter(lang)
+}
+
+// packChatReplyDMText — DM «X ответил(а) на твоё сообщение в чате стаи» на языке получателя.
+func packChatReplyDMText(lang i18n.Lang, name, gender, preview string) string {
+	if socialRU(lang) {
+		switch strings.TrimSpace(strings.ToLower(gender)) {
+		case "m", "f":
+			return "↩️ " + name + " " + ruPastVerb(gender, "ответил") + " на твоё сообщение в чате стаи.\n\n«" + preview + "»\n\n" + openPackChatFooter(lang)
+		}
+		return "↩️ Ответ от " + name + " на твоё сообщение в чате стаи.\n\n«" + preview + "»\n\n" + openPackChatFooter(lang)
+	}
+	return "↩️ " + name + " replied to your message in the pack chat.\n\n\"" + preview + "\"\n\n" + openPackChatFooter(lang)
 }
 
 // MiniappPackGroupUnreadCount — для бейджа на вкладке «Стая».

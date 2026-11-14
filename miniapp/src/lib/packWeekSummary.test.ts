@@ -57,7 +57,7 @@ describe("pack week summary", () => {
   });
 
   it("declines workout", () => {
-    expect([1, 2, 5, 11, 12, 21, 22, 75, 80, 104].map(workoutsWord)).toEqual([
+    expect([1, 2, 5, 11, 12, 21, 22, 75, 80, 104].map((n) => workoutsWord(n))).toEqual([
       "workout", "workouts", "workouts", "workouts", "workouts",
       "workout", "workouts", "workouts", "workouts", "workouts",
     ]);

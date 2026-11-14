@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import "./PhotoCropper.css";
+import { pick } from "../lib/i18n";
+import { useI18n } from "../lib/I18nContext";
 
 type CropRect = { x: number; y: number; w: number; h: number };
 
@@ -19,6 +21,7 @@ type Props = {
 const MIN_CROP_PX = 32;
 
 export function PhotoCropper({ file, onCancel, onConfirm, onReplace }: Props) {
+  const { lang } = useI18n();
   const stageRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const replaceRef = useRef<HTMLInputElement>(null);
@@ -212,9 +215,9 @@ export function PhotoCropper({ file, onCancel, onConfirm, onReplace }: Props) {
     >
       <header className="ph-crop__head">
         <button type="button" className="ph-crop__btn ph-crop__btn--ghost" onClick={onCancel} disabled={busy}>
-          Cancel
+          {pick(lang, "Отмена", "Cancel")}
         </button>
-        <span className="ph-crop__title">Crop photo</span>
+        <span className="ph-crop__title">{pick(lang, "Обрезать фото", "Crop photo")}</span>
         <span className="ph-crop__head-spacer" aria-hidden="true" />
       </header>
       <div className="ph-crop__stage" ref={stageRef}>
@@ -296,7 +299,7 @@ export function PhotoCropper({ file, onCancel, onConfirm, onReplace }: Props) {
           onClick={apply}
           disabled={busy || !crop}
         >
-          {busy ? "…" : "Done"}
+          {busy ? "…" : pick(lang, "Готово", "Done")}
         </button>
         {onReplace ? (
           <button
@@ -305,7 +308,7 @@ export function PhotoCropper({ file, onCancel, onConfirm, onReplace }: Props) {
             onClick={() => replaceRef.current?.click()}
             disabled={busy}
           >
-            Choose another photo
+            {pick(lang, "Загрузить другое фото", "Choose another photo")}
           </button>
         ) : null}
       </div>
@@ -324,7 +327,7 @@ export function PhotoCropper({ file, onCancel, onConfirm, onReplace }: Props) {
           }}
         />
       ) : null}
-      <p className="ph-crop__hint">Move the frame, drag the corners.</p>
+      <p className="ph-crop__hint">{pick(lang, "Передвигай рамку, тяни за углы.", "Move the frame, drag the corners.")}</p>
     </div>
   );
 }

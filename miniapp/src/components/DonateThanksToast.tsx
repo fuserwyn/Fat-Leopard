@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { LEO_AVATAR_URL } from "../lib/leoAvatar";
 import "./AchievementToast.css";
+import { pick } from "../lib/i18n";
+import { useI18n } from "../lib/I18nContext";
 
 type Props = {
   /** Вызывается, когда поп-ап скрылся (по таймеру или тапу). */
@@ -15,6 +17,7 @@ const EXIT_MS = 320;
  * Лео по центру, искорки, «Рык! Спасибо за поддержку!». Тап или таймер закрывает.
  */
 export function DonateThanksToast({ onDone }: Props) {
+  const { lang } = useI18n();
   const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
@@ -50,9 +53,9 @@ export function DonateThanksToast({ onDone }: Props) {
           </span>
         </div>
 
-        <div className="achievement-toast__title">Donation received!</div>
-        <div className="achievement-toast__label">Roar! Thanks for your support!</div>
-        <div className="achievement-toast__cheer">Leo appreciates the pack — you make the project stronger 🐾</div>
+        <div className="achievement-toast__title">{pick(lang, "Донат получен!", "Donation received!")}</div>
+        <div className="achievement-toast__label">{pick(lang, "Рык! Спасибо за поддержку!", "Roar! Thanks for your support!")}</div>
+        <div className="achievement-toast__cheer">{pick(lang, "Лео ценит стаю — ты делаешь проект сильнее 🐾", "Leo appreciates the pack — you make the project stronger 🐾")}</div>
       </div>
     </div>
   );

@@ -99,7 +99,7 @@ func (b *Bot) miniappOpenInlineKeyboard(userID int64) *tgbotapi.InlineKeyboardMa
 	if b.paywallActive() && b.paywallPrivateNeedsPayFirst(userID) {
 		return nil
 	}
-	btn := tgbotapi.NewInlineKeyboardButtonWebApp("🐆 Open LeopardMiniApp", tgbotapi.WebAppInfo{URL: url})
+	btn := tgbotapi.NewInlineKeyboardButtonWebApp(b.userText(userID, "🐆 Открыть LeopardMiniApp", "🐆 Open LeopardMiniApp"), tgbotapi.WebAppInfo{URL: url})
 	kb := tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(btn))
 	return &kb
 }

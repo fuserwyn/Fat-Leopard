@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"leo-bot/internal/database"
+	"leo-bot/internal/i18n"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -12,6 +13,7 @@ const botSupportCallbackStart = "bot_support_start"
 const botSupportCallbackCancel = "bot_support_cancel"
 
 const botSupportReplyButtonText = "💬 Support"
+const botSupportReplyButtonTextRU = "💬 Поддержка"
 const botAdminReplyButtonText = "⚙️ Админ-панель"
 
 func (b *Bot) botSupportAvailable() bool {
@@ -73,7 +75,7 @@ func (b *Bot) privateBottomReplyKeyboard(userID int64) *tgbotapi.ReplyKeyboardMa
 	}
 	if b.botSupportAvailable() {
 		rows = append(rows, tgbotapi.NewKeyboardButtonRow(
-			tgbotapi.NewKeyboardButton(botSupportReplyButtonText),
+			tgbotapi.NewKeyboardButton(b.userText(userID, botSupportReplyButtonTextRU, botSupportReplyButtonText)),
 		))
 	}
 	if len(rows) == 0 {
@@ -103,6 +105,8 @@ func (b *Bot) syncPrivateBottomKeyboard(chatID, userID int64) {
 	case b.isAdminTelegramUser(userID):
 		kind = "admin"
 	}
+	// Язык в ключе: после смены ui_lang кнопка «Поддержка/Support» перерисуется.
+	kind += ":" + string(i18n.Or(b.EffectiveUILang(userID), i18n.EN))
 	if prev, ok := b.privateBottomKeyboardKind.Load(userID); ok && prev == kind {
 		return
 	}
@@ -118,17 +122,24 @@ func (b *Bot) openAdminPanelForUser(chatID, userID int64) {
 	b.showAdminMenuForUser(chatID)
 }
 
-func (b *Bot) botSupportPromptInlineKeyboard() *tgbotapi.InlineKeyboardMarkup {
+func (b *Bot) botSupportPromptInlineKeyboard(lang i18n.Lang) *tgbotapi.InlineKeyboardMarkup {
 	return &tgbotapi.InlineKeyboardMarkup{
 		InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
 			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("❎ Exit support", botSupportCallbackCancel),
+				tgbotapi.NewInlineKeyboardButtonData(pickLang(lang, "❎ Выйти из поддержки", "❎ Exit support"), botSupportCallbackCancel),
 			),
 		},
 	}
 }
 
-func botSupportPromptText() string {
+func botSupportPromptText(lang i18n.Lang) string {
+	if socialRU(lang) {
+		return `💬 Поддержка
+
+Опиши вопрос об оплате, доступе после оплаты, возврате или ошибке в боте — одним или несколькими сообщениями.
+
+Ответ придёт в этот же чат. Выйти — кнопка «Выйти из поддержки» ниже.`
+	}
 	return `💬 Support
 
 Describe a question about payment, access after payment, return, or a bot error — in one or more messages.
@@ -177,13 +188,19 @@ func (b *Bot) userInSupportSession(userID int64) bool {
 	return ok
 }
 
+func supportUnavailableText(lang i18n.Lang) string {
+	return pickLang(lang, "⚠️ Поддержка временно недоступна. Попробуй позже.", "⚠️ Support is temporarily unavailable. Try later.")
+}
+
+// sendUserSupportPrompt — chatID лички совпадает с userID получателя.
 func (b *Bot) sendUserSupportPrompt(chatID int64) {
+	lang := b.EffectiveUILang(chatID)
 	if !b.botSupportAvailable() {
-		_, _ = b.api.Send(tgbotapi.NewMessage(chatID, "⚠️ Support is temporarily unavailable. Try later."))
+		_, _ = b.api.Send(tgbotapi.NewMessage(chatID, supportUnavailableText(lang)))
 		return
 	}
-	msg := tgbotapi.NewMessage(chatID, botSupportPromptText())
-	msg.ReplyMarkup = b.botSupportPromptInlineKeyboard()
+	msg := tgbotapi.NewMessage(chatID, botSupportPromptText(lang))
+	msg.ReplyMarkup = b.botSupportPromptInlineKeyboard(lang)
 	_, _ = b.api.Send(msg)
 }
 
@@ -192,11 +209,12 @@ func (b *Bot) handleBotSupportCallback(callback *tgbotapi.CallbackQuery) {
 		return
 	}
 	answer := tgbotapi.NewCallback(callback.ID, "")
+	lang := b.EffectiveUILang(callback.From.ID)
 	switch callback.Data {
 	case botSupportCallbackStart:
 		b.startUserSupportSession(callback.From.ID)
 		b.sendUserSupportPrompt(callback.Message.Chat.ID)
-		answer.Text = "Type your question in the chat"
+		answer.Text = pickLang(lang, "Напиши вопрос в чат", "Type your question in the chat")
 		b.db.TrackEvent(database.AnalyticsEvent{
 			Name:       database.EventSupportButtonClicked,
 			TelegramID: callback.From.ID,
@@ -204,12 +222,12 @@ func (b *Bot) handleBotSupportCallback(callback *tgbotapi.CallbackQuery) {
 		})
 	case botSupportCallbackCancel:
 		if b.clearUserSupportSession(callback.From.ID) {
-			answer.Text = "Left support"
-			m := tgbotapi.NewMessage(callback.Message.Chat.ID, "❎ Support mode off.")
+			answer.Text = pickLang(lang, "Вышли из поддержки", "Left support")
+			m := tgbotapi.NewMessage(callback.Message.Chat.ID, pickLang(lang, "❎ Режим поддержки выключен.", "❎ Support mode off."))
 			b.syncPrivateBottomKeyboard(callback.Message.Chat.ID, callback.From.ID)
 			_, _ = b.api.Send(m)
 		} else {
-			answer.Text = "Support mode wasn't active"
+			answer.Text = pickLang(lang, "Режим поддержки не был активен", "Support mode wasn't active")
 		}
 	default:
 		return
@@ -219,7 +237,8 @@ func (b *Bot) handleBotSupportCallback(callback *tgbotapi.CallbackQuery) {
 
 func isSupportReplyButtonText(text string) bool {
 	t := strings.TrimSpace(text)
-	return t == botSupportReplyButtonText || strings.EqualFold(t, "Support")
+	return t == botSupportReplyButtonText || t == botSupportReplyButtonTextRU ||
+		strings.EqualFold(t, "Support") || strings.EqualFold(t, "Поддержка")
 }
 
 func isAdminReplyButtonText(text string) bool {
@@ -241,9 +260,12 @@ func (b *Bot) handleUserSupportFlowMessage(msg *tgbotapi.Message) bool {
 	}
 
 	text := strings.TrimSpace(msg.Text)
+	lang := b.EffectiveUILang(msg.From.ID)
 	if msg.IsCommand() {
 		if b.userInSupportSession(msg.From.ID) {
-			_, _ = b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "⚠️ Support mode is on. Type your question or tap «Exit support»."))
+			_, _ = b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, pickLang(lang,
+				"⚠️ Сейчас активна поддержка. Напиши текст вопроса или нажми «Выйти из поддержки».",
+				"⚠️ Support mode is on. Type your question or tap «Exit support».")))
 			return true
 		}
 		return false
@@ -256,7 +278,7 @@ func (b *Bot) handleUserSupportFlowMessage(msg *tgbotapi.Message) bool {
 
 	if isSupportReplyButtonText(text) {
 		if !b.botSupportAvailable() {
-			_, _ = b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "⚠️ Support is temporarily unavailable. Try later."))
+			_, _ = b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, supportUnavailableText(lang)))
 			return true
 		}
 		b.startUserSupportSession(msg.From.ID)
@@ -272,16 +294,16 @@ func (b *Bot) handleUserSupportFlowMessage(msg *tgbotapi.Message) bool {
 		text = strings.TrimSpace(msg.Caption)
 	}
 	if text == "" {
-		_, _ = b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "⚠️ Send your question as text (billing, access, bug)."))
+		_, _ = b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, pickLang(lang, "⚠️ Отправь вопрос текстом (оплата, доступ, ошибка).", "⚠️ Send your question as text (billing, access, bug).")))
 		return true
 	}
 
 	if err := b.MiniappSupportSendFromUser(msg.From.ID, text, ""); err != nil {
 		b.logger.Warnf("bot support send user=%d: %v", msg.From.ID, err)
-		_, _ = b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "❌ Couldn't send. Please try again."))
+		_, _ = b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, pickLang(lang, "❌ Не удалось отправить. Попробуй ещё раз.", "❌ Couldn't send. Please try again.")))
 		return true
 	}
 
-	_, _ = b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "✅ Sent to support. The reply will appear here. You can add more details anytime."))
+	_, _ = b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, pickLang(lang, "✅ Отправлено в поддержку. Ответ придёт сюда. Можешь дописать уточнение.", "✅ Sent to support. The reply will appear here. You can add more details anytime.")))
 	return true
 }

@@ -9,18 +9,38 @@ import (
 	"leo-bot/internal/database"
 	"leo-bot/internal/domain"
 	"leo-bot/internal/game/leopardmoney"
+	"leo-bot/internal/i18n"
 	"leo-bot/internal/utils"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func formatRemovalAtLocalHuman(removalAt time.Time, loc *time.Location) string {
+func formatRemovalAtLocalHuman(lang i18n.Lang, removalAt time.Time, loc *time.Location) string {
 	d := removalAt.In(loc)
 	months := []string{
 		"", "January", "February", "March", "April", "May", "June",
 		"July", "August", "September", "October", "November", "December",
 	}
+	if socialRU(lang) {
+		months = []string{
+			"", "января", "февраля", "марта", "апреля", "мая", "июня",
+			"июля", "августа", "сентября", "октября", "ноября", "декабря",
+		}
+	}
 	return fmt.Sprintf("%d %s, 00:00", d.Day(), months[int(d.Month())])
+}
+
+// inactiveRemovalWarningText — предупреждение о скором удалении на языке получателя.
+func inactiveRemovalWarningText(lang i18n.Lang, who, deadlineHuman string) string {
+	format := pickLang(lang,
+		"👀 Ты давно не занимался\n\n"+
+			"%s, если не отметишь тренировку в мини-аппе, Леопард тебя съест 🍴 — %s.\n\n"+
+			"Помни, в стае любое движение считается.",
+		"👀 You haven't worked out in a while\n\n"+
+			"%s, if you don't log a workout in the mini app, the Leopard will eat you 🍴 — %s.\n\n"+
+			"Remember — in the pack, any movement counts.",
+	)
+	return fmt.Sprintf(format, who, deadlineHuman)
 }
 
 func (b *Bot) startTimer(userID, chatID int64, username string) {
@@ -199,14 +219,9 @@ func (b *Bot) cancelTimer(userID int64) {
 // sendInactiveRemovalWarning — предупреждение за 72 ч (day 5), 48 ч (day 6) или 24 ч (day 7) до кика; пуш в 9:00 локального TZ юзера.
 func (b *Bot) sendInactiveRemovalWarning(userID, chatID int64, username string, hoursBefore int, removalAt time.Time, loc *time.Location) {
 	who := normalizeUserDisplayName(username)
-	deadlineHuman := formatRemovalAtLocalHuman(removalAt, loc)
-	messageText := fmt.Sprintf(
-		"👀 You haven't worked out in a while\n\n"+
-			"%s, if you don't log a workout in the mini app, the Leopard will eat you 🍴 — %s.\n\n"+
-			"Remember — in the pack, any movement counts.",
-		who,
-		deadlineHuman,
-	)
+	lang := b.EffectiveUILang(userID)
+	deadlineHuman := formatRemovalAtLocalHuman(lang, removalAt, loc)
+	messageText := inactiveRemovalWarningText(lang, who, deadlineHuman)
 
 	typingChat := chatID
 	if chatID != userID {

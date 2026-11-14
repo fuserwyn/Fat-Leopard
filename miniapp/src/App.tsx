@@ -30,6 +30,7 @@ import { earnedAchievementKeys, freshAchievementKeys, type AchievementKey } from
 import { miniappLevelFromCups } from "./lib/miniappLevel";
 import { getStoredTheme, hasStoredTheme, hydrateThemeFromCloud, hydrateThemeFromServer, isThemeMode, persistTheme, persistThemeToServer } from "./lib/theme";
 import { I18nProvider } from "./lib/I18nContext";
+import { pick } from "./lib/i18n";
 import { getStoredUILang, hydrateUILangFromServer } from "./lib/uiLang";
 import { PACK_WEEKLY_GOAL_DEFAULT } from "./lib/packWeeklyGoal";
 import { buildOptimisticTrainingFeedItem, type PackFeedItemDTO } from "./lib/packFeed";
@@ -402,12 +403,12 @@ export function App() {
       const t = text.trim();
       if (!t && !photo) return false;
       if (!inTelegram || !initData) {
-        showAlert("Open the miniapp from Telegram.");
+        showAlert(pick(getStoredUILang(), "Открой мини-апп из Telegram.", "Open the miniapp from Telegram."));
         return false;
       }
       const apiBase = (import.meta.env.VITE_MINIAPP_API_URL as string | undefined)?.replace(/\/$/, "") ?? "";
       if (!apiBase) {
-        showAlert("Build is missing VITE_MINIAPP_API_URL.");
+        showAlert(pick(getStoredUILang(), "В сборке нет VITE_MINIAPP_API_URL.", "Build is missing VITE_MINIAPP_API_URL."));
         return false;
       }
       try {
@@ -433,12 +434,12 @@ export function App() {
             return false;
           }
           const errMap: Record<string, string> = {
-            empty_text: "Empty message",
-            text_too_long: "Message too long",
-            chat_mismatch: "Open the miniapp from the pack chat",
-            forbidden: "No access",
+            empty_text: pick(getStoredUILang(), "Пустое сообщение", "Empty message"),
+            text_too_long: pick(getStoredUILang(), "Слишком длинное сообщение", "Message too long"),
+            chat_mismatch: pick(getStoredUILang(), "Открой мини-апп из чата стаи", "Open the miniapp from the pack chat"),
+            forbidden: pick(getStoredUILang(), "Нет доступа", "No access"),
           };
-          showAlert(errMap[j.error ?? ""] ?? j.error ?? `Error ${res.status}`);
+          showAlert(errMap[j.error ?? ""] ?? j.error ?? pick(getStoredUILang(), `Ошибка ${res.status}`, `Error ${res.status}`));
           return false;
         }
         tg?.HapticFeedback?.impactOccurred?.("light");
@@ -447,14 +448,15 @@ export function App() {
         void refreshTabBadges();
         return true;
       } catch (e) {
-        showAlert(e instanceof Error ? e.message : "Network error");
+        showAlert(e instanceof Error ? e.message : pick(getStoredUILang(), "Сеть", "Network error"));
         return false;
       }
     },
     [inTelegram, initData, showAlert, tg, refreshTabBadges],
   );
 
-  const effectiveName = profileDisplayName.trim() || name.trim() || "friend";
+  const lang = getStoredUILang();
+  const effectiveName = profileDisplayName.trim() || name.trim() || pick(lang, "друг", "friend");
   // Админка — шторка поверх приложения, профиль остаётся виден в зазоре сверху.
   const tabsVisible = !supportOpen && !workoutOpen;
 
@@ -490,7 +492,7 @@ export function App() {
     <I18nProvider initData={initData} telegramLanguageCode={languageCode}>
     <div className="app">
       <div className="app__tabs">
-        <TabKeepAlive active={tab === "feed"} hidden={!tabsVisible} label="Feed">
+        <TabKeepAlive active={tab === "feed"} hidden={!tabsVisible} label={pick(lang, "Лента", "Feed")}>
           <FeedScreen
             active={tab === "feed" && tabsVisible}
             streak={streak}
@@ -514,7 +516,7 @@ export function App() {
             packBonusThemeActive={packBonusThemeActive}
           />
         </TabKeepAlive>
-        <TabKeepAlive active={tab === "chat"} hidden={!tabsVisible} label="Chat">
+        <TabKeepAlive active={tab === "chat"} hidden={!tabsVisible} label={pick(lang, "Чат", "Chat")}>
           <ChatScreen
             active={tab === "chat" && tabsVisible}
             name={effectiveName}
@@ -525,10 +527,10 @@ export function App() {
             onInboxDrained={onLeoInboxDrained}
           />
         </TabKeepAlive>
-        <TabKeepAlive active={tab === "rules"} hidden={!tabsVisible} label="Rules">
+        <TabKeepAlive active={tab === "rules"} hidden={!tabsVisible} label={pick(lang, "Правила", "Rules")}>
           <RulesScreen />
         </TabKeepAlive>
-        <TabKeepAlive active={tab === "profile"} hidden={!tabsVisible} label="Profile">
+        <TabKeepAlive active={tab === "profile"} hidden={!tabsVisible} label={pick(lang, "Профиль", "Profile")}>
           <ProfileScreen
             active={tab === "profile" && tabsVisible}
             name={effectiveName}
@@ -602,7 +604,7 @@ export function App() {
           message={workoutDone.message}
           onClose={() => setWorkoutDone(null)}
           onShare={() => {
-            setShareCard(workoutShareCard({ ...workoutDone.workout, streak, name: effectiveName }));
+            setShareCard(workoutShareCard({ ...workoutDone.workout, streak, name: effectiveName }, getStoredUILang()));
             setWorkoutDone(null);
           }}
         />
@@ -612,7 +614,7 @@ export function App() {
           level={currentLevelUp}
           onDone={() => setLevelUpQueue((q) => q.slice(1))}
           onShare={() => {
-            setShareCard(levelShareCard(currentLevelUp, effectiveName));
+            setShareCard(levelShareCard(currentLevelUp, effectiveName, getStoredUILang()));
             setLevelUpQueue((q) => q.slice(1));
           }}
         />
@@ -622,7 +624,7 @@ export function App() {
           achievementKey={currentAchievement}
           onDone={() => setAchievementQueue((q) => q.slice(1))}
           onShare={() => {
-            setShareCard(achievementShareCard(currentAchievement, effectiveName));
+            setShareCard(achievementShareCard(currentAchievement, effectiveName, getStoredUILang()));
             setAchievementQueue((q) => q.slice(1));
           }}
         />
@@ -689,7 +691,7 @@ export function App() {
           onClose={() => setWorkoutOpen(false)}
           onSave={async ({ types, min, intensity, note, photo, otherLabel }) => {
             if (!inTelegram || !initData) {
-              showAlert("Open the miniapp from Telegram (initData required).");
+              showAlert(pick(getStoredUILang(), "Открой мини-апп из Telegram (нужен initData).", "Open the miniapp from Telegram (initData required)."));
               return false;
             }
             const uiLang = getStoredUILang();

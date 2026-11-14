@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"leo-bot/internal/domain"
+	"leo-bot/internal/i18n"
 	"leo-bot/internal/moderation"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -26,18 +27,28 @@ const (
 func packJoinMiniappFeedPublicText(displayName string) string {
 	d := strings.TrimSpace(displayName)
 	if d == "" {
-		return "New pack member."
+		return "В стае новый участник."
 	}
-	return fmt.Sprintf("New pack member: %s.", d)
+	return fmt.Sprintf("В стае новый участник: %s.", d)
 }
 
 func packRejoinMiniappFeedPublicText() string {
-	return "A member is back in the pack. I sent them a DM — welcome back and a reminder about pack rhythm."
+	return "Участник вернулся в стаю. Я написал ему в личку — с возвращением и напоминание про ритм стаи."
 }
 
 // Персональное приветствие — только в Telegram-личку вступившему (не дублировать целиком в ленту).
-func packJoinMiniappWelcomeText(displayName string) string {
+// Язык — ui_lang вступившего.
+func packJoinMiniappWelcomeText(lang i18n.Lang, displayName string) string {
 	d := strings.TrimSpace(displayName)
+	if socialRU(lang) {
+		if d == "" {
+			d = "участник"
+		}
+		return fmt.Sprintf(
+			"Привет, %s! Я Лео — добро пожаловать в стаю. Отмечай тренировки в мини-аппе (кнопка «+») и следи за дедлайном. Рад видеть тебя здесь! 🐆",
+			d,
+		)
+	}
 	if d == "" {
 		d = "pack member"
 	}
@@ -47,8 +58,17 @@ func packJoinMiniappWelcomeText(displayName string) string {
 	)
 }
 
-func packRejoinMiniappWelcomeText(displayName string) string {
+func packRejoinMiniappWelcomeText(lang i18n.Lang, displayName string) string {
 	d := strings.TrimSpace(displayName)
+	if socialRU(lang) {
+		if d == "" {
+			d = "участник"
+		}
+		return fmt.Sprintf(
+			"%s, с возвращением! Я Лео — продолжай отмечать тренировки в мини-аппе. Рад снова видеть тебя в стае! 🐆",
+			d,
+		)
+	}
 	if d == "" {
 		d = "pack member"
 	}

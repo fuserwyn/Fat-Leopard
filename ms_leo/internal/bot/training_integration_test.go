@@ -72,7 +72,7 @@ func TestWorkoutFirstReportStartsStreak(t *testing.T) {
 	if st.Streak != 1 || st.MaxStreak != 1 || st.Cups != wantCups || st.LastTraining != today {
 		t.Errorf("состояние после первой workouts: %+v (cups ждали %d, дата %s)", st, wantCups, today)
 	}
-	if !strings.Contains(summary, "Report accepted") || !strings.Contains(summary, "Streak: 1 ") {
+	if !(strings.Contains(summary, "Report accepted") && strings.Contains(summary, "Streak: 1 ")) && !(strings.Contains(summary, "Отчёт принят") && strings.Contains(summary, "Стрик: 1 ")) {
 		t.Errorf("сводка пользователю: %q", summary)
 	}
 	var sessions, cups int
@@ -168,7 +168,7 @@ func TestWorkoutClosesPackWeeklyGoal(t *testing.T) {
 		t.Errorf("бонус недели выдаётся один раз: +%d", got)
 	}
 	var posts int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM user_messages WHERE message_text LIKE 'Pack weekly goal reached%'`).Scan(&posts); err != nil || posts != 1 {
+	if err := db.QueryRow(`SELECT COUNT(*) FROM user_messages WHERE message_text LIKE 'Цель недели стаи достигнута%'`).Scan(&posts); err != nil || posts != 1 {
 		t.Errorf("пост в ленте о закрытой цели: %d %v", posts, err)
 	}
 }

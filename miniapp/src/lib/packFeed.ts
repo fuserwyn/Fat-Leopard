@@ -618,7 +618,7 @@ export function dtoToCard(d: PackFeedItemDTO, lang: UILang = "ru"): ActivityCard
     d.type === "pack_removed";
   const isAdminPost = d.type === "admin_post";
   const isAdminPoll = d.type === "admin_poll";
-  const newcomer = (d.username || "").trim() || `Member ${d.user_id}`;
+  const newcomer = (d.username || "").trim() || (lang === "ru" ? `Участник ${d.user_id}` : `Member ${d.user_id}`);
   const pic = resolveFeedAvatarUrl(d.author_photo_url);
   let commentRaw = d.text.trim();
   if (d.type === "healthy") {
@@ -659,7 +659,7 @@ export function dtoToCard(d: PackFeedItemDTO, lang: UILang = "ru"): ActivityCard
     const fromLeo = isLeoName(d.username);
     return {
       avatar: fromLeo ? LEO_AVATAR_URL : "📢",
-      name: fromLeo ? leoDisplayName(lang) : "Admin",
+      name: fromLeo ? leoDisplayName(lang) : lang === "ru" ? "Админ" : "Admin",
       streak: 0,
       hideStreak: true,
       lightTone: true,
@@ -673,14 +673,14 @@ export function dtoToCard(d: PackFeedItemDTO, lang: UILang = "ru"): ActivityCard
   if (isAdminPoll) {
     return {
       avatar: "🗳️",
-      name: "Admin",
+      name: lang === "ru" ? "Админ" : "Admin",
       streak: 0,
       hideStreak: true,
       lightTone: true,
       timeAgo: formatLocalDateTime(d.created_at, lang),
       emoji: m.emoji,
       activity: m.activity,
-      details: d.poll?.total_votes ? `${d.poll.total_votes} votes` : "",
+      details: d.poll?.total_votes ? (lang === "ru" ? `${d.poll.total_votes} голосов` : `${d.poll.total_votes} votes`) : "",
       comment: d.poll?.question?.trim() || comment,
     };
   }

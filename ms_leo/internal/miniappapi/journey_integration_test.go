@@ -203,7 +203,7 @@ func TestJourneyWorkoutAndFeedDiscussion(t *testing.T) {
 	}
 
 	reply := j.ok(jAnna, "/messages", map[string]any{"text": journeyReport})
-	if text, _ := reply["reply_text"].(string); !strings.Contains(text, "Report accepted") || !strings.Contains(text, "Streak: 1 day") {
+	if text, _ := reply["reply_text"].(string); !(strings.Contains(text, "Report accepted") && strings.Contains(text, "Streak: 1 day")) && !(strings.Contains(text, "Отчёт принят") && strings.Contains(text, "Стрик: 1 день")) {
 		t.Fatalf("ответ на тренировку: %v", reply)
 	}
 	postID := j.waitWorkout(jAnna)

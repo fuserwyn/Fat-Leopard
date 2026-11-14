@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  CUPS_HISTORY_CAPTION,
+  cupsHistoryCaption,
   CUPS_HISTORY_LIMIT,
-  CUPS_HISTORY_SORT_OPTIONS,
+  cupsHistorySortOptions,
   buildCupsHistoryRows,
   defaultCupsHistorySortDir,
   sortCupsHistoryRows,
@@ -12,6 +12,8 @@ import {
   type CupsHistorySortKey,
 } from "../lib/cupsHistory";
 import "./CupsHistorySheet.css";
+import { pick } from "../lib/i18n";
+import { useI18n } from "../lib/I18nContext";
 
 type Props = {
   apiUrl: string;
@@ -26,6 +28,7 @@ type HistoryResponse = {
 };
 
 export function CupsHistorySheet({ apiUrl, initData, onClose }: Props) {
+  const { lang } = useI18n();
   const [rows, setRows] = useState<CupsHistoryRow[] | null>(null);
   const [error, setError] = useState("");
   const [sortKey, setSortKey] = useState<CupsHistorySortKey>("date");
@@ -56,7 +59,7 @@ export function CupsHistorySheet({ apiUrl, initData, onClose }: Props) {
   useEffect(() => {
     const ac = new AbortController();
     if (!apiUrl || !initData.trim()) {
-      setError("History unavailable");
+      setError(pick(lang, "История недоступна", "History unavailable"));
       setRows([]);
       return;
     }
@@ -72,7 +75,7 @@ export function CupsHistorySheet({ apiUrl, initData, onClose }: Props) {
         });
         const j = (await res.json().catch(() => ({}))) as HistoryResponse;
         if (!res.ok || !j.ok) {
-          setError("Couldn't load history");
+          setError(pick(lang, "Не получилось загрузить историю", "Couldn't load history"));
           setRows([]);
           return;
         }
@@ -90,30 +93,31 @@ export function CupsHistorySheet({ apiUrl, initData, onClose }: Props) {
               createdAt: w.created_at ?? "",
             })),
             CUPS_HISTORY_LIMIT,
+            lang,
           ),
         );
       } catch (e) {
         if (ac.signal.aborted) return;
-        setError(e instanceof Error ? e.message : "Couldn't load history");
+        setError(e instanceof Error ? e.message : pick(lang, "Не получилось загрузить историю", "Couldn't load history"));
         setRows([]);
       }
     })();
     return () => ac.abort();
-  }, [apiUrl, initData]);
+  }, [apiUrl, initData, lang]);
 
   const body = (
     <>
       <div className="cups-history-backdrop" onClick={onClose} />
-      <div className="cups-history" role="dialog" aria-modal="true" aria-label="Cups history">
+      <div className="cups-history" role="dialog" aria-modal="true" aria-label={pick(lang, "История кубков", "Cups history")}>
         <header className="cups-history__head">
-          <h2 className="cups-history__title">Cups history</h2>
-          <button type="button" className="cups-history__close" onClick={onClose} aria-label="Close">
+          <h2 className="cups-history__title">{pick(lang, "История кубков", "Cups history")}</h2>
+          <button type="button" className="cups-history__close" onClick={onClose} aria-label={pick(lang, "Закрыть", "Close")}>
             ✕
           </button>
         </header>
-        <p className="cups-history__caption">{CUPS_HISTORY_CAPTION}</p>
-        <div className="cups-history__sort" role="group" aria-label="Sort">
-          {CUPS_HISTORY_SORT_OPTIONS.map((opt) => {
+        <p className="cups-history__caption">{cupsHistoryCaption(lang)}</p>
+        <div className="cups-history__sort" role="group" aria-label={pick(lang, "Сортировка", "Sort")}>
+          {cupsHistorySortOptions(lang).map((opt) => {
             const active = opt.key === sortKey;
             return (
               <button
@@ -135,11 +139,11 @@ export function CupsHistorySheet({ apiUrl, initData, onClose }: Props) {
         </div>
         <div className="cups-history__body">
           {sortedRows == null ? (
-            <p className="cups-history__status">Loading…</p>
+            <p className="cups-history__status">{pick(lang, "Загружаю…", "Loading…")}</p>
           ) : error ? (
             <p className="cups-history__status">{error}</p>
           ) : sortedRows.length === 0 ? (
-            <p className="cups-history__status">No cup awards yet</p>
+            <p className="cups-history__status">{pick(lang, "Пока нет начислений кубков", "No cup awards yet")}</p>
           ) : (
             <ul className="cups-history__list">
               {sortedRows.map((row, i) => (

@@ -328,6 +328,11 @@ func (c *OpenRouterClient) GenerateReleaseNotes(features []ReleaseNoteFeature) (
 // Системный промпт = характер Лео (answer_user_question) + задача (contact_joined_pack),
 // чтобы текст шёл в его tone of voice и правился из админки промптов.
 func (c *OpenRouterClient) GenerateContactJoinedPack(recipientName, contactName string) (string, error) {
+	return c.GenerateContactJoinedPackLang(recipientName, contactName, "")
+}
+
+// GenerateContactJoinedPackLang — то же, с правилом языка получателя (ru|en; пусто — без правила).
+func (c *OpenRouterClient) GenerateContactJoinedPackLang(recipientName, contactName string, lang i18n.Lang) (string, error) {
 	live := c.bundle()
 	task := strings.TrimSpace(live.ContactJoinedPack)
 	if task == "" {
@@ -336,6 +341,12 @@ func (c *OpenRouterClient) GenerateContactJoinedPack(recipientName, contactName 
 	systemPrompt := task
 	if character := strings.TrimSpace(live.AnswerUserQuestion); character != "" {
 		systemPrompt = character + "\n\n---\n\n" + task
+	}
+	switch lang {
+	case i18n.RU:
+		systemPrompt += "\n\n" + i18n.T(i18n.RU, "leo_lang_ru")
+	case i18n.EN:
+		systemPrompt += "\n\n" + i18n.T(i18n.EN, "leo_lang_en")
 	}
 	var body strings.Builder
 	if n := strings.TrimSpace(recipientName); n != "" {

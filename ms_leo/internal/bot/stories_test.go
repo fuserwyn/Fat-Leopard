@@ -5,10 +5,11 @@ import (
 	"testing"
 
 	"leo-bot/internal/config"
+	"leo-bot/internal/i18n"
 )
 
 func TestStory1RemovalDMContentAndButton(t *testing.T) {
-	text := removalDMText()
+	text := removalDMText(i18n.EN)
 	if !strings.Contains(text, "7 days without movement") {
 		t.Fatalf("expected removal DM to mention 7 days, got: %q", text)
 	}
@@ -16,7 +17,7 @@ func TestStory1RemovalDMContentAndButton(t *testing.T) {
 		t.Fatalf("expected removal DM to mention progress reset, got: %q", text)
 	}
 
-	markup := removalDMReplyMarkup()
+	markup := removalDMReplyMarkup(i18n.EN)
 	if markup == nil || len(markup.InlineKeyboard) == 0 || len(markup.InlineKeyboard[0]) == 0 {
 		t.Fatal("expected inline keyboard with return button")
 	}
@@ -26,6 +27,14 @@ func TestStory1RemovalDMContentAndButton(t *testing.T) {
 	}
 	if btn.CallbackData == nil || *btn.CallbackData != paywallCallbackReturnToPack {
 		t.Fatalf("button callback mismatch: %+v", btn.CallbackData)
+	}
+
+	ru := removalDMText(i18n.RU)
+	if !strings.Contains(ru, "7 дней без движения") {
+		t.Fatalf("expected RU removal DM, got: %q", ru)
+	}
+	if got := removalDMReplyMarkup(i18n.RU).InlineKeyboard[0][0].Text; got != "Вернуться в стаю" {
+		t.Fatalf("RU button text mismatch: %q", got)
 	}
 }
 

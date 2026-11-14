@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { miniappLevelName, MAX_CUP_LEVEL } from "../lib/miniappLevel";
 import { LEO_AVATAR_URL } from "../lib/leoAvatar";
 import { useI18n } from "../lib/I18nContext";
+import { pick, type UILang } from "../lib/i18n";
 import "./AchievementToast.css";
 import "./ShareCardSheet.css";
 
@@ -26,9 +27,9 @@ function levelEmoji(level: number): string {
   return LEVEL_EMOJI[level] ?? "🏅";
 }
 
-function levelCheer(level: number): string {
-  if (level >= MAX_CUP_LEVEL) return "Top of the pack! Leo tips his hat 🎩";
-  return "You’re growing — Leo is proud of you! 🐾";
+function levelCheer(level: number, lang: UILang): string {
+  if (level >= MAX_CUP_LEVEL) return pick(lang, "Вершина стаи! Лео снимает шляпу 🎩", "Top of the pack! Leo tips his hat 🎩");
+  return pick(lang, "Ты растёшь — Лео тобой гордится! 🐾", "You’re growing — Leo is proud of you! 🐾");
 }
 
 /**
@@ -73,11 +74,11 @@ export function LevelUpToast({ level, onDone, onShare }: Props) {
           </span>
         </div>
 
-        <div className="achievement-toast__title">New level!</div>
+        <div className="achievement-toast__title">{pick(lang, "Новый уровень!", "New level!")}</div>
         <div className="achievement-toast__label">
           {levelEmoji(level)} {miniappLevelName(level, lang)}
         </div>
-        <div className="achievement-toast__cheer">{levelCheer(level)}</div>
+        <div className="achievement-toast__cheer">{levelCheer(level, lang)}</div>
         {onShare ? (
           <button
             type="button"
@@ -87,7 +88,7 @@ export function LevelUpToast({ level, onDone, onShare }: Props) {
               onShare();
             }}
           >
-            Share
+            {pick(lang, "Поделиться", "Share")}
           </button>
         ) : null}
       </div>

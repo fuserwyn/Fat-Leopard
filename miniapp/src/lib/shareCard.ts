@@ -15,6 +15,7 @@ import { achievementLabel, parseAchievementKey, type AchievementKey } from "./ac
 import { miniappLevelEmoji, miniappLevelName } from "./miniappLevel";
 import { daysWord } from "./streakLabel";
 import { trainingDoneCategoryEmoji } from "./workoutCategories";
+import type { UILang } from "./i18n";
 
 const apiBase = (import.meta.env.VITE_MINIAPP_API_URL as string | undefined)?.replace(/\/$/, "") ?? "";
 
@@ -41,46 +42,52 @@ export type ShareCard = {
   name: string;
   /** Фото тренировки — фоном карточки. */
   photo?: Blob | null;
+  /** Язык подписей карточки (по умолчанию en). */
+  lang?: UILang;
 };
 
-const cleanName = (name: string) => name.trim() || "Pack member";
+const cleanName = (name: string, lang: UILang = "en") => name.trim() || (lang === "ru" ? "Участник стаи" : "Pack member");
 
 /** Карточка ачивки: «Стрик 30 дней» или «100 тренировок». */
-export function achievementShareCard(key: AchievementKey, name: string): ShareCard {
+export function achievementShareCard(key: AchievementKey, name: string, lang: UILang = "en"): ShareCard {
+  const ru = lang === "ru";
   const parsed = parseAchievementKey(key);
   if (!parsed) {
-    return { kind: "achievement", emoji: "🏅", headline: "Achievement", big: "🏆", bigCaption: achievementLabel(key), name: cleanName(name) };
+    return { kind: "achievement", emoji: "🏅", headline: ru ? "Ачивка" : "Achievement", big: "🏆", bigCaption: achievementLabel(key, lang), name: cleanName(name, lang), lang };
   }
   if (parsed.kind === "streak") {
     return {
       kind: "achievement",
       emoji: "🔥",
-      headline: "Streak",
+      headline: ru ? "Стрик" : "Streak",
       big: String(parsed.threshold),
-      bigCaption: `${daysWord(parsed.threshold, "en")} in a row`,
-      name: cleanName(name),
+      bigCaption: ru ? `${daysWord(parsed.threshold, "ru")} подряд` : `${daysWord(parsed.threshold, "en")} in a row`,
+      name: cleanName(name, lang),
+      lang,
     };
   }
-  const label = achievementLabel(key);
+  const label = achievementLabel(key, lang);
   return {
     kind: "achievement",
     emoji: "💪",
-    headline: "Achievement unlocked",
+    headline: ru ? "Ачивка получена" : "Achievement unlocked",
     big: String(parsed.threshold),
     bigCaption: label.slice(String(parsed.threshold).length).trim(),
-    name: cleanName(name),
+    name: cleanName(name, lang),
+    lang,
   };
 }
 
 /** Карточка нового уровня: номер и зверь уровня. */
-export function levelShareCard(level: number, name: string): ShareCard {
+export function levelShareCard(level: number, name: string, lang: UILang = "en"): ShareCard {
   return {
     kind: "level",
     emoji: miniappLevelEmoji(level),
-    headline: "New level",
+    headline: lang === "ru" ? "Новый уровень" : "New level",
     big: String(level),
-    bigCaption: miniappLevelName(level),
-    name: cleanName(name),
+    bigCaption: miniappLevelName(level, lang),
+    name: cleanName(name, lang),
+    lang,
   };
 }
 
@@ -97,20 +104,22 @@ export type WorkoutShareInput = {
 };
 
 /** Карточка засчитанной тренировки: минуты, вид спорта, интенсивность и стрик. */
-export function workoutShareCard(w: WorkoutShareInput): ShareCard {
-  const parts = [w.kindLabel.trim(), `intensity ${w.intensity}/5`].filter(Boolean);
+export function workoutShareCard(w: WorkoutShareInput, lang: UILang = "en"): ShareCard {
+  const ru = lang === "ru";
+  const parts = [w.kindLabel.trim(), ru ? `интенсивность ${w.intensity}/5` : `intensity ${w.intensity}/5`].filter(Boolean);
   return {
     kind: "workout",
     emoji: trainingDoneCategoryEmoji(w.reportLine) || "💪",
-    headline: "Workout logged",
+    headline: ru ? "Тренировка засчитана" : "Workout logged",
     big: String(Math.max(0, Math.round(w.min))),
-    bigCaption: "minutes",
+    bigCaption: ru ? "минут" : "minutes",
     details: parts.join(" · "),
     // Стрик — второе, чем хвастаются после самой тренировки: выносим его
     // отдельной крупной плашкой, а не прячем в мелкую строку деталей.
-    badge: w.streak > 0 ? `🔥 ${w.streak}-day streak` : undefined,
-    name: cleanName(w.name),
+    badge: w.streak > 0 ? (ru ? `🔥 Стрик ${w.streak} ${daysWord(w.streak, "ru")}` : `🔥 ${w.streak}-day streak`) : undefined,
+    name: cleanName(w.name, lang),
     photo: w.photo ?? null,
+    lang,
   };
 }
 
@@ -121,6 +130,7 @@ export function shareLinkDisplay(link: string): string {
 
 /** Подпись к сторис и сообщению (Telegram ограничивает подпись сторис 200 символами). */
 export function shareCardCaption(card: ShareCard, link: string): string {
+  if (card.lang === "ru") return clipCaption(shareCardCaptionRu(card, link));
   const what =
     card.kind === "level"
       ? `New level in Fat Leopard: ${card.big} — ${card.bigCaption} ${card.emoji}`
@@ -130,8 +140,24 @@ export function shareCardCaption(card: ShareCard, link: string): string {
           ? `${card.big}-${card.bigCaption} streak in Fat Leopard 🔥`
           : `Achievement in Fat Leopard: ${card.big} ${card.bigCaption} 💪`;
   const tail = link ? `\nTrain with me: ${link}` : "\nJoin me in Fat Leopard 🐆";
-  const text = what + tail;
+  return clipCaption(what + tail);
+}
+
+function clipCaption(text: string): string {
   return text.length > 200 ? `${text.slice(0, 199)}…` : text;
+}
+
+function shareCardCaptionRu(card: ShareCard, link: string): string {
+  const what =
+    card.kind === "level"
+      ? `Новый уровень в Fat Leopard: ${card.big} — ${card.bigCaption} ${card.emoji}`
+      : card.kind === "workout"
+        ? `Тренировка засчитана: ${card.big} ${card.bigCaption} ${card.emoji}${card.badge ? ` · ${card.badge.replace(/^🔥\s*/, "").toLowerCase()} 🔥` : ""}`
+        : card.headline === "Стрик"
+          ? `Стрик ${card.big} ${card.bigCaption} в Fat Leopard 🔥`
+          : `Ачивка в Fat Leopard: ${card.big} ${card.bigCaption} 💪`;
+  const tail = link ? `\nТренируйся со мной: ${link}` : "\nТренируйся со мной в Fat Leopard 🐆";
+  return what + tail;
 }
 
 type Ctx = Pick<
@@ -253,7 +279,7 @@ export function drawShareCard(
   fitFont(ctx, card.name, 800, 72, maxW);
   ctx.fillText(card.name, cx, nameY);
 
-  const shown = link ? shareLinkDisplay(link) : "Fat Leopard on Telegram";
+  const shown = link ? shareLinkDisplay(link) : card.lang === "ru" ? "Fat Leopard в Telegram" : "Fat Leopard on Telegram";
   ctx.font = `700 44px ${FONT}`;
   const pillW = Math.min(maxW, ctx.measureText(shown).width + 100);
   ctx.save();
@@ -267,7 +293,7 @@ export function drawShareCard(
 
   ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
   ctx.font = `500 38px ${FONT}`;
-  ctx.fillText("Train with me in the pack", cx, 1850);
+  ctx.fillText(card.lang === "ru" ? "Тренируйся со мной в стае" : "Train with me in the pack", cx, 1850);
 }
 
 /** Фото тренировки → картинка для холста; null, если браузер не умеет её открыть. */

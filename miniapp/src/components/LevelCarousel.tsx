@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { MAX_CUP_LEVEL, miniappLevelEmoji, miniappLevelMinCups, miniappLevelName } from "../lib/miniappLevel";
 import { useI18n } from "../lib/I18nContext";
+import { pick, type UILang } from "../lib/i18n";
 import "./LevelCarousel.css";
 
 type Props = {
@@ -12,9 +13,9 @@ function formatCups(n: number): string {
   return n.toLocaleString("en-US").replace(/ /g, " ");
 }
 
-function cupsHint(level: number): string {
+function cupsHint(level: number, lang: UILang): string {
   const min = miniappLevelMinCups(level);
-  return min <= 0 ? "start · 0 🏆" : `from ${formatCups(min)} 🏆`;
+  return min <= 0 ? pick(lang, "старт · 0 🏆", "start · 0 🏆") : pick(lang, `от ${formatCups(min)} 🏆`, `from ${formatCups(min)} 🏆`);
 }
 
 /**
@@ -32,14 +33,14 @@ export function LevelCarousel({ currentLevel }: Props) {
 
   const unlocked = shown <= current;
   const isCurrent = shown === current;
-  const status = isCurrent ? "current" : unlocked ? "completed" : "locked";
+  const status = isCurrent ? pick(lang, "текущий", "current") : unlocked ? pick(lang, "пройден", "completed") : pick(lang, "закрыт", "locked");
 
   return (
-    <div className="level-carousel" role="group" aria-label="Levels">
+    <div className="level-carousel" role="group" aria-label={pick(lang, "Уровни", "Levels")}>
       <button
         type="button"
         className="level-carousel__arrow"
-        aria-label="Previous level"
+        aria-label={pick(lang, "Предыдущий уровень", "Previous level")}
         disabled={shown <= 1}
         onClick={() => setShown((s) => Math.max(1, s - 1))}
       >
@@ -56,11 +57,11 @@ export function LevelCarousel({ currentLevel }: Props) {
         </span>
         <span className="level-carousel__text">
           <span className="level-carousel__title">
-            Level {shown} · {miniappLevelName(shown, lang)}
+            {pick(lang, "Уровень", "Level")} {shown} · {miniappLevelName(shown, lang)}
             {!unlocked ? <span className="level-carousel__lock" aria-hidden> 🔒</span> : null}
           </span>
           <span className="level-carousel__hint">
-            {cupsHint(shown)}
+            {cupsHint(shown, lang)}
             <span className="level-carousel__status"> · {status}</span>
           </span>
         </span>
@@ -68,7 +69,7 @@ export function LevelCarousel({ currentLevel }: Props) {
       <button
         type="button"
         className="level-carousel__arrow"
-        aria-label="Next level"
+        aria-label={pick(lang, "Следующий уровень", "Next level")}
         disabled={shown >= MAX_CUP_LEVEL}
         onClick={() => setShown((s) => Math.min(MAX_CUP_LEVEL, s + 1))}
       >
