@@ -120,7 +120,7 @@ func serverPaymentReminderMessage(adminID int64, text, link string, stars int) t
 	return m
 }
 
-// serverPaymentInvoiceLink — счёт в звёздах за месяц; без ссылки напоминание всё равно уходит.
+// serverPaymentInvoiceLink — счёт в звёздах за месяц; пустая строка — runServerPaymentReminder повторит попытку.
 func (b *Bot) serverPaymentInvoiceLink(adminID int64, month time.Time, stars int) string {
 	if stars <= 0 {
 		return ""
