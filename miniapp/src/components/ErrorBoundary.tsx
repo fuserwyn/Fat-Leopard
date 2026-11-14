@@ -4,8 +4,29 @@ import "./ErrorBoundary.css";
 type Props = {
   /** Что сломалось — в подписи: «Лента», «Профиль». Без него — всё приложение. */
   label?: string;
+  /** Язык подписей заглушки; админка всегда передаёт «ru». */
+  lang?: "en" | "ru";
   children: ReactNode;
 };
+
+const COPY = {
+  en: {
+    labelTitle: (label: string) => `“${label}” didn't load`,
+    title: "Something went wrong",
+    labelText: "Other tabs still work. Try opening this one again.",
+    text: "Try again. If it keeps happening, restart the mini app.",
+    retry: "Try again",
+    reload: "Reload",
+  },
+  ru: {
+    labelTitle: (label: string) => `«${label}» не загрузилась`,
+    title: "Что-то пошло не так",
+    labelText: "Остальные вкладки работают. Попробуй открыть эту ещё раз.",
+    text: "Попробуй ещё раз. Если повторяется — перезапусти мини-апп.",
+    retry: "Попробовать снова",
+    reload: "Перезагрузить",
+  },
+} as const;
 
 type State = { error: Error | null };
 
@@ -26,20 +47,19 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (!this.state.error) return this.props.children;
-    const { label } = this.props;
+    const { label, lang = "en" } = this.props;
+    const tx = COPY[lang];
     return (
       <div className="error-boundary" role="alert">
         <p className="error-boundary__title">
-          {label ? `“${label}” didn't load` : "Something went wrong"}
+          {label ? tx.labelTitle(label) : tx.title}
         </p>
         <p className="error-boundary__text">
-          {label
-            ? "Other tabs still work. Try opening this one again."
-            : "Try again. If it keeps happening, restart the mini app."}
+          {label ? tx.labelText : tx.text}
         </p>
         <div className="error-boundary__actions">
           <button type="button" className="error-boundary__btn" onClick={() => this.setState({ error: null })}>
-            Try again
+            {tx.retry}
           </button>
           {!label ? (
             <button
@@ -47,7 +67,7 @@ export class ErrorBoundary extends Component<Props, State> {
               className="error-boundary__btn error-boundary__btn--ghost"
               onClick={() => window.location.reload()}
             >
-              Reload
+              {tx.reload}
             </button>
           ) : null}
         </div>

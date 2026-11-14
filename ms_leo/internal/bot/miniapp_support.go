@@ -137,7 +137,7 @@ func (b *Bot) notifyAdminsAboutSupportMessage(userID int64, text, photoURL strin
 		return
 	}
 
-	title := fmt.Sprintf("New support request from %s", b.supportDisplayName(userID))
+	title := fmt.Sprintf("Новый запрос в поддержку от %s", b.supportDisplayName(userID))
 	body := clipAdminSupportText(text, 500)
 	photoURL = strings.TrimSpace(photoURL)
 	if photoURL != "" {
@@ -145,7 +145,7 @@ func (b *Bot) notifyAdminsAboutSupportMessage(userID int64, text, photoURL strin
 	}
 	replyMarkup := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("✍️ Reply", fmt.Sprintf("admin_support_reply_%d", userID)),
+			tgbotapi.NewInlineKeyboardButtonData("✍️ Ответить", fmt.Sprintf("admin_support_reply_%d", userID)),
 		),
 	)
 	for _, adminID := range adminIDs {
@@ -155,7 +155,7 @@ func (b *Bot) notifyAdminsAboutSupportMessage(userID int64, text, photoURL strin
 			if body != "" {
 				caption += "\n\n" + body
 			}
-			caption += "\n\nTap «⚙️ Admin panel» at the bottom → Support."
+			caption += "\n\nНажми «⚙️ Админ-панель» внизу → Поддержка."
 			msg.Caption = clipAdminSupportText(caption, 1024)
 			msg.ReplyMarkup = replyMarkup
 			if _, err := b.api.Send(msg); err != nil {
@@ -163,7 +163,7 @@ func (b *Bot) notifyAdminsAboutSupportMessage(userID int64, text, photoURL strin
 			}
 			continue
 		}
-		msg := tgbotapi.NewMessage(adminID, title+"\n\n"+body+"\n\nTap «⚙️ Admin panel» at the bottom → Support.")
+		msg := tgbotapi.NewMessage(adminID, title+"\n\n"+body+"\n\nНажми «⚙️ Админ-панель» внизу → Поддержка.")
 		msg.ReplyMarkup = replyMarkup
 		if _, err := b.api.Send(msg); err != nil {
 			b.logger.Warnf("support notify admin=%d user=%d: %v", adminID, userID, err)

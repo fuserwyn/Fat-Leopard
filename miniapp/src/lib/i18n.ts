@@ -359,9 +359,10 @@ const en: Dict = {
   "profile.support.title": "Support",
   "profile.support.hint": "If something broke or you need a human — message here",
   "profile.support.cta": "Report a problem",
-  "profile.admin.title": "Admin",
-  "profile.admin.hint": "Community, system, data, resources, and task tracker — admins only",
-  "profile.admin.cta": "Open admin",
+  // Админка только на русском — вход в неё тоже не переводим.
+  "profile.admin.title": "Админ",
+  "profile.admin.hint": "Сообщество, система, данные, ресурсы и трекер задач — только для админов",
+  "profile.admin.cta": "Открыть админку",
 
   "invite.title": "Invite to the pack",
   "invite.hint": "For every {n} {friends} who join via your link and log their first workout, you get +1 streak save.",

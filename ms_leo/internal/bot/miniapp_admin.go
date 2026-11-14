@@ -17,7 +17,7 @@ var (
 	ErrAdminActionInvalid = errors.New("admin action invalid")
 )
 
-// MiniappAdminOverview — счётчики для главной adminки в мини-аппе.
+// MiniappAdminOverview — счётчики для главной админки в мини-аппе.
 type MiniappAdminOverview struct {
 	Users          int `json:"users"`
 	UsersActive    int `json:"users_active"`
@@ -39,7 +39,7 @@ type MiniappAdminUsersPage struct {
 	UsersKicked int                   `json:"users_kicked"`
 }
 
-// MiniappAdminPaywallPrice — текущая цена access, которую admin может поменять.
+// MiniappAdminPaywallPrice — текущая цена доступа, которую админ может поменять.
 type MiniappAdminPaywallPrice struct {
 	AmountRub        int    `json:"amount_rub"`
 	AmountMinor      int    `json:"amount_minor"`
@@ -48,7 +48,7 @@ type MiniappAdminPaywallPrice struct {
 	DefaultAmountRub int    `json:"default_amount_rub"`
 }
 
-// MiniappAdminPackGoal — недельная цель стаи, которую admin может поменять.
+// MiniappAdminPackGoal — недельная цель стаи, которую админ может поменять.
 type MiniappAdminPackGoal struct {
 	Goal         int    `json:"goal"`
 	IsCustom     bool   `json:"is_custom"`
@@ -69,7 +69,7 @@ type MiniappAdminUserRow struct {
 	HasActivePaywall bool   `json:"has_active_paywall"`
 }
 
-// MiniappAdminUserCard — карточка пользователя для adminки мини-аппа.
+// MiniappAdminUserCard — карточка пользователя для админки мини-аппа.
 type MiniappAdminUserCard struct {
 	UserID                  int64  `json:"user_id"`
 	Username                string `json:"username,omitempty"`
@@ -226,7 +226,7 @@ func (b *Bot) MiniappAdminSetPackGoal(viewerUserID int64, initD initdata.InitDat
 	if err != nil {
 		return err
 	}
-	// Target могли опустить ниже уже набранного — бонус недели выдаём сразу.
+	// Цель могли опустить ниже уже набранного — бонус недели выдаём сразу.
 	b.MaybeGrantPackWeeklyGoalBonus(packID)
 	return nil
 }
@@ -467,11 +467,11 @@ func (b *Bot) MiniappAdminUserCard(viewerUserID int64, initD initdata.InitData, 
 	}
 	stats := b.GetMiniappProfileStatsForAPI(targetUserID, packID)
 	_, displayName, _ := b.GetMiniappUserProfileJSONForAPI(targetUserID, packID)
-	sick := "none"
+	sick := "нет"
 	if ml.HasSickLeave && !ml.HasHealthy {
-		sick = "active"
+		sick = "активен"
 	} else if ml.SickApprovalPending {
-		sick = "pending"
+		sick = "ожидает"
 	}
 	paywall := false
 	if active, perr := b.db.UserHasActivePaywallAccess(targetUserID, packID); perr == nil {
@@ -518,20 +518,20 @@ func (b *Bot) MiniappAdminUserAction(viewerUserID int64, initD initdata.InitData
 		return ErrAdminActionInvalid
 	}
 	if action == "kick" && targetUserID == viewerUserID {
-		return fmt.Errorf("cannot remove yourself from the pack in the mini app")
+		return fmt.Errorf("нельзя удалить себя из стаи из мини-аппа")
 	}
 	switch action {
 	case "sick_set":
 		if err := b.setSickLeaveForUser(targetUserID, packID); err != nil {
 			return err
 		}
-		b.notifyUserTextByID(targetUserID, packID, "🏥 An admin set sick leave for you. Inactivity timer paused — get well! When recovered — «End sick leave» in profile.", "", 0)
+		b.notifyUserTextByID(targetUserID, packID, adminSickSetNotice(b.EffectiveUILang(targetUserID), false), "", 0)
 		return nil
 	case "sick_cancel":
 		if err := b.cancelSickLeaveForUser(targetUserID, packID); err != nil {
 			return err
 		}
-		b.notifyUserTextByID(targetUserID, packID, "🏥 Sick leave ended by an admin. Inactivity timer is on again — don't miss your workout!", "", 0)
+		b.notifyUserTextByID(targetUserID, packID, adminSickCancelNotice(b.EffectiveUILang(targetUserID)), "", 0)
 		return nil
 	case "restore_full":
 		return b.restoreUserInPack(targetUserID, true)
@@ -571,7 +571,7 @@ func (b *Bot) muteUserUGCForMiniapp(targetUserID, packChatID int64, hours int) e
 	}
 	_, _ = b.db.IncrementUGCViolationCount(targetUserID, packChatID)
 	b.notifyUserTextByID(targetUserID, packChatID,
-		fmt.Sprintf("🔇 Pack publishing restricted for %d h by moderator.", hours),
+		adminUGCMuteNotice(b.EffectiveUILang(targetUserID), hours),
 		"", 0)
 	return nil
 }
@@ -582,13 +582,13 @@ func (b *Bot) unmuteUserUGCForMiniapp(targetUserID, packChatID int64) error {
 		return err
 	}
 	if !muted {
-		return fmt.Errorf("user not in UGC mute")
+		return fmt.Errorf("пользователь не в UGC-мьюте")
 	}
 	if err := b.db.UnmuteUserUGC(targetUserID, packChatID); err != nil {
 		return err
 	}
 	b.notifyUserTextByID(targetUserID, packChatID,
-		"🔊 Pack publishing restrictions lifted. You can post in feed, chat and notes again.",
+		adminUGCUnmuteNotice(b.EffectiveUILang(targetUserID)),
 		"", 0)
 	return nil
 }
@@ -600,7 +600,7 @@ func (b *Bot) kickUserFromPack(targetUserID int64) error {
 		return ErrAdminNotFound
 	}
 	if ml.IsDeleted {
-		return fmt.Errorf("user already removed from pack")
+		return fmt.Errorf("пользователь уже удалён из стаи")
 	}
 	username := ml.Username
 	if username == "" {

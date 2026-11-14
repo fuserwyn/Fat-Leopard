@@ -55,15 +55,15 @@ func TestApplyTrackerColumnFlow(t *testing.T) {
 
 func TestTrackerStatusMeta(t *testing.T) {
 	label, icon, phase := trackerStatusMeta("pending", "todo")
-	if label != "Waiting" || icon != "⏳" || phase != "todo" {
+	if label != "Ожидает" || icon != "⏳" || phase != "todo" {
 		t.Fatalf("pending: %s %s %s", label, icon, phase)
 	}
 	label, _, phase = trackerStatusMeta("holding", "test")
-	if label != "Test" || phase != "test" {
+	if label != "Тест" || phase != "test" {
 		t.Fatalf("test holding: %s %s", label, phase)
 	}
 	label, _, phase = trackerStatusMeta("holding", "deploy")
-	if label != "Deploy" || phase != "deploy" {
+	if label != "Сборка" || phase != "deploy" {
 		t.Fatalf("deploy: %s %s", label, phase)
 	}
 }
@@ -72,10 +72,10 @@ func TestTrackerQaMeta(t *testing.T) {
 	if label, _ := trackerQaMeta("", "todo", false); label != "" {
 		t.Fatalf("not handed: %q", label)
 	}
-	if label, _ := trackerQaMeta("pass", "done", true); label != "Accepted" {
+	if label, _ := trackerQaMeta("pass", "done", true); label != "Принято" {
 		t.Fatalf("pass: %q", label)
 	}
-	if label, _ := trackerQaMeta("", "doing", true); label != "In QA" {
+	if label, _ := trackerQaMeta("", "doing", true); label != "В тестировании" {
 		t.Fatalf("doing: %q", label)
 	}
 }
@@ -91,7 +91,7 @@ func TestTrackerEffectiveDevColumnAwaitingApproval(t *testing.T) {
 		t.Fatalf("todo+needs_approval: got %q", col)
 	}
 	view := trackerTaskView(task, false)
-	if view["dev_column"] != trackerColApprove || view["phase"] != "approve" || view["status_label"] != "Approval" {
+	if view["dev_column"] != trackerColApprove || view["phase"] != "approve" || view["status_label"] != "Аппрув" {
 		t.Fatalf("view awaiting approval: %#v", view)
 	}
 	done := task
@@ -242,7 +242,7 @@ func TestAdminBoardFullCycle(t *testing.T) {
 	if err := applyTrackerColumn(&task, trackerColDoing); err != nil {
 		t.Fatal(err)
 	}
-	appendTrackerStep(&task, "Started on schedule")
+	appendTrackerStep(&task, "Взяли в работу по расписанию")
 	view := trackerTaskView(task, false)
 	if view["status"] != "running" || view["dev_column"] != trackerColDoing || view["phase"] != "doing" {
 		t.Fatalf("после обновления: %#v", view)
@@ -250,7 +250,7 @@ func TestAdminBoardFullCycle(t *testing.T) {
 	if view["author_id"] != adminID || view["active"] != true || view["steps_running"] != true {
 		t.Fatalf("карточка админа в работе: %#v", view)
 	}
-	if view["live_step"] != "Started on schedule" {
+	if view["live_step"] != "Взяли в работу по расписанию" {
 		t.Fatalf("live: %#v", view["live_step"])
 	}
 
@@ -267,7 +267,7 @@ func TestAdminBoardFullCycle(t *testing.T) {
 		t.Fatalf("на тесте: %+v", task)
 	}
 	view = trackerTaskView(task, false)
-	if view["phase"] != "test" || view["qa_label"] != "Ready for QA" {
+	if view["phase"] != "test" || view["qa_label"] != "К тестированию" {
 		t.Fatalf("вид теста: %#v", view)
 	}
 
@@ -275,7 +275,7 @@ func TestAdminBoardFullCycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	qaLabel, _ := trackerQaMeta(task.QaStatus, task.QaColumn, task.HandedToQa)
-	if task.QaColumn != trackerColDoing || qaLabel != "In QA" {
+	if task.QaColumn != trackerColDoing || qaLabel != "В тестировании" {
 		t.Fatalf("тестировщик взял: %+v label=%q", task, qaLabel)
 	}
 
@@ -286,7 +286,7 @@ func TestAdminBoardFullCycle(t *testing.T) {
 		t.Fatalf("после приёма: %+v", task)
 	}
 	view = trackerTaskView(task, false)
-	if view["phase"] != "deploy" || view["qa_label"] != "Accepted" {
+	if view["phase"] != "deploy" || view["qa_label"] != "Принято" {
 		t.Fatalf("вид публикации: %#v", view)
 	}
 

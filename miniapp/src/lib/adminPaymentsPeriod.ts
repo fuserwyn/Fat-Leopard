@@ -7,26 +7,26 @@
 export type PaymentsPeriodMode = "all" | "day" | "week" | "month" | "custom";
 
 export const PAYMENTS_PERIOD_MODES: { mode: PaymentsPeriodMode; label: string }[] = [
-  { mode: "all", label: "All time" },
-  { mode: "day", label: "Day" },
-  { mode: "week", label: "Week" },
-  { mode: "month", label: "Month" },
-  { mode: "custom", label: "Custom range" },
+  { mode: "all", label: "Всё время" },
+  { mode: "day", label: "День" },
+  { mode: "week", label: "Неделя" },
+  { mode: "month", label: "Месяц" },
+  { mode: "custom", label: "Свой период" },
 ];
 
 const MONTHS = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
+  "Январь",
+  "Февраль",
+  "Март",
+  "Апрель",
+  "Май",
+  "Июнь",
+  "Июль",
+  "Август",
+  "Сентябрь",
+  "Октябрь",
+  "Ноябрь",
+  "Декабрь",
 ];
 
 const MSK_OFFSET_MS = 3 * 3600 * 1000;

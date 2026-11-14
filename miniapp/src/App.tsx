@@ -580,7 +580,7 @@ export function App() {
       ) : null}
 
       {adminOpen && isAdmin ? (
-        <ErrorBoundary label="Admin">
+        <ErrorBoundary label="Админка" lang="ru">
           <AdminScreen
             initData={initData}
             inTelegram={inTelegram}

@@ -46,4 +46,24 @@ describe("ErrorBoundary", () => {
     expect(screen.getByRole("button", { name: "Reload" })).toBeTruthy();
     spy.mockRestore();
   });
+
+  it("speaks Russian for the admin panel", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    broken = true;
+    render(
+      <ErrorBoundary label="Админка" lang="ru">
+        <Flaky />
+      </ErrorBoundary>,
+    );
+    expect(screen.getByRole("alert").textContent).toContain("«Админка» не загрузилась");
+    expect(screen.getByRole("button", { name: "Попробовать снова" })).toBeTruthy();
+    render(
+      <ErrorBoundary lang="ru">
+        <Flaky />
+      </ErrorBoundary>,
+    );
+    expect(screen.getByText("Что-то пошло не так")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Перезагрузить" })).toBeTruthy();
+    spy.mockRestore();
+  });
 });

@@ -18,22 +18,22 @@ func TestTrackerAgentPromptPhases(t *testing.T) {
 	task := database.TrackerTask{Num: 7, Prompt: "починить стрик", Result: "подпись короче"}
 	doing := trackerAgentPrompt(task, "doing")
 	if !strings.Contains(doing, "#7") || !strings.Contains(doing, "починить стрик") ||
-		!strings.Contains(doing, "review notes") || !strings.Contains(doing, "подпись короче") {
+		!strings.Contains(doing, "замечания ревью") || !strings.Contains(doing, "подпись короче") {
 		t.Fatalf("doing: %q", doing)
 	}
 	stand := trackerAgentPrompt(database.TrackerTask{
 		Num: 16, Prompt: "вариации мудрости",
-		Result: "stand build failed: ms_leo: deploy failed\n\nRailway build logs:\nundefined: embeddedDailyWisdomVariation1",
+		Result: "Сборка на стенде не прошла: ms_leo: деплой failed\n\nЛоги сборки Railway:\nundefined: embeddedDailyWisdomVariation1",
 	}, "doing")
-	if !strings.Contains(stand, "Railway build failed") || !strings.Contains(stand, "embeddedDailyWisdomVariation1") {
+	if !strings.Contains(stand, "Сборка Railway упала") || !strings.Contains(stand, "embeddedDailyWisdomVariation1") {
 		t.Fatalf("stand logs: %q", stand)
 	}
 	review := trackerAgentPrompt(task, "review")
-	if !strings.Contains(review, "ok for test") || !strings.Contains(review, "review rejected") {
+	if !strings.Contains(review, "можно на тест") || !strings.Contains(review, "ревью не принято") {
 		t.Fatalf("review: %q", review)
 	}
 	test := trackerAgentPrompt(task, "test")
-	if !strings.Contains(test, "test passed") || !strings.Contains(test, "подпись короче") {
+	if !strings.Contains(test, "тест пройден") || !strings.Contains(test, "подпись короче") {
 		t.Fatalf("test: %q", test)
 	}
 }
@@ -72,7 +72,7 @@ func TestTrackerComposerPassed(t *testing.T) {
 }
 
 func TestTrackerStepRemoteID(t *testing.T) {
-	if got := trackerStepRemoteID([]string{"Взяли", "агент:#512", "Composer review: started"}); got != 512 {
+	if got := trackerStepRemoteID([]string{"Взяли", "агент:#512", "Composer: запустили"}); got != 512 {
 		t.Fatalf("got %d", got)
 	}
 	if got := trackerStepRemoteID(nil); got != 0 {
@@ -219,11 +219,11 @@ func TestTrackerPipelineNotify(t *testing.T) {
 	if !strings.Contains(note, "#3") || strings.Contains(note, "тест и сборку") {
 		t.Fatalf("must not fake a build: %q", note)
 	}
-	if !strings.Contains(note, "did not ship") {
+	if !strings.Contains(note, "не выехала") {
 		t.Fatalf("no-code note: %q", note)
 	}
 	withCode := trackerPipelineNotify(database.TrackerTask{Num: 3, Result: "код в ветке tracker/3-1"})
-	if !strings.Contains(withCode, "push") || strings.Contains(withCode, "did not ship") {
+	if !strings.Contains(withCode, "запушь") || strings.Contains(withCode, "не выехала") {
 		t.Fatalf("with code: %q", withCode)
 	}
 }
@@ -234,7 +234,7 @@ func TestTrackerNeedsAgentKick(t *testing.T) {
 		Status:     "running",
 		DevColumn:  "doing",
 		Error:      "Агент не стартовал: unauthorized",
-		Steps:      []string{"Started on schedule", "Агент не стартовал"},
+		Steps:      []string{"Взяли в работу по расписанию", "Агент не стартовал"},
 		HasLastRun: true,
 		LastRunAt:  now.Add(-time.Minute),
 	}
@@ -244,7 +244,7 @@ func TestTrackerNeedsAgentKick(t *testing.T) {
 	freshClaim := database.TrackerTask{
 		Status:     "running",
 		DevColumn:  "doing",
-		Steps:      []string{"Started on schedule"},
+		Steps:      []string{"Взяли в работу по расписанию"},
 		HasLastRun: true,
 		LastRunAt:  now.Add(-5 * time.Second),
 	}

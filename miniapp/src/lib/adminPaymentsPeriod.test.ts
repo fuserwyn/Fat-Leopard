@@ -38,7 +38,7 @@ describe("paymentsPeriodTitle", () => {
   it("formats each mode", () => {
     expect(paymentsPeriodTitle("day", "2026-10-05")).toBe("05.10.2026");
     expect(paymentsPeriodTitle("week", "2026-10-01")).toBe("28.09–04.10.2026");
-    expect(paymentsPeriodTitle("month", "2026-10-05")).toBe("October 2026");
+    expect(paymentsPeriodTitle("month", "2026-10-05")).toBe("Октябрь 2026");
     expect(paymentsPeriodTitle("all", "2026-10-05")).toBe("");
   });
 });

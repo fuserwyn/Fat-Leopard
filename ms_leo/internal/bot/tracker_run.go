@@ -11,16 +11,16 @@ import (
 )
 
 var (
-	trackerSprintPrefixRe = regexp.MustCompile(`(?i)^\[Sprint\s+\d+\]\s*`)
+	trackerSprintPrefixRe = regexp.MustCompile(`(?i)^\[(?:Sprint|Спринт)\s+\d+\]\s*`)
 	trackerTaskNumLineRe  = regexp.MustCompile(`(?i)^(?:Task|Задача)\s*#\s*\d+\.?$`)
 )
 
 // Как часто смотрим, не пора ли снять карточку с «Ожидает».
 const trackerDueTick = 15 * time.Second
 
-// trackerScheduledStartStep — written by ClaimDueTrackerTasks in the database.
-const trackerScheduledStartStep = "Started on schedule"
-const trackerScheduledStartStepLegacyRU = "Взяли в работу по расписанию"
+// trackerScheduledStartStep — пишет ClaimDueTrackerTasks в базе.
+const trackerScheduledStartStep = "Взяли в работу по расписанию"
+const trackerScheduledStartStepLegacyEN = "Started on schedule"
 
 // Раз в сутки перезапускаем застрявших агентов в обход лимита попыток:
 // карточка, у которой сгорели все 5 попыток, иначе висит «В работе» вечно.
@@ -58,7 +58,7 @@ func trackerDueStartedNote(t database.TrackerTask) string {
 	if runes := []rune(prompt); len(runes) > 180 {
 		prompt = string(runes[:180]) + "…"
 	}
-	text := fmt.Sprintf("🔧 %s started.", trackerNotifyLabel(n, trackerTaskTitle(t.Prompt)))
+	text := fmt.Sprintf("🔧 %s началась.", trackerNotifyLabel(n, trackerTaskTitle(t.Prompt)))
 	if prompt != "" {
 		text += "\n" + prompt
 	}
@@ -100,7 +100,7 @@ func (b *Bot) claimAndNotifyDueTrackerTasks() (int, error) {
 
 func (b *Bot) claimAndKickTrackerTasks(forceStuck bool) (int, error) {
 	if b == nil || b.db == nil {
-		return 0, fmt.Errorf("database unavailable")
+		return 0, fmt.Errorf("база недоступна")
 	}
 	due, err := b.db.ClaimDueTrackerTasks(time.Now())
 	if err != nil {
@@ -197,7 +197,7 @@ func (b *Bot) kickStuckTrackerAgents(force bool) int {
 		}
 		t.Error = ""
 		_ = applyTrackerColumn(&t, trackerColDoing)
-		appendTrackerStep(&t, "Restarting agent")
+		appendTrackerStep(&t, "Снова запускаем агента")
 		if err := b.db.SaveTrackerTask(t); err != nil {
 			if b.logger != nil {
 				b.logger.Warnf("трекер: не перезапустить #%d: %v", trackerDueNum(t), err)
@@ -222,7 +222,7 @@ func (b *Bot) settleExhaustedTrackerAttempt(t *database.TrackerTask) bool {
 	}
 	logText := strings.TrimSpace(t.Error)
 	if logText == "" {
-		logText = "agent did not complete the task"
+		logText = "агент не сдал задачу"
 	}
 	if !trackerStepHas(*t, trackerCursorHandoffStep) && normalizeTrackerAgent(t.Agent) != "cursor" {
 		appendTrackerFailureLog(t, logText)
@@ -236,7 +236,7 @@ func (b *Bot) settleExhaustedTrackerAttempt(t *database.TrackerTask) bool {
 			return false
 		}
 		b.notifyTrackerAttempt(*t, fmt.Sprintf(
-			"Task #%d failed.\n\nNext I'll run Cursor for up to %d more retries.\n\nLog:\n%s",
+			"Задача #%d упала.\n\nДальше запускаю Cursor, ещё до %d повторов.\n\nЛог:\n%s",
 			trackerDueNum(*t), trackerAttemptCap, clipNotifyText(logText),
 		))
 		b.dispatchTrackerAgent(*t, "doing")
@@ -256,7 +256,7 @@ func (b *Bot) settleExhaustedTrackerAttempt(t *database.TrackerTask) bool {
 		return false
 	}
 	b.notifyTrackerAttempt(*t, fmt.Sprintf(
-		"Task #%d failed. %s used all %d retries; I won't auto-restart.\n\nLog:\n%s",
+		"Задача #%d упала. %s исчерпал %d повтора, дальше сам не запускаю.\n\nЛог:\n%s",
 		trackerDueNum(*t), trackerAgentChoiceLabel(t.Agent), trackerAttemptCap, clipNotifyText(logText),
 	))
 	return true
@@ -266,7 +266,7 @@ func appendTrackerFailureLog(t *database.TrackerTask, logText string) {
 	if t == nil {
 		return
 	}
-	block := "Log:\n" + strings.TrimSpace(logText)
+	block := "Лог:\n" + strings.TrimSpace(logText)
 	if strings.Contains(t.Result, block) {
 		return
 	}
@@ -352,9 +352,9 @@ func trackerTaskTitle(prompt string) string {
 func trackerNotifyLabel(n int, title string) string {
 	title = strings.TrimSpace(title)
 	if title == "" {
-		return fmt.Sprintf("Task #%d", n)
+		return fmt.Sprintf("Задача #%d", n)
 	}
-	return fmt.Sprintf("Task #%d: %s", n, title)
+	return fmt.Sprintf("Задача #%d: %s", n, title)
 }
 
 func trackerNotifyHeading(t database.TrackerTask) string {
@@ -364,13 +364,13 @@ func trackerNotifyHeading(t database.TrackerTask) string {
 // trackerTaskAuthorLabel — кто поставил задачу: Лео, админ или «из чата».
 func (b *Bot) trackerTaskAuthorLabel(t database.TrackerTask) string {
 	if !t.HasAuthor {
-		return "From chat"
+		return "Из чата"
 	}
 	if t.AuthorID == database.TrackerLeoAuthorID || t.Kind == "leo_task" {
-		return "Leo"
+		return "Лео"
 	}
 	if t.AuthorID <= 0 {
-		return "From chat"
+		return "Из чата"
 	}
 	if b != nil && b.db != nil {
 		people, err := b.db.AdminPeopleByIDs(b.adminPackChatID(), []int64{t.AuthorID})

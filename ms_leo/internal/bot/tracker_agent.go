@@ -70,7 +70,7 @@ func trackerAgentChoiceLabel(agent string) string {
 	case "cursor":
 		return "Cursor"
 	default:
-		return "Auto"
+		return "Авто"
 	}
 }
 
@@ -86,11 +86,11 @@ func (b *Bot) trackerAgentBoardUserID() int64 {
 func trackerAgentName(phase string) string {
 	switch phase {
 	case "review":
-		return "Composer review"
+		return "Composer-ревью"
 	case "test":
-		return "Composer test"
+		return "Composer-тест"
 	default:
-		return "Agent"
+		return "Агент"
 	}
 }
 
@@ -134,9 +134,9 @@ func trackerAgentRetryWait(t database.TrackerTask) time.Duration {
 const trackerAttemptCap = 3
 
 const (
-	trackerCursorHandoffStep     = "Handed off to Cursor after errors"
-	trackerAttemptsExhaustedStep = "Attempts exhausted"
-	trackerAgentChosenStepPrefix = "Assignee: "
+	trackerCursorHandoffStep     = "Передали Cursor после ошибок"
+	trackerAttemptsExhaustedStep = "Попытки кончились"
+	trackerAgentChosenStepPrefix = "Исполнитель: "
 )
 
 // trackerAgentKickWait — сколько ждать перед очередным перезапуском агента.
@@ -151,7 +151,7 @@ func trackerAgentKickWait(kicks int) time.Duration {
 	return wait
 }
 
-const trackerAgentWaitingStep = "waiting for queue"
+const trackerAgentWaitingStep = "ждёт очередь"
 
 func trackerLastStep(t database.TrackerTask) string {
 	if n := len(t.Steps); n > 0 {
@@ -283,31 +283,31 @@ func trackerAgentPrompt(t database.TrackerTask, phase string) string {
 	result := strings.TrimSpace(t.Result)
 	switch phase {
 	case "review":
-		return fmt.Sprintf(`Review task #%d: is this the requested feature, not just any change?
+		return fmt.Sprintf(`Ревью задачи #%d: принята ли именно эта фича, а не любая правка.
 
-Task:
+Формулировка:
 %s
 
-Agent submission:
+Что сдал агент:
 %s
 
-Reply "ok for test" only if the code includes what was asked (for donations — tier in config.go, not a stub file).
-Reply "review rejected" if there is no commit, note only, config.go is truncated, or the task tier is missing.`, n, prompt, result)
+«можно на тест» только если в коде есть то, что просили (для доната — номинал в config.go, файл не заглушка).
+«ревью не принято» если коммита нет, только заметка, config.go обрезан или номинала из задачи нет.`, n, prompt, result)
 	case "test":
-		return fmt.Sprintf(`Test task #%d: is the feature from the task really in the code?
+		return fmt.Sprintf(`Тест задачи #%d: фича из формулировки реально в коде.
 
-Task:
+Формулировка:
 %s
 
-Result and review:
+Результат и ревью:
 %s
 
-Reply "test passed" only if config.go has the needed tier and builds (parseAmountTiers and getEnv exist).
-Reply "test failed" if the branch is missing, the file is a stub, or the task tier is missing.`, n, prompt, result)
+«тест пройден» только если в config.go есть нужный номинал и файл собирается (есть parseAmountTiers и getEnv).
+«тест не прошёл» если ветки нет, файла-заглушка или номинала из задачи нет.`, n, prompt, result)
 	default:
 		text := prompt
 		if n > 0 {
-			text = fmt.Sprintf("Task #%d.\n\n%s", n, prompt)
+			text = fmt.Sprintf("Задача #%d.\n\n%s", n, prompt)
 		}
 		if result != "" {
 			resultLow := strings.ToLower(result)
@@ -315,11 +315,11 @@ Reply "test failed" if the branch is missing, the file is a stub, or the task ti
 				strings.Contains(result, "Логи сборки Railway") ||
 				strings.Contains(resultLow, "stand build failed") ||
 				strings.Contains(resultLow, "сборка на стенде не прошла") {
-				text += "\n\nRailway build failed. Fix the code from the logs with tools; do not return full file contents as JSON.\n" + result
+				text += "\n\nСборка Railway упала. Почини код по логам точечно, инструментами. Не возвращай полный текст файлов JSON-ом.\n" + result
 			} else if strings.Contains(result, trackerTestFailedMarker) {
-				text += "\n\nCode is on the task branch, but pre-ship checks rejected it. Fix surgically, rerun the same checks yourself, and resubmit.\n" + result
+				text += "\n\nКод уже лежит на ветке задачи, но проверка перед выкатом его не приняла. Почини точечно, прогони те же проверки сам и сдай снова.\n" + result
 			} else {
-				text += "\n\nPrevious result / review notes:\n" + result
+				text += "\n\nПрошлый результат / замечания ревью:\n" + result
 			}
 		}
 		return text
@@ -369,9 +369,9 @@ func trackerComposerPassed(phase, text string) bool {
 func trackerPipelineNotify(t database.TrackerTask) string {
 	head := trackerNotifyHeading(t)
 	if trackerTaskHasCode(t) {
-		return fmt.Sprintf("%s: code is in the repo; card is ready to ship.\nTo deploy on Railway, send «push».", head)
+		return fmt.Sprintf("%s: код в репозитории, карточка на публикации.\nЧтобы выкатить на Railway, напиши «запушь».", head)
 	}
-	return fmt.Sprintf("%s did not ship to Railway.\nThe agent only submitted a plan — no test or build.\nTo ship code, commit first, then «push».", head)
+	return fmt.Sprintf("%s не выехала на Railway.\nАгент сдал только план — теста и сборки не было.\nЧтобы выкатить код, сначала нужен коммит, потом «запушь».", head)
 }
 
 func trackerLooksLikeNoteOnly(text string) bool {
@@ -535,7 +535,7 @@ func (b *Bot) dispatchTrackerAgent(t database.TrackerTask, phase string) {
 
 func (b *Bot) runTrackerAgent(taskID int64, phase string) error {
 	if b == nil || b.db == nil || taskID <= 0 {
-		return fmt.Errorf("task not found")
+		return fmt.Errorf("задача не найдена")
 	}
 	t, err := b.db.GetTrackerTask(taskID)
 	if err != nil {
@@ -557,7 +557,7 @@ func (b *Bot) runTrackerAgent(taskID int64, phase string) error {
 	t.Error = ""
 	t.HasLastRun = true
 	t.LastRunAt = time.Now()
-	appendTrackerStep(&t, trackerAgentName(phase)+": started")
+	appendTrackerStep(&t, trackerAgentName(phase)+": запустили")
 	_ = b.db.SaveTrackerTask(t)
 
 	remoteID, raw, err := b.remoteTrackerCreate(t, phase, model)
@@ -565,12 +565,12 @@ func (b *Bot) runTrackerAgent(taskID int64, phase string) error {
 		if phase == "review" || phase == "test" {
 			return b.finishTrackerComposerLocal(t, phase, err)
 		}
-		t.Error = clipNotifyText("Agent failed to start: " + err.Error())
-		appendTrackerStep(&t, "Agent failed to start")
+		t.Error = clipNotifyText("Агент не стартовал: " + err.Error())
+		appendTrackerStep(&t, "Агент не стартовал")
 		return b.db.SaveTrackerTask(t)
 	}
 	if remoteID > 0 {
-		appendTrackerStep(&t, fmt.Sprintf("agent:#%d", remoteID))
+		appendTrackerStep(&t, fmt.Sprintf("агент:#%d", remoteID))
 	}
 	if note := strings.TrimSpace(raw); note != "" && phase == "doing" {
 		t.Error = ""
@@ -585,7 +585,7 @@ func (b *Bot) runTrackerAgent(taskID int64, phase string) error {
 }
 
 const (
-	trackerRemoteWhen = "now"
+	trackerRemoteWhen = "сейчас"
 	trackerBoardAPI   = "/api/scheduled"
 )
 
@@ -668,7 +668,7 @@ func (b *Bot) remoteTrackerRequest(op string, taskID int64, payload map[string]a
 	client := &http.Client{Timeout: trackerAgentHTTPTimeout}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("agent board unavailable: %w", err)
+		return nil, fmt.Errorf("доска агента недоступна: %w", err)
 	}
 	defer resp.Body.Close()
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
@@ -691,7 +691,7 @@ func (b *Bot) remoteTrackerRequest(op string, taskID int64, payload map[string]a
 				msg = strings.TrimSpace(env.Error)
 			}
 			if msg == "" {
-				msg = fmt.Sprintf("board responded %d", resp.StatusCode)
+				msg = fmt.Sprintf("доска ответила %d", resp.StatusCode)
 			}
 			return nil, fmt.Errorf("%s", msg)
 		}
@@ -700,7 +700,7 @@ func (b *Bot) remoteTrackerRequest(op string, taskID int64, payload map[string]a
 		}
 	}
 	if resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("agent board: HTTP %d", resp.StatusCode)
+		return nil, fmt.Errorf("доска агента: HTTP %d", resp.StatusCode)
 	}
 	return json.RawMessage(raw), nil
 }
@@ -712,10 +712,10 @@ func (b *Bot) finishTrackerComposerLocal(t database.TrackerTask, phase string, s
 	passed := false
 	if b.aiClient != nil {
 		raw, err := b.aiClient.Chat([]ai.ChatMessage{
-			{Role: "system", Content: `You are the Fat Leopard reviewer/tester.
-Reply with JSON only: {"pass":true/false,"note":"1–3 sentences, no emoji"}.
-pass true only if the code has the feature from the task (for donations — tier in config.go, not a stub).
-pass false if there is no commit, note only, config.go is truncated, or the tier is missing.`},
+			{Role: "system", Content: `Ты — ревьюер/тестировщик Fat Leopard.
+Ответь JSON без обрамления: {"pass":true/false,"note":"1–3 предложения без эмодзи"}.
+pass true только если в коде есть фича из формулировки (для доната — номинал в config.go, не заглушка).
+pass false если нет коммита, только заметка, config.go обрезан или номинала нет.`},
 			{Role: "user", Content: trackerAgentPrompt(t, phase)},
 		}, "")
 		if err == nil {
@@ -736,38 +736,38 @@ pass false if there is no commit, note only, config.go is truncated, or the tier
 				passed = trackerComposerPassed(phase, note)
 			}
 		} else {
-			note = "Local verdict unavailable: " + err.Error()
+			note = "Локальный вердикт недоступен: " + err.Error()
 			passed = false
 		}
 	}
 	if note == "" {
-		note = "Composer unavailable: " + startErr.Error()
+		note = "Composer недоступен: " + startErr.Error()
 		passed = false
 	}
 	if len([]rune(note)) > 1200 {
 		note = string([]rune(note)[:1200])
 	}
-	label := "Composer: review"
+	label := "Composer: ревью"
 	if phase == "test" {
-		label = "Composer: test"
+		label = "Composer: тест"
 	}
 	t.Result = strings.TrimSpace(t.Result + "\n\n" + label + ":\n" + note)
 	if passed {
-		appendTrackerStep(&t, label+" accepted")
+		appendTrackerStep(&t, label+" принято")
 		if phase == "review" || phase == "test" {
 			stampPhase := phase
-			stampLabel := "review"
+			stampLabel := "ревью"
 			if phase == "test" {
-				stampLabel = "test"
+				stampLabel = "тест"
 			}
 			if sha, berr, serr := b.stampTrackerCommit(t, stampPhase, note); serr != nil {
-				t.Error = "no " + stampLabel + " commit: " + serr.Error()
-				appendTrackerStep(&t, "commit "+stampLabel+" failed")
+				t.Error = "нет коммита " + stampLabel + ": " + serr.Error()
+				appendTrackerStep(&t, "коммит "+stampLabel+" не вышел")
 				return b.db.SaveTrackerTask(t)
 			} else {
-				appendTrackerStep(&t, "commit "+sha+" "+stampLabel)
+				appendTrackerStep(&t, "коммит "+sha+" "+stampLabel)
 				if berr != "" {
-					appendTrackerStep(&t, "branch "+berr)
+					appendTrackerStep(&t, "ветка "+berr)
 				}
 			}
 		}
@@ -784,9 +784,9 @@ pass false if there is no commit, note only, config.go is truncated, or the tier
 	}
 	t.Error = clipNotifyText(note)
 	if phase == "review" {
-		appendTrackerStep(&t, label+" not accepted")
+		appendTrackerStep(&t, label+" не принято")
 		_ = applyTrackerColumn(&t, trackerColDoing)
-		appendTrackerStep(&t, "Returned to doing: review rejected")
+		appendTrackerStep(&t, "Вернули в работу: ревью не принято")
 		if err := b.db.SaveTrackerTask(t); err != nil {
 			return err
 		}
@@ -849,9 +849,9 @@ func (b *Bot) finishTrackerBuild(taskID int64) {
 		return
 	}
 	if !trackerTaskHasCode(t) {
-		t.Error = "Build did not start: no execution commit"
+		t.Error = "Сборка не запускалась: нет коммита выполнения"
 		_ = applyTrackerColumn(&t, trackerColDoing)
-		appendTrackerStep(&t, "Build was not started")
+		appendTrackerStep(&t, "Сборка не запускалась")
 		if err := b.db.SaveTrackerTask(t); err != nil && b.logger != nil {
 			b.logger.Warnf("трекер: не вернуть #%d с фейковой сборки: %v", trackerDueNum(t), err)
 		}
@@ -863,35 +863,35 @@ func (b *Bot) finishTrackerBuild(taskID int64) {
 	if !trackerTaskShippedToStand(t) {
 		base, pinned, err := b.shipTrackerToMain(t)
 		shippedPinned = pinned
-		// Ветка уже в main, не вышел только заказ сборки (нет access к Railway):
+		// Ветка уже в main, не вышел только заказ сборки (нет доступа к Railway):
 		// код не виноват, в работу не возвращаем — дальше проверяем стенд сами.
 		var deployErr *trackerShipDeployError
 		if errors.As(err, &deployErr) {
 			base = deployErr.Base
-			appendTrackerStep(&t, "Railway rejected build order: "+deployErr.Msg)
+			appendTrackerStep(&t, "Railway не принял заказ сборки: "+deployErr.Msg)
 			err = nil
 		}
 		if err != nil {
-			t.Error = "merge to main failed: " + err.Error()
-			t.Result = strings.TrimSpace(t.Result + "\n\nPush to main failed: " + err.Error())
-			appendTrackerStep(&t, "stand push failed")
+			t.Error = "не влили в main: " + err.Error()
+			t.Result = strings.TrimSpace(t.Result + "\n\nПуш в main не вышел: " + err.Error())
+			appendTrackerStep(&t, "пуш на стенд не вышел")
 			if trackerFailLooksLikeStub(err.Error(), "") {
-				appendTrackerStep(&t, "kept in deploy: branch trimmed files")
+				appendTrackerStep(&t, "не вернули в работу: ветка обрезала файлы")
 				if serr := b.db.SaveTrackerTask(t); serr != nil && b.logger != nil {
 					b.logger.Warnf("трекер: не сохранить срыв пуша #%d: %v", trackerDueNum(t), serr)
 				}
 				return
 			}
 			_ = applyTrackerColumn(&t, trackerColDoing)
-			appendTrackerStep(&t, "returned to doing: push failed")
+			appendTrackerStep(&t, "вернули в работу: пуш не вышел")
 			if serr := b.db.SaveTrackerTask(t); serr != nil && b.logger != nil {
 				b.logger.Warnf("трекер: не сохранить срыв пуша #%d: %v", trackerDueNum(t), serr)
 			}
 			b.kickTrackerPipeline(t)
 			return
 		}
-		appendTrackerStep(&t, "push to "+base)
-		appendTrackerStep(&t, "waiting for stand build")
+		appendTrackerStep(&t, "пуш в "+base)
+		appendTrackerStep(&t, "ждём сборку на стенде")
 		t.Error = ""
 		if err := b.db.SaveTrackerTask(t); err != nil && b.logger != nil {
 			b.logger.Warnf("трекер: не сохранить сборку #%d: %v", trackerDueNum(t), err)
@@ -906,7 +906,7 @@ func (b *Bot) finishTrackerBuild(taskID int64) {
 		if len(shippedPinned) > 0 {
 			order = trackerDeployOrder{Ordered: true, Pinned: shippedPinned}
 			for name := range shippedPinned {
-				appendTrackerStep(&t, "Railway: building "+name)
+				appendTrackerStep(&t, "Railway: собираем "+name)
 			}
 		} else {
 			order = b.startTrackerDeploy(&t)
@@ -928,7 +928,7 @@ func (b *Bot) finishTrackerBuild(taskID int64) {
 	}
 	b.clearTrackerDeployOrder(t.ID)
 	_ = applyTrackerColumn(&t, trackerColDone)
-	appendTrackerStep(&t, "stand build succeeded")
+	appendTrackerStep(&t, "стенд собрался")
 	t.Error = ""
 	if err := b.db.SaveTrackerTask(t); err != nil {
 		if b.logger != nil {
@@ -940,7 +940,7 @@ func (b *Bot) finishTrackerBuild(taskID int64) {
 }
 
 // closeTrackerShippedUnwatched — код уже в main, но заказать или проверить сборку
-// на Railway не вышло (нет access). Возвращать в работу нечего: агент
+// на Railway не вышло (нет доступа). Возвращать в работу нечего: агент
 // переделывал готовое, ревью не находило нового коммита, и карточка крутилась (#171).
 func (b *Bot) closeTrackerShippedUnwatched(t *database.TrackerTask) {
 	if t == nil {
@@ -949,8 +949,8 @@ func (b *Bot) closeTrackerShippedUnwatched(t *database.TrackerTask) {
 	_ = applyTrackerColumn(t, trackerColDone)
 	appendTrackerStep(t, trackerShippedUnwatchedStep)
 	t.Error = ""
-	t.Result = strings.TrimSpace(t.Result + "\n\nMerged to main. Tracker could not verify the Railway build: " +
-		"Railway will build from the push to main. Check RAILWAY_API_TOKEN for ms_leo and ms-tracker.")
+	t.Result = strings.TrimSpace(t.Result + "\n\nВлито в main. Сборку на Railway трекер проверить не смог: " +
+		"Railway соберёт её сам по пушу в main. Проверь RAILWAY_API_TOKEN у ms_leo и ms-tracker.")
 	if err := b.db.SaveTrackerTask(*t); err != nil {
 		if b.logger != nil {
 			b.logger.Warnf("трекер: не закрыть #%d без стенда: %v", trackerDueNum(*t), err)
@@ -960,7 +960,7 @@ func (b *Bot) closeTrackerShippedUnwatched(t *database.TrackerTask) {
 	b.notifyTrackerShippedOnce(*t)
 }
 
-const trackerShippedUnwatchedStep = "merged to main, Railway build unchecked"
+const trackerShippedUnwatchedStep = "влито в main, сборку на Railway не проверили"
 
 // trackerShipDeployError — трекер влил ветку в main, но сборку на Railway не заказал.
 type trackerShipDeployError struct {
@@ -969,11 +969,11 @@ type trackerShipDeployError struct {
 }
 
 func (e *trackerShipDeployError) Error() string {
-	return "merged into " + e.Base + ", but Railway build was not ordered: " + e.Msg
+	return "влили в " + e.Base + ", но не заказали сборку Railway: " + e.Msg
 }
 
 // trackerStandFailedStep — сборка на стенде упала, карточка ждёт человека.
-const trackerStandFailedStep = "build failed: awaiting human"
+const trackerStandFailedStep = "сборка не прошла: ждём человека"
 
 // stopTrackerOnFailedStand — сборка на стенде упала. Задачу заново не делаем:
 // агент переписывал готовый код по логам сборки и крутил карточку. Карточка
@@ -983,7 +983,7 @@ func (b *Bot) stopTrackerOnFailedStand(t *database.TrackerTask, waitErr error) {
 	if t == nil {
 		return
 	}
-	reason := "build failed"
+	reason := "сборка не прошла"
 	if waitErr != nil && strings.TrimSpace(waitErr.Error()) != "" {
 		reason = waitErr.Error()
 	}
@@ -991,15 +991,15 @@ func (b *Bot) stopTrackerOnFailedStand(t *database.TrackerTask, waitErr error) {
 	if id := standBuildDeployID(waitErr); id != "" {
 		logs = b.railwayDeployLogs(id)
 	}
-	note := "Stand build failed: " + reason
+	note := "Сборка на стенде не прошла: " + reason
 	if logs != "" {
-		note += "\n\nRailway build logs:\n" + logs
+		note += "\n\nЛоги сборки Railway:\n" + logs
 	}
-	t.Error = clipNotifyText("stand build: " + reason)
+	t.Error = clipNotifyText("сборка на стенде: " + reason)
 	t.Result = strings.TrimSpace(t.Result + "\n\n" + note)
-	appendTrackerStep(t, "stand build failed")
+	appendTrackerStep(t, "сборка на стенде не прошла")
 	if trackerFailLooksLikeStub(reason, logs) {
-		appendTrackerStep(t, "kept in deploy: stub build failed")
+		appendTrackerStep(t, "не вернули в работу: сборка упала на заглушке")
 		if serr := b.db.SaveTrackerTask(*t); serr != nil && b.logger != nil {
 			b.logger.Warnf("трекер: не сохранить срыв стенда #%d: %v", trackerDueNum(*t), serr)
 		}
@@ -1018,11 +1018,11 @@ func (b *Bot) stopTrackerOnFailedStand(t *database.TrackerTask, waitErr error) {
 
 // trackerStandFailedNotice — сообщение автору: сборка упала, код уже в main.
 func trackerStandFailedNotice(num int, reason, logs string) string {
-	text := fmt.Sprintf("Task #%d: stand build failed — %s.\n\n"+
-		"Code is already on main; Railway kept the previous version. The task won't auto-restart: "+
-		"fix the build or tap «Run again» on the card.", num, reason)
+	text := fmt.Sprintf("Задача #%d: сборка на стенде не прошла — %s.\n\n"+
+		"Код уже в main, Railway оставил прошлую версию. Сама задача не перезапускается: "+
+		"почини сборку или нажми «Запустить снова» на карточке.", num, reason)
 	if strings.TrimSpace(logs) != "" {
-		text += "\n\nRailway build logs:\n" + logs
+		text += "\n\nЛоги сборки Railway:\n" + logs
 	}
 	return clipNotifyText(text)
 }
@@ -1041,12 +1041,12 @@ func trackerTaskBranch(t database.TrackerTask) string {
 
 func (b *Bot) stampTrackerCommit(t database.TrackerTask, phase, note string) (sha, branch string, err error) {
 	if b == nil || b.config == nil {
-		return "", "", fmt.Errorf("tracker not configured")
+		return "", "", fmt.Errorf("трекер не настроен")
 	}
 	secret := strings.TrimSpace(b.config.BoardSecret)
 	baseURL := strings.TrimRight(strings.TrimSpace(b.config.BoardURL), "/")
 	if secret == "" || baseURL == "" {
-		return "", "", fmt.Errorf("tracker not configured")
+		return "", "", fmt.Errorf("трекер не настроен")
 	}
 	payload, err := json.Marshal(map[string]any{
 		"source_task_id": t.ID,
@@ -1069,7 +1069,7 @@ func (b *Bot) stampTrackerCommit(t database.TrackerTask, phase, note string) (sh
 	client := &http.Client{Timeout: trackerShipHTTPTimeout}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", "", fmt.Errorf("tracker unavailable: %w", err)
+		return "", "", fmt.Errorf("трекер недоступен: %w", err)
 	}
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
@@ -1093,13 +1093,13 @@ func (b *Bot) stampTrackerCommit(t database.TrackerTask, phase, note string) (sh
 
 func (b *Bot) inspectTrackerBranch(t database.TrackerTask) (bool, error) {
 	if b == nil || b.config == nil {
-		return false, fmt.Errorf("tracker not configured")
+		return false, fmt.Errorf("трекер не настроен")
 	}
 	secret := strings.TrimSpace(b.config.BoardSecret)
 	baseURL := strings.TrimRight(strings.TrimSpace(b.config.BoardURL), "/")
 	branch := trackerTaskBranch(t)
 	if secret == "" || baseURL == "" || branch == "" {
-		return false, fmt.Errorf("no task branch")
+		return false, fmt.Errorf("нет ветки задачи")
 	}
 	req, err := http.NewRequest(http.MethodGet, baseURL+"/api/inspect?branch="+url.QueryEscape(branch), nil)
 	if err != nil {
@@ -1109,7 +1109,7 @@ func (b *Bot) inspectTrackerBranch(t database.TrackerTask) (bool, error) {
 	req.Header.Set("Authorization", "Bearer "+secret)
 	resp, err := (&http.Client{Timeout: trackerAgentHTTPTimeout}).Do(req)
 	if err != nil {
-		return false, fmt.Errorf("tracker unavailable: %w", err)
+		return false, fmt.Errorf("трекер недоступен: %w", err)
 	}
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
@@ -1134,12 +1134,12 @@ func (b *Bot) inspectTrackerBranch(t database.TrackerTask) (bool, error) {
 
 func (b *Bot) shipTrackerToMain(t database.TrackerTask) (string, map[string]string, error) {
 	if b == nil || b.config == nil {
-		return "", nil, fmt.Errorf("tracker not configured")
+		return "", nil, fmt.Errorf("трекер не настроен")
 	}
 	secret := strings.TrimSpace(b.config.BoardSecret)
 	baseURL := strings.TrimRight(strings.TrimSpace(b.config.BoardURL), "/")
 	if secret == "" || baseURL == "" {
-		return "", nil, fmt.Errorf("tracker not configured")
+		return "", nil, fmt.Errorf("трекер не настроен")
 	}
 	payload, err := json.Marshal(map[string]any{
 		"source_task_id": t.ID,
@@ -1160,7 +1160,7 @@ func (b *Bot) shipTrackerToMain(t database.TrackerTask) (string, map[string]stri
 	client := &http.Client{Timeout: trackerShipHTTPTimeout}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", nil, fmt.Errorf("tracker unavailable: %w", err)
+		return "", nil, fmt.Errorf("трекер недоступен: %w", err)
 	}
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
@@ -1188,7 +1188,7 @@ func (b *Bot) shipTrackerToMain(t database.TrackerTask) (string, map[string]stri
 		return "", nil, fmt.Errorf("%s", msg)
 	}
 	if len(parsed.Pinned) == 0 {
-		return "", nil, &trackerShipDeployError{Base: base, Msg: "Railway returned no build ids"}
+		return "", nil, &trackerShipDeployError{Base: base, Msg: "Railway не вернул id сборок"}
 	}
 	return base, parsed.Pinned, nil
 }
@@ -1200,12 +1200,12 @@ const trackerAskHTTPTimeout = 200 * time.Second
 // там стоит Claude Agent SDK с доступом по подписке.
 func (b *Bot) trackerAskClaude(system, prompt, model string) (string, error) {
 	if b == nil || b.config == nil {
-		return "", fmt.Errorf("tracker not configured")
+		return "", fmt.Errorf("трекер не настроен")
 	}
 	secret := strings.TrimSpace(b.config.BoardSecret)
 	baseURL := strings.TrimRight(strings.TrimSpace(b.config.BoardURL), "/")
 	if secret == "" || baseURL == "" {
-		return "", fmt.Errorf("tracker not configured")
+		return "", fmt.Errorf("трекер не настроен")
 	}
 	payload, err := json.Marshal(map[string]string{"system": system, "prompt": prompt, "model": model})
 	if err != nil {
@@ -1220,7 +1220,7 @@ func (b *Bot) trackerAskClaude(system, prompt, model string) (string, error) {
 	req.Header.Set("Authorization", "Bearer "+secret)
 	resp, err := (&http.Client{Timeout: trackerAskHTTPTimeout}).Do(req)
 	if err != nil {
-		return "", fmt.Errorf("tracker unavailable: %w", err)
+		return "", fmt.Errorf("трекер недоступен: %w", err)
 	}
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
@@ -1239,7 +1239,7 @@ func (b *Bot) trackerAskClaude(system, prompt, model string) (string, error) {
 	}
 	text := strings.TrimSpace(parsed.Text)
 	if text == "" {
-		return "", fmt.Errorf("empty response")
+		return "", fmt.Errorf("пустой ответ")
 	}
 	return text, nil
 }
@@ -1262,7 +1262,7 @@ func (b *Bot) localTrackerComposer(taskID int64, payload map[string]any, phase s
 	case "test":
 		_ = applyTrackerColumn(&t, trackerColTest)
 	default:
-		return nil, fmt.Errorf("unknown phase")
+		return nil, fmt.Errorf("нет такой фазы")
 	}
 	if err := b.db.SaveTrackerTask(t); err != nil {
 		return nil, err

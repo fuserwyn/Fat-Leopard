@@ -139,14 +139,14 @@ func (b *Bot) trackerApprovalNotifyText(t database.TrackerTask, reminder bool) s
 	}
 	text := ""
 	if reminder {
-		text = "⏰ Reminder: "
+		text = "⏰ Напоминание: "
 	}
-	text += fmt.Sprintf("📋 %s awaiting approval\n\n", trackerNotifyHeading(t))
-	text += fmt.Sprintf("Posted by: %s\n\n", b.trackerTaskAuthorLabel(t))
+	text += fmt.Sprintf("📋 %s ждёт аппрува\n\n", trackerNotifyHeading(t))
+	text += fmt.Sprintf("Поставил: %s\n\n", b.trackerTaskAuthorLabel(t))
 	if prompt != "" {
 		text += prompt + "\n\n"
 	}
-	text += fmt.Sprintf("Approvals: %d/%d", len(t.Approvals), trackerApprovalRequired)
+	text += fmt.Sprintf("Аппрувы: %d/%d", len(t.Approvals), trackerApprovalRequired)
 	return text
 }
 
@@ -154,8 +154,8 @@ func trackerApprovalNotifyKeyboard(taskID int64) tgbotapi.InlineKeyboardMarkup {
 	id := strconv.FormatInt(taskID, 10)
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("✅ Approve", trackerApprovalCallbackPrefix+"approve_"+id),
-			tgbotapi.NewInlineKeyboardButtonData("❌ Reject", trackerApprovalCallbackPrefix+"reject_"+id),
+			tgbotapi.NewInlineKeyboardButtonData("✅ Аппрув", trackerApprovalCallbackPrefix+"approve_"+id),
+			tgbotapi.NewInlineKeyboardButtonData("❌ Не аппрув", trackerApprovalCallbackPrefix+"reject_"+id),
 		),
 	)
 }
@@ -164,11 +164,11 @@ func trackerApprovalRejectKeyboard(taskID int64) tgbotapi.InlineKeyboardMarkup {
 	id := strconv.FormatInt(taskID, 10)
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("✏️ Edit description", trackerApprovalCallbackPrefix+"edit_"+id),
+			tgbotapi.NewInlineKeyboardButtonData("✏️ Изменить описание", trackerApprovalCallbackPrefix+"edit_"+id),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("🗑 Cancel with comment", trackerApprovalCallbackPrefix+"cancel_"+id),
-			tgbotapi.NewInlineKeyboardButtonData("⛔ Cancel without comment", trackerApprovalCallbackPrefix+"dismiss_"+id),
+			tgbotapi.NewInlineKeyboardButtonData("🗑 Отменить с комментарием", trackerApprovalCallbackPrefix+"cancel_"+id),
+			tgbotapi.NewInlineKeyboardButtonData("⛔ Отменить без комментария", trackerApprovalCallbackPrefix+"dismiss_"+id),
 		),
 	)
 }
@@ -182,7 +182,7 @@ func (b *Bot) handleTrackerApprovalCallback(callback *tgbotapi.CallbackQuery) bo
 		return false
 	}
 	if !b.isAdminTelegramUser(callback.From.ID) || !callback.Message.Chat.IsPrivate() {
-		b.api.Request(tgbotapi.NewCallback(callback.ID, "Insufficient permissions"))
+		b.api.Request(tgbotapi.NewCallback(callback.ID, "Недостаточно прав"))
 		return true
 	}
 	rest := strings.TrimPrefix(data, trackerApprovalCallbackPrefix)
@@ -194,7 +194,7 @@ func (b *Bot) handleTrackerApprovalCallback(callback *tgbotapi.CallbackQuery) bo
 	action := parts[0]
 	taskID, err := strconv.ParseInt(parts[1], 10, 64)
 	if err != nil || taskID <= 0 {
-		b.api.Request(tgbotapi.NewCallback(callback.ID, "Task not found"))
+		b.api.Request(tgbotapi.NewCallback(callback.ID, "Задача не найдена"))
 		return true
 	}
 	adminID := callback.From.ID
@@ -210,7 +210,7 @@ func (b *Bot) handleTrackerApprovalCallback(callback *tgbotapi.CallbackQuery) bo
 		return true
 	case "reject":
 		edit := tgbotapi.NewEditMessageText(callback.Message.Chat.ID, callback.Message.MessageID,
-			fmt.Sprintf("What to do with task #%d?", taskID))
+			fmt.Sprintf("Что сделать с задачей #%d?", taskID))
 		kb := trackerApprovalRejectKeyboard(taskID)
 		edit.ReplyMarkup = &kb
 		b.api.Send(edit)
@@ -219,13 +219,13 @@ func (b *Bot) handleTrackerApprovalCallback(callback *tgbotapi.CallbackQuery) bo
 	case "edit":
 		b.startTrackerApprovalEdit(adminID, taskID)
 		b.api.Send(tgbotapi.NewMessage(callback.Message.Chat.ID,
-			fmt.Sprintf("✏️ Send a new description for task #%d. /cancel to abort.", taskID)))
+			fmt.Sprintf("✏️ Пришли новое описание для задачи #%d. /cancel — отмена.", taskID)))
 		b.api.Request(tgbotapi.NewCallback(callback.ID, ""))
 		return true
 	case "cancel":
 		b.startTrackerApprovalCancel(adminID, taskID, true)
 		b.api.Send(tgbotapi.NewMessage(callback.Message.Chat.ID,
-			fmt.Sprintf("🗑 Send a comment for the task author #%d or «-» for none. /cancel to abort.", taskID)))
+			fmt.Sprintf("🗑 Пришли комментарий для автора задачи #%d или «-» без комментария. /cancel — отмена.", taskID)))
 		b.api.Request(tgbotapi.NewCallback(callback.ID, ""))
 		return true
 	case "dismiss":
@@ -233,7 +233,7 @@ func (b *Bot) handleTrackerApprovalCallback(callback *tgbotapi.CallbackQuery) bo
 			b.api.Request(tgbotapi.NewCallback(callback.ID, err.Error()))
 			return true
 		}
-		b.api.Request(tgbotapi.NewCallback(callback.ID, "Task cancelled"))
+		b.api.Request(tgbotapi.NewCallback(callback.ID, "Задача отменена"))
 		b.editTrackerApprovalMessage(callback.Message, taskID)
 		return true
 	default:
@@ -248,7 +248,7 @@ func (b *Bot) editTrackerApprovalMessage(msg *tgbotapi.Message, taskID int64) {
 	}
 	t, err := b.db.GetTrackerTask(taskID)
 	if err != nil {
-		edit := tgbotapi.NewEditMessageText(msg.Chat.ID, msg.MessageID, "Task updated.")
+		edit := tgbotapi.NewEditMessageText(msg.Chat.ID, msg.MessageID, "Задача обновлена.")
 		edit.ReplyMarkup = &tgbotapi.InlineKeyboardMarkup{InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{}}
 		b.api.Send(edit)
 		return
@@ -259,10 +259,10 @@ func (b *Bot) editTrackerApprovalMessage(msg *tgbotapi.Message, taskID int64) {
 		kb := trackerApprovalNotifyKeyboard(taskID)
 		markup = &kb
 	} else if t.DevColumn == trackerColDoing {
-		text = fmt.Sprintf("✅ %s approved and moved to in progress.", trackerNotifyHeading(t))
+		text = fmt.Sprintf("✅ %s одобрена и ушла в работу.", trackerNotifyHeading(t))
 		markup = &tgbotapi.InlineKeyboardMarkup{InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{}}
 	} else if t.Status == "canceled" || t.DevColumn == trackerColCanceled {
-		text = fmt.Sprintf("⛔ %s cancelled.", trackerNotifyHeading(t))
+		text = fmt.Sprintf("⛔ %s отменена.", trackerNotifyHeading(t))
 		markup = &tgbotapi.InlineKeyboardMarkup{InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{}}
 	}
 	edit := tgbotapi.NewEditMessageText(msg.Chat.ID, msg.MessageID, text)
@@ -271,27 +271,27 @@ func (b *Bot) editTrackerApprovalMessage(msg *tgbotapi.Message, taskID int64) {
 }
 
 func (b *Bot) approveTrackerTask(taskID, adminID int64) (string, error) {
-	return b.applyTrackerApproval(taskID, adminID, fmt.Sprintf("Approved by admin %d", adminID))
+	return b.applyTrackerApproval(taskID, adminID, fmt.Sprintf("Аппрув от админа %d", adminID))
 }
 
 // applyTrackerApproval — учесть голос (админа или Лео) и, если набралось
 // нужное число, отправить задачу в работу. label — начало шага в истории.
 func (b *Bot) applyTrackerApproval(taskID, approverID int64, label string) (string, error) {
 	if b == nil || b.db == nil {
-		return "", fmt.Errorf("database unavailable")
+		return "", fmt.Errorf("база недоступна")
 	}
 	t, err := b.db.GetTrackerTask(taskID)
 	if err != nil {
 		return "", err
 	}
 	if !t.NeedsApproval || t.DevColumn != trackerColApprove {
-		return "", fmt.Errorf("task is not awaiting approval")
+		return "", fmt.Errorf("задача не ждёт аппрува")
 	}
 	if t.HasAuthor && t.AuthorID == approverID {
-		return "", fmt.Errorf("author cannot approve their own task")
+		return "", fmt.Errorf("автор не может аппрувить свою задачу")
 	}
 	if !trackerAppendApproval(&t, approverID) {
-		return "You already approved", nil
+		return "Вы уже аппрувнули", nil
 	}
 	appendTrackerStep(&t, fmt.Sprintf("%s (%d/%d)", label, len(t.Approvals), trackerApprovalRequired))
 	if len(t.Approvals) >= trackerApprovalRequired {
@@ -299,12 +299,12 @@ func (b *Bot) applyTrackerApproval(taskID, approverID int64, label string) (stri
 			if err := applyTrackerColumn(&t, trackerColTodo); err != nil {
 				return "", err
 			}
-			appendTrackerStep(&t, "Two approvals — waiting for queue")
+			appendTrackerStep(&t, "Два аппрува — ждёт очередь")
 		} else {
 			if err := applyTrackerColumn(&t, trackerColDoing); err != nil {
 				return "", err
 			}
-			appendTrackerStep(&t, "Two approvals — into doing")
+			appendTrackerStep(&t, "Два аппрува — в работу")
 		}
 	}
 	if err := b.db.SaveTrackerTask(t); err != nil {
@@ -312,29 +312,29 @@ func (b *Bot) applyTrackerApproval(taskID, approverID int64, label string) (stri
 	}
 	if t.DevColumn == trackerColDoing {
 		b.dispatchTrackerAgent(t, "doing")
-		return "Task moved to in progress", nil
+		return "Задача ушла в работу", nil
 	}
 	if len(t.Approvals) >= trackerApprovalRequired {
-		return "Task queued — wait for the current one", nil
+		return "Задача в очереди — дождитесь текущей", nil
 	}
-	return fmt.Sprintf("Approval recorded (%d/%d)", len(t.Approvals), trackerApprovalRequired), nil
+	return fmt.Sprintf("Аппрув учтён (%d/%d)", len(t.Approvals), trackerApprovalRequired), nil
 }
 
 func (b *Bot) dismissTrackerApproval(taskID, adminID int64, comment string) error {
 	if b == nil || b.db == nil {
-		return fmt.Errorf("database unavailable")
+		return fmt.Errorf("база недоступна")
 	}
 	t, err := b.db.GetTrackerTask(taskID)
 	if err != nil {
 		return err
 	}
 	if t.DevColumn != trackerColApprove {
-		return fmt.Errorf("task is no longer awaiting approval")
+		return fmt.Errorf("задача уже не на аппруве")
 	}
 	if err := applyTrackerColumn(&t, trackerColCanceled); err != nil {
 		return err
 	}
-	step := fmt.Sprintf("Rejected by admin %d", adminID)
+	step := fmt.Sprintf("Отклонена админом %d", adminID)
 	if c := strings.TrimSpace(comment); c != "" && c != "-" {
 		step += ": " + c
 	}
@@ -343,9 +343,9 @@ func (b *Bot) dismissTrackerApproval(taskID, adminID int64, comment string) erro
 		return err
 	}
 	if t.HasAuthor && t.AuthorID > 0 {
-		note := fmt.Sprintf("⛔ %s cancelled after approval.", trackerNotifyHeading(t))
+		note := fmt.Sprintf("⛔ %s отменена после аппрува.", trackerNotifyHeading(t))
 		if c := strings.TrimSpace(comment); c != "" && c != "-" {
-			note += "\n\nComment: " + c
+			note += "\n\nКомментарий: " + c
 		}
 		_ = b.NotifyTrackerAuthor(t.AuthorID, note)
 	}
@@ -387,31 +387,31 @@ func (b *Bot) handleTrackerApprovalFlowMessage(msg *tgbotapi.Message, session *a
 		}
 		prompt := strings.TrimSpace(msg.Text)
 		if prompt == "" {
-			b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "⚠️ Description is empty. Send text or /cancel."))
+			b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "⚠️ Описание пустое. Пришли текст или /cancel."))
 			return true
 		}
 		t, err := b.db.GetTrackerTask(session.TaskID)
 		if err != nil {
 			b.clearAdminFlow(msg.From.ID)
-			b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "❌ Task not found."))
+			b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "❌ Задача не найдена."))
 			return true
 		}
 		if t.DevColumn != trackerColApprove {
 			b.clearAdminFlow(msg.From.ID)
-			b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "Task is no longer awaiting approval."))
+			b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "Задача уже не на аппруве."))
 			return true
 		}
 		t.Prompt = prompt
 		t.Approvals = nil
-		appendTrackerStep(&t, "Description updated after rejection")
-		appendTrackerStep(&t, "Approvals reset")
+		appendTrackerStep(&t, "Описание обновили после отказа")
+		appendTrackerStep(&t, "Аппрувы сброшены")
 		if err := b.db.SaveTrackerTask(t); err != nil {
-			b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "❌ Could not save: "+err.Error()))
+			b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "❌ Не сохранилось: "+err.Error()))
 			return true
 		}
 		b.clearAdminFlow(msg.From.ID)
 		b.notifyTrackerApprovalsNeeded(t)
-		b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("✅ Task #%d description updated — admins notified again.", trackerDueNum(t))))
+		b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, fmt.Sprintf("✅ Описание задачи #%d обновлено, админам снова ушло уведомление.", trackerDueNum(t))))
 		return true
 	case "tracker_approval_cancel":
 		if session.Step != "await_comment" {
@@ -423,7 +423,7 @@ func (b *Bot) handleTrackerApprovalFlowMessage(msg *tgbotapi.Message, session *a
 			return true
 		}
 		b.clearAdminFlow(msg.From.ID)
-		b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "✅ Task cancelled."))
+		b.api.Send(tgbotapi.NewMessage(msg.Chat.ID, "✅ Задача отменена."))
 		return true
 	default:
 		return false
@@ -447,7 +447,7 @@ func (b *Bot) localTrackerApprove(taskID int64, payload map[string]any, adminID 
 			return nil, err
 		}
 	default:
-		return nil, fmt.Errorf("this action is not available on the board")
+		return nil, fmt.Errorf("такое действие доске недоступно")
 	}
 	t, err := b.localTrackerLoad(taskID, payload)
 	if err != nil {

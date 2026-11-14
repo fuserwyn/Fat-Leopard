@@ -95,11 +95,11 @@ func TestTrackerTaskShippedToStand(t *testing.T) {
 	if trackerTaskShippedToStand(database.TrackerTask{Steps: []string{"тест пройден"}}) {
 		t.Fatal("test is not ship")
 	}
-	if !trackerTaskShippedToStand(database.TrackerTask{Steps: []string{"push to main", "waiting for stand build"}}) {
+	if !trackerTaskShippedToStand(database.TrackerTask{Steps: []string{"пуш в main", "ждём сборку на стенде"}}) {
 		t.Fatal("shipped")
 	}
 	if trackerTaskShippedToStand(database.TrackerTask{Steps: []string{
-		"push to main", "waiting for stand build", "returned to doing: build failed",
+		"пуш в main", "ждём сборку на стенде", "вернули в работу: сборка не прошла",
 	}}) {
 		t.Fatal("retry must ship again")
 	}
@@ -168,16 +168,16 @@ func TestTryBeginTrackerStandOnce(t *testing.T) {
 // автодожим сборки и перезапуск агента такую карточку не трогают.
 func TestFailedStandWaitsForHuman(t *testing.T) {
 	note := trackerStandFailedNotice(171, "Deployment failed", "Build Failed: exit 1")
-	for _, want := range []string{"#171", "Deployment failed", "Code is already on main", "Run again", "Build Failed"} {
+	for _, want := range []string{"#171", "Deployment failed", "Код уже в main", "Запустить снова", "Build Failed"} {
 		if !strings.Contains(note, want) {
 			t.Errorf("в сообщении нет %q: %s", want, note)
 		}
 	}
-	if strings.Contains(trackerStandFailedNotice(1, "timeout", ""), "Railway build logs") {
+	if strings.Contains(trackerStandFailedNotice(1, "timeout", ""), "Логи") {
 		t.Error("без логов блока логов нет")
 	}
 	failed := database.TrackerTask{DevColumn: trackerColDeploy, Status: "error",
-		Error: "stand build: Deployment failed", Steps: []string{trackerStandFailedStep}}
+		Error: "сборка на стенде: Deployment failed", Steps: []string{trackerStandFailedStep}}
 	if trackerNeedsAgentKick(failed, time.Now(), false) || trackerCardInDoing(failed) {
 		t.Error("упавшую сборку агент не переделывает")
 	}

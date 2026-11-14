@@ -158,16 +158,16 @@ func (b *Bot) adminMuteUserUGC(chatID, targetUserID, packChatID int64, hours int
 		hours = 24
 	}
 	if err := b.db.MuteUserUGCUntil(targetUserID, packChatID, time.Now().UTC().Add(time.Duration(hours)*time.Hour)); err != nil {
-		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Failed to mute: "+err.Error()))
+		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Не удалось замьютить: "+err.Error()))
 		return
 	}
 	count, _ := b.db.IncrementUGCViolationCount(targetUserID, packChatID)
 	b.api.Send(tgbotapi.NewMessage(chatID, fmt.Sprintf(
-		"🔇 User %d: UGC mute for %d h. Violations: %d.",
+		"🔇 Пользователь %d: UGC-мьют на %d ч. Нарушений: %d.",
 		targetUserID, hours, count,
 	)))
 	b.notifyUserTextByID(targetUserID, packChatID,
-		fmt.Sprintf("🔇 Pack posts are limited for %d h by a moderator.", hours),
+		adminUGCMuteNotice(b.EffectiveUILang(targetUserID), hours),
 		"", 0)
 }
 
@@ -177,20 +177,20 @@ func (b *Bot) adminUnmuteUserUGC(chatID, targetUserID, packChatID int64) {
 	}
 	muted, err := b.db.IsUserUGCMuted(targetUserID, packChatID)
 	if err != nil {
-		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Failed to check mute status: "+err.Error()))
+		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Не удалось проверить мьют: "+err.Error()))
 		return
 	}
 	if !muted {
-		b.api.Send(tgbotapi.NewMessage(chatID, fmt.Sprintf("ℹ️ User %d is not UGC-muted.", targetUserID)))
+		b.api.Send(tgbotapi.NewMessage(chatID, fmt.Sprintf("ℹ️ Пользователь %d не в UGC-мьюте.", targetUserID)))
 		return
 	}
 	if err := b.db.UnmuteUserUGC(targetUserID, packChatID); err != nil {
-		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Failed to unmute: "+err.Error()))
+		b.api.Send(tgbotapi.NewMessage(chatID, "❌ Не удалось размьютить: "+err.Error()))
 		return
 	}
-	b.api.Send(tgbotapi.NewMessage(chatID, fmt.Sprintf("🔊 User %d: UGC mute lifted.", targetUserID)))
+	b.api.Send(tgbotapi.NewMessage(chatID, fmt.Sprintf("🔊 Пользователь %d: UGC-мьют снят.", targetUserID)))
 	b.notifyUserTextByID(targetUserID, packChatID,
-		"🔊 Pack posting limits lifted. You can write in the feed, chat, and notes again.",
+		adminUGCUnmuteNotice(b.EffectiveUILang(targetUserID)),
 		"", 0)
 }
 
@@ -217,19 +217,19 @@ func (b *Bot) notifyAdminsModerationAlert(userID int64, surface moderation.Surfa
 	surfaceLabel := "UGC"
 	switch surface {
 	case moderation.SurfaceTrainingNote:
-		surfaceLabel = "workout note"
+		surfaceLabel = "заметка тренировки"
 	case moderation.SurfaceFeedComment:
-		surfaceLabel = "feed comment"
+		surfaceLabel = "комментарий в ленте"
 	case moderation.SurfacePackGroupChat:
-		surfaceLabel = "pack group chat"
+		surfaceLabel = "общий чат стаи"
 	case moderation.SurfaceAdminPost, moderation.SurfaceAdminPollQuestion, moderation.SurfaceAdminPollOption:
-		surfaceLabel = "admin post"
+		surfaceLabel = "админ-публикация"
 	case moderation.SurfaceLeoChat:
-		surfaceLabel = "private chat with Leo"
+		surfaceLabel = "личный чат с Лео"
 	}
 	preview := truncateForDM(rawText, 200)
 	body := fmt.Sprintf(
-		"🚨 PRE-moderation · %s\nUser: %d\nReason: %s\n\n«%s»",
+		"🚨 PRE-модерация · %s\nПользователь: %d\nПричина: %s\n\n«%s»",
 		surfaceLabel, userID, res.Reason, preview,
 	)
 	for _, adminID := range b.config.AdminTelegramUserIDs() {

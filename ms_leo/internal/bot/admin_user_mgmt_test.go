@@ -10,7 +10,7 @@ func TestSickLeaveAdminButton(t *testing.T) {
 	const uid = int64(4242)
 
 	active := sickLeaveAdminButton(uid, true)
-	if !strings.Contains(active.Text, "Cancel") {
+	if !strings.Contains(active.Text, "Отменить") {
 		t.Fatalf("active state must offer cancel, got %q", active.Text)
 	}
 	if active.CallbackData == nil || *active.CallbackData != "admin_user_sick_4242" {
@@ -18,7 +18,7 @@ func TestSickLeaveAdminButton(t *testing.T) {
 	}
 
 	set := sickLeaveAdminButton(uid, false)
-	if !strings.Contains(set.Text, "Set") {
+	if !strings.Contains(set.Text, "Выставить") {
 		t.Fatalf("idle state must offer activation, got %q", set.Text)
 	}
 	if set.CallbackData == nil || *set.CallbackData != "admin_user_sick_set_4242" {

@@ -61,7 +61,7 @@ func TestStartCommandForNewcomer(t *testing.T) {
 	if !strings.Contains(texts, "You're in the pack") || strings.Contains(texts, "dropped from the pack") || strings.Contains(texts, "Payment methods") {
 		t.Errorf("новичку — приветствие без экрана оплаты: %s", texts)
 	}
-	if strings.Contains(texts, "Admin panel") {
+	if strings.Contains(texts, "Админ-панель") {
 		t.Error("обычному участнику про админку не пишем")
 	}
 	eventually(t, "событие bot_started с источником", func() bool {
@@ -119,7 +119,7 @@ func TestInfoCommands(t *testing.T) {
 	}
 
 	b.handleUpdate(commandUpdate(itAdmin, "boss", "/start"))
-	if texts := strings.Join(tg.textsTo(itAdmin), "\n"); !strings.Contains(texts, "Admin panel") {
+	if texts := strings.Join(tg.textsTo(itAdmin), "\n"); !strings.Contains(texts, "Админ-панель") {
 		t.Errorf("админу — подсказка про панель: %s", texts)
 	}
 
@@ -156,7 +156,7 @@ func TestInfoCommands(t *testing.T) {
 	}
 	tg.reset()
 	b.handleUpdate(commandUpdate(itAdmin, "boss", "/db"))
-	if texts := strings.Join(tg.textsTo(itAdmin), "\n"); !strings.Contains(texts, "DB stats") {
+	if texts := strings.Join(tg.textsTo(itAdmin), "\n"); !strings.Contains(texts, "Статистика БД") {
 		t.Errorf("/db админу: %s", texts)
 	}
 }

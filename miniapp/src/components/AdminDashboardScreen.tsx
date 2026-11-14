@@ -15,10 +15,10 @@ type Props = {
 };
 
 const PERIODS = [
-  { days: 7, label: "7 days" },
-  { days: 30, label: "30 days" },
-  { days: 90, label: "90 days" },
-  { days: 0, label: "all time" },
+  { days: 7, label: "7 дней" },
+  { days: 30, label: "30 дней" },
+  { days: 90, label: "90 дней" },
+  { days: 0, label: "всё время" },
 ];
 
 function parseCount(raw: string): number {
@@ -32,7 +32,7 @@ function plainTitle(title: string) {
 }
 
 function Empty() {
-  return <p className="dash-muted">No data for this period.</p>;
+  return <p className="dash-muted">Нет данных за этот период.</p>;
 }
 
 function KpiGrid({ kpis, compared }: { kpis: AdminDashKpi[]; compared: boolean }) {
@@ -40,7 +40,7 @@ function KpiGrid({ kpis, compared }: { kpis: AdminDashKpi[]; compared: boolean }
     <section className="dash-panel">
       <h3 className="dash-panel__title">KPI</h3>
       <p className="dash-panel__subtitle">
-        {compared ? "Change vs previous period of the same length." : "All time — nothing to compare."}
+        {compared ? "Изменение — к предыдущему периоду такой же длины." : "За всё время — сравнивать не с чем."}
       </p>
       <div className="dash-kpi">
         {kpis.map((k) => (
@@ -48,7 +48,7 @@ function KpiGrid({ kpis, compared }: { kpis: AdminDashKpi[]; compared: boolean }
             <small>{k.label}</small>
             <b>{k.value}</b>
             {k.delta ? <span className={`dash-kpi__delta dash-kpi__delta--${k.trend ?? "flat"}`}>{k.delta}</span> : null}
-            {k.target ? <span className="dash-kpi__target">goal {k.target}</span> : null}
+            {k.target ? <span className="dash-kpi__target">цель {k.target}</span> : null}
           </div>
         ))}
       </div>
@@ -58,15 +58,15 @@ function KpiGrid({ kpis, compared }: { kpis: AdminDashKpi[]; compared: boolean }
 
 function ActiveRow({ active }: { active: AdminDashboard["active"] }) {
   const cells = [
-    { label: "last day", value: String(active.day) },
-    { label: "last 7 days", value: String(active.week) },
-    { label: "last 30 days", value: String(active.month) },
-    { label: "D1 / M1", value: active.stickiness },
+    { label: "за сутки", value: String(active.day) },
+    { label: "за 7 дней", value: String(active.week) },
+    { label: "за 30 дней", value: String(active.month) },
+    { label: "сутки / месяц", value: active.stickiness },
   ];
   return (
     <section className="dash-panel">
-      <h3 className="dash-panel__title">Active now</h3>
-      <p className="dash-panel__subtitle">How many people logged a workout. Independent of selected period.</p>
+      <h3 className="dash-panel__title">Тренируются сейчас</h3>
+      <p className="dash-panel__subtitle">Сколько человек записали тренировку. От выбранного периода не зависит.</p>
       <div className="dash-stats dash-stats--four">
         {cells.map((c) => (
           <div key={c.label} className="dash-stats__cell">
@@ -90,8 +90,8 @@ function SeriesChart({ series, weekly }: { series: AdminDashSeries; weekly: bool
         <span>{series.label}</span>
         {max > 0 ? (
           <small>
-            {series.total > 0 ? `total ${series.total} · ` : ""}
-            max {max}
+            {series.total > 0 ? `всего ${series.total} · ` : ""}
+            макс {max}
           </small>
         ) : null}
       </div>
@@ -99,7 +99,7 @@ function SeriesChart({ series, weekly }: { series: AdminDashSeries; weekly: bool
         <Empty />
       ) : (
         <>
-          <div className="dash-series__bars" role="img" aria-label={`${series.label}: max ${max}`}>
+          <div className="dash-series__bars" role="img" aria-label={`${series.label}: максимум ${max}`}>
             {series.points.map((p, i) => (
               <span
                 key={p.bucket}
@@ -124,7 +124,7 @@ function SeriesPanel({ dash }: { dash: AdminDashboard }) {
   const series = dash.series ?? [];
   return (
     <section className="dash-panel">
-      <h3 className="dash-panel__title">{weekly ? "Trend by week" : "Trend by day"}</h3>
+      <h3 className="dash-panel__title">{weekly ? "Динамика по неделям" : "Динамика по дням"}</h3>
       {series.length === 0 ? (
         <Empty />
       ) : (
@@ -177,9 +177,10 @@ function FunnelChart({ table }: { table: AdminTable }) {
 function CohortTable({ cohorts }: { cohorts: NonNullable<AdminDashboard["cohorts"]> }) {
   return (
     <section className="dash-panel">
-      <h3 className="dash-panel__title">Cohort retention</h3>
+      <h3 className="dash-panel__title">Удержание по когортам</h3>
       <p className="dash-panel__subtitle">
-        Week of first payment → share who worked out 1, 7, and 30 days after or later. «—» — period not over yet.
+        Неделя первой оплаты → доля тех, кто тренировался спустя 1, 7 и 30 дней после неё или позже. «—» — срок ещё не
+        прошёл.
       </p>
       {cohorts.length === 0 ? (
         <Empty />
@@ -187,11 +188,11 @@ function CohortTable({ cohorts }: { cohorts: NonNullable<AdminDashboard["cohorts
         <table className="dash-table">
           <thead>
             <tr>
-              <th>Week</th>
-              <th>Paid</th>
-              <th>1d</th>
-              <th>7d</th>
-              <th>30d</th>
+              <th>Неделя</th>
+              <th>Оплатили</th>
+              <th>1 д</th>
+              <th>7 д</th>
+              <th>30 д</th>
             </tr>
           </thead>
           <tbody>
@@ -245,17 +246,17 @@ function MoneyPanel({ money }: { money: NonNullable<AdminDashboard["money"]> }) 
   const hasAny = money.some((m) => m.count !== "0");
   return (
     <section className="dash-panel">
-      <h3 className="dash-panel__title">Money</h3>
-      <p className="dash-panel__subtitle">Completed access payments and donations for the period.</p>
+      <h3 className="dash-panel__title">Деньги</h3>
+      <p className="dash-panel__subtitle">Завершённые оплаты доступа и донаты за период.</p>
       {!hasAny ? (
         <Empty />
       ) : (
         <table className="dash-table">
           <thead>
             <tr>
-              <th>Type</th>
-              <th>Payments</th>
-              <th>Amount</th>
+              <th>Тип</th>
+              <th>Оплат</th>
+              <th>Сумма</th>
             </tr>
           </thead>
           <tbody>
@@ -280,14 +281,14 @@ function PackWeeksPanel({ weeks }: { weeks: NonNullable<AdminDashboard["pack_wee
   const hasAny = ordered.some((w) => w.workouts > 0);
   return (
     <section className="dash-panel">
-      <h3 className="dash-panel__title">Pack weekly goal</h3>
-      <p className="dash-panel__subtitle">Pack workouts per week vs goal. Filled bars = goal reached.</p>
+      <h3 className="dash-panel__title">Недельная цель стаи</h3>
+      <p className="dash-panel__subtitle">Тренировки стаи за неделю и цель. Залитые столбики — цель достигнута.</p>
       {!hasAny ? (
         <Empty />
       ) : (
         <div className="dash-pack">
           {ordered.map((w) => (
-            <div key={w.week_start} className="dash-pack__col" title={`${w.workouts} of ${w.goal}`}>
+            <div key={w.week_start} className="dash-pack__col" title={`${w.workouts} из ${w.goal}`}>
               <b>{w.workouts}</b>
               <div className="dash-pack__track">
                 <span className="dash-pack__goal" style={{ bottom: `${(w.goal / max) * 100}%` }} aria-hidden />
@@ -297,7 +298,7 @@ function PackWeeksPanel({ weeks }: { weeks: NonNullable<AdminDashboard["pack_wee
                 />
               </div>
               <small>{dashBucketLabel(w.week_start, true)}</small>
-              <small className="dash-pack__goal-label">of {w.goal}</small>
+              <small className="dash-pack__goal-label">из {w.goal}</small>
             </div>
           ))}
         </div>
@@ -310,8 +311,8 @@ function ChannelsPanel({ channels }: { channels: NonNullable<AdminDashboard["cha
   const max = Math.max(1, ...channels.map((c) => c.started));
   return (
     <section className="dash-panel">
-      <h3 className="dash-panel__title">Channels</h3>
-      <p className="dash-panel__subtitle">Where users came from and how many paid.</p>
+      <h3 className="dash-panel__title">Каналы</h3>
+      <p className="dash-panel__subtitle">Откуда пришли и сколько из них оплатили.</p>
       {channels.length === 0 ? (
         <Empty />
       ) : (
@@ -323,7 +324,7 @@ function ChannelsPanel({ channels }: { channels: NonNullable<AdminDashboard["cha
                 <span className="dash-funnel__meta">
                   <b>{c.started}</b>
                   <small>
-                    paid {c.paid}
+                    оплат {c.paid}
                     {c.conv !== "—" ? ` · ${c.conv}` : ""}
                   </small>
                 </span>
@@ -355,11 +356,11 @@ export function AdminDashboardScreen({ initData, showAlert }: Props) {
       setDash(analytics.dashboard ?? null);
       setNote(
         analytics.last_event_at
-          ? `Period: ${analytics.period} · last event ${analytics.last_event_at} (MSK)`
-          : `Period: ${analytics.period}`,
+          ? `Период: ${analytics.period} · последнее событие ${analytics.last_event_at} (МСК)`
+          : `Период: ${analytics.period}`,
       );
     } catch (e) {
-      showAlert(e instanceof Error ? e.message : "Couldn't load dashboards");
+      showAlert(e instanceof Error ? e.message : "Не удалось загрузить дашборды");
     } finally {
       setLoading(false);
     }
@@ -386,7 +387,7 @@ export function AdminDashboardScreen({ initData, showAlert }: Props) {
           </button>
         ))}
       </div>
-      {loading ? <p className="dash-muted">Loading…</p> : null}
+      {loading ? <p className="dash-muted">Загрузка…</p> : null}
       {!loading && note ? <p className="dash-muted">{note}</p> : null}
 
       {!loading && dash ? (
@@ -408,12 +409,12 @@ export function AdminDashboardScreen({ initData, showAlert }: Props) {
           <PackWeeksPanel weeks={dash.pack_weeks ?? []} />
           <ChannelsPanel channels={dash.channels ?? []} />
           <p className="dash-muted">
-            Bot visits in period: {dash.visits.visits} · unique {dash.visits.unique}
+            Посещения бота за период: {dash.visits.visits} · уникальных {dash.visits.unique}
           </p>
         </>
       ) : null}
 
-      <p className="dash-muted dash-hint">Detailed tables — in Analytics.</p>
+      <p className="dash-muted dash-hint">Подробные таблицы — в разделе «Аналитика».</p>
     </div>
   );
 }
