@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"leo-bot/internal/database"
+	"leo-bot/internal/i18n"
 	"leo-bot/internal/utils"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -117,13 +118,17 @@ func (b *Bot) runWorkoutReminderSweep() {
 	}
 }
 
-func workoutReminderText(username string) string {
+func workoutReminderText(lang i18n.Lang, username string) string {
 	who := normalizeUserDisplayName(username)
 	prefix := ""
 	if strings.TrimSpace(who) != "" {
 		prefix = who + ", "
 	}
-	return "🐆 " + prefix + "don't forget to log today's workout in the mini app"
+	body := "don't forget to log today's workout in the mini app"
+	if i18n.Or(lang, i18n.EN) == i18n.RU {
+		body = "не забудь записать сегодняшнюю тренировку в мини-аппе"
+	}
+	return "🐆 " + prefix + body
 }
 
 // sendWorkoutReminder — пуш в очередь мини-аппа + DM в Telegram (как предупреждения о неактивности).
@@ -131,7 +136,7 @@ func (b *Bot) sendWorkoutReminder(userID int64, username string) {
 	if b == nil || userID == 0 {
 		return
 	}
-	text := workoutReminderText(username)
+	text := workoutReminderText(b.EffectiveUILang(userID), username)
 	b.miniappPersonalPush(userID, text)
 	if b.api == nil {
 		return
