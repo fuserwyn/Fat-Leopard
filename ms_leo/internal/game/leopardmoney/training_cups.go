@@ -14,7 +14,7 @@ var LevelStartCups = []int{0, 420, 1260, 2940, 6300, 13020}
 const MaxLevel = 6
 
 // StreakAchievementMilestones — пороги стрика (дней подряд) для получения ачивок в мини-аппе.
-var StreakAchievementMilestones = []int{7, 14, 30, 42, 60, 90, 180, 365, 420}
+var StreakAchievementMilestones = []int{7, 14, 30, 42, 60, 90, 180, 365, 420, 500, 1000}
 
 // StreakAchievementIndex — 0-based индекс ачивки для данного стрика; -1 если не совпадает ни с одним порогом.
 func StreakAchievementIndex(streak int) int {

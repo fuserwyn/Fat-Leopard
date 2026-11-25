@@ -1263,7 +1263,7 @@ export function ProfileScreen({
                 </svg>
               )}
               <span
-                className={`profile__achievement-days${days >= 100 ? " profile__achievement-days--triple" : days >= 10 ? " profile__achievement-days--double" : ""}${variant === "heart" ? " profile__achievement-days--heart" : ""}`}
+                className={`profile__achievement-days${days >= 1000 ? " profile__achievement-days--quad" : days >= 100 ? " profile__achievement-days--triple" : days >= 10 ? " profile__achievement-days--double" : ""}${variant === "heart" ? " profile__achievement-days--heart" : ""}`}
               >
                 {days}
               </span>

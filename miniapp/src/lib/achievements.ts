@@ -12,6 +12,8 @@ export const STREAK_ACHIEVEMENTS = [
   { days: 180, colorClass: "profile__achievement--180", variant: "paw" },
   { days: 365, colorClass: "profile__achievement--365", variant: "paw" },
   { days: 420, colorClass: "profile__achievement--420", variant: "paw-crown" },
+  { days: 500, colorClass: "profile__achievement--500", variant: "paw" },
+  { days: 1000, colorClass: "profile__achievement--1000", variant: "paw-crown" },
 ] as const;
 
 export const WORKOUT_ACHIEVEMENTS = [

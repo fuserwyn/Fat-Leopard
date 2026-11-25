@@ -179,7 +179,7 @@ function rulesSectionsEn(): RuleSection[] {
             the pack’s headline metric.
           </p>
           <h3 className="rules__h3">Achievements</h3>
-          <p>Milestone achievements at 7, 14, 30, 42, 60, 90, 180, 365, and 420 streak days.</p>
+          <p>Milestone achievements at 7, 14, 30, 42, 60, 90, 180, 365, 420, 500, and 1000 streak days.</p>
           <p>
             A separate showcase for total workouts: 1, 10, 20, 42, 50, 100, 200, 420, 500, and 1000. The first unlocks
             with your very first workout.
@@ -472,7 +472,7 @@ function rulesSectionsRu(): RuleSection[] {
             — главная метрика Стаи.
           </p>
           <h3 className="rules__h3">Ачивки</h3>
-          <p>Milestone-ачивки на отметках 7, 14, 30, 42, 60, 90, 180, 365 и 420 дней стрика.</p>
+          <p>Milestone-ачивки на отметках 7, 14, 30, 42, 60, 90, 180, 365, 420, 500 и 1000 дней стрика.</p>
           <p>
             Отдельная витрина — за общее число тренировок: 1, 10, 20, 42, 50, 100, 200, 420, 500 и 1000. Первая
             ачивка приходит сразу за первую тренировку.

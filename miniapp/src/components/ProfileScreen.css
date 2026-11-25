@@ -475,6 +475,11 @@
   font-size: 8px;
 }
 
+.profile__achievement-days--quad {
+  font-size: 6.5px;
+  letter-spacing: -0.06em;
+}
+
 .profile__achievement-days--heart {
   inset: 0;
   left: 0;
@@ -685,6 +690,33 @@
   --achievement-crown-band: #e8b923;
   --achievement-crown-gem: #fff8dc;
   --achievement-day-color: #6b4f05;
+}
+
+/* 500 — платина: холодный серебристо-фиолетовый. */
+.profile__achievement--500 {
+  --achievement-outline: #5b4b8a;
+  --achievement-shell: #f1ecff;
+  --achievement-bean: #b7a3ee;
+  --achievement-claw: #d6d0ea;
+  --achievement-day-color: #3f2f74;
+}
+
+/* 1000 — бриллиант: корона с бирюзовым отливом, кульминация стрика. */
+.profile__achievement--1000 {
+  --achievement-outline: #0f6c7a;
+  --achievement-shell: #dffbff;
+  --achievement-bean: #4fd1e0;
+  --achievement-claw: #9ee6ef;
+  --achievement-crown: #8ff0ff;
+  --achievement-crown-band: #2bb7c9;
+  --achievement-crown-gem: #ffffff;
+  --achievement-day-color: #0a4d57;
+}
+
+.profile__achievement--1000.is-earned .profile__achievement-badge {
+  box-shadow:
+    0 6px 16px rgba(15, 108, 122, 0.32),
+    0 0 0 1px rgba(143, 240, 255, 0.45);
 }
 
 .profile__achievement-crown {
