@@ -26,7 +26,7 @@ import {
   type WorkoutShareInput,
 } from "./lib/shareCard";
 import { fetchPackWeekSummary, markPackWeekSummarySeen, type PackWeekSummary } from "./lib/packWeekSummary";
-import { earnedAchievementKeys, freshAchievementKeys, type AchievementKey } from "./lib/achievements";
+import { STREAK_ACHIEVEMENTS, earnedAchievementKeys, freshAchievementKeys, type AchievementKey } from "./lib/achievements";
 import { miniappLevelFromCups } from "./lib/miniappLevel";
 import { getStoredTheme, hasStoredTheme, hydrateThemeFromCloud, hydrateThemeFromServer, isThemeMode, persistTheme, persistThemeToServer } from "./lib/theme";
 import { I18nProvider } from "./lib/I18nContext";
@@ -67,7 +67,7 @@ export function App() {
   const [profileDisplayName, setProfileDisplayName] = useState("");
   const [xp, setXP] = useState(0);
   const [achievementCount, setAchievementCount] = useState(0);
-  const [achievementsMax, setAchievementsMax] = useState(9);
+  const [achievementsMax, setAchievementsMax] = useState<number>(STREAK_ACHIEVEMENTS.length);
   const [workouts, setWorkouts] = useState(0);
   const [recordCups, setRecordCups] = useState(0);
   const [daysInPack, setDaysInPack] = useState(0);
@@ -291,7 +291,7 @@ export function App() {
       const achCount = typeof j.achievement_count === "number" ? j.achievement_count : 0;
       const workoutsTotal = typeof j.workouts_total === "number" ? j.workouts_total : 0;
       setAchievementCount(achCount);
-      setAchievementsMax(typeof j.achievements_max === "number" ? j.achievements_max : 9);
+      setAchievementsMax(typeof j.achievements_max === "number" ? j.achievements_max : STREAK_ACHIEVEMENTS.length);
       setWorkouts(workoutsTotal);
       setRecordCups(typeof j.max_cups_per_training === "number" ? j.max_cups_per_training : 0);
       setDaysInPack(typeof j.days_in_pack === "number" && j.days_in_pack > 0 ? j.days_in_pack : 0);

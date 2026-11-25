@@ -47,7 +47,11 @@ func TestLastAchievementMilestoneForStreak(t *testing.T) {
 		{200, 180}, // 200 не порог; последний достигнутый — 180
 		{365, 365},
 		{420, 420},
-		{1000, 420}, // дальше порогов нет
+		{499, 420},
+		{500, 500},
+		{999, 500},
+		{1000, 1000},
+		{5000, 1000}, // дальше порогов нет
 	}
 	for _, c := range cases {
 		if got := LastAchievementMilestoneForStreak(c.streak); got != c.want {
@@ -65,7 +69,7 @@ func TestAchievementsCountForStreak_Bounds(t *testing.T) {
 		t.Errorf("count %d exceeds MaxAchievements %d", got, MaxAchievements)
 	}
 	prev := 0
-	for s := 0; s <= 500; s++ {
+	for s := 0; s <= 1100; s++ {
 		got := AchievementsCountForStreak(s)
 		if got < prev {
 			t.Fatalf("AchievementsCountForStreak not monotonic at streak=%d: %d < %d", s, got, prev)

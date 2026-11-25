@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"leo-bot/internal/game/leopardmoney"
 	"leo-bot/internal/utils"
 )
 
@@ -442,8 +443,8 @@ func (d *Database) SetAchievementsForUserScope(userID, packChatID int64, achieve
 	if achievementCount < 0 {
 		achievementCount = 0
 	}
-	if achievementCount > 8 {
-		achievementCount = 8
+	if achievementCount > leopardmoney.MaxAchievements {
+		achievementCount = leopardmoney.MaxAchievements
 	}
 	if lastAchievementStreakLevel < 0 {
 		lastAchievementStreakLevel = 0

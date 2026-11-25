@@ -24,7 +24,17 @@ describe("earnedAchievementKeys", () => {
   });
 
   it("achievementCount сверх числа порогов не ломает результат", () => {
-    expect(earnedAchievementKeys(99, 0)).toHaveLength(9);
+    expect(earnedAchievementKeys(99, 0)).toHaveLength(11);
+  });
+
+  it("стрик-ачивки на 500 и 1000 дней идут последними", () => {
+    expect(earnedAchievementKeys(10, 0).slice(-1)).toEqual(["streak-500"]);
+    expect(earnedAchievementKeys(11, 0).slice(-2)).toEqual(["streak-500", "streak-1000"]);
+  });
+
+  it("подписи для 500 и 1000 дней стрика", () => {
+    expect(achievementLabel("streak-1000")).toBe("1000-day streak");
+    expect(achievementLabel("streak-500", "ru")).toBe("Стрик 500 дней");
   });
 });
 
